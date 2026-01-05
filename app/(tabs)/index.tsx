@@ -11,9 +11,9 @@ import {
   SafeAreaView,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { useFetchJobsAvailableQuery } from '../services/job/jobApi';
-import { JobCard } from '../components/job/JobCard';
-import { Job } from '../types/model';
+import { useFetchJobsAvailableQuery } from '../../services/job/jobApi';
+import { JobCard } from '../../components/job/JobCard';
+import { Job } from '../../types/model';
 
 export default function Index() {
   const router = useRouter();
