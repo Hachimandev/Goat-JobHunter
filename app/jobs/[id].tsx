@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -6,8 +6,8 @@ import {
   ScrollView,
   ActivityIndicator,
   TouchableOpacity,
-  SafeAreaView,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useFetchJobByIdQuery } from '../../services/job/jobApi';
 import { formatCurrency } from '../../utils/formatCurrency';
@@ -19,6 +19,9 @@ export default function JobDetailPage() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const { data, isLoading, error } = useFetchJobByIdQuery(id);
+  
+  // State for description expand/collapse
+  const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
 
   const job = data?.data;
 
@@ -139,7 +142,23 @@ export default function JobDetailPage() {
         {/* Description Card */}
         <View style={styles.card}>
           <Text style={styles.sectionTitle}>Mô Tả Công Việc</Text>
-          <Text style={styles.description}>{stripHtmlTags(job.description)}</Text>
+          <Text 
+            style={styles.description}
+            numberOfLines={isDescriptionExpanded ? undefined : 5}
+          >
+            {stripHtmlTags(job.description)}
+          </Text>
+          {/* Show read more button if description is long (> 200 characters) */}
+          {stripHtmlTags(job.description).length > 200 && (
+            <TouchableOpacity 
+              onPress={() => setIsDescriptionExpanded(!isDescriptionExpanded)}
+              style={styles.readMoreButton}
+            >
+              <Text style={styles.readMoreText}>
+                {isDescriptionExpanded ? '▲ Thu gọn' : '▼ Xem thêm'}
+              </Text>
+            </TouchableOpacity>
+          )}
         </View>
 
         {/* Skills Card */}
@@ -337,6 +356,16 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: '#374151',
     lineHeight: 24,
+  },
+  readMoreButton: {
+    marginTop: 12,
+    paddingVertical: 8,
+    alignItems: 'center',
+  },
+  readMoreText: {
+    fontSize: 14,
+    color: '#1976d2',
+    fontWeight: '600',
   },
   skillsContainer: {
     flexDirection: 'row',

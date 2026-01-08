@@ -1,5 +1,18 @@
 import { IBackendRes } from '../../types/api';
 
+// Sign Up
+export type UserSignUpRequest = {
+  email: string;
+  fullName: string;
+  username: string;
+  phone: string;
+  password: string;
+  confirmPassword: string;
+  type: 'applicant' | 'recruiter';
+};
+
+export type UserSignUpResponse = IBackendRes<unknown>;
+
 // Sign In
 export type SignInRequest = {
   email: string;
@@ -20,6 +33,21 @@ export type SignInResponse = IBackendRes<{
 
 // Logout
 export type LogoutResponse = IBackendRes<string>;
+
+// Verify Code
+export type VerifyCodeRequest = {
+  email: string;
+  verificationCode: string;
+};
+
+export type VerifyCodeResponse = IBackendRes<unknown>;
+
+// Resend Code
+export type ResendCodeRequest = {
+  email: string;
+};
+
+export type ResendCodeResponse = IBackendRes<unknown>;
 
 // Get Account
 export type FetchAccountResponse = IBackendRes<{

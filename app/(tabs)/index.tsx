@@ -8,8 +8,8 @@ import {
   RefreshControl,
   TextInput,
   TouchableOpacity,
-  SafeAreaView,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useFetchJobsAvailableQuery } from '../../services/job/jobApi';
 import { JobCard } from '../../components/job/JobCard';
