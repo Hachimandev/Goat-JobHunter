@@ -6,12 +6,12 @@ import {
   TextInput,
   TouchableOpacity,
   ScrollView,
-  SafeAreaView,
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
   Alert,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useSigninMutation } from '../../services/auth/authApi';
 import { useAppDispatch } from '../../lib/hooks';
@@ -165,6 +165,17 @@ export default function SignInScreen() {
                 disabled={isLoading}
               >
                 <Text style={styles.signupLink}>Đăng ký</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Company Signup Link */}
+            <View style={styles.signupContainer}>
+              <Text style={styles.signupText}>Bạn đại diện cho doanh nghiệp? </Text>
+              <TouchableOpacity
+                onPress={() => !isLoading && router.push('/(auth)/company')}
+                disabled={isLoading}
+              >
+                <Text style={styles.signupLink}>Đăng ký tài khoản công ty</Text>
               </TouchableOpacity>
             </View>
           </View>
