@@ -330,6 +330,17 @@ export default function SignUpScreen() {
                 <Text style={styles.footerLink}>Đăng nhập</Text>
               </TouchableOpacity>
             </View>
+
+            {/* Company Signup Link */}
+            <View style={styles.footer}>
+              <Text style={styles.footerText}>Bạn đại diện cho doanh nghiệp? </Text>
+              <TouchableOpacity
+                onPress={() => router.push('/company')}
+                disabled={isLoading}
+              >
+                <Text style={styles.footerLink}>Đăng ký tài khoản công ty</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>

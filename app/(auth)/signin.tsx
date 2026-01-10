@@ -167,6 +167,17 @@ export default function SignInScreen() {
                 <Text style={styles.signupLink}>Đăng ký</Text>
               </TouchableOpacity>
             </View>
+
+            {/* Company Signup Link */}
+            <View style={styles.signupContainer}>
+              <Text style={styles.signupText}>Bạn đại diện cho doanh nghiệp? </Text>
+              <TouchableOpacity
+                onPress={() => !isLoading && router.push('/(auth)/company')}
+                disabled={isLoading}
+              >
+                <Text style={styles.signupLink}>Đăng ký tài khoản công ty</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
