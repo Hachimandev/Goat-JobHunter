@@ -66,3 +66,28 @@ export type FetchAccountResponse = IBackendRes<{
   };
 }>;
 
+// Company Sign Up
+export type CompanySignUpRequest = {
+  username: string;
+  email: string;
+  password: string;
+  confirmPassword: string;
+  name: string;
+  description: string;
+  logo: string;
+  coverPhoto: string;
+  website?: string;
+  phone: string;
+  size: 'STARTUP' | 'SMALL' | 'MEDIUM' | 'LARGE' | 'ENTERPRISE';
+  country: string;
+  industry: string;
+  workingDays: string;
+  overtimePolicy: string;
+  addresses: {
+    province: string;
+    fullAddress: string;
+  }[];
+};
+
+export type CompanySignUpResponse = IBackendRes<unknown>;
+

@@ -10,6 +10,8 @@ import type {
   UserSignUpResponse,
   VerifyCodeRequest,
   VerifyCodeResponse,
+  CompanySignUpRequest,
+  CompanySignUpResponse,
 } from './authType';
 
 export const authApi = api.injectEndpoints({
@@ -17,6 +19,14 @@ export const authApi = api.injectEndpoints({
     userSignUp: builder.mutation<UserSignUpResponse, UserSignUpRequest>({
       query: (args) => ({
         url: '/auth/register/users',
+        method: 'POST',
+        data: args,
+      }),
+    }),
+
+    companySignUp: builder.mutation<CompanySignUpResponse, CompanySignUpRequest>({
+      query: (args) => ({
+        url: '/auth/register/companies',
         method: 'POST',
         data: args,
       }),
@@ -58,6 +68,7 @@ export const authApi = api.injectEndpoints({
 
 export const {
   useUserSignUpMutation,
+  useCompanySignUpMutation,
   useSigninMutation,
   useLogoutMutation,
   useVerifyCodeMutation,
