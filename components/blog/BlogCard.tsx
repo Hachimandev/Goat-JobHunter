@@ -25,7 +25,7 @@ export default function BlogCard({ blog, onLike, onSave }: BlogCardProps) {
     <TouchableOpacity
       activeOpacity={0.85}
       style={styles.card}
-      // onPress={() => router.push(`/blogs/${blog.blogId}`)}
+      onPress={() => router.push(`/blog/${blog.blogId}`)}
     >
       {/* Thumbnail */}
       {blog.images?.[0] && (

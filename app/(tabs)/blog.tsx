@@ -6,6 +6,7 @@ import {
   ActivityIndicator,
   FlatList,
   RefreshControl,
+  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
@@ -13,6 +14,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { SafeAreaProvider } from "react-native-safe-area-context";
 
 // Categories list
 const categories = [
@@ -89,85 +91,90 @@ export default function BlogPage() {
   };
 
   return (
-    <View style={{ flex: 1 }}>
-      {/* Header / Search */}
-      <View style={styles.fixedHeader}>
-        <View style={styles.header}>
-          <TextInput
-            placeholder="Tìm kiếm bài viết..."
-            value={searchText}
-            onChangeText={setSearchText}
-            style={styles.searchInput}
-          />
-        </View>
-
-        {/* Categories */}
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.categoryContainer}
-        >
-          {categories.map((cat) => (
-            <TouchableOpacity
-              key={cat.key}
-              style={[
-                styles.categoryChip,
-                selectedCategory === cat.key
-                  ? styles.categoryChipSelected
-                  : styles.categoryChipUnselected,
-              ]}
-              onPress={() => handleCategoryPress(cat.key)}
-            >
-              <Text
-                style={
-                  selectedCategory === cat.key
-                    ? styles.categoryTextSelected
-                    : styles.categoryTextUnselected
-                }
-              >
-                {cat.label}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
-      </View>
-      <View style={{ flex: 1 }}>
-        {/* Blog List */}
-        <FlatList
-          data={blogs}
-          keyExtractor={(item) => item.blogId.toString()}
-          renderItem={({ item }) => (
-            <BlogCard
-              blog={item}
-              onLike={() => {
-                // TODO: handle like/unlike
-              }}
-              onSave={() => {
-                // TODO: handle save/unsave
-              }}
+    <SafeAreaProvider>
+      <SafeAreaView style={{ flex: 1 }}>
+        {/* Header / Search */}
+        <View style={styles.fixedHeader}>
+          <View style={styles.header}>
+            <TextInput
+              placeholder="Tìm kiếm bài viết..."
+              value={searchText}
+              onChangeText={setSearchText}
+              style={styles.searchInput}
             />
-          )}
-          ListEmptyComponent={renderEmpty}
-          refreshControl={
-            <RefreshControl refreshing={isFetching} onRefresh={handleRefresh} />
-          }
-          onEndReached={handleLoadMore}
-          onEndReachedThreshold={0.5}
-          ListFooterComponent={
-            isFetching ? (
-              <ActivityIndicator style={{ marginVertical: 16 }} />
-            ) : null
-          }
-        />
-
-        {/* Initial Loading */}
-        {isLoading && page === 0 && (
-          <View style={styles.loadingOverlay}>
-            <ActivityIndicator size="large" />
           </View>
-        )}
-      </View>
-    </View>
+
+          {/* Categories */}
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.categoryContainer}
+          >
+            {categories.map((cat) => (
+              <TouchableOpacity
+                key={cat.key}
+                style={[
+                  styles.categoryChip,
+                  selectedCategory === cat.key
+                    ? styles.categoryChipSelected
+                    : styles.categoryChipUnselected,
+                ]}
+                onPress={() => handleCategoryPress(cat.key)}
+              >
+                <Text
+                  style={
+                    selectedCategory === cat.key
+                      ? styles.categoryTextSelected
+                      : styles.categoryTextUnselected
+                  }
+                >
+                  {cat.label}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
+        <View style={{ flex: 1 }}>
+          {/* Blog List */}
+          <FlatList
+            data={blogs}
+            keyExtractor={(item) => item.blogId.toString()}
+            renderItem={({ item }) => (
+              <BlogCard
+                blog={item}
+                onLike={() => {
+                  // TODO: handle like/unlike
+                }}
+                onSave={() => {
+                  // TODO: handle save/unsave
+                }}
+              />
+            )}
+            ListEmptyComponent={renderEmpty}
+            refreshControl={
+              <RefreshControl
+                refreshing={isFetching}
+                onRefresh={handleRefresh}
+              />
+            }
+            onEndReached={handleLoadMore}
+            onEndReachedThreshold={0.5}
+            ListFooterComponent={
+              isFetching ? (
+                <ActivityIndicator style={{ marginVertical: 16 }} />
+              ) : null
+            }
+          />
+
+          {/* Initial Loading */}
+          {isLoading && page === 0 && (
+            <View style={styles.loadingOverlay}>
+              <ActivityIndicator size="large" />
+            </View>
+          )}
+        </View>
+      </SafeAreaView>
+    </SafeAreaProvider>
   );
 }
 
