@@ -114,3 +114,20 @@ export type Reaction = {
   color: string;
   hoverColor: string;
 };
+
+export type CommentType = {
+  commentId: number;
+  comment: string;
+  reply: boolean;
+  blog: {
+    blogId: number;
+    title: string;
+  };
+  parent?: {
+    commentId: string;
+    comment: string;
+    commentedBy: CommentedBy;
+  };
+  commentedBy: CommentedBy;
+  createdAt: string;
+};

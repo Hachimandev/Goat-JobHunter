@@ -1,10 +1,14 @@
 import { Blog } from "@/types/model";
-import { formatDistanceToNow } from "date-fns";
-import { vi } from "date-fns/locale";
+import dayjs from "dayjs";
+import "dayjs/locale/vi";
+import relativeTime from "dayjs/plugin/relativeTime";
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
-import { Bookmark, Eye, Heart, MessageCircle } from "lucide-react-native";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import Icon from "react-native-vector-icons/Feather";
+
+dayjs.extend(relativeTime);
+dayjs.locale("vi");
 
 type BlogCardProps = {
   blog: Blog;
@@ -15,16 +19,13 @@ type BlogCardProps = {
 export default function BlogCard({ blog, onLike, onSave }: BlogCardProps) {
   const router = useRouter();
 
-  const timeAgo = formatDistanceToNow(new Date(blog.createdAt), {
-    addSuffix: true,
-    locale: vi,
-  });
+  const timeAgo = dayjs(blog.createdAt).fromNow(); // <- dayjs thay thế formatDistanceToNow
 
   return (
     <TouchableOpacity
       activeOpacity={0.85}
       style={styles.card}
-      //   onPress={() => router.push(`/blogs/${blog.blogId}`)}
+      // onPress={() => router.push(`/blogs/${blog.blogId}`)}
     >
       {/* Thumbnail */}
       {blog.images?.[0] && (
@@ -38,7 +39,7 @@ export default function BlogCard({ blog, onLike, onSave }: BlogCardProps) {
               onSave?.();
             }}
           >
-            <Bookmark size={18} />
+            <Icon name="bookmark" size={18} color="#000" />
           </TouchableOpacity>
         </View>
       )}
@@ -57,7 +58,7 @@ export default function BlogCard({ blog, onLike, onSave }: BlogCardProps) {
 
         <View style={styles.stats}>
           <View style={styles.stat}>
-            <Eye size={14} />
+            <Icon name="eye" size={14} color="#000" />
             <Text>{blog.activity?.totalReads ?? 0}</Text>
           </View>
 
@@ -68,12 +69,12 @@ export default function BlogCard({ blog, onLike, onSave }: BlogCardProps) {
               onLike?.();
             }}
           >
-            <Heart size={14} />
+            <Icon name="heart" size={14} color="#000" />
             <Text>{blog.activity?.totalLikes ?? 0}</Text>
           </TouchableOpacity>
 
           <View style={styles.stat}>
-            <MessageCircle size={14} />
+            <Icon name="message-circle" size={14} color="#000" />
             <Text>{blog.activity?.totalComments ?? 0}</Text>
           </View>
         </View>
@@ -89,10 +90,9 @@ const styles = StyleSheet.create({
     marginVertical: 10,
     borderRadius: 12,
     overflow: "hidden",
-    elevation: 2, // Android shadow
+    elevation: 2,
   },
 
-  /* ===== Image ===== */
   imageWrapper: {
     width: "100%",
     aspectRatio: 16 / 9,
@@ -115,7 +115,6 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
 
-  /* ===== Content ===== */
   content: {
     padding: 12,
   },
@@ -127,7 +126,6 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
 
-  /* ===== Meta ===== */
   meta: {
     flexDirection: "row",
     alignItems: "center",
@@ -150,7 +148,6 @@ const styles = StyleSheet.create({
     color: "#9ca3af",
   },
 
-  /* ===== Stats ===== */
   stats: {
     flexDirection: "row",
     gap: 16,
