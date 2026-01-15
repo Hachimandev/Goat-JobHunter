@@ -86,21 +86,14 @@ export default function BlogCard({ blog, onLike, onSave }: BlogCardProps) {
 const styles = StyleSheet.create({
   card: {
     backgroundColor: "#ffffff",
-    marginHorizontal: 16,
-    marginVertical: 8,
-    borderRadius: 16, // Bo góc nhiều hơn cho hiện đại
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
+    marginBottom: 12,
+    elevation: 0,
+    borderBottomWidth: 1,
+    borderBottomColor: "#f3f4f6",
   },
   imageWrapper: {
     width: "100%",
     aspectRatio: 16 / 9,
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
-    overflow: "hidden",
   },
 
   image: {
@@ -119,26 +112,27 @@ const styles = StyleSheet.create({
   },
 
   content: {
-    padding: 12,
+    padding: 16,
   },
 
   text: {
-    fontSize: 14,
-    lineHeight: 20,
-    color: "#374151",
+    fontSize: 16,
+    fontWeight: "600",
+    lineHeight: 22,
+    color: "#111827",
     marginBottom: 8,
   },
 
   meta: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 10,
+    marginBottom: 12,
   },
 
   author: {
-    fontSize: 12,
-    fontWeight: "600",
-    color: "#111827",
+    fontSize: 13,
+    fontWeight: "500",
+    color: "#4b5563",
   },
 
   dot: {
@@ -153,12 +147,23 @@ const styles = StyleSheet.create({
 
   stats: {
     flexDirection: "row",
-    gap: 16,
+    borderTopWidth: 1,
+    borderTopColor: "#f9fafb",
+    paddingTop: 12,
+    justifyContent: "space-between",
   },
 
+  statGroup: {
+    flexDirection: "row",
+    gap: 20,
+  },
   stat: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 4,
+    gap: 5,
+  },
+  statText: {
+    fontSize: 13,
+    color: "#6b7280",
   },
 });

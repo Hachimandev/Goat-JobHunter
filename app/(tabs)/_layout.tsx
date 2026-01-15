@@ -42,21 +42,24 @@ export default function TabsLayout() {
         }}
       />
       <Tabs.Screen
+        name="blog"
+        options={{
+          title: "Blog",
+          tabBarIcon: ({ color }) => (
+            <Icon
+              color={color}
+              size={24}
+              source={"newspaper-variant-outline"}
+            ></Icon>
+          ),
+        }}
+      />
+      <Tabs.Screen
         name="profile"
         options={{
           title: "Cá nhân",
           tabBarIcon: ({ color, size }) => (
             <Text style={{ fontSize: size, color }}>👤</Text>
-          ),
-        }}
-      />
-
-      <Tabs.Screen
-        name="blog"
-        options={{
-          title: "Blog",
-          tabBarIcon: ({ color }) => (
-            <Icon color={color} size={24} source={"home"}></Icon>
           ),
         }}
       />

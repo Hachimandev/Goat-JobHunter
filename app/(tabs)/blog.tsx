@@ -33,10 +33,9 @@ export default function BlogPage() {
 
   const { data, isLoading, isFetching, refetch } = useFetchBlogsQuery(
     {
-      page: page, // Bắt đầu từ 0 cho Spring Boot
+      page: page,
       size: size,
       title: searchText || undefined,
-      // Nếu chọn "Tất cả" thì không gửi tags, nếu chọn cụ thể thì gửi mảng chứa label đó
       tags:
         selectedCategory === "all"
           ? undefined
@@ -45,13 +44,8 @@ export default function BlogPage() {
     { skip: false }
   );
 
-  // Merge dữ liệu khi page thay đổi
   useFocusEffect(
     useCallback(() => {
-      // Log để xác nhận cấu trúc
-      console.log("Danh sách bài viết nhận được:", data?.data?.result);
-
-      // Sửa từ data.items thành data.data.result
       if (data?.data?.result) {
         if (page === 0) {
           setBlogs(data.data.result);
@@ -97,79 +91,82 @@ export default function BlogPage() {
   return (
     <View style={{ flex: 1 }}>
       {/* Header / Search */}
-      <View style={styles.header}>
-        <TextInput
-          placeholder="Tìm kiếm bài viết..."
-          value={searchText}
-          onChangeText={setSearchText}
-          style={styles.searchInput}
-        />
-      </View>
-
-      {/* Categories */}
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.categoryContainer}
-      >
-        {categories.map((cat) => (
-          <TouchableOpacity
-            key={cat.key}
-            style={[
-              styles.categoryChip,
-              selectedCategory === cat.key
-                ? styles.categoryChipSelected
-                : styles.categoryChipUnselected,
-            ]}
-            onPress={() => handleCategoryPress(cat.key)}
-          >
-            <Text
-              style={
-                selectedCategory === cat.key
-                  ? styles.categoryTextSelected
-                  : styles.categoryTextUnselected
-              }
-            >
-              {cat.label}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </ScrollView>
-
-      {/* Blog List */}
-      <FlatList
-        data={blogs}
-        keyExtractor={(item) => item.blogId.toString()}
-        renderItem={({ item }) => (
-          <BlogCard
-            blog={item}
-            onLike={() => {
-              // TODO: handle like/unlike
-            }}
-            onSave={() => {
-              // TODO: handle save/unsave
-            }}
+      <View style={styles.fixedHeader}>
+        <View style={styles.header}>
+          <TextInput
+            placeholder="Tìm kiếm bài viết..."
+            value={searchText}
+            onChangeText={setSearchText}
+            style={styles.searchInput}
           />
-        )}
-        ListEmptyComponent={renderEmpty}
-        refreshControl={
-          <RefreshControl refreshing={isFetching} onRefresh={handleRefresh} />
-        }
-        onEndReached={handleLoadMore}
-        onEndReachedThreshold={0.5}
-        ListFooterComponent={
-          isFetching ? (
-            <ActivityIndicator style={{ marginVertical: 16 }} />
-          ) : null
-        }
-      />
-
-      {/* Initial Loading */}
-      {isLoading && page === 0 && (
-        <View style={styles.loadingOverlay}>
-          <ActivityIndicator size="large" />
         </View>
-      )}
+
+        {/* Categories */}
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.categoryContainer}
+        >
+          {categories.map((cat) => (
+            <TouchableOpacity
+              key={cat.key}
+              style={[
+                styles.categoryChip,
+                selectedCategory === cat.key
+                  ? styles.categoryChipSelected
+                  : styles.categoryChipUnselected,
+              ]}
+              onPress={() => handleCategoryPress(cat.key)}
+            >
+              <Text
+                style={
+                  selectedCategory === cat.key
+                    ? styles.categoryTextSelected
+                    : styles.categoryTextUnselected
+                }
+              >
+                {cat.label}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+      </View>
+      <View style={{ flex: 1 }}>
+        {/* Blog List */}
+        <FlatList
+          data={blogs}
+          keyExtractor={(item) => item.blogId.toString()}
+          renderItem={({ item }) => (
+            <BlogCard
+              blog={item}
+              onLike={() => {
+                // TODO: handle like/unlike
+              }}
+              onSave={() => {
+                // TODO: handle save/unsave
+              }}
+            />
+          )}
+          ListEmptyComponent={renderEmpty}
+          refreshControl={
+            <RefreshControl refreshing={isFetching} onRefresh={handleRefresh} />
+          }
+          onEndReached={handleLoadMore}
+          onEndReachedThreshold={0.5}
+          ListFooterComponent={
+            isFetching ? (
+              <ActivityIndicator style={{ marginVertical: 16 }} />
+            ) : null
+          }
+        />
+
+        {/* Initial Loading */}
+        {isLoading && page === 0 && (
+          <View style={styles.loadingOverlay}>
+            <ActivityIndicator size="large" />
+          </View>
+        )}
+      </View>
     </View>
   );
 }
@@ -178,8 +175,11 @@ const styles = StyleSheet.create({
   /* ===== Header / Search ===== */
   header: {
     paddingHorizontal: 16,
-    paddingVertical: 10,
+    paddingVertical: 12,
     backgroundColor: "#ffffff",
+    zIndex: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: "#f3f4f6",
   },
   searchInput: {
     backgroundColor: "#f3f4f6",
@@ -193,19 +193,22 @@ const styles = StyleSheet.create({
   /* ===== Categories ===== */
   categoryContainer: {
     paddingHorizontal: 16,
-    paddingVertical: 8,
-    height: 65,
+    paddingVertical: 10,
+    backgroundColor: "#f9fafb",
+  },
+  fixedHeader: {
+    backgroundColor: "#ffffff",
+    zIndex: 10,
+    elevation: 10,
   },
   categoryChip: {
     paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    marginRight: 10,
+    height: 32,
+    borderRadius: 16,
+    marginRight: 8,
     borderWidth: 1,
-    height: 40, // Ép chiều cao cố định
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "#ffffff",
   },
   categoryChipSelected: {
     backgroundColor: "#2563eb", // primary color
