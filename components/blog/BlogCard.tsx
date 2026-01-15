@@ -23,60 +23,82 @@ export default function BlogCard({ blog, onLike, onSave }: BlogCardProps) {
 
   return (
     <TouchableOpacity
-      activeOpacity={0.85}
+      activeOpacity={0.9}
       style={styles.card}
       onPress={() => router.push(`/blog/${blog.blogId}`)}
     >
-      {/* Thumbnail */}
-      {blog.images?.[0] && (
-        <View style={styles.imageWrapper}>
-          <Image source={{ uri: blog.images[0] }} style={styles.image} />
-
-          <TouchableOpacity
-            style={styles.bookmark}
-            onPress={(e) => {
-              e.stopPropagation();
-              onSave?.();
-            }}
-          >
-            <Icon name="bookmark" size={18} color="#000" />
+      {/* Header: Avatar, Name và các Icon chức năng */}
+      <View style={styles.headerRow}>
+        <View style={styles.userInfo}>
+          <Image source={{ uri: blog.author?.avatar }} style={styles.avatar} />
+          <View>
+            <Text style={styles.authorName}>{blog.author?.fullName}</Text>
+            <Text style={styles.timeText}>
+              {dayjs(blog.createdAt).fromNow()}
+            </Text>
+          </View>
+        </View>
+        <View style={styles.headerIcons}>
+          <TouchableOpacity onPress={onSave} style={styles.iconBtn}>
+            <Icon name="bookmark" size={20} color="#666" />
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.iconBtn}>
+            <Icon name="flag" size={20} color="#666" />
           </TouchableOpacity>
         </View>
-      )}
+      </View>
 
-      {/* Content */}
-      <View style={styles.content}>
-        <Text numberOfLines={3} style={styles.text}>
-          {blog.content.replace(/<[^>]*>/g, "")}
+      {/* Content: Title và Tags */}
+      <View style={styles.textContainer}>
+        <Text style={styles.blogTitle}>
+          {blog.content
+            .replace(/<[^>]*>/g, "")
+            .split(/\s+/)
+            .slice(0, 10)
+            .join(" ") + "..."}
         </Text>
 
-        <View style={styles.meta}>
-          <Text style={styles.author}>{blog.author.fullName}</Text>
-          <Text style={styles.dot}>•</Text>
-          <Text style={styles.time}>{timeAgo}</Text>
-        </View>
-
-        <View style={styles.stats}>
-          <View style={styles.stat}>
-            <Icon name="eye" size={14} color="#000" />
-            <Text>{blog.activity?.totalReads ?? 0}</Text>
+        {blog.tags && blog.tags.length > 0 && (
+          <View style={styles.tagWrapper}>
+            {blog.tags.map((tag: string, index: number) => (
+              <View key={index} style={styles.tagChip}>
+                <Text style={styles.tagText}>#{tag}</Text>
+              </View>
+            ))}
           </View>
+        )}
+      </View>
 
-          <TouchableOpacity
-            style={styles.stat}
-            onPress={(e) => {
-              e.stopPropagation();
-              onLike?.();
-            }}
-          >
-            <Icon name="heart" size={14} color="#000" />
-            <Text>{blog.activity?.totalLikes ?? 0}</Text>
+      {/* Image: Full Width */}
+      {blog.images?.[0] && (
+        <Image
+          source={{ uri: blog.images[0] }}
+          style={styles.blogImage}
+          contentFit="cover"
+        />
+      )}
+
+      {/* Footer: Like, Comment, View */}
+      <View style={styles.footerRow}>
+        <View style={styles.leftStats}>
+          <TouchableOpacity style={styles.statItem} onPress={onLike}>
+            <Icon name="thumbs-up" size={18} color="#666" />
+            <Text style={styles.statText}>
+              {blog.activity?.totalLikes || 0}
+            </Text>
           </TouchableOpacity>
-
-          <View style={styles.stat}>
-            <Icon name="message-circle" size={14} color="#000" />
-            <Text>{blog.activity?.totalComments ?? 0}</Text>
-          </View>
+          <TouchableOpacity style={styles.statItem}>
+            <Icon name="message-circle" size={18} color="#666" />
+            <Text style={styles.statText}>
+              {blog.activity?.totalComments || 0}
+            </Text>
+          </TouchableOpacity>
+        </View>
+        <View style={styles.statItem}>
+          <Icon name="eye" size={18} color="#666" />
+          <Text style={styles.statText}>
+            {blog.activity?.totalReads || 0} lượt xem
+          </Text>
         </View>
       </View>
     </TouchableOpacity>
@@ -84,86 +106,40 @@ export default function BlogCard({ blog, onLike, onSave }: BlogCardProps) {
 }
 
 const styles = StyleSheet.create({
-  card: {
-    backgroundColor: "#ffffff",
-    marginBottom: 12,
-    elevation: 0,
-    borderBottomWidth: 1,
-    borderBottomColor: "#f3f4f6",
-  },
-  imageWrapper: {
-    width: "100%",
-    aspectRatio: 16 / 9,
-  },
-
-  image: {
-    width: "100%",
-    height: "100%",
-  },
-
-  bookmark: {
-    position: "absolute",
-    top: 8,
-    right: 8,
-    backgroundColor: "#ffffff",
-    padding: 6,
-    borderRadius: 999,
-    elevation: 3,
-  },
-
-  content: {
-    padding: 16,
-  },
-
-  text: {
-    fontSize: 16,
-    fontWeight: "600",
-    lineHeight: 22,
-    color: "#111827",
-    marginBottom: 8,
-  },
-
-  meta: {
+  card: { backgroundColor: "#fff", marginBottom: 10, paddingVertical: 12 },
+  headerRow: {
     flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 12,
-  },
-
-  author: {
-    fontSize: 13,
-    fontWeight: "500",
-    color: "#4b5563",
-  },
-
-  dot: {
-    marginHorizontal: 6,
-    color: "#9ca3af",
-  },
-
-  time: {
-    fontSize: 12,
-    color: "#9ca3af",
-  },
-
-  stats: {
-    flexDirection: "row",
-    borderTopWidth: 1,
-    borderTopColor: "#f9fafb",
-    paddingTop: 12,
     justifyContent: "space-between",
-  },
-
-  statGroup: {
-    flexDirection: "row",
-    gap: 20,
-  },
-  stat: {
-    flexDirection: "row",
     alignItems: "center",
-    gap: 5,
+    paddingHorizontal: 15,
+    marginBottom: 10,
   },
-  statText: {
-    fontSize: 13,
-    color: "#6b7280",
+  userInfo: { flexDirection: "row", alignItems: "center" },
+  avatar: { width: 40, height: 40, borderRadius: 20, marginRight: 10 },
+  authorName: { fontSize: 15, fontWeight: "bold", color: "#1c1e21" },
+  timeText: { fontSize: 12, color: "#65676b" },
+  headerIcons: { flexDirection: "row" },
+  iconBtn: { marginLeft: 15 },
+  textContainer: { paddingHorizontal: 15, marginBottom: 10 },
+  blogTitle: { fontSize: 16, color: "#050505", marginBottom: 8 },
+  tagWrapper: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
+  tagChip: {
+    backgroundColor: "#e7f3ff",
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 15,
   },
+  tagText: { color: "#1877f2", fontSize: 12, fontWeight: "500" },
+  blogImage: { width: "100%", aspectRatio: 16 / 9, marginVertical: 5 },
+  footerRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    paddingHorizontal: 15,
+    paddingTop: 10,
+    borderTopWidth: 0.5,
+    borderTopColor: "#ddd",
+  },
+  leftStats: { flexDirection: "row", gap: 20 },
+  statItem: { flexDirection: "row", alignItems: "center", gap: 5 },
+  statText: { fontSize: 13, color: "#65676b" },
 });

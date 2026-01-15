@@ -63,6 +63,12 @@ export default function TabsLayout() {
           ),
         }}
       />
+      <Tabs.Screen
+        name="blog/[id]"
+        options={{
+          href: null,
+        }}
+      />
     </Tabs>
   );
 }

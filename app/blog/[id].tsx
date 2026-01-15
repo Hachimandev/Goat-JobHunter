@@ -4,6 +4,7 @@ import {
   useFetchBlogByIdQuery,
   useGetCommentsByBlogIdQuery,
 } from "@/services/blog/blogApi";
+import { formatComments } from "@/utils/formatComments";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React from "react";
 import {
@@ -26,6 +27,7 @@ export default function BlogDetail() {
 
   const blog = blogData?.data;
   const comments = commentData?.data || [];
+  const nestedComments = formatComments(comments);
 
   return (
     <View style={{ flex: 1, backgroundColor: "#fff" }}>

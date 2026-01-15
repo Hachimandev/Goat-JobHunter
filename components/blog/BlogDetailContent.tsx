@@ -1,75 +1,43 @@
 import dayjs from "dayjs";
 import { Image } from "expo-image";
-import React from "react";
-import {
-  ScrollView,
-  StyleSheet,
-  Text,
-  useWindowDimensions,
-  View,
-} from "react-native";
+import { StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import RenderHtml from "react-native-render-html";
 
-export default function BlogDetailContent({ blog }: { blog: any }) {
+export default function BlogDetailContent({ blog }: any) {
   const { width } = useWindowDimensions();
-
-  // Style cho các thẻ HTML
-  const tagsStyles = {
-    body: { color: "#1a1a1a", fontSize: 16, lineHeight: 24 },
-    p: { marginBottom: 12 },
-    h2: {
-      fontSize: 20,
-      fontWeight: "bold" as const,
-      marginTop: 15,
-      marginBottom: 8,
-    },
-    img: { borderRadius: 12, marginVertical: 10 },
-    code: {
-      backgroundColor: "#f0f0f0",
-      padding: 4,
-      borderRadius: 4,
-      fontFamily: "monospace",
-    },
-  };
 
   return (
     <View style={styles.container}>
-      <Image
-        source={{ uri: blog?.images?.[0] }}
-        style={styles.heroImage}
-        contentFit="cover"
-      />
-
-      <View style={styles.paddingBox}>
-        <Text style={styles.title}>{blog?.title}</Text>
-
-        <View style={styles.authorRow}>
-          <Image source={{ uri: blog?.author?.avatar }} style={styles.avatar} />
-          <View>
-            <Text style={styles.authorName}>{blog?.author?.fullName}</Text>
-            <Text style={styles.subText}>
-              {dayjs(blog?.createdAt).format("DD/MM/YYYY")} • 5 phút đọc
-            </Text>
-          </View>
+      {/* 1. Header Row (Avatar ngang hàng icons) */}
+      <View style={styles.headerRow}>
+        <Image source={{ uri: blog?.author?.avatar }} style={styles.avatar} />
+        <View style={{ flex: 1 }}>
+          <Text style={styles.authorName}>{blog?.author?.fullName}</Text>
+          <Text style={styles.time}>{dayjs(blog?.createdAt).fromNow()}</Text>
         </View>
+      </View>
 
-        {/* Tags horizontal scroll */}
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          style={styles.tagScroll}
-        >
-          {blog?.tags?.map((tag: string, index: number) => (
-            <View key={index} style={styles.tagChip}>
+      {/* 2. Title & Tags */}
+      <View style={styles.body}>
+        <Text style={styles.title}>{blog?.title}</Text>
+        <View style={styles.tagContainer}>
+          {blog?.tags?.map((tag: string, i: number) => (
+            <View key={i} style={styles.tagBadge}>
               <Text style={styles.tagText}>#{tag}</Text>
             </View>
           ))}
-        </ScrollView>
+        </View>
 
+        {/* 3. Main Image */}
+        {blog?.images?.[0] && (
+          <Image source={{ uri: blog.images[0] }} style={styles.mainImage} />
+        )}
+
+        {/* 4. HTML Content */}
         <RenderHtml
           contentWidth={width - 32}
           source={{ html: blog?.content || "" }}
-          tagsStyles={tagsStyles}
+          tagsStyles={{ body: { fontSize: 16, lineHeight: 24 } }}
         />
       </View>
     </View>
@@ -78,26 +46,29 @@ export default function BlogDetailContent({ blog }: { blog: any }) {
 
 const styles = StyleSheet.create({
   container: { backgroundColor: "#fff" },
-  heroImage: { width: "100%", aspectRatio: 16 / 9 },
-  paddingBox: { padding: 16 },
-  title: {
-    fontSize: 24,
-    fontWeight: "bold",
-    color: "#000",
-    marginBottom: 16,
-    lineHeight: 32,
+  headerRow: { flexDirection: "row", alignItems: "center", padding: 16 },
+  avatar: { width: 40, height: 40, borderRadius: 20, marginRight: 12 },
+  authorName: { fontWeight: "bold", fontSize: 15 },
+  time: { color: "#666", fontSize: 12 },
+  body: { paddingHorizontal: 16 },
+  title: { fontSize: 22, fontWeight: "bold", marginBottom: 10 },
+  tagContainer: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    marginBottom: 15,
+    gap: 8,
   },
-  authorRow: { flexDirection: "row", alignItems: "center", marginBottom: 20 },
-  avatar: { width: 42, height: 42, borderRadius: 21, marginRight: 12 },
-  authorName: { fontSize: 15, fontWeight: "600" },
-  subText: { fontSize: 12, color: "#666", marginTop: 2 },
-  tagScroll: { marginBottom: 20 },
-  tagChip: {
+  tagBadge: {
     backgroundColor: "#f3f4f6",
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 20,
-    marginRight: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 6,
   },
-  tagText: { fontSize: 13, color: "#2563eb" },
+  tagText: { fontSize: 12, color: "#1976d2" },
+  mainImage: {
+    width: "100%",
+    aspectRatio: 16 / 9,
+    borderRadius: 12,
+    marginBottom: 15,
+  },
 });
