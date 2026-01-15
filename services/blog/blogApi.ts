@@ -1,0 +1,157 @@
+import { api } from "@/services/api";
+import { buildSpringQuery } from "@/utils/buildSpringQuery";
+import {
+  CreateCommentRequest,
+  FetchBlogByIdResponse,
+  FetchBlogsRequest,
+  FetchBlogsResponse,
+  FetchTagsRequest,
+  FetchTagsResponse,
+  GetCommentsResponse,
+} from "./blogType";
+
+export const blogApi = api.injectEndpoints({
+  overrideExisting: true,
+  endpoints: (builder) => ({
+    // ================= BLOG =================
+
+    fetchBlogs: builder.query<FetchBlogsResponse, FetchBlogsRequest>({
+      query: (params) => {
+        const { params: queryParams } = buildSpringQuery({
+          params,
+          filterFields: ["title", "draft"],
+          textSearchFields: ["title"],
+          defaultSort: "createdAt,desc",
+        });
+
+        return {
+          url: "/blogs",
+          method: "GET",
+          params: queryParams,
+        };
+      },
+      providesTags: ["Blog"],
+    }),
+
+    fetchAvailableBlogs: builder.query<FetchBlogsResponse, FetchBlogsRequest>({
+      query: (params) => {
+        const { params: queryParams } = buildSpringQuery({
+          params,
+          filterFields: ["title", "content"],
+          textSearchFields: ["title", "content"],
+          sortableFields: ["tags"],
+          defaultSort: "createdAt,desc",
+        });
+
+        return {
+          url: "/blogs/available",
+          method: "GET",
+          params: queryParams,
+        };
+      },
+      providesTags: ["Blog"],
+    }),
+
+    fetchPopularBlogs: builder.query<FetchBlogsResponse, FetchBlogsRequest>({
+      query: (params) => {
+        const modifiedParams = {
+          ...params,
+          sort: "activity.totalReads,desc",
+        };
+
+        const { params: queryParams } = buildSpringQuery({
+          params: modifiedParams,
+          filterFields: ["title", "content", "authorId"],
+          textSearchFields: ["title", "content"],
+          sortableFields: ["tags"],
+          defaultSort: "activity.totalReads,desc",
+        });
+
+        return {
+          url: "/blogs",
+          method: "GET",
+          params: queryParams,
+        };
+      },
+      providesTags: ["Blog"],
+    }),
+
+    fetchBlogById: builder.query<FetchBlogByIdResponse, number>({
+      query: (blogId) => ({
+        url: `/blogs/${blogId}`,
+        method: "GET",
+      }),
+      providesTags: ["Blog"],
+    }),
+
+    fetchBlogByIdRead: builder.query<FetchBlogByIdResponse, number>({
+      query: (blogId) => ({
+        url: `/blogs/${blogId}`,
+        method: "GET",
+        params: { read: true },
+      }),
+      providesTags: ["Blog"],
+    }),
+
+    // ================= TAG =================
+
+    fetchTags: builder.query<FetchTagsResponse, FetchTagsRequest>({
+      query: (params) => ({
+        url: "/blogs/tags",
+        method: "GET",
+        params,
+      }),
+    }),
+
+    // ================= COMMENT =================
+
+    getCommentsByBlogId: builder.query<GetCommentsResponse, number>({
+      query: (blogId) => {
+        const { params } = buildSpringQuery({
+          params: {},
+          filterFields: [],
+          sortableFields: ["createdAt"],
+          defaultSort: "createdAt,desc",
+        });
+
+        return {
+          url: `/comments/blog/${blogId}`,
+          method: "GET",
+          params,
+        };
+      },
+      providesTags: ["Comment"],
+    }),
+
+    createComment: builder.mutation<unknown, CreateCommentRequest>({
+      query: (body) => ({
+        url: "/comments",
+        method: "POST",
+        body,
+      }),
+      invalidatesTags: ["Comment", "Blog"],
+    }),
+
+    deleteComment: builder.mutation<unknown, number>({
+      query: (commentId) => ({
+        url: `/comments/${commentId}`,
+        method: "DELETE",
+      }),
+      invalidatesTags: ["Comment", "Blog"],
+    }),
+  }),
+});
+
+export const {
+  useFetchBlogsQuery,
+  useFetchAvailableBlogsQuery,
+  useFetchPopularBlogsQuery,
+  useFetchBlogByIdQuery,
+  useFetchBlogByIdReadQuery,
+
+  useFetchTagsQuery,
+
+  useGetCommentsByBlogIdQuery,
+  useCreateCommentMutation,
+  useDeleteCommentMutation,
+} = blogApi;

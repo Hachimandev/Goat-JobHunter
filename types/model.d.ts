@@ -1,4 +1,4 @@
-import { CompanySize, Level, WorkingType } from './enum';
+import { CompanySize, Level, WorkingType } from "./enum";
 
 export type Address = {
   addressId: number;
@@ -112,4 +112,55 @@ export type Job = {
   updatedBy: string;
 };
 
+export type Blog = {
+  blogId: number;
+  images: string[];
+  content: string;
+  tags: string[];
+  draft: boolean;
+  enabled: boolean;
+  activity?: {
+    totalLikes: number;
+    totalComments: number;
+    totalReads: number;
+    totalParentComments: number;
+  };
+  author: {
+    accountId: number;
+    fullName: string;
+    username: string;
+    avatar: string;
+    bio: string;
+    headline: string;
+    coverPhoto: string;
+  };
+  createdAt: string;
+  createdBy: string;
+  updatedAt: string;
+  updatedBy: string;
+};
 
+export type Reaction = {
+  id: string;
+  icon: LucideIcon;
+  label: string;
+  color: string;
+  hoverColor: string;
+};
+
+export type CommentType = {
+  commentId: number;
+  comment: string;
+  reply: boolean;
+  blog: {
+    blogId: number;
+    title: string;
+  };
+  parent?: {
+    commentId: string;
+    comment: string;
+    commentedBy: CommentedBy;
+  };
+  commentedBy: CommentedBy;
+  createdAt: string;
+};
