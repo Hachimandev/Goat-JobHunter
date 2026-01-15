@@ -1,6 +1,12 @@
 import { api } from '../api';
 import { buildSpringQuery } from '../../utils/buildSpringQuery';
-import type { FetchJobsRequest, FetchJobsResponse, JobIdRequest, FetchJobByIdResponse } from './jobType';
+import type {
+  FetchJobsRequest,
+  FetchJobsResponse,
+  JobIdRequest,
+  FetchJobByIdResponse,
+  CountJobsByCompanyResponse,
+} from './jobType';
 
 export const jobApi = api.injectEndpoints({
   endpoints: (builder) => ({
@@ -37,9 +43,21 @@ export const jobApi = api.injectEndpoints({
       }),
       providesTags: ['Job'],
     }),
+
+    countAvailableJobsByCompany: builder.query<CountJobsByCompanyResponse, void>({
+      query: () => ({
+        url: `/jobs/companies/count`,
+        method: 'GET',
+      }),
+      providesTags: ['Job'],
+    }),
   }),
 });
 
-export const { useFetchJobsAvailableQuery, useFetchJobByIdQuery } = jobApi;
+export const {
+  useFetchJobsAvailableQuery,
+  useFetchJobByIdQuery,
+  useCountAvailableJobsByCompanyQuery,
+} = jobApi;
 
 

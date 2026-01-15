@@ -33,6 +33,15 @@ export default function TabsLayout() {
         }}
       />
       <Tabs.Screen
+        name="companies"
+        options={{
+          title: "Công ty",
+          tabBarIcon: ({ color, size }) => (
+            <Text style={{ fontSize: size, color }}>🏢</Text>
+          ),
+        }}
+      />
+      <Tabs.Screen
         name="profile"
         options={{
           title: "Cá nhân",
