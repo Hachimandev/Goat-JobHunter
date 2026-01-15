@@ -1,5 +1,6 @@
 import { Tabs } from "expo-router";
 import { Text } from "react-native";
+import { Icon } from "react-native-paper";
 
 export default function TabsLayout() {
   return (
@@ -49,7 +50,16 @@ export default function TabsLayout() {
           ),
         }}
       />
+
+      <Tabs.Screen
+        name="blog"
+        options={{
+          title: "Blog",
+          tabBarIcon: ({ color }) => (
+            <Icon color={color} size={24} source={"home"}></Icon>
+          ),
+        }}
+      />
     </Tabs>
   );
 }
-
