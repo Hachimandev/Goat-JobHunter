@@ -24,6 +24,14 @@ export type Account = {
   updatedBy: string;
 };
 
+export type CompanyAward = {
+  companyAwardId: number;
+  type: string;
+  year: number;
+  average?: number;
+  totalReviews?: number;
+};
+
 export type Company = Account & {
   name: string;
   description: string;
@@ -37,6 +45,31 @@ export type Company = Account & {
   coverPhoto?: string;
   website?: string;
   phone?: string;
+  awards?: CompanyAward[];
+};
+
+export type Review = {
+  reviewId: number;
+  rating: {
+    overall: number;
+    salaryBenefits: number;
+    trainingLearning: number;
+    managementCaresAboutMe: number;
+    cultureFun: number;
+    officeWorkspace: number;
+  };
+  summary: string;
+  experience: string;
+  suggestion: string;
+  recommended: boolean;
+  verified: boolean;
+  enabled: boolean;
+  company?: Company;
+  applicant?: Account;
+  createdAt: string;
+  createdBy: string;
+  updatedAt: string;
+  updatedBy: string;
 };
 
 export type Skill = {
