@@ -1,4 +1,5 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
+import { useAppSelector } from '@/lib/hooks';
 
 interface User {
   accountId: number;
@@ -42,5 +43,8 @@ const authSlice = createSlice({
 });
 
 export const { setUser, clearUser } = authSlice.actions;
+
+export const useAuthSlice = () => useAppSelector((state) => state.auth);
+
 export default authSlice.reducer;
 

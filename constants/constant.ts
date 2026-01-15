@@ -123,3 +123,11 @@ export const COUNTRY_OPTIONS = [
   { value: 'NEW_ZEALAND', label: 'New Zealand' },
 ];
 
+export const RATING_TYPES = [
+  { value: 'salaryBenefits', label: 'Lương thưởng & phúc lợi' },
+  { value: 'trainingLearning', label: 'Đào tạo & học hỏi' },
+  { value: 'managementCaresAboutMe', label: 'Sự quan tâm đến nhân viên' },
+  { value: 'cultureFun', label: 'Văn hóa công ty' },
+  { value: 'officeWorkspace', label: 'Văn phòng làm việc' },
+];
+

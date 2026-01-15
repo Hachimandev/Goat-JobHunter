@@ -4,6 +4,8 @@ export type Address = {
   addressId: number;
   province: string;
   fullAddress: string;
+  latitude?: number;
+  longitude?: number;
   createdAt?: string;
   createdBy?: string;
   updatedAt?: string;
