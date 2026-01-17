@@ -19,4 +19,6 @@ export type JobIdRequest = string;
 
 export type FetchJobByIdResponse = IBackendRes<Job>;
 
+export type CountJobsByCompanyResponse = IBackendRes<Record<number, number>>;
+
 

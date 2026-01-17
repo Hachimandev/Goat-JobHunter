@@ -1,19 +1,20 @@
-import axiosInstance from './axios';
-import { BaseQueryFn, createApi } from '@reduxjs/toolkit/query/react';
-import { AxiosError, AxiosRequestConfig } from 'axios';
+import { BaseQueryFn, createApi } from "@reduxjs/toolkit/query/react";
+import { AxiosError, AxiosRequestConfig } from "axios";
+import axiosInstance from "./axios";
 
 const axiosBaseQuery =
   (
     { baseUrl }: { baseUrl: string } = {
-      baseUrl: process.env.EXPO_PUBLIC_API_URL || 'http://localhost:5000/api/v1',
+      baseUrl:
+        process.env.EXPO_PUBLIC_API_URL || "http://localhost:5000/api/v1",
     }
   ): BaseQueryFn<
     {
       url: string;
-      method?: AxiosRequestConfig['method'];
-      data?: AxiosRequestConfig['data'];
-      params?: AxiosRequestConfig['params'];
-      headers?: AxiosRequestConfig['headers'];
+      method?: AxiosRequestConfig["method"];
+      data?: AxiosRequestConfig["data"];
+      params?: AxiosRequestConfig["params"];
+      headers?: AxiosRequestConfig["headers"];
     },
     unknown,
     unknown
@@ -40,12 +41,10 @@ const axiosBaseQuery =
   };
 
 export const api = createApi({
-  reducerPath: 'api',
+  reducerPath: "api",
   baseQuery: axiosBaseQuery({
-    baseUrl: process.env.EXPO_PUBLIC_API_URL || 'http://localhost:5000/api/v1',
+    baseUrl: process.env.EXPO_PUBLIC_API_URL || "http://localhost:5000/api/v1",
   }),
-  tagTypes: ['Job', 'User', 'Auth'],
+  tagTypes: ['Job', 'User', 'Auth', 'Company', 'Review', 'Blog', 'Comment'],
   endpoints: () => ({}),
 });
-
-

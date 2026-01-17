@@ -18,21 +18,25 @@ type PickerOption = {
 type PickerModalProps = {
   visible: boolean;
   options: PickerOption[];
-  selectedValue: string;
+  selectedValue?: string;
+  selectedValues?: string[];
   onSelect: (value: string) => void;
   onClose: () => void;
   title: string;
   placeholder?: string;
+  multiSelect?: boolean;
 };
 
 export default function PickerModal({
   visible,
   options,
   selectedValue,
+  selectedValues = [],
   onSelect,
   onClose,
   title,
   placeholder = 'Tìm kiếm...',
+  multiSelect = false,
 }: PickerModalProps) {
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -49,13 +53,22 @@ export default function PickerModal({
 
   const handleSelect = (value: string) => {
     onSelect(value);
-    setSearchQuery(''); // Reset search
-    onClose();
+    if (!multiSelect) {
+      setSearchQuery(''); // Reset search
+      onClose();
+    }
   };
 
   const handleClose = () => {
     setSearchQuery(''); // Reset search
     onClose();
+  };
+
+  const isSelected = (value: string) => {
+    if (multiSelect) {
+      return selectedValues.includes(value);
+    }
+    return value === selectedValue;
   };
 
   return (
@@ -101,19 +114,19 @@ export default function PickerModal({
             <TouchableOpacity
               style={[
                 styles.option,
-                item.value === selectedValue && styles.selectedOption,
+                isSelected(item.value) && styles.selectedOption,
               ]}
               onPress={() => handleSelect(item.value)}
             >
               <Text
                 style={[
                   styles.optionText,
-                  item.value === selectedValue && styles.selectedOptionText,
+                  isSelected(item.value) && styles.selectedOptionText,
                 ]}
               >
                 {item.label}
               </Text>
-              {item.value === selectedValue && (
+              {isSelected(item.value) && (
                 <Text style={styles.checkmark}>✓</Text>
               )}
             </TouchableOpacity>
