@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, Image, StyleSheet, TouchableOpacity } from 'react-native';
 import { Company } from '@/types/model';
 import { useFetchGroupedAddressesByCompanyQuery } from '@/services/company/companyApi';
+import { Link } from 'expo-router';
 
 interface CompanyCardProps {
   company: Company;
@@ -22,13 +23,9 @@ export default function CompanyCard({ company, totalJobs, totalReviews, averageR
   const firstCity = citiesArray[0] || '';
   const remainingCitiesCount = citiesArray.length - 1;
 
-  const handlePress = () => {
-    // Navigate to company detail page
-    // router.push(`/companies/${company.accountId}`);
-  };
-
   return (
-    <TouchableOpacity onPress={handlePress} style={styles.card} activeOpacity={0.7}>
+    <Link href={`/companies/${encodeURIComponent(company.name)}`} asChild>
+      <TouchableOpacity style={styles.card} activeOpacity={0.7}>
       {/* Cover Photo */}
       <View style={styles.coverContainer}>
         {hasValidCoverPhoto && !imageError ? (
@@ -102,7 +99,8 @@ export default function CompanyCard({ company, totalJobs, totalReviews, averageR
           </Text>
         )}
       </View>
-    </TouchableOpacity>
+      </TouchableOpacity>
+    </Link>
   );
 }
 
