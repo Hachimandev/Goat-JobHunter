@@ -37,7 +37,7 @@ export const blogApi = api.injectEndpoints({
       query: (params) => {
         const { params: queryParams } = buildSpringQuery({
           params,
-          filterFields: ["title", "content"],
+          filterFields: ["title", "content", "tags"],
           textSearchFields: ["title", "content"],
           sortableFields: ["tags"],
           defaultSort: "createdAt,desc",

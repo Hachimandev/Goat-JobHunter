@@ -1,10 +1,12 @@
 import BlogCard from "@/components/blog/BlogCard";
 import { useFetchBlogsQuery } from "@/services/blog/blogApi";
-import { useEffect, useState } from "react";
+import { useFocusEffect } from "expo-router";
+import { useCallback, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
   RefreshControl,
+  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
@@ -12,6 +14,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { SafeAreaProvider } from "react-native-safe-area-context";
 
 // Categories list
 const categories = [
@@ -31,22 +34,37 @@ export default function BlogPage() {
   const [selectedCategory, setSelectedCategory] = useState("all");
 
   const { data, isLoading, isFetching, refetch } = useFetchBlogsQuery(
-    { page, size, search: searchText, category: selectedCategory },
+    {
+      page: page,
+      size: size,
+      title: searchText || undefined,
+      tags:
+        selectedCategory === "all"
+          ? undefined
+          : [categories.find((c) => c.key === selectedCategory)?.label || ""],
+    },
     { skip: false }
   );
 
-  // Merge dữ liệu khi page thay đổi
-  useEffect(() => {
-    if (data?.items) {
-      if (page === 0) setBlogs(data.items);
-      else setBlogs((prev) => [...prev, ...data.items]);
-    }
-  }, [data, page]);
+  useFocusEffect(
+    useCallback(() => {
+      if (data?.data?.result) {
+        if (page === 0) {
+          setBlogs(data.data.result);
+        } else {
+          setBlogs((prev) => [...prev, ...data.data.result]);
+        }
+      }
+    }, [data, page])
+  );
 
   // Handle infinite scroll
   const handleLoadMore = () => {
-    if (!isFetching && data && page + 1 < data.totalPages) {
-      setPage((prev) => prev + 1);
+    if (!isFetching && data?.data?.meta) {
+      const { currentPage, totalPages } = data.data.meta;
+      if (currentPage < totalPages) {
+        setPage((prev) => prev + 1);
+      }
     }
   };
 
@@ -73,82 +91,90 @@ export default function BlogPage() {
   };
 
   return (
-    <View style={{ flex: 1 }}>
-      {/* Header / Search */}
-      <View style={styles.header}>
-        <TextInput
-          placeholder="Tìm kiếm bài viết..."
-          value={searchText}
-          onChangeText={setSearchText}
-          style={styles.searchInput}
-        />
-      </View>
+    <SafeAreaProvider>
+      <SafeAreaView style={{ flex: 1 }}>
+        {/* Header / Search */}
+        <View style={styles.fixedHeader}>
+          <View style={styles.header}>
+            <TextInput
+              placeholder="Tìm kiếm bài viết..."
+              value={searchText}
+              onChangeText={setSearchText}
+              style={styles.searchInput}
+            />
+          </View>
 
-      {/* Categories */}
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.categoryContainer}
-      >
-        {categories.map((cat) => (
-          <TouchableOpacity
-            key={cat.key}
-            style={[
-              styles.categoryChip,
-              selectedCategory === cat.key
-                ? styles.categoryChipSelected
-                : styles.categoryChipUnselected,
-            ]}
-            onPress={() => handleCategoryPress(cat.key)}
+          {/* Categories */}
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.categoryContainer}
           >
-            <Text
-              style={
-                selectedCategory === cat.key
-                  ? styles.categoryTextSelected
-                  : styles.categoryTextUnselected
-              }
-            >
-              {cat.label}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </ScrollView>
-
-      {/* Blog List */}
-      <FlatList
-        data={blogs}
-        keyExtractor={(item) => item.blogId.toString()}
-        renderItem={({ item }) => (
-          <BlogCard
-            blog={item}
-            onLike={() => {
-              // TODO: handle like/unlike
-            }}
-            onSave={() => {
-              // TODO: handle save/unsave
-            }}
-          />
-        )}
-        ListEmptyComponent={renderEmpty}
-        refreshControl={
-          <RefreshControl refreshing={isFetching} onRefresh={handleRefresh} />
-        }
-        onEndReached={handleLoadMore}
-        onEndReachedThreshold={0.5}
-        ListFooterComponent={
-          isFetching ? (
-            <ActivityIndicator style={{ marginVertical: 16 }} />
-          ) : null
-        }
-      />
-
-      {/* Initial Loading */}
-      {isLoading && page === 0 && (
-        <View style={styles.loadingOverlay}>
-          <ActivityIndicator size="large" />
+            {categories.map((cat) => (
+              <TouchableOpacity
+                key={cat.key}
+                style={[
+                  styles.categoryChip,
+                  selectedCategory === cat.key
+                    ? styles.categoryChipSelected
+                    : styles.categoryChipUnselected,
+                ]}
+                onPress={() => handleCategoryPress(cat.key)}
+              >
+                <Text
+                  style={
+                    selectedCategory === cat.key
+                      ? styles.categoryTextSelected
+                      : styles.categoryTextUnselected
+                  }
+                >
+                  {cat.label}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
         </View>
-      )}
-    </View>
+        <View style={{ flex: 1 }}>
+          {/* Blog List */}
+          <FlatList
+            data={blogs}
+            keyExtractor={(item) => item.blogId.toString()}
+            renderItem={({ item }) => (
+              <BlogCard
+                blog={item}
+                onLike={() => {
+                  // TODO: handle like/unlike
+                }}
+                onSave={() => {
+                  // TODO: handle save/unsave
+                }}
+              />
+            )}
+            ListEmptyComponent={renderEmpty}
+            refreshControl={
+              <RefreshControl
+                refreshing={isFetching}
+                onRefresh={handleRefresh}
+              />
+            }
+            onEndReached={handleLoadMore}
+            onEndReachedThreshold={0.5}
+            ListFooterComponent={
+              isFetching ? (
+                <ActivityIndicator style={{ marginVertical: 16 }} />
+              ) : null
+            }
+          />
+
+          {/* Initial Loading */}
+          {isLoading && page === 0 && (
+            <View style={styles.loadingOverlay}>
+              <ActivityIndicator size="large" />
+            </View>
+          )}
+        </View>
+      </SafeAreaView>
+    </SafeAreaProvider>
   );
 }
 
@@ -156,8 +182,11 @@ const styles = StyleSheet.create({
   /* ===== Header / Search ===== */
   header: {
     paddingHorizontal: 16,
-    paddingVertical: 10,
+    paddingVertical: 12,
     backgroundColor: "#ffffff",
+    zIndex: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: "#f3f4f6",
   },
   searchInput: {
     backgroundColor: "#f3f4f6",
@@ -171,15 +200,20 @@ const styles = StyleSheet.create({
   /* ===== Categories ===== */
   categoryContainer: {
     paddingHorizontal: 16,
-    paddingVertical: 8,
+    paddingVertical: 10,
+    backgroundColor: "#f9fafb",
+  },
+  fixedHeader: {
+    backgroundColor: "#ffffff",
+    zIndex: 10,
+    elevation: 10,
   },
   categoryChip: {
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-    borderRadius: 20,
+    paddingHorizontal: 16,
+    height: 32,
+    borderRadius: 16,
     marginRight: 8,
     borderWidth: 1,
-    minHeight: 32,
     justifyContent: "center",
     alignItems: "center",
   },
