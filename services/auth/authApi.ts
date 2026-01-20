@@ -1,4 +1,6 @@
 import { api } from '../api';
+import { setUser } from '@/lib/authSlice';
+import { tokenStorage } from '@/services/tokenStorage';
 import type {
   FetchAccountResponse,
   LogoutResponse,
@@ -38,6 +40,29 @@ export const authApi = api.injectEndpoints({
         method: 'POST',
         data: { email, password },
       }),
+      async onQueryStarted(_, { dispatch, queryFulfilled }) {
+        try {
+          const { data } = await queryFulfilled;
+          
+          // Lưu token nếu backend trả về (check any type vì type definition chưa có token)
+          const responseData = data?.data as any;
+          if (responseData?.token) {
+            await tokenStorage.saveToken(responseData.token);
+          }
+          
+          // Lưu user data vào Redux
+          if (data?.data) {
+            dispatch(
+              setUser({
+                user: data.data,
+                roles: data.data.role ? [data.data.role.name] : [],
+              })
+            );
+          }
+        } catch (error) {
+          console.error('Login error:', error);
+        }
+      },
     }),
 
     logout: builder.mutation<LogoutResponse, void>({
@@ -62,6 +87,25 @@ export const authApi = api.injectEndpoints({
     getMyAccount: builder.query<FetchAccountResponse, void>({
       query: () => ({ url: '/auth/account/users', method: 'GET' }),
       providesTags: ['User'],
+      async onQueryStarted(_, { dispatch, queryFulfilled }) {
+        try {
+          const { data } = await queryFulfilled;
+          
+          // Dispatch action to save user data to slice
+          if (data?.data) {
+            dispatch(
+              setUser({
+                user: data.data,
+                roles: data.data.role ? [data.data.role.name] : [],
+              })
+            );
+          }
+        } catch (error) {
+          console.error('Get my account error:', error);
+          // Clear token if fetch failed
+          await tokenStorage.clearTokens();
+        }
+      },
     }),
   }),
 });
