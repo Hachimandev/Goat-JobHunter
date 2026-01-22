@@ -1,14 +1,18 @@
 import useBlogActionsMobile from "@/hooks/useBlogActions";
+import { useUser } from "@/hooks/useUser";
 import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import { useState } from "react";
 import {
+  Alert,
   FlatList,
   Image,
   Modal,
+  Platform,
   StyleSheet,
   Text,
   TextInput,
+  ToastAndroid,
   TouchableOpacity,
   View,
 } from "react-native";
@@ -17,7 +21,16 @@ export default function CreateBlogModal({ visible, onClose, onSuccess }) {
   const [content, setContent] = useState("");
   const [images, setImages] = useState<any[]>([]);
   const { handleCreateBlog, isCreating } = useBlogActionsMobile();
-  const isDisabled = isCreating || (!content.trim() && images.length === 0);
+  const { isSignedIn, user } = useUser();
+  const isDisabled =
+    !isSignedIn || isCreating || (!content.trim() && images.length === 0);
+  const notify = (msg: string) => {
+    if (Platform.OS === "android") {
+      ToastAndroid.show(msg, ToastAndroid.SHORT);
+    } else {
+      Alert.alert(msg);
+    }
+  };
 
   const pickImage = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -32,6 +45,11 @@ export default function CreateBlogModal({ visible, onClose, onSuccess }) {
   };
 
   const handleSubmit = async () => {
+    if (!isSignedIn || !user) {
+      notify("Bạn cần đăng nhập để đăng bài.");
+      return;
+    }
+
     if (isCreating) return;
 
     try {
@@ -78,11 +96,13 @@ export default function CreateBlogModal({ visible, onClose, onSuccess }) {
         <View style={styles.userRow}>
           <Image
             source={{
-              uri: "https://i.pravatar.cc/150",
+              uri: user?.avatar || "https://i.pravatar.cc/150",
             }}
             style={styles.avatar}
           />
-          <Text style={styles.username}>Nguyễn Văn A</Text>
+          <Text style={styles.username}>
+            {user?.fullName || user?.username || "Người dùng"}
+          </Text>
         </View>
 
         {/* ===== Content Input ===== */}
