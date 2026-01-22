@@ -3,64 +3,77 @@ import { Image } from "expo-image";
 import React, { useState } from "react";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import CommentInput from "./CommentInput";
+import ReportTicketModal from "./ReportTicketModal";
 
 export default function CommentItem({ comment, blogId, isReply = false }: any) {
   const [showReplyInput, setShowReplyInput] = useState(false);
+  const [isReportVisible, setReportVisible] = useState(false);
 
   return (
-    <View style={[styles.wrapper, isReply && styles.replyMargin]}>
-      <View style={styles.mainRow}>
-        <Image
-          source={{ uri: comment.commentedBy?.avatar }}
-          style={isReply ? styles.avatarSmall : styles.avatar}
-        />
-        <View style={styles.contentSection}>
-          <View style={styles.bubble}>
-            <Text style={styles.userName}>
-              {comment.commentedBy?.fullName || "Ẩn danh"}
-            </Text>
-            <Text style={styles.commentText}>{comment.comment}</Text>
-          </View>
-
-          <View style={styles.actionRow}>
-            <Text style={styles.timeText}>
-              {dayjs(comment.createdAt).fromNow()}
-            </Text>
-            <TouchableOpacity
-              onPress={() => setShowReplyInput(!showReplyInput)}
-            >
-              <Text style={styles.actionText}>Trả lời</Text>
-            </TouchableOpacity>
-          </View>
-
-          {showReplyInput && (
-            <View style={styles.inputSpacing}>
-              <CommentInput
-                blogId={blogId}
-                replyTo={{
-                  commentId: comment.commentId,
-                  authorName: comment.commentedBy?.fullName,
-                }}
-                onCancelReply={() => setShowReplyInput(false)}
-              />
+    <>
+      <View style={[styles.wrapper, isReply && styles.replyMargin]}>
+        <View style={styles.mainRow}>
+          <Image
+            source={{ uri: comment.commentedBy?.avatar }}
+            style={isReply ? styles.avatarSmall : styles.avatar}
+          />
+          <View style={styles.contentSection}>
+            <View style={styles.bubble}>
+              <Text style={styles.userName}>
+                {comment.commentedBy?.fullName || "Ẩn danh"}
+              </Text>
+              <Text style={styles.commentText}>{comment.comment}</Text>
             </View>
-          )}
-        </View>
-      </View>
 
-      {comment.replies && comment.replies.length > 0 && (
-        <View style={styles.nestedContainer}>
-          {comment.replies.map((reply: any) => (
-            <CommentItem
-              key={reply.commentId}
-              comment={reply}
-              blogId={blogId}
-              isReply={true}
-            />
-          ))}
+            <View style={styles.actionRow}>
+              <Text style={styles.timeText}>
+                {dayjs(comment.createdAt).fromNow()}
+              </Text>
+              <TouchableOpacity
+                onPress={() => setShowReplyInput(!showReplyInput)}
+              >
+                <Text style={styles.actionText}>Trả lời</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => setReportVisible(true)}>
+                <Text style={styles.actionText}>Báo cáo</Text>
+              </TouchableOpacity>
+            </View>
+
+            {showReplyInput && (
+              <View style={styles.inputSpacing}>
+                <CommentInput
+                  blogId={blogId}
+                  replyTo={{
+                    commentId: comment.commentId,
+                    authorName: comment.commentedBy?.fullName,
+                  }}
+                  onCancelReply={() => setShowReplyInput(false)}
+                />
+              </View>
+            )}
+          </View>
         </View>
-      )}
-    </View>
+
+        {comment.replies && comment.replies.length > 0 && (
+          <View style={styles.nestedContainer}>
+            {comment.replies.map((reply: any) => (
+              <CommentItem
+                key={reply.commentId}
+                comment={reply}
+                blogId={blogId}
+                isReply={true}
+              />
+            ))}
+          </View>
+        )}
+      </View>
+      <ReportTicketModal
+        isVisible={isReportVisible}
+        onClose={() => setReportVisible(false)}
+        targetId={comment.commentId}
+        targetType="comment"
+      />
+    </>
   );
 }
 
