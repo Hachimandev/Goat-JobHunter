@@ -139,6 +139,36 @@ export const blogApi = api.injectEndpoints({
       }),
       invalidatesTags: ["Comment", "Blog"],
     }),
+
+    createBlog: builder.mutation<any, FormData>({
+      query: (formData) => ({
+        url: "/blogs",
+        method: "POST",
+        body: formData,
+      }),
+      invalidatesTags: ["Blog"],
+    }),
+
+    updateBlog: builder.mutation<any, { blogId: number; formData: FormData }>({
+      query: ({ blogId, formData }) => ({
+        url: `/blogs/${blogId}`,
+        method: "PUT",
+        body: formData,
+      }),
+      invalidatesTags: ["Blog"],
+    }),
+
+    deleteBlog: builder.mutation<any, { blogIds: number[]; mode?: string }>({
+      query: ({ blogIds, mode = "DELETE" }) => ({
+        url: "/blogs",
+        method: "DELETE",
+        body: {
+          blogIds,
+          mode,
+        },
+      }),
+      invalidatesTags: ["Blog"],
+    }),
   }),
 });
 
@@ -154,4 +184,7 @@ export const {
   useGetCommentsByBlogIdQuery,
   useCreateCommentMutation,
   useDeleteCommentMutation,
+  useCreateBlogMutation,
+  useUpdateBlogMutation,
+  useDeleteBlogMutation,
 } = blogApi;
