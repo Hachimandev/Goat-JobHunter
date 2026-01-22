@@ -8,7 +8,6 @@ export default function BlogDetailContent({ blog }: any) {
 
   return (
     <View style={styles.container}>
-      {/* 1. Header Row (Avatar ngang hàng icons) */}
       <View style={styles.headerRow}>
         <Image source={{ uri: blog?.author?.avatar }} style={styles.avatar} />
         <View style={{ flex: 1 }}>
@@ -17,7 +16,6 @@ export default function BlogDetailContent({ blog }: any) {
         </View>
       </View>
 
-      {/* 2. Title & Tags */}
       <View style={styles.body}>
         <Text style={styles.title}>{blog?.title}</Text>
         <View style={styles.tagContainer}>
@@ -28,12 +26,10 @@ export default function BlogDetailContent({ blog }: any) {
           ))}
         </View>
 
-        {/* 3. Main Image */}
         {blog?.images?.[0] && (
           <Image source={{ uri: blog.images[0] }} style={styles.mainImage} />
         )}
 
-        {/* 4. HTML Content */}
         <RenderHtml
           contentWidth={width - 32}
           source={{ html: blog?.content || "" }}

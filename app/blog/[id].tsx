@@ -1,100 +1,111 @@
 import BlogDetailContent from "@/components/blog/BlogDetailContent";
-import CommentItem from "@/components/blog/CommentItem";
+import CommentInput from "@/components/blog/CommentInput";
+import CommentSection from "@/components/blog/CommentSection";
+import { useUser } from "@/hooks/useUser";
 import {
   useFetchBlogByIdQuery,
   useGetCommentsByBlogIdQuery,
 } from "@/services/blog/blogApi";
 import { formatComments } from "@/utils/formatComments";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import React from "react";
+import React, { useMemo } from "react";
 import {
   FlatList,
   KeyboardAvoidingView,
   Platform,
   StyleSheet,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
-import Icon from "react-native-vector-icons/MaterialCommunityIcons";
+import { Icon } from "react-native-paper";
 
 export default function BlogDetail() {
   const { id } = useLocalSearchParams();
   const router = useRouter();
+  const { isSignedIn } = useUser();
   const { data: blogData } = useFetchBlogByIdQuery(Number(id));
-  const { data: commentData } = useGetCommentsByBlogIdQuery(Number(id));
+  const {
+    data: commentData,
+    isLoading: isLoadingComments,
+    isError,
+  } = useGetCommentsByBlogIdQuery(Number(id));
 
   const blog = blogData?.data;
-  const comments = commentData?.data || [];
-  const nestedComments = formatComments(comments);
+  const nestedComments = useMemo(
+    () => formatComments(commentData?.data || []),
+    [commentData],
+  );
 
   return (
-    <View style={{ flex: 1, backgroundColor: "#fff" }}>
-      {/* Custom Header Sticky */}
+    <View style={styles.container}>
       <View style={styles.headerSticky}>
         <TouchableOpacity onPress={() => router.back()}>
-          <Icon name="chevron-left" size={30} color="#000" />
+          <Icon source="chevron-left" size={30} color="#000" />
         </TouchableOpacity>
         <Text numberOfLines={1} style={styles.headerTitle}>
-          {blog?.title}
+          {blog?.content
+            .replace(/<[^>]*>/g, "")
+            .split(/\s+/)
+            .slice(0, 2)
+            .join(" ") + "..."}
         </Text>
-        <Icon name="share-variant-outline" size={24} color="#000" />
+        <Icon source="share-variant-outline" size={24} color="#000" />
       </View>
 
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === "ios" ? "padding" : undefined}
+        keyboardVerticalOffset={Platform.OS === "ios" ? 90 : 0}
       >
         <FlatList
-          data={comments}
-          keyExtractor={(item: any) =>
-            item.id?.toString() || Math.random().toString()
-          }
-          ListHeaderComponent={<BlogDetailContent blog={blog} />}
-          renderItem={({ item }) => <CommentItem comment={item} />}
-          ListFooterComponent={<View style={{ height: 100 }} />}
+          data={[1]}
+          keyExtractor={(item) => item.toString()}
+          renderItem={() => (
+            <View>
+              <BlogDetailContent blog={blog} />
+              <CommentSection
+                comments={nestedComments}
+                blogId={Number(id)}
+                isLoading={isLoadingComments}
+                isError={isError}
+              />
+            </View>
+          )}
+          ListFooterComponent={<View style={{ height: 50 }} />}
           showsVerticalScrollIndicator={false}
         />
 
-        {/* Action Bar Bottom */}
-        <View style={styles.bottomBar}>
-          <TextInput
-            placeholder="Viết bình luận..."
-            style={styles.input}
-            placeholderTextColor="#888"
-          />
-          <View style={styles.iconGroup}>
-            <View style={styles.statIcon}>
-              <Icon name="heart-outline" size={24} color="#444" />
-              <Text style={styles.statCount}>
-                {blog?.activity?.totalLikes || 0}
-              </Text>
-            </View>
-            <View style={styles.statIcon}>
-              <Icon name="comment-outline" size={24} color="#444" />
-              <Text style={styles.statCount}>
-                {blog?.activity?.totalComments || 0}
-              </Text>
-            </View>
-            <Icon name="bookmark-outline" size={24} color="#444" />
+        {isSignedIn ? (
+          <View style={styles.bottomBar}>
+            <CommentInput blogId={Number(id)} />
           </View>
-        </View>
+        ) : (
+          <TouchableOpacity
+            style={styles.loginPrompt}
+            onPress={() => router.push("/signin")}
+          >
+            <Text style={styles.loginPromptText}>
+              Đăng nhập để để lại bình luận
+            </Text>
+          </TouchableOpacity>
+        )}
       </KeyboardAvoidingView>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: "#fff" },
   headerSticky: {
-    height: 50,
+    height: 56,
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 10,
+    paddingHorizontal: 8,
     backgroundColor: "#fff",
     borderBottomWidth: 1,
-    borderBottomColor: "#eee",
-    justifyContent: "space-between",
+    borderBottomColor: "#f3f4f6",
+    zIndex: 10,
   },
   headerTitle: {
     flex: 1,
@@ -103,26 +114,20 @@ const styles = StyleSheet.create({
     marginHorizontal: 10,
   },
   bottomBar: {
-    flexDirection: "row",
-    alignItems: "center",
-    padding: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
     borderTopWidth: 1,
     borderTopColor: "#eee",
     backgroundColor: "#fff",
   },
-  input: {
-    flex: 1,
+  loginPrompt: {
+    padding: 15,
     backgroundColor: "#f0f2f5",
-    borderRadius: 20,
-    paddingHorizontal: 15,
-    height: 38,
-  },
-  iconGroup: {
-    flexDirection: "row",
-    marginLeft: 12,
-    gap: 15,
     alignItems: "center",
+    justifyContent: "center",
   },
-  statIcon: { alignItems: "center", flexDirection: "row" },
-  statCount: { fontSize: 12, marginLeft: 2, color: "#666" },
+  loginPromptText: {
+    color: "#1976d2",
+    fontWeight: "600",
+  },
 });

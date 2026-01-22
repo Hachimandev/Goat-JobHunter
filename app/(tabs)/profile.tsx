@@ -11,6 +11,7 @@ import { useRouter } from 'expo-router';
 import { useAppSelector, useAppDispatch } from '../../lib/hooks';
 import { clearUser } from '../../lib/authSlice';
 import { useLogoutMutation } from '../../services/auth/authApi';
+import { tokenStorage } from '../../services/tokenStorage';
 
 export default function ProfileScreen() {
   const router = useRouter();
@@ -24,12 +25,28 @@ export default function ProfileScreen() {
 
   const handleLogout = async () => {
     try {
-      await logout().unwrap();
+      // Clear tokens TRƯỚC khi gọi logout API
+      // Vì logout không cần token hợp lệ, và tránh interceptor cố refresh
+      await tokenStorage.clearTokens();
+      
+      // Clear Redux state
       dispatch(clearUser());
+      
+      // Try to call logout API (best effort)
+      try {
+        await logout().unwrap();
+      } catch (apiError) {
+        // Ignore API error - tokens đã clear rồi
+        console.log('Logout API failed (ignored):', apiError);
+      }
+      
+      // Navigate to home
       router.replace('/');
     } catch (error) {
       console.error('Logout error:', error);
-      // Still clear user even if API fails
+      
+      // Fallback: ensure everything is cleared
+      await tokenStorage.clearTokens();
       dispatch(clearUser());
       router.replace('/');
     }
