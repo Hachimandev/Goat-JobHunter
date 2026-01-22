@@ -4,8 +4,11 @@ import "dayjs/locale/vi";
 import relativeTime from "dayjs/plugin/relativeTime";
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
+import { useState } from "react";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import Icon from "react-native-vector-icons/Feather";
+import CommentSheet from "./CommentSheet";
+import ReportTicketModal from "./ReportTicketModal";
 
 dayjs.extend(relativeTime);
 dayjs.locale("vi");
@@ -18,8 +21,9 @@ type BlogCardProps = {
 
 export default function BlogCard({ blog, onLike, onSave }: BlogCardProps) {
   const router = useRouter();
-
-  const timeAgo = dayjs(blog.createdAt).fromNow(); // <- dayjs thay thế formatDistanceToNow
+  const [isReportVisible, setReportVisible] = useState(false);
+  const timeAgo = dayjs(blog.createdAt).fromNow();
+  const [isCommentVisible, setCommentVisible] = useState(false);
 
   return (
     <TouchableOpacity
@@ -27,7 +31,6 @@ export default function BlogCard({ blog, onLike, onSave }: BlogCardProps) {
       style={styles.card}
       onPress={() => router.push(`/blog/${blog.blogId}`)}
     >
-      {/* Header: Avatar, Name và các Icon chức năng */}
       <View style={styles.headerRow}>
         <View style={styles.userInfo}>
           <Image source={{ uri: blog.author?.avatar }} style={styles.avatar} />
@@ -42,13 +45,21 @@ export default function BlogCard({ blog, onLike, onSave }: BlogCardProps) {
           <TouchableOpacity onPress={onSave} style={styles.iconBtn}>
             <Icon name="bookmark" size={20} color="#666" />
           </TouchableOpacity>
-          <TouchableOpacity style={styles.iconBtn}>
+          <TouchableOpacity
+            style={styles.iconBtn}
+            onPress={() => setReportVisible(true)}
+          >
             <Icon name="flag" size={20} color="#666" />
           </TouchableOpacity>
+          <ReportTicketModal
+            isVisible={isReportVisible}
+            onClose={() => setReportVisible(false)}
+            targetId={blog.blogId}
+            targetType="blog"
+          />
         </View>
       </View>
 
-      {/* Content: Title và Tags */}
       <View style={styles.textContainer}>
         <Text style={styles.blogTitle}>
           {blog.content
@@ -69,7 +80,6 @@ export default function BlogCard({ blog, onLike, onSave }: BlogCardProps) {
         )}
       </View>
 
-      {/* Image: Full Width */}
       {blog.images?.[0] && (
         <Image
           source={{ uri: blog.images[0] }}
@@ -78,16 +88,28 @@ export default function BlogCard({ blog, onLike, onSave }: BlogCardProps) {
         />
       )}
 
-      {/* Footer: Like, Comment, View */}
       <View style={styles.footerRow}>
         <View style={styles.leftStats}>
-          <TouchableOpacity style={styles.statItem} onPress={onLike}>
+          <TouchableOpacity
+            style={styles.statItem}
+            onPress={(e) => {
+              e.stopPropagation();
+              onLike?.();
+            }}
+          >
             <Icon name="thumbs-up" size={18} color="#666" />
             <Text style={styles.statText}>
               {blog.activity?.totalLikes || 0}
             </Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.statItem}>
+
+          <TouchableOpacity
+            style={styles.statItem}
+            onPress={(e) => {
+              e.stopPropagation();
+              setCommentVisible(!isCommentVisible);
+            }}
+          >
             <Icon name="message-circle" size={18} color="#666" />
             <Text style={styles.statText}>
               {blog.activity?.totalComments || 0}
@@ -101,6 +123,11 @@ export default function BlogCard({ blog, onLike, onSave }: BlogCardProps) {
           </Text>
         </View>
       </View>
+      <CommentSheet
+        blogId={blog.blogId}
+        isVisible={isCommentVisible}
+        onClose={() => setCommentVisible(false)}
+      />
     </TouchableOpacity>
   );
 }
