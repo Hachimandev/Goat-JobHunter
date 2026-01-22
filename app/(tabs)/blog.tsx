@@ -32,6 +32,7 @@ export default function BlogPage() {
   const [blogs, setBlogs] = useState<any[]>([]);
   const [searchText, setSearchText] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("all");
+  const [createVisible, setCreateVisible] = useState(false);
 
   const { data, isLoading, isFetching, refetch } = useFetchBlogsQuery(
     {
@@ -43,7 +44,7 @@ export default function BlogPage() {
           ? undefined
           : [categories.find((c) => c.key === selectedCategory)?.label || ""],
     },
-    { skip: false }
+    { skip: false },
   );
 
   useFocusEffect(
@@ -55,7 +56,7 @@ export default function BlogPage() {
           setBlogs((prev) => [...prev, ...data.data.result]);
         }
       }
-    }, [data, page])
+    }, [data, page]),
   );
 
   // Handle infinite scroll
@@ -165,6 +166,13 @@ export default function BlogPage() {
               ) : null
             }
           />
+
+          <TouchableOpacity
+            style={styles.fab}
+            onPress={() => setCreateVisible(true)}
+          >
+            <Text style={{ color: "white", fontSize: 24 }}>＋</Text>
+          </TouchableOpacity>
 
           {/* Initial Loading */}
           {isLoading && page === 0 && (
@@ -320,5 +328,17 @@ const styles = StyleSheet.create({
     marginTop: 50,
     justifyContent: "center",
     alignItems: "center",
+  },
+  fab: {
+    position: "absolute",
+    bottom: 24,
+    right: 24,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: "#2563eb",
+    justifyContent: "center",
+    alignItems: "center",
+    elevation: 5,
   },
 });
