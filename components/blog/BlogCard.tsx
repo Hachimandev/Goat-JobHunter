@@ -7,6 +7,7 @@ import { useRouter } from "expo-router";
 import { useState } from "react";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import Icon from "react-native-vector-icons/Feather";
+import CommentSheet from "./CommentSheet";
 import ReportTicketModal from "./ReportTicketModal";
 
 dayjs.extend(relativeTime);
@@ -22,6 +23,7 @@ export default function BlogCard({ blog, onLike, onSave }: BlogCardProps) {
   const router = useRouter();
   const [isReportVisible, setReportVisible] = useState(false);
   const timeAgo = dayjs(blog.createdAt).fromNow();
+  const [isCommentVisible, setCommentVisible] = useState(false);
 
   return (
     <TouchableOpacity
@@ -88,15 +90,25 @@ export default function BlogCard({ blog, onLike, onSave }: BlogCardProps) {
 
       <View style={styles.footerRow}>
         <View style={styles.leftStats}>
-          <TouchableOpacity style={styles.statItem} onPress={onLike}>
+          <TouchableOpacity
+            style={styles.statItem}
+            onPress={(e) => {
+              e.stopPropagation();
+              onLike?.();
+            }}
+          >
             <Icon name="thumbs-up" size={18} color="#666" />
             <Text style={styles.statText}>
               {blog.activity?.totalLikes || 0}
             </Text>
           </TouchableOpacity>
+
           <TouchableOpacity
             style={styles.statItem}
-            onPress={() => router.push(`/blog/${blog.blogId}`)}
+            onPress={(e) => {
+              e.stopPropagation();
+              setCommentVisible(!isCommentVisible);
+            }}
           >
             <Icon name="message-circle" size={18} color="#666" />
             <Text style={styles.statText}>
@@ -111,6 +123,11 @@ export default function BlogCard({ blog, onLike, onSave }: BlogCardProps) {
           </Text>
         </View>
       </View>
+      <CommentSheet
+        blogId={blog.blogId}
+        isVisible={isCommentVisible}
+        onClose={() => setCommentVisible(false)}
+      />
     </TouchableOpacity>
   );
 }
