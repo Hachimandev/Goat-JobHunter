@@ -1,4 +1,5 @@
 import BlogCard from "@/components/blog/BlogCard";
+import CreateBlogModal from "@/components/blog/CreateBlogModal";
 import { useFetchBlogsQuery } from "@/services/blog/blogApi";
 import { useFocusEffect } from "expo-router";
 import { useCallback, useState } from "react";
@@ -180,6 +181,14 @@ export default function BlogPage() {
               <ActivityIndicator size="large" />
             </View>
           )}
+          <CreateBlogModal
+            visible={createVisible}
+            onClose={() => setCreateVisible(false)}
+            onSuccess={() => {
+              setPage(0);
+              refetch();
+            }}
+          />
         </View>
       </SafeAreaView>
     </SafeAreaProvider>
