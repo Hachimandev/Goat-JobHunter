@@ -2,49 +2,61 @@ import dayjs from "dayjs";
 import { Image } from "expo-image";
 import React, { useState } from "react";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import CommentInput from "./CommentInput";
 
-export default function CommentItem({ comment, isReply = false }: any) {
+export default function CommentItem({ comment, blogId, isReply = false }: any) {
   const [showReplyInput, setShowReplyInput] = useState(false);
 
   return (
     <View style={[styles.wrapper, isReply && styles.replyMargin]}>
-      <View style={styles.mainContainer}>
+      <View style={styles.mainRow}>
         <Image
-          source={{ uri: comment.user?.avatar }}
+          source={{ uri: comment.commentedBy?.avatar }}
           style={isReply ? styles.avatarSmall : styles.avatar}
         />
         <View style={styles.contentSection}>
           <View style={styles.bubble}>
-            <Text style={styles.userName}>{comment.user?.fullName}</Text>
-            {/* Hiển thị @mention nếu là reply (tùy chọn) */}
-            <Text style={styles.commentText}>
-              {comment.parentId && (
-                <Text style={{ color: "#1976d2" }}>
-                  @{comment.replyToUser}{" "}
-                </Text>
-              )}
-              {comment.comment}
+            <Text style={styles.userName}>
+              {comment.commentedBy?.fullName || "Ẩn danh"}
             </Text>
+            <Text style={styles.commentText}>{comment.comment}</Text>
           </View>
+
           <View style={styles.actionRow}>
             <Text style={styles.timeText}>
               {dayjs(comment.createdAt).fromNow()}
             </Text>
-            <TouchableOpacity>
-              <Text style={styles.actionText}>Thích</Text>
-            </TouchableOpacity>
             <TouchableOpacity
               onPress={() => setShowReplyInput(!showReplyInput)}
             >
               <Text style={styles.actionText}>Trả lời</Text>
             </TouchableOpacity>
           </View>
+
+          {showReplyInput && (
+            <View style={styles.inputSpacing}>
+              <CommentInput
+                blogId={blogId}
+                replyTo={{
+                  commentId: comment.commentId,
+                  authorName: comment.commentedBy?.fullName,
+                }}
+                onCancelReply={() => setShowReplyInput(false)}
+              />
+            </View>
+          )}
         </View>
       </View>
+
       {comment.replies && comment.replies.length > 0 && (
         <View style={styles.nestedContainer}>
           {comment.replies.map((reply: any) => (
-            <CommentItem key={reply.id} comment={reply} isReply={true} />
+            <CommentItem
+              key={reply.commentId}
+              comment={reply}
+              blogId={blogId}
+              isReply={true}
+            />
           ))}
         </View>
       )}
@@ -55,7 +67,7 @@ export default function CommentItem({ comment, isReply = false }: any) {
 const styles = StyleSheet.create({
   wrapper: { marginBottom: 12 },
   replyMargin: { marginTop: 8 },
-  mainContainer: { flexDirection: "row" },
+  mainRow: { flexDirection: "row" },
   avatar: { width: 36, height: 36, borderRadius: 18 },
   avatarSmall: { width: 28, height: 28, borderRadius: 14 },
   contentSection: { flex: 1, marginLeft: 10 },
@@ -64,7 +76,7 @@ const styles = StyleSheet.create({
     padding: 10,
     borderRadius: 15,
     alignSelf: "flex-start",
-    maxWidth: "90%",
+    maxWidth: "95%",
   },
   userName: { fontWeight: "bold", fontSize: 13, marginBottom: 2 },
   commentText: { fontSize: 14, color: "#1c1e21", lineHeight: 20 },
@@ -78,4 +90,5 @@ const styles = StyleSheet.create({
     paddingLeft: 10,
     marginTop: 5,
   },
+  inputSpacing: { marginTop: 10 },
 });

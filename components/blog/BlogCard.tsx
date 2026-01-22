@@ -87,7 +87,10 @@ export default function BlogCard({ blog, onLike, onSave }: BlogCardProps) {
               {blog.activity?.totalLikes || 0}
             </Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.statItem}>
+          <TouchableOpacity
+            style={styles.statItem}
+            onPress={() => router.push(`/blog/${blog.blogId}`)}
+          >
             <Icon name="message-circle" size={18} color="#666" />
             <Text style={styles.statText}>
               {blog.activity?.totalComments || 0}
