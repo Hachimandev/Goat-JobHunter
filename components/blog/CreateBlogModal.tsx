@@ -1,3 +1,4 @@
+import useBlogActionsMobile from "@/hooks/useBlogActions";
 import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import { useState } from "react";
@@ -15,6 +16,8 @@ import {
 export default function CreateBlogModal({ visible, onClose, onSuccess }) {
   const [content, setContent] = useState("");
   const [images, setImages] = useState<any[]>([]);
+  const { handleCreateBlog, isCreating } = useBlogActionsMobile();
+  const isDisabled = isCreating || (!content.trim() && images.length === 0);
 
   const pickImage = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -29,13 +32,22 @@ export default function CreateBlogModal({ visible, onClose, onSuccess }) {
   };
 
   const handleSubmit = async () => {
-    await onSuccess();
-    setContent("");
-    setImages([]);
-    onClose();
-  };
+    if (isCreating) return;
 
-  const isDisabled = !content.trim() && images.length === 0;
+    try {
+      await handleCreateBlog({
+        content,
+        files: images,
+      });
+
+      setContent("");
+      setImages([]);
+      onSuccess?.();
+      onClose();
+    } catch (e) {
+      console.error("Error creating blog:", e);
+    }
+  };
 
   return (
     <Modal visible={visible} animationType="slide">
@@ -56,7 +68,9 @@ export default function CreateBlogModal({ visible, onClose, onSuccess }) {
               isDisabled && { backgroundColor: "#d1d5db" },
             ]}
           >
-            <Text style={styles.postText}>Đăng</Text>
+            <Text style={styles.postText}>
+              {isCreating ? "Đang đăng..." : "Đăng"}
+            </Text>
           </TouchableOpacity>
         </View>
 
