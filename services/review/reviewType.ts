@@ -9,15 +9,19 @@ export type ReviewsByCompanyRequest = {
 };
 
 export type CreateReviewRequest = {
-  companyId: number;
-  rating: number;
-  comment: string;
-  workEnvironmentRating: number;
-  compensationBenefitsRating: number;
-  managementLeadershipRating: number;
-  careerDevelopmentRating: number;
-  workLifeBalanceRating: number;
+  rating: {
+    overall: number;
+    salaryBenefits: number;
+    trainingLearning: number;
+    managementCaresAboutMe: number;
+    cultureFun: number;
+    officeWorkspace: number;
+  };
+  summary: string;
+  experience: string;
+  suggestion: string;
   recommended: boolean;
+  companyId: number;
 };
 
 export type ReviewsByCompanyResponse = IBackendRes<IModelPaginate<Review>>;
