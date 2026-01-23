@@ -44,11 +44,9 @@ export const authApi = api.injectEndpoints({
         try {
           const { data } = await queryFulfilled;
           
-          // Lưu token nếu backend trả về (check any type vì type definition chưa có token)
-          const responseData = data?.data as any;
-          if (responseData?.token) {
-            await tokenStorage.saveToken(responseData.token);
-          }
+          // Tokens are automatically saved via Set-Cookie headers (withCredentials: true)
+          // We save a dummy token to AsyncStorage as a flag for hasToken() checks
+          await tokenStorage.saveToken('cookie-authenticated');
           
           // Lưu user data vào Redux
           if (data?.data) {

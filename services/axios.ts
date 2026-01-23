@@ -9,7 +9,7 @@ import { tokenStorage } from './tokenStorage';
 const axiosClient = axios.create({
   baseURL: process.env.EXPO_PUBLIC_API_URL || 'http://localhost:5000/api/v1',
   timeout: 1000 * 60 * 10,
-  withCredentials: false, // Mobile không dùng cookie
+  withCredentials: true, // Enable cookie support for auth tokens
 });
 
 // ============================================================
@@ -42,16 +42,12 @@ const processQueue = (error: any, success: boolean = false) => {
 // ============================================================
 const refreshToken = async (): Promise<boolean> => {
   try {
+    // Cookies are automatically sent with withCredentials: true
     const response = await axiosClient.get(`/auth/refresh`);
 
     console.log('Refresh token success');
     
-    // Lưu token mới nếu backend trả về (check any type vì type definition chưa có token)
-    const responseData = response.data?.data as any;
-    if (responseData?.token) {
-      await tokenStorage.saveToken(responseData.token);
-    }
-    
+    // New tokens are automatically saved via Set-Cookie headers
     return response.status === 200;
   } catch (error) {
     console.error('Refresh token failed:', error);
@@ -98,17 +94,12 @@ const performLogout = async () => {
 };
 
 // ============================================================
-// Request Interceptor: Thêm Authorization header
+// Request Interceptor: Cookies are automatically included via withCredentials
 // ============================================================
 axiosClient.interceptors.request.use(
   async (config: InternalAxiosRequestConfig) => {
-    // Lấy token từ storage
-    const token = await tokenStorage.getToken();
-    
-    if (token && config.headers) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
-    
+    // No need to manually add Authorization header
+    // Cookies (accessToken, refreshToken) are automatically sent with each request
     return config;
   },
   (error) => {

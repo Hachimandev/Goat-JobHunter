@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, Image, TouchableOpacity, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, Image, TouchableOpacity, ScrollView, Alert } from 'react-native';
 import { Company } from '@/types/model';
 import { Ionicons } from '@expo/vector-icons';
 import AwardBadge from './AwardBadge';
 import { useUser } from '@/hooks/useUser';
+import ReviewFormModal from '@/components/review/ReviewFormModal';
+import useReviewActions from '@/hooks/useReviewActions';
 
 interface HeroSectionProps {
   company: Company;
@@ -15,12 +17,14 @@ interface HeroSectionProps {
 
 export default function HeroSection({ company, totalJobs, citiesArray, isFollowed, isReviewed }: HeroSectionProps) {
   const [logoError, setLogoError] = useState(false);
+  const [showReviewModal, setShowReviewModal] = useState(false);
   const { user } = useUser();
+  const { handleCreateReview, isCreating } = useReviewActions();
   const hasValidLogo = company.logo && company.logo.trim() !== '';
 
   const handleFollowClick = () => {
     if (!user) {
-      alert('Bạn phải đăng nhập để thực hiện chức năng này.');
+      Alert.alert('Thông báo', 'Bạn phải đăng nhập để thực hiện chức năng này.');
       return;
     }
     // TODO: Implement follow functionality
@@ -28,69 +32,91 @@ export default function HeroSection({ company, totalJobs, citiesArray, isFollowe
 
   const handleReviewClick = () => {
     if (!user) {
-      alert('Bạn phải đăng nhập để thực hiện chức năng này.');
+      Alert.alert('Thông báo', 'Bạn phải đăng nhập để thực hiện chức năng này.');
       return;
     }
-    // TODO: Implement review functionality
+    
+    if (isReviewed) {
+      Alert.alert('Thông báo', 'Bạn đã đánh giá công ty này rồi.');
+      return;
+    }
+    
+    setShowReviewModal(true);
   };
 
   return (
-    <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-      <View style={styles.content}>
-        <View style={styles.mainInfo}>
-          <View style={styles.logoContainer}>
-            {hasValidLogo && !logoError ? (
-              <Image
-                source={{ uri: company.logo }}
-                style={styles.logo}
-                onError={() => setLogoError(true)}
-                resizeMode="contain"
-              />
-            ) : (
-              <View style={styles.logoPlaceholder}>
-                <Text style={styles.logoPlaceholderText}>
-                  {company.name?.charAt(0).toUpperCase() || '?'}
-                </Text>
-              </View>
-            )}
-          </View>
-
-          <View style={styles.info}>
-            <Text style={styles.companyName}>{company.name}</Text>
-
-            <View style={styles.infoRow}>
-              {citiesArray.length > 0 && (
-                <View style={styles.infoItem}>
-                  <Ionicons name="location-outline" size={16} color="#6b7280" />
-                  <Text style={styles.infoText} numberOfLines={1}>
-                    {citiesArray.join(', ')}
+    <>
+      <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+        <View style={styles.content}>
+          <View style={styles.mainInfo}>
+            <View style={styles.logoContainer}>
+              {hasValidLogo && !logoError ? (
+                <Image
+                  source={{ uri: company.logo }}
+                  style={styles.logo}
+                  onError={() => setLogoError(true)}
+                  resizeMode="contain"
+                />
+              ) : (
+                <View style={styles.logoPlaceholder}>
+                  <Text style={styles.logoPlaceholderText}>
+                    {company.name?.charAt(0).toUpperCase() || '?'}
                   </Text>
                 </View>
               )}
-              <View style={styles.infoItem}>
-                <Ionicons name="briefcase-outline" size={16} color="#6b7280" />
-                <Text style={styles.infoText}>{totalJobs} việc làm</Text>
+            </View>
+
+            <View style={styles.info}>
+              <Text style={styles.companyName}>{company.name}</Text>
+
+              <View style={styles.infoRow}>
+                {citiesArray.length > 0 && (
+                  <View style={styles.infoItem}>
+                    <Ionicons name="location-outline" size={16} color="#6b7280" />
+                    <Text style={styles.infoText} numberOfLines={1}>
+                      {citiesArray.join(', ')}
+                    </Text>
+                  </View>
+                )}
+                <View style={styles.infoItem}>
+                  <Ionicons name="briefcase-outline" size={16} color="#6b7280" />
+                  <Text style={styles.infoText}>{totalJobs} việc làm</Text>
+                </View>
+              </View>
+
+              <View style={styles.buttonRow}>
+                <TouchableOpacity 
+                  style={[styles.reviewButton, isReviewed && styles.reviewButtonDisabled]} 
+                  onPress={handleReviewClick}
+                  disabled={isReviewed}
+                >
+                  <Text style={styles.reviewButtonText}>
+                    {isReviewed ? 'Đã đánh giá' : 'Viết đánh giá'}
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.followButton} onPress={handleFollowClick}>
+                  <Ionicons name="person-add-outline" size={18} color="#1976d2" />
+                  <Text style={styles.followButtonText}>Theo dõi</Text>
+                </TouchableOpacity>
               </View>
             </View>
-
-            <View style={styles.buttonRow}>
-              <TouchableOpacity style={styles.reviewButton} onPress={handleReviewClick}>
-                <Text style={styles.reviewButtonText}>Viết đánh giá</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.followButton} onPress={handleFollowClick}>
-                <Ionicons name="person-add-outline" size={18} color="#1976d2" />
-                <Text style={styles.followButtonText}>Theo dõi</Text>
-              </TouchableOpacity>
-            </View>
           </View>
-        </View>
 
-        <AwardBadge
-          year={company.awards && company.awards.length > 0 ? company.awards[0].year : undefined}
-          type={company.awards && company.awards.length > 0 ? company.awards[0].type : undefined}
-        />
-      </View>
-    </ScrollView>
+          <AwardBadge
+            year={company.awards && company.awards.length > 0 ? company.awards[0].year : undefined}
+            type={company.awards && company.awards.length > 0 ? company.awards[0].type : undefined}
+          />
+        </View>
+      </ScrollView>
+
+      <ReviewFormModal
+        visible={showReviewModal}
+        onClose={() => setShowReviewModal(false)}
+        company={company}
+        onSubmit={handleCreateReview}
+        isLoading={isCreating}
+      />
+    </>
   );
 }
 
@@ -176,6 +202,10 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 2,
     elevation: 2,
+  },
+  reviewButtonDisabled: {
+    backgroundColor: '#9ca3af',
+    opacity: 0.6,
   },
   reviewButtonText: {
     color: '#fff',
