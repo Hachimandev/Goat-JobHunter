@@ -1,22 +1,39 @@
-export const formatComments = (flatComments: any[]) => {
-  const map = new Map();
-  const roots: any[] = [];
+import { CommentType } from "@/types/model";
 
-  flatComments.forEach(comment => {
-    map.set(comment.id, { ...comment, replies: [] });
+export interface NestedComment extends CommentType {
+  replies?: NestedComment[];
+  level: number;
+}
+
+export const formatComments = (comments: CommentType[]): NestedComment[] => {
+  if (!comments || comments.length === 0) return [];
+
+  const commentMap = new Map<number, NestedComment>();
+  const rootComments: NestedComment[] = [];
+  comments.forEach((comment) => {
+    commentMap.set(comment.commentId, {
+      ...comment,
+      replies: [],
+      level: 0,
+    });
   });
 
-  flatComments.forEach(comment => {
-    const node = map.get(comment.id);
-    if (comment.parentId) {
-      const parent = map.get(comment.parentId);
-      if (parent) {
-        parent.replies.push(node);
-      }
+  comments.forEach((comment) => {
+    const current = commentMap.get(comment.commentId)!;
+    const parentId = comment.parent?.commentId;
+
+    if (!parentId) {
+      rootComments.push(current);
     } else {
-      roots.push(node);
+      const parent = commentMap.get(Number(parentId));
+      if (parent) {
+        current.level = parent.level + 1;
+        parent.replies?.push(current);
+      } else {
+        rootComments.push(current);
+      }
     }
   });
 
-  return roots;
+  return rootComments;
 };

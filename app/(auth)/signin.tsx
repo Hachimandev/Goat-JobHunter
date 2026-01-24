@@ -14,12 +14,9 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useSigninMutation } from '../../services/auth/authApi';
-import { useAppDispatch } from '../../lib/hooks';
-import { setUser } from '../../lib/authSlice';
 
 export default function SignInScreen() {
   const router = useRouter();
-  const dispatch = useAppDispatch();
   const [signin, { isLoading }] = useSigninMutation();
 
   const [email, setEmail] = useState('');
@@ -50,9 +47,8 @@ export default function SignInScreen() {
       const result = await signin({ email, password }).unwrap();
 
       if (result.statusCode === 200 && result.data) {
-        // Save user to Redux
-        dispatch(setUser(result.data));
-
+        // Token và user data đã được tự động lưu trong authApi.onQueryStarted
+        
         // Navigate based on role
         Alert.alert('Thành công', 'Đăng nhập thành công!', [
           {
@@ -65,6 +61,25 @@ export default function SignInScreen() {
       }
     } catch (error: any) {
       console.error('Login error:', error);
+      
+      // Handle account locked error
+      if (error?.status === 400 && error?.data?.message === 'Account is locked') {
+        Alert.alert(
+          'Tài khoản bị khóa',
+          'Tài khoản của bạn đã bị khóa. Vui lòng kích hoạt lại.',
+          [
+            {
+              text: 'Kích hoạt ngay',
+              onPress: () => {
+                router.push(`/(auth)/otp?email=${email}`);
+              },
+            },
+            { text: 'Hủy', style: 'cancel' },
+          ]
+        );
+        return;
+      }
+      
       const errorMessage = error?.data?.message || 'Email hoặc mật khẩu không đúng';
       setErrors({ root: errorMessage });
     }
