@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, Image, TouchableOpacity, ScrollView, Alert } from 'react-native';
 import { Company } from '@/types/model';
 import { Ionicons } from '@expo/vector-icons';
@@ -6,6 +6,7 @@ import AwardBadge from './AwardBadge';
 import { useUser } from '@/hooks/useUser';
 import ReviewFormModal from '@/components/review/ReviewFormModal';
 import useReviewActions from '@/hooks/useReviewActions';
+import useCompanyActions from '@/hooks/useCompanyActions';
 
 interface HeroSectionProps {
   company: Company;
@@ -18,16 +19,25 @@ interface HeroSectionProps {
 export default function HeroSection({ company, totalJobs, citiesArray, isFollowed, isReviewed }: HeroSectionProps) {
   const [logoError, setLogoError] = useState(false);
   const [showReviewModal, setShowReviewModal] = useState(false);
+  const [localIsFollowed, setLocalIsFollowed] = useState(isFollowed);
   const { user } = useUser();
   const { handleCreateReview, isCreating } = useReviewActions();
+  const { handleToggleFollowCompany, isLoading: isFollowLoading } = useCompanyActions();
   const hasValidLogo = company.logo && company.logo.trim() !== '';
 
-  const handleFollowClick = () => {
+  // Sync local state with prop
+  useEffect(() => {
+    setLocalIsFollowed(isFollowed);
+  }, [isFollowed]);
+
+  const handleFollowClick = async () => {
     if (!user) {
       Alert.alert('Thông báo', 'Bạn phải đăng nhập để thực hiện chức năng này.');
       return;
     }
-    // TODO: Implement follow functionality
+    
+    await handleToggleFollowCompany(company, localIsFollowed);
+    setLocalIsFollowed(!localIsFollowed);
   };
 
   const handleReviewClick = () => {
@@ -42,6 +52,11 @@ export default function HeroSection({ company, totalJobs, citiesArray, isFollowe
     }
     
     setShowReviewModal(true);
+  };
+
+  const handleSubmitReview = async (data: any) => {
+    await handleCreateReview(data);
+    setShowReviewModal(false);
   };
 
   return (
@@ -94,9 +109,25 @@ export default function HeroSection({ company, totalJobs, citiesArray, isFollowe
                     {isReviewed ? 'Đã đánh giá' : 'Viết đánh giá'}
                   </Text>
                 </TouchableOpacity>
-                <TouchableOpacity style={styles.followButton} onPress={handleFollowClick}>
-                  <Ionicons name="person-add-outline" size={18} color="#1976d2" />
-                  <Text style={styles.followButtonText}>Theo dõi</Text>
+                <TouchableOpacity 
+                  style={[
+                    styles.followButton, 
+                    localIsFollowed && styles.followButtonActive
+                  ]} 
+                  onPress={handleFollowClick}
+                  disabled={isFollowLoading}
+                >
+                  <Ionicons 
+                    name={localIsFollowed ? "checkmark-outline" : "person-add-outline"} 
+                    size={18} 
+                    color={localIsFollowed ? "#fff" : "#1976d2"} 
+                  />
+                  <Text style={[
+                    styles.followButtonText,
+                    localIsFollowed && styles.followButtonTextActive
+                  ]}>
+                    {localIsFollowed ? 'Đang theo dõi' : 'Theo dõi'}
+                  </Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -113,7 +144,7 @@ export default function HeroSection({ company, totalJobs, citiesArray, isFollowe
         visible={showReviewModal}
         onClose={() => setShowReviewModal(false)}
         company={company}
-        onSubmit={handleCreateReview}
+        onSubmit={handleSubmitReview}
         isLoading={isCreating}
       />
     </>
@@ -229,10 +260,17 @@ const styles = StyleSheet.create({
     shadowRadius: 2,
     elevation: 2,
   },
+  followButtonActive: {
+    backgroundColor: '#1976d2',
+    borderColor: '#1976d2',
+  },
   followButtonText: {
     color: '#1976d2',
     fontSize: 14,
     fontWeight: '700',
+  },
+  followButtonTextActive: {
+    color: '#fff',
   },
 });
 
