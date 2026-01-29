@@ -33,7 +33,7 @@ export default function ChatListScreen({ onOpenChat }) {
         renderItem={({ item }) => (
           <TouchableOpacity
             style={styles.chatItem}
-            onPress={() => onOpenChat(item)}
+            onPress={() => onOpenChat?.(item)}
           >
             <Image source={{ uri: item.avatar }} style={styles.avatar} />
             <View style={styles.chatContent}>
