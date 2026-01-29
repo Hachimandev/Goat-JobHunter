@@ -1,3 +1,4 @@
+import { router } from "expo-router";
 import React from "react";
 import {
   FlatList,
@@ -20,7 +21,7 @@ const chats = [
   },
 ];
 
-export default function ChatListScreen({ onOpenChat }) {
+export default function ChatListScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.searchBar}>
@@ -33,23 +34,21 @@ export default function ChatListScreen({ onOpenChat }) {
         renderItem={({ item }) => (
           <TouchableOpacity
             style={styles.chatItem}
-            onPress={() => onOpenChat?.(item)}
+            onPress={() =>
+              router.push({
+                pathname: "/chat/[id]",
+                params: { id: item.id, name: item.name },
+              })
+            }
           >
             <Image source={{ uri: item.avatar }} style={styles.avatar} />
             <View style={styles.chatContent}>
               <Text style={styles.chatName}>{item.name}</Text>
-              <Text style={styles.chatMessage} numberOfLines={1}>
+              <Text numberOfLines={1} style={styles.chatMessage}>
                 {item.lastMessage}
               </Text>
             </View>
-            <View style={styles.chatRight}>
-              <Text style={styles.chatTime}>{item.time}</Text>
-              {item.unread > 0 && (
-                <View style={styles.unreadBadge}>
-                  <Text style={styles.unreadText}>{item.unread}</Text>
-                </View>
-              )}
-            </View>
+            <Text style={styles.chatTime}>{item.time}</Text>
           </TouchableOpacity>
         )}
       />

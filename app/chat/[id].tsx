@@ -1,4 +1,5 @@
-import React, { useState } from "react";
+import { router, useLocalSearchParams } from "expo-router";
+import { useState } from "react";
 import {
   FlatList,
   StyleSheet,
@@ -7,21 +8,21 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-
 import { SafeAreaView } from "react-native-safe-area-context";
 
 const CURRENT_USER = "me";
 
-const initialMessages = [{ id: "1", from: "me", text: "Ok", time: "08:31" }];
-
-export default function ChatBoxCard({ user, onBack }) {
-  const [messages, setMessages] = useState(initialMessages);
+export default function ChatDetail() {
+  const { name } = useLocalSearchParams<{ name: string }>();
+  const [messages, setMessages] = useState([
+    { id: "1", from: "me", text: "Ok" },
+  ]);
   const [text, setText] = useState("");
 
   const send = () => {
     if (!text.trim()) return;
-    setMessages([
-      ...messages,
+    setMessages((prev) => [
+      ...prev,
       { id: Date.now().toString(), from: CURRENT_USER, text },
     ]);
     setText("");
@@ -29,13 +30,15 @@ export default function ChatBoxCard({ user, onBack }) {
 
   return (
     <SafeAreaView style={styles.container}>
+      {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => onBack?.()}>
+        <TouchableOpacity onPress={router.back}>
           <Text style={styles.back}>←</Text>
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>{user.name}</Text>
+        <Text style={styles.headerTitle}>{name}</Text>
       </View>
 
+      {/* Messages */}
       <FlatList
         data={messages}
         keyExtractor={(item) => item.id}
@@ -64,6 +67,7 @@ export default function ChatBoxCard({ user, onBack }) {
         }}
       />
 
+      {/* Input */}
       <View style={styles.inputBar}>
         <TextInput
           value={text}
