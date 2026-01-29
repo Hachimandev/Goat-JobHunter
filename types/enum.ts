@@ -54,3 +54,9 @@ export const reasonLabels: Record<ReportReason, string> = {
   [ReportReason.FALSE_INFO]: "Tin giả",
   [ReportReason.OTHER]: "Lý do khác",
 };
+
+export enum Gender {
+  NAM = "NAM",
+  NU = "NU",
+  OTHER = "OTHER",
+}

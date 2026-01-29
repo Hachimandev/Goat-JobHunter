@@ -1,17 +1,17 @@
-import React from 'react';
+import { useRouter } from "expo-router";
+import React from "react";
 import {
-  View,
-  Text,
-  StyleSheet,
   ScrollView,
+  StyleSheet,
+  Text,
   TouchableOpacity,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
-import { useAppSelector, useAppDispatch } from '../../lib/hooks';
-import { clearUser } from '../../lib/authSlice';
-import { useLogoutMutation } from '../../services/auth/authApi';
-import { tokenStorage } from '../../services/tokenStorage';
+  View,
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { clearUser } from "../../lib/authSlice";
+import { useAppDispatch, useAppSelector } from "../../lib/hooks";
+import { useLogoutMutation } from "../../services/auth/authApi";
+import { tokenStorage } from "../../services/tokenStorage";
 
 export default function ProfileScreen() {
   const router = useRouter();
@@ -20,7 +20,11 @@ export default function ProfileScreen() {
   const [logout] = useLogoutMutation();
 
   const handleLogin = () => {
-    router.push('/(auth)/signin');
+    router.push("/(auth)/signin");
+  };
+
+  const handleGoToInfo = () => {
+    router.push("/profile/info");
   };
 
   const handleLogout = async () => {
@@ -28,27 +32,27 @@ export default function ProfileScreen() {
       // Clear tokens TRƯỚC khi gọi logout API
       // Vì logout không cần token hợp lệ, và tránh interceptor cố refresh
       await tokenStorage.clearTokens();
-      
+
       // Clear Redux state
       dispatch(clearUser());
-      
+
       // Try to call logout API (best effort)
       try {
         await logout().unwrap();
       } catch (apiError) {
         // Ignore API error - tokens đã clear rồi
-        console.log('Logout API failed (ignored):', apiError);
+        console.log("Logout API failed (ignored):", apiError);
       }
-      
+
       // Navigate to home
-      router.replace('/');
+      router.replace("/");
     } catch (error) {
-      console.error('Logout error:', error);
-      
+      console.error("Logout error:", error);
+
       // Fallback: ensure everything is cleared
       await tokenStorage.clearTokens();
       dispatch(clearUser());
-      router.replace('/');
+      router.replace("/");
     }
   };
 
@@ -68,14 +72,14 @@ export default function ProfileScreen() {
             <Text style={styles.subtitle}>
               Đăng nhập để truy cập đầy đủ tính năng
             </Text>
-            
+
             <TouchableOpacity style={styles.loginButton} onPress={handleLogin}>
               <Text style={styles.loginButtonText}>Đăng nhập</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity 
+            <TouchableOpacity
               style={styles.signupButton}
-              onPress={() => router.push('/(auth)/signup')}
+              onPress={() => router.push("/(auth)/signup")}
             >
               <Text style={styles.signupButtonText}>Tạo tài khoản mới</Text>
             </TouchableOpacity>
@@ -84,7 +88,7 @@ export default function ProfileScreen() {
           {/* Guest features */}
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Dành cho khách</Text>
-            
+
             <TouchableOpacity style={styles.menuItem}>
               <Text style={styles.menuIcon}>📋</Text>
               <Text style={styles.menuText}>Xem việc làm</Text>
@@ -113,15 +117,18 @@ export default function ProfileScreen() {
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.scrollContent}>
         {/* User info */}
-        <View style={styles.userInfoContainer}>
+        <TouchableOpacity
+          style={styles.userInfoContainer}
+          onPress={handleGoToInfo}
+        >
           <View style={styles.avatar}>
             <Text style={styles.avatarText}>
-              {user.fullName?.charAt(0) || 'U'}
+              {user.fullName?.charAt(0) || "U"}
             </Text>
           </View>
-          <Text style={styles.userName}>{user.fullName || 'User'}</Text>
+          <Text style={styles.userName}>{user.fullName || "User"}</Text>
           <Text style={styles.userEmail}>{user.email}</Text>
-        </View>
+        </TouchableOpacity>
 
         {/* Menu items */}
         <View style={styles.section}>
@@ -168,25 +175,25 @@ export default function ProfileScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f9fafb',
+    backgroundColor: "#f9fafb",
   },
   scrollContent: {
     flexGrow: 1,
   },
   header: {
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
     paddingVertical: 16,
     paddingHorizontal: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#e5e7eb',
+    borderBottomColor: "#e5e7eb",
   },
   headerTitle: {
     fontSize: 24,
-    fontWeight: 'bold',
-    color: '#111827',
+    fontWeight: "bold",
+    color: "#111827",
   },
   notLoggedInContainer: {
-    alignItems: 'center',
+    alignItems: "center",
     paddingVertical: 60,
     paddingHorizontal: 24,
   },
@@ -196,57 +203,57 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 24,
-    fontWeight: 'bold',
-    color: '#111827',
+    fontWeight: "bold",
+    color: "#111827",
     marginBottom: 8,
   },
   subtitle: {
     fontSize: 14,
-    color: '#6b7280',
-    textAlign: 'center',
+    color: "#6b7280",
+    textAlign: "center",
     marginBottom: 32,
   },
   loginButton: {
-    backgroundColor: '#1976d2',
+    backgroundColor: "#1976d2",
     paddingVertical: 16,
     paddingHorizontal: 32,
     borderRadius: 12,
-    width: '100%',
+    width: "100%",
     marginBottom: 12,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 3,
   },
   loginButtonText: {
-    color: '#fff',
+    color: "#fff",
     fontSize: 16,
-    fontWeight: 'bold',
-    textAlign: 'center',
+    fontWeight: "bold",
+    textAlign: "center",
   },
   signupButton: {
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
     paddingVertical: 16,
     paddingHorizontal: 32,
     borderRadius: 12,
-    width: '100%',
+    width: "100%",
     borderWidth: 1,
-    borderColor: '#e5e7eb',
+    borderColor: "#e5e7eb",
   },
   signupButtonText: {
-    color: '#374151',
+    color: "#374151",
     fontSize: 16,
-    fontWeight: '600',
-    textAlign: 'center',
+    fontWeight: "600",
+    textAlign: "center",
   },
   section: {
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
     marginTop: 16,
     marginHorizontal: 16,
     borderRadius: 12,
     padding: 8,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
     shadowRadius: 2,
@@ -254,15 +261,15 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: 14,
-    fontWeight: '600',
-    color: '#6b7280',
+    fontWeight: "600",
+    color: "#6b7280",
     paddingHorizontal: 12,
     paddingVertical: 8,
-    textTransform: 'uppercase',
+    textTransform: "uppercase",
   },
   menuItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     paddingVertical: 16,
     paddingHorizontal: 12,
     borderRadius: 8,
@@ -274,57 +281,56 @@ const styles = StyleSheet.create({
   menuText: {
     flex: 1,
     fontSize: 16,
-    color: '#111827',
+    color: "#111827",
   },
   menuArrow: {
     fontSize: 24,
-    color: '#9ca3af',
+    color: "#9ca3af",
   },
   userInfoContainer: {
-    alignItems: 'center',
+    alignItems: "center",
     paddingVertical: 32,
     paddingHorizontal: 24,
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
   },
   avatar: {
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: '#1976d2',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "#1976d2",
+    justifyContent: "center",
+    alignItems: "center",
     marginBottom: 16,
   },
   avatarText: {
     fontSize: 32,
-    fontWeight: 'bold',
-    color: '#fff',
+    fontWeight: "bold",
+    color: "#fff",
   },
   userName: {
     fontSize: 20,
-    fontWeight: 'bold',
-    color: '#111827',
+    fontWeight: "bold",
+    color: "#111827",
     marginBottom: 4,
   },
   userEmail: {
     fontSize: 14,
-    color: '#6b7280',
+    color: "#6b7280",
   },
   logoutButton: {
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
     marginHorizontal: 16,
     marginTop: 16,
     marginBottom: 24,
     paddingVertical: 16,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#ef4444',
+    borderColor: "#ef4444",
   },
   logoutButtonText: {
-    color: '#ef4444',
+    color: "#ef4444",
     fontSize: 16,
-    fontWeight: '600',
-    textAlign: 'center',
+    fontWeight: "600",
+    textAlign: "center",
   },
 });
-
