@@ -14,7 +14,7 @@ const chats = [
   {
     id: "1",
     name: "Sơn Lưu",
-    lastMessage: "hello",
+    lastMessage: "ok",
     time: "4 giờ",
     unread: 0,
     avatar: "https://i.pravatar.cc/100?img=3",

@@ -1,3 +1,4 @@
+import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
 import { useState } from "react";
 import {
@@ -15,7 +16,8 @@ const CURRENT_USER = "me";
 export default function ChatDetail() {
   const { name } = useLocalSearchParams<{ name: string }>();
   const [messages, setMessages] = useState([
-    { id: "1", from: "me", text: "Ok" },
+    { id: "1", from: "Sơn Lưu", text: "hello" },
+    { id: "2", from: "me", text: "Ok" },
   ]);
   const [text, setText] = useState("");
 
@@ -27,15 +29,47 @@ export default function ChatDetail() {
     ]);
     setText("");
   };
+  const goBack = () => router.back();
 
   return (
     <SafeAreaView style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={router.back}>
-          <Text style={styles.back}>←</Text>
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>{name}</Text>
+        {/* left */}
+        <View style={styles.headerLeft}>
+          <TouchableOpacity onPress={goBack}>
+            <Ionicons name="chevron-back" size={24} color="#fff" />
+          </TouchableOpacity>
+          <View style={styles.headerInfo}>
+            <Text style={styles.headerTitle}>{name}</Text>
+            <Text style={styles.headerStatus}>Hoạt động 5 phút trước</Text>
+          </View>
+        </View>
+        {/* right */}
+        <View style={styles.headerActions}>
+          <TouchableOpacity onPress={() => console.log("Call")}>
+            <Ionicons name="call-outline" size={22} color="#fff" />
+          </TouchableOpacity>
+
+          <TouchableOpacity onPress={() => console.log("Video call")}>
+            <Ionicons name="videocam-outline" size={22} color="#fff" />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            onPress={() =>
+              router.push({
+                pathname: "/chat/detail",
+                params: { name },
+              })
+            }
+          >
+            <Ionicons
+              name="information-circle-outline"
+              size={24}
+              color="#fff"
+            />
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Messages */}
@@ -92,6 +126,7 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: "row",
     alignItems: "center",
+    justifyContent: "space-between",
     backgroundColor: "#0084FF",
     height: 56,
     paddingHorizontal: 12,
@@ -103,7 +138,7 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     color: "#fff",
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: "600",
   },
 
@@ -145,5 +180,22 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     alignItems: "center",
     justifyContent: "center",
+  },
+  headerLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  headerInfo: {
+    marginLeft: 4,
+  },
+
+  headerActions: {
+    flexDirection: "row",
+    gap: 16,
+  },
+  headerStatus: {
+    color: "#E0E0E0",
+    fontSize: 12,
   },
 });
