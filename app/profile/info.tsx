@@ -36,7 +36,7 @@ export default function ProfileInfoScreen() {
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Thông tin cá nhân</Text>
         <TouchableOpacity
-          //   onPress={() => router.push("/profile/edit")}
+          onPress={() => router.push("/profile/edit")}
           activeOpacity={0.6}
         >
           <Text style={styles.editHeaderText}>Cập nhật</Text>
