@@ -1,13 +1,13 @@
-import { Stack } from 'expo-router';
-import { Provider } from 'react-redux';
-import { PersistGate } from 'redux-persist/integration/react';
-import { store, persistor } from '../lib/store';
-import React, { useEffect, useState } from 'react';
-import { useAppDispatch } from '../lib/hooks';
-import { setUser } from '../lib/authSlice';
-import { useGetMyAccountQuery } from '../services/auth/authApi';
-import { ActivityIndicator, View } from 'react-native';
-import { tokenStorage } from '../services/tokenStorage';
+import { Stack } from "expo-router";
+import React, { useEffect, useState } from "react";
+import { ActivityIndicator, View } from "react-native";
+import { Provider } from "react-redux";
+import { PersistGate } from "redux-persist/integration/react";
+import { setUser } from "../lib/authSlice";
+import { useAppDispatch } from "../lib/hooks";
+import { persistor, store } from "../lib/store";
+import { useGetMyAccountQuery } from "../services/auth/authApi";
+import { tokenStorage } from "../services/tokenStorage";
 
 // Component to check auth on app start
 function AuthChecker() {
@@ -37,7 +37,7 @@ function AuthChecker() {
         setUser({
           user: data.data,
           roles: data.data.role ? [data.data.role.name] : [],
-        })
+        }),
       );
     } else if (isError) {
       // Clear token if fetch failed
@@ -48,7 +48,7 @@ function AuthChecker() {
   // Show loading while checking
   if (checkingToken || (hasToken && isLoading)) {
     return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+      <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
         <ActivityIndicator size="large" color="#2563eb" />
       </View>
     );
@@ -69,7 +69,10 @@ export default function RootLayout() {
         >
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
           <Stack.Screen name="jobs/[id]" options={{ headerShown: false }} />
-          <Stack.Screen name="companies/[id]" options={{ headerShown: false }} />
+          <Stack.Screen
+            name="companies/[id]"
+            options={{ headerShown: false }}
+          />
           <Stack.Screen name="(auth)" options={{ headerShown: false }} />
         </Stack>
       </PersistGate>
