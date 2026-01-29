@@ -1,10 +1,12 @@
+import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
-import React from "react";
+import React, { useState } from "react";
 import {
   FlatList,
   Image,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
@@ -22,14 +24,26 @@ const chats = [
 ];
 
 export default function ChatListScreen() {
+  const [search, setSearch] = useState("");
+
+  const filteredChats = chats.filter((chat) =>
+    chat.name.toLowerCase().includes(search.toLowerCase()),
+  );
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.searchBar}>
-        <Text style={styles.searchText}>🔍 Tìm kiếm</Text>
+        <Ionicons name="search" size={18} color="#fff" />
+        <TextInput
+          value={search}
+          onChangeText={setSearch}
+          placeholder="Tìm kiếm"
+          placeholderTextColor="#E0E0E0"
+          style={styles.searchInput}
+        />
       </View>
 
       <FlatList
-        data={chats}
+        data={filteredChats}
         keyExtractor={(item) => item.id}
         renderItem={({ item }) => (
           <TouchableOpacity
@@ -63,8 +77,18 @@ const styles = StyleSheet.create({
   },
 
   searchBar: {
-    padding: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 12,
+    paddingVertical: 8,
     backgroundColor: "#0084FF",
+  },
+
+  searchInput: {
+    flex: 1,
+    marginLeft: 8,
+    color: "#fff",
+    fontSize: 16,
   },
   searchText: {
     color: "#fff",
