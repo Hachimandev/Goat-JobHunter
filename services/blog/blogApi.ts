@@ -124,10 +124,10 @@ export const blogApi = api.injectEndpoints({
     }),
 
     createComment: builder.mutation<unknown, CreateCommentRequest>({
-      query: (body) => ({
+      query: (data) => ({
         url: "/comments",
         method: "POST",
-        body,
+        data,
       }),
       invalidatesTags: ["Comment", "Blog"],
     }),

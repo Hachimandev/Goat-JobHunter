@@ -1,4 +1,4 @@
-import { useAuthSlice } from '@/lib/authSlice';
+import { useAuthSlice } from "@/lib/authSlice";
 
 export function useUser() {
   const { user, isAuthenticated } = useAuthSlice();
@@ -8,4 +8,3 @@ export function useUser() {
     isSignedIn: isAuthenticated,
   };
 }
-

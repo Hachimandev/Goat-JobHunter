@@ -55,6 +55,15 @@ export default function TabsLayout() {
         }}
       />
       <Tabs.Screen
+        name="chat"
+        options={{
+          title: "Chat",
+          tabBarIcon: ({ color }) => (
+            <Icon color={color} size={24} source={"chat-outline"}></Icon>
+          ),
+        }}
+      />
+      <Tabs.Screen
         name="profile"
         options={{
           title: "Cá nhân",
@@ -65,6 +74,12 @@ export default function TabsLayout() {
       />
       <Tabs.Screen
         name="blog/[id]"
+        options={{
+          href: null,
+        }}
+      />
+      <Tabs.Screen
+        name="profile/info"
         options={{
           href: null,
         }}

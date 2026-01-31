@@ -1,18 +1,39 @@
-import { useCreateCommentMutation } from "@/services/blog/blogApi";
+import {
+  useCreateCommentMutation,
+  useDeleteCommentMutation,
+} from "@/services/blog/blogApi";
 import { Alert } from "react-native";
 import { useUser } from "./useUser";
 
 export default function useCommentActions() {
-  const { isSignedIn } = useUser();
+  const { user, isSignedIn } = useUser();
+
   const [createComment, { isLoading: isCommenting }] =
     useCreateCommentMutation();
+  const [deleteComment, { isLoading: isDeleting }] = useDeleteCommentMutation();
+
+  const checkAuth = () => {
+    if (!isSignedIn || !user) {
+      Alert.alert(
+        "Thông báo",
+        "Bạn phải đăng nhập để thực hiện chức năng này.",
+      );
+      return false;
+    }
+    return true;
+  };
 
   const handleCommentBlog = async (blogId: number, comment: string) => {
-    if (!isSignedIn) return Alert.alert("Lỗi", "Bạn cần đăng nhập");
+    if (!checkAuth()) return;
+
     try {
-      await createComment({ blogId, comment }).unwrap();
-    } catch (e) {
-      Alert.alert("Lỗi", "Không thể gửi bình luận");
+      await createComment({
+        blogId,
+        comment,
+      }).unwrap();
+    } catch (e: any) {
+      console.log("Lỗi gửi comment:", e);
+      Alert.alert("Lỗi", "Không thể bình luận bây giờ.");
     }
   };
 
@@ -21,7 +42,8 @@ export default function useCommentActions() {
     commentId: number,
     reply: string,
   ) => {
-    if (!isSignedIn) return Alert.alert("Lỗi", "Bạn cần đăng nhập");
+    if (!checkAuth()) return;
+
     try {
       await createComment({
         blogId,
@@ -29,9 +51,26 @@ export default function useCommentActions() {
         replyTo: commentId,
       }).unwrap();
     } catch (e) {
-      Alert.alert("Lỗi", "Không thể gửi câu trả lời");
+      Alert.alert("Lỗi", "Không thể trả lời bình luận.");
     }
   };
 
-  return { handleCommentBlog, handleReplyComment, isCommenting };
+  const handleDeleteComment = async (commentId: number) => {
+    if (!checkAuth()) return;
+
+    try {
+      await deleteComment(commentId).unwrap();
+      console.log("API Xóa thành công ID:", commentId);
+    } catch (e: any) {
+      console.error("Lỗi API xóa:", e);
+    }
+  };
+
+  return {
+    handleCommentBlog,
+    handleReplyComment,
+    handleDeleteComment,
+    isCommenting,
+    isDeleting,
+  };
 }

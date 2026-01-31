@@ -1,14 +1,38 @@
+import useCommentActions from "@/hooks/useCommentActions";
+import { useUser } from "@/hooks/useUser";
 import dayjs from "dayjs";
 import { Image } from "expo-image";
 import React, { useState } from "react";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import Icon from "react-native-vector-icons/Feather";
 import CommentInput from "./CommentInput";
 import ReportTicketModal from "./ReportTicketModal";
 
 export default function CommentItem({ comment, blogId, isReply = false }: any) {
+  const { user } = useUser();
+  const { handleDeleteComment } = useCommentActions();
   const [showReplyInput, setShowReplyInput] = useState(false);
   const [isReportVisible, setReportVisible] = useState(false);
 
+  const isOwner = user && user.accountId === comment.commentedBy?.accountId;
+  const handleDelete = async () => {
+    try {
+      await handleDeleteComment(comment.commentId);
+      console.log("Đã kích hoạt xóa bình luận ID:", comment.commentId);
+    } catch (error) {
+      console.error("Lỗi khi test xóa:", error);
+    }
+  };
+  // const confirmDelete = () => {
+  //   Alert.alert("Xóa bình luận?", "Hành động này không thể hoàn tác.", [
+  //     { text: "Hủy", style: "cancel" },
+  //     {
+  //       text: "Xóa",
+  //       style: "destructive",
+  //       onPress: async () => await handleDeleteComment(comment.commentId),
+  //     },
+  //   ]);
+  // };
   return (
     <>
       <View style={[styles.wrapper, isReply && styles.replyMargin]}>
@@ -22,6 +46,14 @@ export default function CommentItem({ comment, blogId, isReply = false }: any) {
               <Text style={styles.userName}>
                 {comment.commentedBy?.fullName || "Ẩn danh"}
               </Text>
+              {comment.parent && (
+                <Text style={styles.replyToText}>
+                  Trả lời{" "}
+                  <Text style={{ fontWeight: "bold" }}>
+                    {comment.parent.commentedBy?.fullName}
+                  </Text>
+                </Text>
+              )}
               <Text style={styles.commentText}>{comment.comment}</Text>
             </View>
 
@@ -37,6 +69,22 @@ export default function CommentItem({ comment, blogId, isReply = false }: any) {
               <TouchableOpacity onPress={() => setReportVisible(true)}>
                 <Text style={styles.actionText}>Báo cáo</Text>
               </TouchableOpacity>
+              {isOwner && (
+                <TouchableOpacity
+                  onPress={handleDelete}
+                  style={styles.deleteBtn}
+                >
+                  <Icon name="trash-2" size={14} color="#ef4444" />
+                </TouchableOpacity>
+              )}
+              {/* {isOwner && (
+                <TouchableOpacity
+                  onPress={confirmDelete}
+                  style={styles.deleteBtn}
+                >
+                  <Icon name="trash-2" size={14} color="#ef4444" />
+                </TouchableOpacity>
+              )} */}
             </View>
 
             {showReplyInput && (
@@ -104,4 +152,6 @@ const styles = StyleSheet.create({
     marginTop: 5,
   },
   inputSpacing: { marginTop: 10 },
+  deleteBtn: { marginLeft: "auto", paddingRight: 10 },
+  replyToText: { fontSize: 11, color: "#1976d2", marginBottom: 2 },
 });
