@@ -1,3 +1,4 @@
+import useBlogActionsMobile from "@/hooks/useBlogActions";
 import { Blog } from "@/types/model";
 import dayjs from "dayjs";
 import "dayjs/locale/vi";
@@ -16,14 +17,34 @@ dayjs.locale("vi");
 type BlogCardProps = {
   blog: Blog;
   onLike?: () => void;
-  onSave?: () => void;
+  isSaved?: boolean;
 };
 
-export default function BlogCard({ blog, onLike, onSave }: BlogCardProps) {
+export default function BlogCard({
+  blog,
+  onLike,
+  isSaved: initialIsSaved,
+}: BlogCardProps) {
   const router = useRouter();
   const [isReportVisible, setReportVisible] = useState(false);
   const timeAgo = dayjs(blog.createdAt).fromNow();
   const [isCommentVisible, setCommentVisible] = useState(false);
+
+  const { handleToggleSaveBlog, isSaving } = useBlogActionsMobile();
+  const [isSaved, setIsSaved] = useState(initialIsSaved);
+
+  const onSavePress = async () => {
+    const currentSavedStatus = !!isSaved;
+    const newSavedStatus = !currentSavedStatus;
+
+    setIsSaved(newSavedStatus);
+
+    try {
+      await handleToggleSaveBlog(blog.blogId, currentSavedStatus);
+    } catch (err) {
+      setIsSaved(currentSavedStatus);
+    }
+  };
 
   return (
     <TouchableOpacity
@@ -42,8 +63,16 @@ export default function BlogCard({ blog, onLike, onSave }: BlogCardProps) {
           </View>
         </View>
         <View style={styles.headerIcons}>
-          <TouchableOpacity onPress={onSave} style={styles.iconBtn}>
-            <Icon name="bookmark" size={20} color="#666" />
+          <TouchableOpacity
+            onPress={onSavePress}
+            style={styles.iconBtn}
+            disabled={isSaving}
+          >
+            <Icon
+              name="bookmark"
+              size={20}
+              color={isSaved ? "#1976d2" : "#666"}
+            />
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.iconBtn}

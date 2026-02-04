@@ -29,27 +29,20 @@ export default function ProfileScreen() {
 
   const handleLogout = async () => {
     try {
-      // Clear tokens TRƯỚC khi gọi logout API
-      // Vì logout không cần token hợp lệ, và tránh interceptor cố refresh
       await tokenStorage.clearTokens();
 
-      // Clear Redux state
       dispatch(clearUser());
 
-      // Try to call logout API (best effort)
       try {
         await logout().unwrap();
       } catch (apiError) {
-        // Ignore API error - tokens đã clear rồi
         console.log("Logout API failed (ignored):", apiError);
       }
 
-      // Navigate to home
       router.replace("/");
     } catch (error) {
       console.error("Logout error:", error);
 
-      // Fallback: ensure everything is cleared
       await tokenStorage.clearTokens();
       dispatch(clearUser());
       router.replace("/");
@@ -112,7 +105,6 @@ export default function ProfileScreen() {
     );
   }
 
-  // Logged in state
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.scrollContent}>
@@ -132,6 +124,14 @@ export default function ProfileScreen() {
 
         {/* Menu items */}
         <View style={styles.section}>
+          <TouchableOpacity
+            style={styles.menuItem}
+            onPress={() => router.push("/profile/saved-blogs")}
+          >
+            <Text style={styles.menuIcon}>🔖</Text>
+            <Text style={styles.menuText}>Bài viết đã lưu</Text>
+            <Text style={styles.menuArrow}>›</Text>
+          </TouchableOpacity>
           <TouchableOpacity style={styles.menuItem}>
             <Text style={styles.menuIcon}>📝</Text>
             <Text style={styles.menuText}>Đơn ứng tuyển</Text>
