@@ -138,7 +138,7 @@ export default function ProfileScreen() {
             <Text style={styles.menuArrow}>›</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.menuItem}>
+          <TouchableOpacity style={styles.menuItem} onPress={() => router.push('/jobs/saved')}>
             <Text style={styles.menuIcon}>💾</Text>
             <Text style={styles.menuText}>Việc đã lưu</Text>
             <Text style={styles.menuArrow}>›</Text>
