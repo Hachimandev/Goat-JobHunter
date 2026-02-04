@@ -4,6 +4,10 @@ import {
   useDeleteBlogMutation,
   useUpdateBlogMutation,
 } from "@/services/blog/blogApi";
+import {
+  useSaveBlogsMutation,
+  useUnsaveBlogsMutation,
+} from "@/services/user/savedBlogsApi";
 import { CreateBlogDto } from "@/types/dto";
 import { useCallback } from "react";
 import { Alert, Platform, ToastAndroid } from "react-native";
@@ -22,6 +26,8 @@ const useBlogActionsMobile = () => {
   const [createBlog, createState] = useCreateBlogMutation();
   const [updateBlog, updateState] = useUpdateBlogMutation();
   const [deleteBlog, deleteState] = useDeleteBlogMutation();
+  const [saveBlog, saveState] = useSaveBlogsMutation();
+  const [unsaveBlog, unsaveState] = useUnsaveBlogsMutation();
 
   /* ================= COMMON ================= */
   const checkAuth = () => {
@@ -31,6 +37,26 @@ const useBlogActionsMobile = () => {
     }
     return true;
   };
+
+  const handleToggleSaveBlog = useCallback(
+    async (blogId: number, isCurrentlySaved: boolean) => {
+      if (!checkAuth()) return;
+
+      try {
+        if (isCurrentlySaved) {
+          await unsaveBlog({ blogIds: [blogId] }).unwrap();
+          notify("Đã bỏ lưu bài viết.");
+        } else {
+          await saveBlog({ blogIds: [blogId] }).unwrap();
+          notify("Lưu bài viết thành công.");
+        }
+      } catch (error) {
+        console.error("Toggle save error:", error);
+        notify("Thao tác thất bại. Vui lòng thử lại.");
+      }
+    },
+    [saveBlog, unsaveBlog, isSignedIn, user],
+  );
 
   const buildFormData = (data: CreateBlogDto) => {
     const formData = new FormData();
@@ -109,15 +135,15 @@ const useBlogActionsMobile = () => {
   );
 
   return {
-    /* loading states */
     isCreating: createState.isLoading,
     isUpdating: updateState.isLoading,
     isDeleting: deleteState.isLoading,
+    isSaving: saveState.isLoading || unsaveState.isLoading,
 
-    /* actions */
     handleCreateBlog,
     handleUpdateBlog,
     handleDeleteBlog,
+    handleToggleSaveBlog,
   };
 };
 
