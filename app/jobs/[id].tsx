@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   View,
   Text,
@@ -10,6 +10,8 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useFetchJobByIdQuery } from '../../services/job/jobApi';
+import { useCheckSavedJobsQuery } from '../../services/user/savedJobsApi';
+import { useJobActions } from '../../hooks/useJobActions';
 import { formatCurrency } from '../../utils/formatCurrency';
 import { formatDate } from '../../utils/formatDate';
 import { stripHtmlTags } from '../../utils/stripHtmlTags';
@@ -19,6 +21,20 @@ export default function JobDetailPage() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const { data, isLoading, error } = useFetchJobByIdQuery(id);
+  const { handleToggleSaveJob } = useJobActions();
+  
+  // Check if job is saved
+  const { data: checkSavedJobData } = useCheckSavedJobsQuery(
+    { jobIds: id ? [Number(id)] : [] },
+    { skip: !id }
+  );
+
+  const isSaved = useMemo(() => {
+    if (checkSavedJobData && id) {
+      return checkSavedJobData.data?.find((savedJob) => savedJob.jobId === Number(id))?.result || false;
+    }
+    return false;
+  }, [checkSavedJobData, id]);
   
   // State for description expand/collapse
   const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
@@ -64,6 +80,19 @@ export default function JobDetailPage() {
 
         {/* Job Header Card */}
         <View style={styles.card}>
+          {/* Save Button Row */}
+          <View style={styles.saveButtonRow}>
+            <TouchableOpacity
+              style={styles.saveButton}
+              onPress={() => job && handleToggleSaveJob(job, isSaved)}
+            >
+              <Text style={styles.saveButtonIcon}>{isSaved ? '❤️' : '🤍'}</Text>
+              <Text style={styles.saveButtonText}>
+                {isSaved ? 'Đã lưu' : 'Lưu việc'}
+              </Text>
+            </TouchableOpacity>
+          </View>
+
           {/* Badges */}
           <View style={styles.badgesRow}>
             <View style={styles.levelBadge}>
@@ -267,6 +296,30 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 2,
     elevation: 2,
+  },
+  saveButtonRow: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    marginBottom: 12,
+  },
+  saveButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    backgroundColor: '#f3f4f6',
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+  },
+  saveButtonIcon: {
+    fontSize: 16,
+    marginRight: 4,
+  },
+  saveButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#374151',
   },
   badgesRow: {
     flexDirection: 'row',
