@@ -1,12 +1,13 @@
-import { MessageType } from '@/types/model';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { cn } from '@/lib/utils';
-import { formatDistanceToNow } from 'date-fns';
-import { vi } from 'date-fns/locale';
-import { FileIcon, UserPlus, UserMinus, Crown, ImageIcon, Users } from 'lucide-react';
-import Image from 'next/image';
+import { MessageType } from "@/types/model";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { cn } from "@/lib/utils";
+import { formatDistanceToNow } from "date-fns";
+import { vi } from "date-fns/locale";
+import { FileIcon, UserPlus, UserMinus, Crown, ImageIcon, Users } from "lucide-react";
+import Image from "next/image";
 import { MessageEvent, MessageTypeEnum } from "@/types/enum";
 import { JSX, useMemo } from "react";
+import MarkdownDisplay from "@/components/common/MarkdownDisplay";
 
 interface MessageBubbleProps {
   message: MessageType;
@@ -16,10 +17,16 @@ interface MessageBubbleProps {
   senderAvatar?: string;
 }
 
-export function MessageBubble({ message, isOwn, showAvatar = false, senderName, senderAvatar }: Readonly<MessageBubbleProps>) {
+export function MessageBubble({
+                                message,
+                                isOwn,
+                                showAvatar = false,
+                                senderName,
+                                senderAvatar
+                              }: Readonly<MessageBubbleProps>) {
   const timeAgo = formatDistanceToNow(new Date(message.createdAt), {
     addSuffix: true,
-    locale: vi,
+    locale: vi
   });
   const type = useMemo(() => message.messageType, [message.messageType]);
 
@@ -31,7 +38,7 @@ export function MessageBubble({ message, isOwn, showAvatar = false, senderName, 
     try {
       const systemData = JSON.parse(message.content);
       const event = systemData.event as MessageEvent;
-      const actor = systemData.actor || 'Ai đó';
+      const actor = systemData.actor || "Ai đó";
       const target = systemData.target;
 
       const eventIcons: Record<MessageEvent, JSX.Element> = {
@@ -41,27 +48,27 @@ export function MessageBubble({ message, isOwn, showAvatar = false, senderName, 
         [MessageEvent.ROLE_CHANGED]: <Crown className="h-3.5 w-3.5" />,
         [MessageEvent.GROUP_CREATED]: <Users className="h-3.5 w-3.5" />,
         [MessageEvent.GROUP_NAME_CHANGED]: <Users className="h-3.5 w-3.5" />,
-        [MessageEvent.GROUP_AVATAR_CHANGED]: <ImageIcon className="h-3.5 w-3.5" />,
+        [MessageEvent.GROUP_AVATAR_CHANGED]: <ImageIcon className="h-3.5 w-3.5" />
       };
 
       const eventMessages: Record<MessageEvent, string> = {
         [MessageEvent.MEMBER_ADDED]: `${actor} đã thêm ${target} vào nhóm`,
         [MessageEvent.MEMBER_REMOVED]: `${actor} đã xóa ${target} khỏi nhóm`,
         [MessageEvent.MEMBER_LEFT]: `${actor} đã rời khỏi nhóm`,
-        [MessageEvent.ROLE_CHANGED]: `${actor} đã thay đổi vai trò của ${target} thành ${systemData.newRole || 'thành viên'}`,
+        [MessageEvent.ROLE_CHANGED]: `${actor} đã thay đổi vai trò của ${target} thành ${systemData.newRole || "thành viên"}`,
         [MessageEvent.GROUP_CREATED]: `${actor} đã tạo nhóm`,
         [MessageEvent.GROUP_NAME_CHANGED]: `${actor} đã đổi tên nhóm thành "${target}"`,
-        [MessageEvent.GROUP_AVATAR_CHANGED]: `${actor} đã thay đổi ảnh nhóm`,
+        [MessageEvent.GROUP_AVATAR_CHANGED]: `${actor} đã thay đổi ảnh nhóm`
       };
 
       return {
         icon: eventIcons[event],
-        text: eventMessages[event] || message.content,
+        text: eventMessages[event] || message.content
       };
     } catch {
       return {
         icon: <Users className="h-3.5 w-3.5" />,
-        text: message.content,
+        text: message.content
       };
     }
   };
@@ -100,7 +107,7 @@ export function MessageBubble({ message, isOwn, showAvatar = false, senderName, 
     }
 
     if (type === MessageTypeEnum.FILE) {
-      const fileName = message.content.split('/').pop() || 'file';
+      const fileName = message.content.split("/").pop() || "file";
       return (
         <a
           href={message.content}
@@ -114,7 +121,12 @@ export function MessageBubble({ message, isOwn, showAvatar = false, senderName, 
       );
     }
 
-    return <p className="text-sm leading-relaxed whitespace-pre-wrap break-words">{message.content}</p>;
+    return (
+      <MarkdownDisplay
+        className="text-sm leading-relaxed whitespace-pre-wrap break-words"
+        content={message.content}
+      />
+    );
   };
 
   if (isSystem) {
@@ -131,14 +143,14 @@ export function MessageBubble({ message, isOwn, showAvatar = false, senderName, 
   }
 
   return (
-    <div className={cn('flex w-full mb-2', isOwn ? 'justify-end' : 'justify-start')}>
+    <div className={cn("flex w-full mb-2", isOwn ? "justify-end" : "justify-start")}>
       {!isOwn && showAvatar && (
         <Avatar className="h-10 w-10 mr-2 flex-shrink-0 border">
-          <AvatarImage src={senderAvatar || '/placeholder.svg'} alt={senderName} />
-          <AvatarFallback>{senderName?.charAt(0) || 'U'}</AvatarFallback>
+          <AvatarImage src={senderAvatar || "/placeholder.svg"} alt={senderName} />
+          <AvatarFallback>{senderName?.charAt(0) || "U"}</AvatarFallback>
         </Avatar>
       )}
-      <div className={cn('flex flex-col max-w-[70%]', isOwn ? 'items-end' : 'items-start')}>
+      <div className={cn("flex flex-col max-w-[70%]", isOwn ? "items-end" : "items-start")}>
         {!isOwn && showAvatar && senderName && (
           <span className="text-xs font-medium text-muted-foreground mb-1 px-1">{senderName}</span>
         )}
@@ -147,8 +159,8 @@ export function MessageBubble({ message, isOwn, showAvatar = false, senderName, 
         ) : (
           <div
             className={cn(
-              'rounded-2xl px-4 py-2',
-              isOwn ? 'bg-primary text-primary-foreground' : 'bg-secondary text-secondary-foreground'
+              "rounded-2xl px-4 py-2",
+              isOwn ? "bg-primary text-primary-foreground" : "bg-secondary text-secondary-foreground"
             )}
           >
             {renderContent()}
@@ -165,14 +177,17 @@ export function MessageBubbleLoading() {
     <div className="flex justify-end">
       <div
         className={cn(
-          'max-w-[70%] rounded-2xl px-4 py-2',
-          'bg-primary text-primary-foreground rounded-2xl'
+          "max-w-[70%] rounded-2xl px-4 py-2",
+          "bg-primary text-primary-foreground rounded-2xl"
         )}
       >
         <div className="flex items-center gap-1">
-          <div className="w-2 h-2 bg-primary-foreground/60 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-          <div className="w-2 h-2 bg-primary-foreground/60 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-          <div className="w-2 h-2 bg-primary-foreground/60 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+          <div className="w-2 h-2 bg-primary-foreground/60 rounded-full animate-bounce"
+               style={{ animationDelay: "0ms" }} />
+          <div className="w-2 h-2 bg-primary-foreground/60 rounded-full animate-bounce"
+               style={{ animationDelay: "150ms" }} />
+          <div className="w-2 h-2 bg-primary-foreground/60 rounded-full animate-bounce"
+               style={{ animationDelay: "300ms" }} />
         </div>
       </div>
     </div>

@@ -328,12 +328,12 @@ export type MessageType = {
   chatRoomId: string;
   messageId: string;
   sender: {
-    accountId: number
+    accountId: number;
     fullName: string;
     username: string;
-    email: string
+    email: string;
     avatar: string;
-  }
+  };
   content: string;
   messageType: MessageTypeEnum;
   replyTo?: string;
@@ -370,12 +370,27 @@ export type Resume = {
   fileSize: number;
   default: boolean;
   public: boolean;
-  aiScore?: number;
-  aiAnalysis?: string;
-  aiSuggestions?: string;
-  analyzeAt?: string;
+  aiScore: number;
 
   applicant: Applicant;
+
+  createdAt: string;
+  updatedAt: string;
+  createdBy: string;
+  updatedBy: string;
+};
+
+export type ResumeEvaluation = {
+  resumeEvaluationId: number;
+  score: number;
+  strengths: string;
+  weaknesses: string;
+  missingSkills: string;
+  skills: string;
+  suggestions: string;
+  aiModel: string;
+
+  resume: Resume;
 
   createdAt: string;
   updatedAt: string;
