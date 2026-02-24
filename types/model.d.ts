@@ -1,4 +1,3 @@
-import { ResumeEvaluation } from './model.d';
 import {
   ApplicationStatus,
   ChatRoomType,
@@ -371,6 +370,7 @@ export type Resume = {
   fileSize: number;
   default: boolean;
   public: boolean;
+  aiScore: number;
 
   applicant: Applicant;
 
