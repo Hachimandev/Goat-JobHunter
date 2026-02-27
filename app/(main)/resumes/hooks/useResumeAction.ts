@@ -1,5 +1,6 @@
 import { useUser } from '@/hooks/useUser';
 import { useToggleAvailableStatusMutation } from '@/services/applicant/applicantApi';
+import { useEvaluateResumeMutation } from '@/services/evaluation/evaluationApi';
 import {
   useCreateResumeMutation,
   useDefaultResumeMutation,
@@ -27,6 +28,7 @@ export const useResumeAction = ({ initialPage = 1, itemsPerPage = 6 }: UseResume
   const [toggleAvailableStatus, { isLoading: isTogglingAvailableStatus }] = useToggleAvailableStatusMutation();
 
   const [createResume, { isLoading: isCreating }] = useCreateResumeMutation();
+  const [evaluateResume, { isLoading: isEvaluating }] = useEvaluateResumeMutation();
   const [deleteResume, { isLoading: isDeleting }] = useDeleteResumeMutation();
   const [updateTitle, { isLoading: isUpdatingTitle }] = useUpdateTitleMutation();
   const [defaultResume, { isLoading: isSettingDefault }] = useDefaultResumeMutation();
@@ -339,6 +341,29 @@ export const useResumeAction = ({ initialPage = 1, itemsPerPage = 6 }: UseResume
     return resumesData?.data?.result?.filter((resume) => resume.public) || [];
   }, [resumesData]);
 
+  const handleEvaluateResume = useCallback(
+    async (resumeUrl: string) => {
+      try {
+        if (!isSignedIn || !user) {
+          toast.error('Bạn phải đăng nhập để thực hiện chức năng này.');
+          return;
+        }
+
+        const response = await evaluateResume(resumeUrl).unwrap();
+
+        if (response.data) {
+          toast.success('Đánh giá CV thành công!');
+          return response.data;
+        }
+      } catch (error) {
+        console.error('Failed to evaluate resume:', error);
+        toast.error('Không thể đánh giá CV. Vui lòng thử lại sau.');
+        return undefined;
+      }
+    },
+    [evaluateResume, user, isSignedIn],
+  );
+
   return {
     // Data
     resumes,
@@ -361,6 +386,7 @@ export const useResumeAction = ({ initialPage = 1, itemsPerPage = 6 }: UseResume
     isSettingPrivate,
     isDownloading,
     isTogglingAvailableStatus,
+    isEvaluating,
     isProcessing:
       isCreating ||
       isDeleting ||
@@ -370,7 +396,8 @@ export const useResumeAction = ({ initialPage = 1, itemsPerPage = 6 }: UseResume
       isSettingPublic ||
       isSettingPrivate ||
       isDownloading ||
-      isTogglingAvailableStatus,
+      isTogglingAvailableStatus ||
+      isEvaluating,
 
     // Actions
     handleCreateResume,
@@ -384,6 +411,7 @@ export const useResumeAction = ({ initialPage = 1, itemsPerPage = 6 }: UseResume
     handleTogglePublicResume,
     handleDownloadResume,
     handleToggleAvailableStatus,
+    handleEvaluateResume,
     refetchResumes,
 
     // Pagination

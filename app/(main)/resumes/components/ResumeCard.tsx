@@ -10,11 +10,12 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import ConfirmDialog from '@/components/common/ConfirmDialog';
-import { Resume } from '@/types/model';
+import { Resume, ResumeEvaluation } from '@/types/model';
 import { formatDate } from '@/utils/formatDate';
-import { Download, ExternalLink, Eye, EyeOff, MoreHorizontal, Pencil, Star, Trash2 } from 'lucide-react';
+import { Download, ExternalLink, Eye, EyeOff, Gavel, MoreHorizontal, Pencil, Star, Trash2 } from 'lucide-react';
 import Image from 'next/image';
 import { useState } from 'react';
+import { EvaluationResultDialog } from './EvaluationResultDialog';
 
 interface ResumeCardProps {
   resume: Resume;
@@ -23,6 +24,7 @@ interface ResumeCardProps {
   onTogglePublic: (resumeId: string, isPublic: boolean) => void;
   onDownload: (resumeId: string, fileName: string) => void;
   onEditTitle: (resume: Resume) => void;
+  onEvaluateResume: (resumeUrl: string) => Promise<ResumeEvaluation | undefined>;
   isProcessing?: boolean;
 }
 
@@ -33,11 +35,14 @@ export const ResumeCard = ({
   onTogglePublic,
   onDownload,
   onEditTitle,
+  onEvaluateResume,
   isProcessing = false,
 }: ResumeCardProps) => {
   const [imageError, setImageError] = useState(false);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [evaluationResult, setEvaluationResult] = useState<ResumeEvaluation | null>(null);
+  const [showEvaluationDialog, setShowEvaluationDialog] = useState(false);
 
   const fileUrlLower = resume.fileUrl?.toLowerCase() || '';
 
@@ -59,6 +64,14 @@ export const ResumeCard = ({
   const handleToggleDefault = (e: React.MouseEvent) => {
     e.stopPropagation();
     onToggleDefault(resume.resumeId.toString(), resume.default);
+  };
+
+  const handleEvaluate = async () => {
+    const result = await onEvaluateResume(resume.fileUrl);
+    if (result) {
+      setEvaluationResult(result);
+      setShowEvaluationDialog(true);
+    }
   };
 
   return (
@@ -98,6 +111,17 @@ export const ResumeCard = ({
         >
           <Download className="size-4" />
           Tải xuống
+        </Button>
+
+        <Button
+          variant="secondary"
+          size="sm"
+          className="bg-white/90 backdrop-blur-sm hover:bg-white rounded-2xl"
+          onClick={handleEvaluate}
+          disabled={isProcessing}
+        >
+          <Gavel className="size-4" />
+          Đánh giá
         </Button>
 
         <DropdownMenu open={isDropdownOpen} onOpenChange={setIsDropdownOpen}>
@@ -233,15 +257,6 @@ export const ResumeCard = ({
               Ẩn
             </span>
           )}
-          {resume.aiScore ? (
-            <span className="inline-flex items-center gap-1 rounded-full bg-blue-100 px-2 py-1 text-xs font-medium text-blue-700">
-              AI Score: {resume.aiScore}
-            </span>
-          ) : (
-            <span className="inline-flex items-center gap-1 rounded-full bg-gray-100 px-2 py-1 text-xs font-medium text-gray-600">
-              Chưa đánh giá
-            </span>
-          )}
         </div>
       </div>
 
@@ -253,6 +268,12 @@ export const ResumeCard = ({
         description="Bạn có chắc chắn muốn xóa CV này không? Hành động này không thể hoàn tác."
         confirmText="Xóa"
         cancelText="Hủy"
+      />
+
+      <EvaluationResultDialog
+        open={showEvaluationDialog}
+        onOpenChange={setShowEvaluationDialog}
+        evaluation={evaluationResult}
       />
     </Card>
   );

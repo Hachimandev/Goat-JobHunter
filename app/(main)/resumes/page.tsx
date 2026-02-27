@@ -28,6 +28,7 @@ const ResumePage = () => {
     handleDownloadResume,
     handleUpdateTitle,
     handleToggleAvailableStatus,
+    handleEvaluateResume,
     currentPage,
     totalPages,
     goToPage,
@@ -95,6 +96,7 @@ const ResumePage = () => {
               onTogglePublic={handleTogglePublicResume}
               onDownload={handleDownloadResume}
               onEditTitle={handleEditTitle}
+              onEvaluateResume={handleEvaluateResume}
               isProcessing={isProcessing}
               uploadButtonText="Tải CV lên"
             />
