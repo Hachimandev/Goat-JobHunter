@@ -80,7 +80,8 @@ export const api = createApi({
     "ChatMember",
     "Resume",
     "Reaction",
-    "Ticket"
+    "Ticket",
+    "ResumeEvaluation"
   ],
   endpoints: (builder) => ({
     ping: builder.query<string, void>({

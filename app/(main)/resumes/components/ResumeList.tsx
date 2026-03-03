@@ -1,7 +1,7 @@
 'use client';
 
 import { Button } from '@/components/ui/button';
-import { Resume } from '@/types/model';
+import { Resume, ResumeEvaluation } from '@/types/model';
 import { FileText, Plus } from 'lucide-react';
 import { ResumeCard } from './ResumeCard';
 
@@ -15,6 +15,8 @@ interface ResumeListProps {
   onTogglePublic: (resumeId: string, isPublic: boolean) => void;
   onDownload: (resumeId: string, fileName: string) => void;
   onEditTitle: (resume: Resume) => void;
+  onEvaluateResume: (resumeUrl: string) => Promise<ResumeEvaluation | undefined>;
+  onViewEvaluations: (resumeId: string) => void;
   isProcessing?: boolean;
   uploadButtonText?: string;
 }
@@ -29,6 +31,8 @@ export const ResumeList = ({
   onTogglePublic,
   onDownload,
   onEditTitle,
+  onEvaluateResume,
+  onViewEvaluations,
   isProcessing = false,
   uploadButtonText,
 }: ResumeListProps) => {
@@ -53,6 +57,8 @@ export const ResumeList = ({
               onTogglePublic={onTogglePublic}
               onDownload={onDownload}
               onEditTitle={onEditTitle}
+              onEvaluateResume={onEvaluateResume}
+              onViewEvaluations={onViewEvaluations}
               isProcessing={isProcessing}
             />
           ))}
