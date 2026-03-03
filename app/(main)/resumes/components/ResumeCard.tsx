@@ -25,6 +25,7 @@ interface ResumeCardProps {
   onDownload: (resumeId: string, fileName: string) => void;
   onEditTitle: (resume: Resume) => void;
   onEvaluateResume: (resumeUrl: string) => Promise<ResumeEvaluation | undefined>;
+  onViewEvaluations: (resumeId: string) => void;
   isProcessing?: boolean;
 }
 
@@ -36,6 +37,7 @@ export const ResumeCard = ({
   onDownload,
   onEditTitle,
   onEvaluateResume,
+  onViewEvaluations,
   isProcessing = false,
 }: ResumeCardProps) => {
   const [imageError, setImageError] = useState(false);
@@ -157,6 +159,11 @@ export const ResumeCard = ({
                   Công khai CV
                 </>
               )}
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={() => onViewEvaluations(resume.resumeId.toString())} className="cursor-pointer">
+              <Gavel className="mr-2 size-4" />
+              Xem đánh giá
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={handleDelete} className="cursor-pointer text-destructive">

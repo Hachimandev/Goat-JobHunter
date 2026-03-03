@@ -1,6 +1,6 @@
 import { useUser } from '@/hooks/useUser';
 import { useToggleAvailableStatusMutation } from '@/services/applicant/applicantApi';
-import { useEvaluateResumeMutation } from '@/services/evaluation/evaluationApi';
+import { useEvaluateResumeMutation, useFetchEvaluationResumesQuery } from '@/services/evaluation/evaluationApi';
 import {
   useCreateResumeMutation,
   useDefaultResumeMutation,
@@ -24,6 +24,9 @@ export interface UseResumeFilterOptions {
 export const useResumeAction = ({ initialPage = 1, itemsPerPage = 6 }: UseResumeFilterOptions = {}) => {
   const { user, isSignedIn } = useUser();
   const [currentPage, setCurrentPage] = useState(initialPage);
+  const [selectedResumeId, setSelectedResumeId] = useState<string | null>(null);
+  const [evaluationPage, setEvaluationPage] = useState(1);
+  const [evaluationPageSize, setEvaluationPageSize] = useState(6);
 
   const [toggleAvailableStatus, { isLoading: isTogglingAvailableStatus }] = useToggleAvailableStatusMutation();
 
@@ -51,10 +54,33 @@ export const useResumeAction = ({ initialPage = 1, itemsPerPage = 6 }: UseResume
     },
   );
 
+  const {
+    data: evaluationsData,
+    isLoading: isFetchingEvaluations,
+    refetch: refetchEvaluations,
+  } = useFetchEvaluationResumesQuery(
+    {
+      resumeId: selectedResumeId!,
+      page: evaluationPage,
+      size: evaluationPageSize,
+    },
+    {
+      skip: !selectedResumeId,
+    },
+  );
+
   const resumes = resumesData?.data?.result || [];
   const meta = resumesData?.data?.meta || {
     current: 1,
     pageSize: itemsPerPage,
+    pages: 0,
+    total: 0,
+  };
+
+  const evaluations = evaluationsData?.data?.result || [];
+  const evaluationsMeta = evaluationsData?.data?.meta || {
+    current: 1,
+    pageSize: evaluationPageSize,
     pages: 0,
     total: 0,
   };
@@ -364,6 +390,45 @@ export const useResumeAction = ({ initialPage = 1, itemsPerPage = 6 }: UseResume
     [evaluateResume, user, isSignedIn],
   );
 
+  const handleFetchEvaluations = useCallback((resumeId: string) => {
+    setSelectedResumeId(resumeId);
+    setEvaluationPage(1);
+  }, []);
+
+  const handleClearEvaluations = useCallback(() => {
+    setSelectedResumeId(null);
+    setEvaluationPage(1);
+  }, []);
+
+  const goToEvaluationPage = useCallback(
+    (page: number) => {
+      if (page >= 1 && page <= evaluationsMeta.pages) {
+        setEvaluationPage(page);
+      }
+    },
+    [evaluationsMeta.pages],
+  );
+
+  const nextEvaluationPage = useCallback(() => {
+    if (evaluationPage < evaluationsMeta.pages) {
+      setEvaluationPage((prev) => prev + 1);
+    }
+  }, [evaluationPage, evaluationsMeta.pages]);
+
+  const previousEvaluationPage = useCallback(() => {
+    if (evaluationPage > 1) {
+      setEvaluationPage((prev) => prev - 1);
+    }
+  }, [evaluationPage]);
+
+  const hasNextEvaluationPage = evaluationPage < evaluationsMeta.pages;
+  const hasPreviousEvaluationPage = evaluationPage > 1;
+
+  const setEvaluationsPageSize = useCallback((size: number) => {
+    setEvaluationPageSize(size);
+    setEvaluationPage(1);
+  }, []);
+
   return {
     // Data
     resumes,
@@ -374,9 +439,17 @@ export const useResumeAction = ({ initialPage = 1, itemsPerPage = 6 }: UseResume
     itemsPerPage,
     defaultResume: getDefaultResume(),
     publicResumes: getPublicResumes(),
+    evaluations,
+    evaluationsMeta,
+    selectedResumeId,
+    evaluationPage,
+    evaluationPageSize,
+    totalEvaluationPages: evaluationsMeta.pages,
+    totalEvaluations: evaluationsMeta.total,
 
     // Loading states
     isFetchingResumes,
+    isFetchingEvaluations,
     isCreating,
     isDeleting,
     isUpdatingTitle,
@@ -412,7 +485,11 @@ export const useResumeAction = ({ initialPage = 1, itemsPerPage = 6 }: UseResume
     handleDownloadResume,
     handleToggleAvailableStatus,
     handleEvaluateResume,
+    handleFetchEvaluations,
+    handleClearEvaluations,
+    setEvaluationsPageSize,
     refetchResumes,
+    refetchEvaluations,
 
     // Pagination
     goToPage,
@@ -420,5 +497,10 @@ export const useResumeAction = ({ initialPage = 1, itemsPerPage = 6 }: UseResume
     previousPage,
     hasNextPage,
     hasPreviousPage,
+    goToEvaluationPage,
+    nextEvaluationPage,
+    previousEvaluationPage,
+    hasNextEvaluationPage,
+    hasPreviousEvaluationPage,
   };
 };

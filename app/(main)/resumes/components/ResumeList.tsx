@@ -16,6 +16,7 @@ interface ResumeListProps {
   onDownload: (resumeId: string, fileName: string) => void;
   onEditTitle: (resume: Resume) => void;
   onEvaluateResume: (resumeUrl: string) => Promise<ResumeEvaluation | undefined>;
+  onViewEvaluations: (resumeId: string) => void;
   isProcessing?: boolean;
   uploadButtonText?: string;
 }
@@ -31,6 +32,7 @@ export const ResumeList = ({
   onDownload,
   onEditTitle,
   onEvaluateResume,
+  onViewEvaluations,
   isProcessing = false,
   uploadButtonText,
 }: ResumeListProps) => {
@@ -56,6 +58,7 @@ export const ResumeList = ({
               onDownload={onDownload}
               onEditTitle={onEditTitle}
               onEvaluateResume={onEvaluateResume}
+              onViewEvaluations={onViewEvaluations}
               isProcessing={isProcessing}
             />
           ))}

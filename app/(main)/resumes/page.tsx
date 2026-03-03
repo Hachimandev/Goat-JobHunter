@@ -11,6 +11,7 @@ import { EditResumeTitleDialog } from './components/EditResumeTitleDialog';
 import { JobSearchSettings } from './components/JobSearchSettings';
 import { ResumeList } from './components/ResumeList';
 import { UploadResumeDialog } from './components/UploadResumeDialog';
+import { ViewEvaluationsDialog } from './components/ViewEvaluationsDialog';
 import { useResumeAction } from './hooks/useResumeAction';
 
 const ResumePage = () => {
@@ -36,15 +37,41 @@ const ResumePage = () => {
     previousPage,
     hasNextPage,
     hasPreviousPage,
+    evaluations,
+    isFetchingEvaluations,
+    selectedResumeId,
+    evaluationPage,
+    totalEvaluationPages,
+    handleFetchEvaluations,
+    handleClearEvaluations,
+    goToEvaluationPage,
+    nextEvaluationPage,
+    previousEvaluationPage,
+    hasNextEvaluationPage,
+    hasPreviousEvaluationPage,
+    totalEvaluations,
   } = useResumeAction({ initialPage: 1, itemsPerPage: 6 });
 
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [evaluationsDialogOpen, setEvaluationsDialogOpen] = useState(false);
   const [selectedResume, setSelectedResume] = useState<Resume | null>(null);
 
   const handleEditTitle = (resume: Resume) => {
     setSelectedResume(resume);
     setEditDialogOpen(true);
+  };
+
+  const handleViewEvaluations = (resumeId: string) => {
+    handleFetchEvaluations(resumeId);
+    setEvaluationsDialogOpen(true);
+  };
+
+  const handleCloseEvaluationsDialog = (open: boolean) => {
+    setEvaluationsDialogOpen(open);
+    if (!open) {
+      handleClearEvaluations();
+    }
   };
 
   if (!user || !isSignedIn) {
@@ -97,6 +124,7 @@ const ResumePage = () => {
               onDownload={handleDownloadResume}
               onEditTitle={handleEditTitle}
               onEvaluateResume={handleEvaluateResume}
+              onViewEvaluations={handleViewEvaluations}
               isProcessing={isProcessing}
               uploadButtonText="Tải CV lên"
             />
@@ -132,6 +160,23 @@ const ResumePage = () => {
         resume={selectedResume}
         onUpdate={handleUpdateTitle}
         isUpdating={isProcessing}
+      />
+
+      <ViewEvaluationsDialog
+        open={evaluationsDialogOpen}
+        onOpenChange={handleCloseEvaluationsDialog}
+        resumeId={selectedResumeId}
+        evaluations={evaluations}
+        isFetchingEvaluations={isFetchingEvaluations}
+        currentPage={evaluationPage}
+        totalPages={totalEvaluationPages}
+        totalEvaluations={totalEvaluations}
+        onPageChange={goToEvaluationPage}
+        onNextPage={nextEvaluationPage}
+        onPreviousPage={previousEvaluationPage}
+        hasNextPage={hasNextEvaluationPage}
+        hasPreviousPage={hasPreviousEvaluationPage}
+        onFetchEvaluations={handleFetchEvaluations}
       />
     </div>
   );
