@@ -1,31 +1,28 @@
 'use client';
 
-import NotificationPopup from "@/app/(main)/components/NotificationPopup";
-import UserPopup from "@/app/(main)/components/UserPopup";
-import { Button } from "@/components/ui/button";
-import { useUser } from "@/hooks/useUser";
-import { cn } from "@/lib/utils";
-import { motion } from "framer-motion";
-import Image from "next/image";
-import Link from "next/link";
-import { usePathname } from "next/navigation";
-import {
-  Home,
-  Briefcase,
-  Building2,
-  MessageCircleMore,
-} from 'lucide-react';
-import { Separator } from "@/components/ui/separator";
+import NotificationPopup from '@/app/(main)/components/NotificationPopup';
+import UserPopup from '@/app/(main)/components/UserPopup';
+import { Button } from '@/components/ui/button';
+import { useUser } from '@/hooks/useUser';
+import { cn } from '@/lib/utils';
+import { motion } from 'framer-motion';
+import Image from 'next/image';
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
+import { Home, Briefcase, Building2, MessageCircleMore, FileUser } from 'lucide-react';
+import { Separator } from '@/components/ui/separator';
+import { ROLE } from '@/constants/constant';
 
 const NAV_LINKS = [
-  { href: "/hub", label: "Trang chủ", icon: Home },
-  { href: "/jobs", label: "Việc Làm", icon: Briefcase },
-  { href: "/companies", label: "Công Ty", icon: Building2 },
-  { href: "/messages", label: "Tin nhắn", icon: MessageCircleMore },
+  { href: '/hub', label: 'Trang chủ', icon: Home },
+  { href: '/jobs', label: 'Việc làm', icon: Briefcase },
+  { href: '/companies', label: 'Công ty', icon: Building2 },
+  { href: '/messages', label: 'Tin nhắn', icon: MessageCircleMore },
+  { href: '/resumes', label: 'Ứng viên', icon: FileUser, requiresRole: [ROLE.HR, ROLE.COMPANY] },
 ] as const;
 
 export default function Header() {
-  const { isSignedIn } = useUser();
+  const { isSignedIn, user } = useUser();
   const pathname = usePathname();
 
   const isActive = (href: string) => {
@@ -34,6 +31,15 @@ export default function Header() {
     }
     return pathname.startsWith(href);
   };
+
+  const filteredNavLinks = NAV_LINKS.filter((link) => {
+    // @ts-expect-error - requiresRole is optional property
+    if (link.requiresRole) {
+      // @ts-expect-error - requiresRole is optional property
+      return user && link.requiresRole.includes(user.role.name);
+    }
+    return true;
+  });
 
   return (
     <header className="sticky top-0 z-50 border-b border-border bg-background/95 backdrop-blur supports-backdrop-filter:bg-background/60">
@@ -45,7 +51,7 @@ export default function Header() {
 
           <div className="flex items-center gap-4 h-full">
             <nav className="hidden md:flex items-center gap-8">
-              {NAV_LINKS.map((link) => (
+              {filteredNavLinks.map((link) => (
                 <Link
                   key={link.href}
                   href={link.href}

@@ -13,6 +13,8 @@ import { ResumeList } from './components/ResumeList';
 import { UploadResumeDialog } from './components/UploadResumeDialog';
 import { ViewEvaluationsDialog } from './components/ViewEvaluationsDialog';
 import { useResumeAction } from './hooks/useResumeAction';
+import { HasApplicant } from '@/components/common/HasRole';
+import { RecruiterResumeView } from './components/RecruiterResumeView';
 
 const ResumePage = () => {
   useGetMyAccountQuery();
@@ -85,100 +87,124 @@ const ResumePage = () => {
     );
   }
 
-  if (isFetchingResumes) {
-    return (
-      <div className="container mx-auto px-4 py-8">
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-          <div className="lg:col-span-2">
-            <div className="space-y-6">
-              <Skeleton className="h-8 w-64" />
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-                {[1, 2, 3].map((i) => (
-                  <Skeleton key={i} className="h-96 w-full" />
-                ))}
+  const isRecruiterOrCompany = user.role.name === 'HR' || user.role.name === 'COMPANY';
+
+  return (
+    <>
+      {isRecruiterOrCompany && (
+        <>
+          <RecruiterResumeView
+            resumes={resumes}
+            isLoading={isFetchingResumes || isProcessing}
+            onDownload={handleDownloadResume}
+          />
+          <CustomPagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            onPageChange={goToPage}
+            onNextPage={nextPage}
+            onPreviousPage={previousPage}
+            hasNextPage={hasNextPage}
+            hasPreviousPage={hasPreviousPage}
+            visiblePageRange={2}
+          />
+        </>
+      )}
+
+      <HasApplicant user={user}>
+        {isFetchingResumes ? (
+          <div className="container mx-auto px-4 py-8">
+            <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+              <div className="lg:col-span-2">
+                <div className="space-y-6">
+                  <Skeleton className="h-8 w-64" />
+                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+                    {[1, 2, 3].map((i) => (
+                      <Skeleton key={i} className="h-96 w-full" />
+                    ))}
+                  </div>
+                </div>
+              </div>
+              <div className="space-y-4">
+                <Skeleton className="h-32 w-full" />
+                <Skeleton className="h-64 w-full" />
               </div>
             </div>
           </div>
-          <div className="space-y-4">
-            <Skeleton className="h-32 w-full" />
-            <Skeleton className="h-64 w-full" />
-          </div>
-        </div>
-      </div>
-    );
-  }
+        ) : (
+          <div className="flex-1 max-w-7xl mx-auto gap-0 py-8">
+            <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+              <div className="lg:col-span-2">
+                <div className="space-y-8">
+                  <ResumeList
+                    resumes={resumes}
+                    title="CV đã tải lên"
+                    emptyMessage="Tải lên CV của bạn để ứng tuyển công việc nhanh chóng hơn"
+                    onUploadClick={() => setUploadDialogOpen(true)}
+                    onDelete={handleDeleteResume}
+                    onToggleDefault={handleToggleDefaultResume}
+                    onTogglePublic={handleTogglePublicResume}
+                    onDownload={handleDownloadResume}
+                    onEditTitle={handleEditTitle}
+                    onEvaluateResume={handleEvaluateResume}
+                    onViewEvaluations={handleViewEvaluations}
+                    isProcessing={isProcessing}
+                    uploadButtonText="Tải CV lên"
+                  />
 
-  return (
-    <div className="flex-1 max-w-7xl mx-auto gap-0 py-8">
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        <div className="lg:col-span-2">
-          <div className="space-y-8">
-            <ResumeList
-              resumes={resumes}
-              title="CV đã tải lên"
-              emptyMessage="Tải lên CV của bạn để ứng tuyển công việc nhanh chóng hơn"
-              onUploadClick={() => setUploadDialogOpen(true)}
-              onDelete={handleDeleteResume}
-              onToggleDefault={handleToggleDefaultResume}
-              onTogglePublic={handleTogglePublicResume}
-              onDownload={handleDownloadResume}
-              onEditTitle={handleEditTitle}
-              onEvaluateResume={handleEvaluateResume}
-              onViewEvaluations={handleViewEvaluations}
-              isProcessing={isProcessing}
-              uploadButtonText="Tải CV lên"
+                  <CustomPagination
+                    currentPage={currentPage}
+                    totalPages={totalPages}
+                    onPageChange={goToPage}
+                    onNextPage={nextPage}
+                    onPreviousPage={previousPage}
+                    hasNextPage={hasNextPage}
+                    hasPreviousPage={hasPreviousPage}
+                    visiblePageRange={2}
+                  />
+                </div>
+              </div>
+
+              <div className="lg:col-span-1">
+                <JobSearchSettings isToggling={isProcessing} onToggleProfilePublic={handleToggleAvailableStatus} />
+              </div>
+            </div>
+
+            <UploadResumeDialog
+              open={uploadDialogOpen}
+              onOpenChange={setUploadDialogOpen}
+              onUpload={handleCreateResume}
+              isUploading={isProcessing}
             />
 
-            <CustomPagination
-              currentPage={currentPage}
-              totalPages={totalPages}
-              onPageChange={goToPage}
-              onNextPage={nextPage}
-              onPreviousPage={previousPage}
-              hasNextPage={hasNextPage}
-              hasPreviousPage={hasPreviousPage}
-              visiblePageRange={2}
+            <EditResumeTitleDialog
+              open={editDialogOpen}
+              onOpenChange={setEditDialogOpen}
+              resume={selectedResume}
+              onUpdate={handleUpdateTitle}
+              isUpdating={isProcessing}
+            />
+
+            <ViewEvaluationsDialog
+              open={evaluationsDialogOpen}
+              onOpenChange={handleCloseEvaluationsDialog}
+              resumeId={selectedResumeId}
+              evaluations={evaluations}
+              isFetchingEvaluations={isFetchingEvaluations}
+              currentPage={evaluationPage}
+              totalPages={totalEvaluationPages}
+              totalEvaluations={totalEvaluations}
+              onPageChange={goToEvaluationPage}
+              onNextPage={nextEvaluationPage}
+              onPreviousPage={previousEvaluationPage}
+              hasNextPage={hasNextEvaluationPage}
+              hasPreviousPage={hasPreviousEvaluationPage}
+              onFetchEvaluations={handleFetchEvaluations}
             />
           </div>
-        </div>
-
-        <div className="lg:col-span-1">
-          <JobSearchSettings isToggling={isProcessing} onToggleProfilePublic={handleToggleAvailableStatus} />
-        </div>
-      </div>
-
-      <UploadResumeDialog
-        open={uploadDialogOpen}
-        onOpenChange={setUploadDialogOpen}
-        onUpload={handleCreateResume}
-        isUploading={isProcessing}
-      />
-
-      <EditResumeTitleDialog
-        open={editDialogOpen}
-        onOpenChange={setEditDialogOpen}
-        resume={selectedResume}
-        onUpdate={handleUpdateTitle}
-        isUpdating={isProcessing}
-      />
-
-      <ViewEvaluationsDialog
-        open={evaluationsDialogOpen}
-        onOpenChange={handleCloseEvaluationsDialog}
-        resumeId={selectedResumeId}
-        evaluations={evaluations}
-        isFetchingEvaluations={isFetchingEvaluations}
-        currentPage={evaluationPage}
-        totalPages={totalEvaluationPages}
-        totalEvaluations={totalEvaluations}
-        onPageChange={goToEvaluationPage}
-        onNextPage={nextEvaluationPage}
-        onPreviousPage={previousEvaluationPage}
-        hasNextPage={hasNextEvaluationPage}
-        hasPreviousPage={hasPreviousEvaluationPage}
-        onFetchEvaluations={handleFetchEvaluations}
-      />
-    </div>
+        )}
+      </HasApplicant>
+    </>
   );
 };
 

@@ -111,6 +111,7 @@ export const jobApi = api.injectEndpoints({
                     },
                     nestedFields: {
                         provinces: 'address.province',
+                        companyId: 'company.accountId',
                     },
                     defaultSort: 'createdAt,desc',
                     sortableFields: ['title', 'salary', 'createdAt', 'updatedAt'],

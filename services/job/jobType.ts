@@ -47,6 +47,7 @@ export type FetchJobsRequest = {
     salary?: number;
     active?: boolean;
     skills?: number[];
+    companyId?: number;
 };
 
 export type FetchJobByRecruiterRequest = {

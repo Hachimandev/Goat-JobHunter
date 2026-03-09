@@ -17,6 +17,7 @@ import { toast } from 'sonner';
 import { useUpdateRecruiterMutation } from '@/services/recruiter/recruiterApi';
 import { TUserSignUpSchema } from '@/app/(auth)/components/schemas';
 import { ApplicantUpdateDto, RecruiterUpdateDto } from '@/types/dto';
+import { api } from '@/services/api';
 
 export function useUser() {
   const router = useRouter();
@@ -182,12 +183,16 @@ export function useUser() {
       // Clear Redux state
       dispatch(clearUser());
 
+      // Clear all RTK Query cache
+      dispatch(api.util.resetApiState());
+
       toast.success('Đăng xuất thành công!');
       router.push('/');
 
       return { success: true };
     } catch (error) {
       dispatch(clearUser());
+      dispatch(api.util.resetApiState());
       router.push('/');
 
       console.error('error sign out:', error);
