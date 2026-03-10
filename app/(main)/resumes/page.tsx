@@ -15,6 +15,7 @@ import { ViewEvaluationsDialog } from './components/ViewEvaluationsDialog';
 import { useResumeAction } from './hooks/useResumeAction';
 import { HasApplicant } from '@/components/common/HasRole';
 import { RecruiterResumeView } from './components/RecruiterResumeView';
+import { LoginResponseDto } from '@/types/dto';
 
 const ResumePage = () => {
   useGetMyAccountQuery();
@@ -97,6 +98,7 @@ const ResumePage = () => {
             resumes={resumes}
             isLoading={isFetchingResumes || isProcessing}
             onDownload={handleDownloadResume}
+            user={user as LoginResponseDto}
           />
           <CustomPagination
             currentPage={currentPage}
