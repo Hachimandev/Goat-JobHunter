@@ -5,7 +5,7 @@ import { Card } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Resume } from '@/types/model';
-import { Briefcase, Download, ExternalLink, FileText } from 'lucide-react';
+import { Download, ExternalLink, FileText } from 'lucide-react';
 import { useState } from 'react';
 import Image from 'next/image';
 import { formatDate } from '@/utils/formatDate';
@@ -22,7 +22,9 @@ type RecruiterResumeViewProps = {
 };
 
 export const RecruiterResumeView = ({ resumes, isLoading, onDownload, user }: RecruiterResumeViewProps) => {
-  const { jobs } = useJobAction({ companyId: user?.company?.companyId || -1 });
+  const { jobs, getUserById, isFetchingUserById, isFetchingUserByIdError } = useJobAction({
+    companyId: user?.company?.companyId || -1,
+  });
 
   const [imageErrors, setImageErrors] = useState<Set<number>>(new Set());
   const [selectedJobId, setSelectedJobId] = useState<string>('');
@@ -30,7 +32,6 @@ export const RecruiterResumeView = ({ resumes, isLoading, onDownload, user }: Re
 
   const handleJobChange = (value: string) => {
     setSelectedJobId(value);
-    console.log('Selected jobId:', value);
   };
 
   const handleSelectResume = (resume: Resume) => {
@@ -264,7 +265,14 @@ export const RecruiterResumeView = ({ resumes, isLoading, onDownload, user }: Re
             </div>
 
             <div className="lg:col-span-1 overflow-y-auto">
-              <ApplicantDetailPanel selectedResume={selectedResume} isLoading={false} />
+              <ApplicantDetailPanel
+                selectedResume={selectedResume}
+                getUserById={getUserById}
+                isLoading={false}
+                isFetchingUserById={isFetchingUserById}
+                isFetchingUserByIdError={isFetchingUserByIdError}
+                job={selectedJobId}
+              />
             </div>
           </div>
         </div>
