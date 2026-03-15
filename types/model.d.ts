@@ -166,3 +166,35 @@ export type CommentType = {
   commentedBy: CommentedBy;
   createdAt: string;
 };
+
+export type MessageType = {
+  chatRoomBucket: string;
+  messageSk: string;
+  chatRoomId: string;
+  messageId: string;
+  sender: {
+    accountId: number;
+    fullName: string;
+    username: string;
+    email: string;
+    avatar: string;
+  };
+  content: string;
+  messageType: MessageTypeEnum;
+  replyTo?: string;
+  isHidden: boolean;
+  createdAt: string;
+  updatedAt: string;
+  role?: MessageTypeRole; // temporary field to avoid error for build in chat container
+};
+
+export type ChatRoom = {
+  roomId: number;
+  type: ChatRoomType;
+  name: string;
+  avatar: string | null;
+  memberCount: number;
+  lastMessagePreview: string | null;
+  lastMessageTime: string | null;
+  currentUserSentLastMessage: boolean | null;
+};

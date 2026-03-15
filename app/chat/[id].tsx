@@ -1,9 +1,10 @@
 import useChatActionsMobile from "@/hooks/useChatActionsMobile";
 import { useUser } from "@/hooks/useUser";
 import { useFetchMessagesInChatRoomQuery } from "@/services/chatRoom/chatRoomApi";
+import { MessageType } from "@/types/model";
 import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useMemo, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
@@ -14,6 +15,10 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+interface OptimisticMessage extends Partial<MessageType> {
+  messageId: string;
+  sending?: boolean;
+}
 
 export default function ChatDetail() {
   const { id, name } = useLocalSearchParams<{ id: string; name: string }>();
@@ -22,34 +27,83 @@ export default function ChatDetail() {
   const [text, setText] = useState("");
   const { handleSendMessage, isSending } = useChatActionsMobile();
 
-  const { data: messagesData, isLoading } = useFetchMessagesInChatRoomQuery(
+  const [optimisticMessages, setOptimisticMessages] = useState<
+    OptimisticMessage[]
+  >([]);
+
+  const {
+    data: messagesData,
+    isLoading,
+    refetch,
+  } = useFetchMessagesInChatRoomQuery(
     {
       chatRoomId,
       size: 50,
       page: 0,
     },
-    { skip: !chatRoomId },
+    {
+      skip: !chatRoomId,
+      pollingInterval: 50,
+    },
   );
 
-  useEffect(() => {
-    if (chatRoomId) {
-    }
-  }, [chatRoomId]);
+  // useFocusEffect(
+  //   useCallback(() => {
+  //     if (chatRoomId) {
+  //     }
+  //   }, [chatRoomId]),
+  // );
 
-  const messages = useMemo(() => {
-    return [...(messagesData?.data || [])].sort(
+  const processedMessages = useMemo(() => {
+    const serverMsgs = messagesData?.data ? [...messagesData.data] : [];
+    // Gộp 2 mảng và sắp xếp: Mới nhất lên đầu (vì dùng inverted)
+    const combined = [...optimisticMessages, ...serverMsgs];
+
+    return combined.sort(
       (a, b) =>
-        new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
+        new Date(b.createdAt!).getTime() - new Date(a.createdAt!).getTime(),
     );
-  }, [messagesData]);
+  }, [messagesData, optimisticMessages]);
 
   const onSend = async () => {
     if (!text.trim()) return;
-    await handleSendMessage(chatRoomId, text);
+
+    const contentToSend = text.trim();
+    const tempId = Date.now().toString();
+
+    // 1. Tạo tin nhắn giả để hiển thị ngay lập tức
+    const tempMsg: OptimisticMessage = {
+      messageId: tempId,
+      content: contentToSend,
+      sender: { accountId: user?.accountId } as any,
+      createdAt: new Date().toISOString(),
+      sending: true,
+    };
+
+    // 2. Cập nhật UI ngay lập tức
+    setOptimisticMessages((prev) => [tempMsg, ...prev]);
     setText("");
+
+    try {
+      // 3. Gọi API thật
+      await handleSendMessage(chatRoomId, contentToSend);
+
+      // 4. Gửi thành công: Xóa tin nhắn giả, đợi polling hoặc refetch lấy tin nhắn thật
+      setOptimisticMessages((prev) =>
+        prev.filter((m) => m.messageId !== tempId),
+      );
+      refetch();
+    } catch (e) {
+      // 5. Gửi lỗi: Xóa tin nhắn giả và có thể thông báo lỗi ở đây
+      setOptimisticMessages((prev) =>
+        prev.filter((m) => m.messageId !== tempId),
+      );
+      console.log("Send error", e);
+    }
   };
 
-  if (isLoading) return <ActivityIndicator style={{ flex: 1 }} />;
+  if (isLoading && !messagesData)
+    return <ActivityIndicator style={{ flex: 1 }} />;
 
   return (
     <SafeAreaView style={styles.container}>
@@ -71,11 +125,13 @@ export default function ChatDetail() {
       </View>
 
       <FlatList
-        data={messages}
+        data={processedMessages}
+        inverted
         keyExtractor={(item) => item.messageId?.toString()}
         contentContainerStyle={{ padding: 12 }}
         renderItem={({ item }) => {
           const isMe = item.sender?.accountId === user?.accountId;
+          const isSendingMsg = (item as OptimisticMessage).sending;
           return (
             <View
               style={[
@@ -87,6 +143,7 @@ export default function ChatDetail() {
                 style={[
                   styles.bubble,
                   isMe ? styles.myBubble : styles.otherBubble,
+                  isSendingMsg && { opacity: 0.6 },
                 ]}
               >
                 <Text style={{ color: isMe ? "#fff" : "#000" }}>
@@ -109,7 +166,7 @@ export default function ChatDetail() {
         <TouchableOpacity
           onPress={onSend}
           style={[styles.sendBtn, !text.trim() && { opacity: 0.5 }]}
-          disabled={!text.trim() || isSending}
+          disabled={!text.trim()}
         >
           {isSending ? (
             <ActivityIndicator color="#fff" size="small" />
