@@ -1,7 +1,11 @@
+import useChatActionsMobile from "@/hooks/useChatActionsMobile";
+import { useUser } from "@/hooks/useUser";
+import { useFetchMessagesInChatRoomQuery } from "@/services/chatRoom/chatRoomApi";
 import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
-import { useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
+  ActivityIndicator,
   FlatList,
   StyleSheet,
   Text,
@@ -11,74 +15,67 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-const CURRENT_USER = "me";
-
 export default function ChatDetail() {
-  const { name } = useLocalSearchParams<{ name: string }>();
-  const [messages, setMessages] = useState([
-    { id: "1", from: "Sơn Lưu", text: "hello" },
-    { id: "2", from: "me", text: "Ok" },
-  ]);
+  const { id, name } = useLocalSearchParams<{ id: string; name: string }>();
+  const chatRoomId = Number(id);
+  const { user } = useUser();
   const [text, setText] = useState("");
+  const { handleSendMessage, isSending } = useChatActionsMobile();
 
-  const send = () => {
+  const { data: messagesData, isLoading } = useFetchMessagesInChatRoomQuery(
+    {
+      chatRoomId,
+      size: 50,
+      page: 0,
+    },
+    { skip: !chatRoomId },
+  );
+
+  useEffect(() => {
+    if (chatRoomId) {
+    }
+  }, [chatRoomId]);
+
+  const messages = useMemo(() => {
+    return [...(messagesData?.data || [])].sort(
+      (a, b) =>
+        new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
+    );
+  }, [messagesData]);
+
+  const onSend = async () => {
     if (!text.trim()) return;
-    setMessages((prev) => [
-      ...prev,
-      { id: Date.now().toString(), from: CURRENT_USER, text },
-    ]);
+    await handleSendMessage(chatRoomId, text);
     setText("");
   };
-  const goBack = () => router.back();
+
+  if (isLoading) return <ActivityIndicator style={{ flex: 1 }} />;
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Header */}
       <View style={styles.header}>
-        {/* left */}
-        <View style={styles.headerLeft}>
-          <TouchableOpacity onPress={goBack}>
-            <Ionicons name="chevron-back" size={24} color="#fff" />
-          </TouchableOpacity>
-          <View style={styles.headerInfo}>
-            <Text style={styles.headerTitle}>{name}</Text>
-            <Text style={styles.headerStatus}>Hoạt động 5 phút trước</Text>
-          </View>
+        <TouchableOpacity onPress={() => router.back()}>
+          <Ionicons name="chevron-back" size={24} color="#fff" />
+        </TouchableOpacity>
+        <View style={styles.headerInfo}>
+          <Text style={styles.headerTitle}>{name}</Text>
+          <Text style={styles.headerStatus}>Đang hoạt động</Text>
         </View>
-        {/* right */}
-        <View style={styles.headerActions}>
-          <TouchableOpacity onPress={() => console.log("Call")}>
-            <Ionicons name="call-outline" size={22} color="#fff" />
-          </TouchableOpacity>
-
-          <TouchableOpacity onPress={() => console.log("Video call")}>
-            <Ionicons name="videocam-outline" size={22} color="#fff" />
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            onPress={() =>
-              router.push({
-                pathname: "/chat/detail",
-                params: { name },
-              })
-            }
-          >
-            <Ionicons
-              name="information-circle-outline"
-              size={24}
-              color="#fff"
-            />
-          </TouchableOpacity>
-        </View>
+        <TouchableOpacity
+          onPress={() =>
+            router.push({ pathname: "/chat/detail", params: { id, name } })
+          }
+        >
+          <Ionicons name="information-circle-outline" size={24} color="#fff" />
+        </TouchableOpacity>
       </View>
 
-      {/* Messages */}
       <FlatList
         data={messages}
-        keyExtractor={(item) => item.id}
+        keyExtractor={(item) => item.messageId?.toString()}
         contentContainerStyle={{ padding: 12 }}
         renderItem={({ item }) => {
-          const isMe = item.from === CURRENT_USER;
+          const isMe = item.sender?.accountId === user?.accountId;
           return (
             <View
               style={[
@@ -93,7 +90,7 @@ export default function ChatDetail() {
                 ]}
               >
                 <Text style={{ color: isMe ? "#fff" : "#000" }}>
-                  {item.text}
+                  {item.content}
                 </Text>
               </View>
             </View>
@@ -101,16 +98,24 @@ export default function ChatDetail() {
         }}
       />
 
-      {/* Input */}
       <View style={styles.inputBar}>
         <TextInput
           value={text}
           onChangeText={setText}
           placeholder="Tin nhắn"
           style={styles.input}
+          multiline
         />
-        <TouchableOpacity onPress={send} style={styles.sendBtn}>
-          <Text style={{ color: "#fff" }}>➤</Text>
+        <TouchableOpacity
+          onPress={onSend}
+          style={[styles.sendBtn, !text.trim() && { opacity: 0.5 }]}
+          disabled={!text.trim() || isSending}
+        >
+          {isSending ? (
+            <ActivityIndicator color="#fff" size="small" />
+          ) : (
+            <Text style={{ color: "#fff" }}>➤</Text>
+          )}
         </TouchableOpacity>
       </View>
     </SafeAreaView>
