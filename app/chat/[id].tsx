@@ -1,7 +1,12 @@
+import useChatActionsMobile from "@/hooks/useChatActionsMobile";
+import { useUser } from "@/hooks/useUser";
+import { useFetchMessagesInChatRoomQuery } from "@/services/chatRoom/chatRoomApi";
+import { MessageType } from "@/types/model";
 import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
-import { useState } from "react";
+import React, { useMemo, useState } from "react";
 import {
+  ActivityIndicator,
   FlatList,
   StyleSheet,
   Text,
@@ -10,75 +15,123 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-
-const CURRENT_USER = "me";
+interface OptimisticMessage extends Partial<MessageType> {
+  messageId: string;
+  sending?: boolean;
+}
 
 export default function ChatDetail() {
-  const { name } = useLocalSearchParams<{ name: string }>();
-  const [messages, setMessages] = useState([
-    { id: "1", from: "Sơn Lưu", text: "hello" },
-    { id: "2", from: "me", text: "Ok" },
-  ]);
+  const { id, name } = useLocalSearchParams<{ id: string; name: string }>();
+  const chatRoomId = Number(id);
+  const { user } = useUser();
   const [text, setText] = useState("");
+  const { handleSendMessage, isSending } = useChatActionsMobile();
 
-  const send = () => {
+  const [optimisticMessages, setOptimisticMessages] = useState<
+    OptimisticMessage[]
+  >([]);
+
+  const {
+    data: messagesData,
+    isLoading,
+    refetch,
+  } = useFetchMessagesInChatRoomQuery(
+    {
+      chatRoomId,
+      size: 50,
+      page: 0,
+    },
+    {
+      skip: !chatRoomId,
+      pollingInterval: 50,
+    },
+  );
+
+  // useFocusEffect(
+  //   useCallback(() => {
+  //     if (chatRoomId) {
+  //     }
+  //   }, [chatRoomId]),
+  // );
+
+  const processedMessages = useMemo(() => {
+    const serverMsgs = messagesData?.data ? [...messagesData.data] : [];
+    // Gộp 2 mảng và sắp xếp: Mới nhất lên đầu (vì dùng inverted)
+    const combined = [...optimisticMessages, ...serverMsgs];
+
+    return combined.sort(
+      (a, b) =>
+        new Date(b.createdAt!).getTime() - new Date(a.createdAt!).getTime(),
+    );
+  }, [messagesData, optimisticMessages]);
+
+  const onSend = async () => {
     if (!text.trim()) return;
-    setMessages((prev) => [
-      ...prev,
-      { id: Date.now().toString(), from: CURRENT_USER, text },
-    ]);
+
+    const contentToSend = text.trim();
+    const tempId = Date.now().toString();
+
+    // 1. Tạo tin nhắn giả để hiển thị ngay lập tức
+    const tempMsg: OptimisticMessage = {
+      messageId: tempId,
+      content: contentToSend,
+      sender: { accountId: user?.accountId } as any,
+      createdAt: new Date().toISOString(),
+      sending: true,
+    };
+
+    // 2. Cập nhật UI ngay lập tức
+    setOptimisticMessages((prev) => [tempMsg, ...prev]);
     setText("");
+
+    try {
+      // 3. Gọi API thật
+      await handleSendMessage(chatRoomId, contentToSend);
+
+      // 4. Gửi thành công: Xóa tin nhắn giả, đợi polling hoặc refetch lấy tin nhắn thật
+      setOptimisticMessages((prev) =>
+        prev.filter((m) => m.messageId !== tempId),
+      );
+      refetch();
+    } catch (e) {
+      // 5. Gửi lỗi: Xóa tin nhắn giả và có thể thông báo lỗi ở đây
+      setOptimisticMessages((prev) =>
+        prev.filter((m) => m.messageId !== tempId),
+      );
+      console.log("Send error", e);
+    }
   };
-  const goBack = () => router.back();
+
+  if (isLoading && !messagesData)
+    return <ActivityIndicator style={{ flex: 1 }} />;
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Header */}
       <View style={styles.header}>
-        {/* left */}
-        <View style={styles.headerLeft}>
-          <TouchableOpacity onPress={goBack}>
-            <Ionicons name="chevron-back" size={24} color="#fff" />
-          </TouchableOpacity>
-          <View style={styles.headerInfo}>
-            <Text style={styles.headerTitle}>{name}</Text>
-            <Text style={styles.headerStatus}>Hoạt động 5 phút trước</Text>
-          </View>
+        <TouchableOpacity onPress={() => router.back()}>
+          <Ionicons name="chevron-back" size={24} color="#fff" />
+        </TouchableOpacity>
+        <View style={styles.headerInfo}>
+          <Text style={styles.headerTitle}>{name}</Text>
+          <Text style={styles.headerStatus}>Đang hoạt động</Text>
         </View>
-        {/* right */}
-        <View style={styles.headerActions}>
-          <TouchableOpacity onPress={() => console.log("Call")}>
-            <Ionicons name="call-outline" size={22} color="#fff" />
-          </TouchableOpacity>
-
-          <TouchableOpacity onPress={() => console.log("Video call")}>
-            <Ionicons name="videocam-outline" size={22} color="#fff" />
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            onPress={() =>
-              router.push({
-                pathname: "/chat/detail",
-                params: { name },
-              })
-            }
-          >
-            <Ionicons
-              name="information-circle-outline"
-              size={24}
-              color="#fff"
-            />
-          </TouchableOpacity>
-        </View>
+        <TouchableOpacity
+          onPress={() =>
+            router.push({ pathname: "/chat/detail", params: { id, name } })
+          }
+        >
+          <Ionicons name="information-circle-outline" size={24} color="#fff" />
+        </TouchableOpacity>
       </View>
 
-      {/* Messages */}
       <FlatList
-        data={messages}
-        keyExtractor={(item) => item.id}
+        data={processedMessages}
+        inverted
+        keyExtractor={(item) => item.messageId?.toString()}
         contentContainerStyle={{ padding: 12 }}
         renderItem={({ item }) => {
-          const isMe = item.from === CURRENT_USER;
+          const isMe = item.sender?.accountId === user?.accountId;
+          const isSendingMsg = (item as OptimisticMessage).sending;
           return (
             <View
               style={[
@@ -90,10 +143,11 @@ export default function ChatDetail() {
                 style={[
                   styles.bubble,
                   isMe ? styles.myBubble : styles.otherBubble,
+                  isSendingMsg && { opacity: 0.6 },
                 ]}
               >
                 <Text style={{ color: isMe ? "#fff" : "#000" }}>
-                  {item.text}
+                  {item.content}
                 </Text>
               </View>
             </View>
@@ -101,16 +155,24 @@ export default function ChatDetail() {
         }}
       />
 
-      {/* Input */}
       <View style={styles.inputBar}>
         <TextInput
           value={text}
           onChangeText={setText}
           placeholder="Tin nhắn"
           style={styles.input}
+          multiline
         />
-        <TouchableOpacity onPress={send} style={styles.sendBtn}>
-          <Text style={{ color: "#fff" }}>➤</Text>
+        <TouchableOpacity
+          onPress={onSend}
+          style={[styles.sendBtn, !text.trim() && { opacity: 0.5 }]}
+          disabled={!text.trim()}
+        >
+          {isSending ? (
+            <ActivityIndicator color="#fff" size="small" />
+          ) : (
+            <Text style={{ color: "#fff" }}>➤</Text>
+          )}
         </TouchableOpacity>
       </View>
     </SafeAreaView>

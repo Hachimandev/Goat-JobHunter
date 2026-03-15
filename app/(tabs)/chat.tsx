@@ -1,6 +1,9 @@
+import { useUser } from "@/hooks/useUser";
+import { useFetchChatRoomsQuery } from "@/services/chatRoom/chatRoomApi";
 import { Ionicons } from "@expo/vector-icons";
-import { router } from "expo-router";
-import React, { useState } from "react";
+import dayjs from "dayjs";
+import { router, useFocusEffect } from "expo-router";
+import React, { useCallback, useState } from "react";
 import {
   FlatList,
   Image,
@@ -10,25 +13,36 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { ActivityIndicator } from "react-native-paper";
 import { SafeAreaView } from "react-native-safe-area-context";
-
-const chats = [
-  {
-    id: "1",
-    name: "Sơn Lưu",
-    lastMessage: "ok",
-    time: "4 giờ",
-    unread: 0,
-    avatar: "https://i.pravatar.cc/100?img=3",
-  },
-];
 
 export default function ChatListScreen() {
   const [search, setSearch] = useState("");
+  const { user } = useUser();
 
-  const filteredChats = chats.filter((chat) =>
+  const {
+    data: chatRoomsRes,
+    isLoading,
+    refetch,
+  } = useFetchChatRoomsQuery({
+    page: 0,
+    size: 20,
+  });
+
+  useFocusEffect(
+    useCallback(() => {
+      refetch(); // Luôn fetch lại danh sách phòng chat khi màn hình được focus
+    }, []),
+  );
+
+  const chatRooms = chatRoomsRes?.data?.result || [];
+
+  const filteredChats = chatRooms.filter((chat) =>
     chat.name.toLowerCase().includes(search.toLowerCase()),
   );
+
+  if (isLoading) return <ActivityIndicator style={{ flex: 1 }} />;
+
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.searchBar}>
@@ -44,25 +58,38 @@ export default function ChatListScreen() {
 
       <FlatList
         data={filteredChats}
-        keyExtractor={(item) => item.id}
+        keyExtractor={(item) => item.roomId.toString()}
+        refreshing={isLoading}
+        onRefresh={refetch}
         renderItem={({ item }) => (
           <TouchableOpacity
             style={styles.chatItem}
             onPress={() =>
               router.push({
                 pathname: "/chat/[id]",
-                params: { id: item.id, name: item.name },
+                params: {
+                  id: item.roomId,
+                  name: item.name,
+                  avatar: item.avatar,
+                },
               })
             }
           >
-            <Image source={{ uri: item.avatar }} style={styles.avatar} />
+            <Image
+              source={{ uri: item.avatar || "https://via.placeholder.com/100" }}
+              style={styles.avatar}
+            />
             <View style={styles.chatContent}>
               <Text style={styles.chatName}>{item.name}</Text>
               <Text numberOfLines={1} style={styles.chatMessage}>
-                {item.lastMessage}
+                {item.lastMessagePreview || "Chưa có tin nhắn"}
               </Text>
             </View>
-            <Text style={styles.chatTime}>{item.time}</Text>
+            <Text style={styles.chatTime}>
+              {item.lastMessageTime
+                ? dayjs(item.lastMessageTime).fromNow()
+                : ""}
+            </Text>
           </TouchableOpacity>
         )}
       />
