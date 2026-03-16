@@ -62,7 +62,7 @@ const UserFormPage = () => {
     isFetching: isFetchingUser,
     isSuccess,
     isError
-  } = useFetchUserByIdQuery(Number(userId), {
+  } = useFetchUserByIdQuery(userId!, {
     skip: !userId
   });
 
