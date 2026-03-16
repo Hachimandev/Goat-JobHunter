@@ -20,10 +20,9 @@ type RecruiterResumeViewProps = {
 };
 
 export const RecruiterResumeView = ({ resumes, isLoading, onDownload, job }: RecruiterResumeViewProps) => {
-  const { getUserById, isFetchingUserById, isFetchingUserByIdError } = useJobAction();
+  const { getUserById, handleSendInvitationEmail, isFetchingUserById, isFetchingUserByIdError } = useJobAction();
 
   const [imageErrors, setImageErrors] = useState<Set<number>>(new Set());
-
   const [selectedResume, setSelectedResume] = useState<Resume | null>(null);
 
   const handleSelectResume = (resume: Resume) => {
@@ -233,6 +232,7 @@ export const RecruiterResumeView = ({ resumes, isLoading, onDownload, job }: Rec
               isFetchingUserById={isFetchingUserById}
               isFetchingUserByIdError={isFetchingUserByIdError}
               job={job}
+              handleSendInvitationEmail={handleSendInvitationEmail}
             />
           </div>
         </div>

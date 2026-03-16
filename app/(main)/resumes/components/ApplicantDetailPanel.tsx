@@ -45,6 +45,7 @@ type ApplicantDetailUser = Pick<
 type ApplicantDetailPanelProps = {
   selectedResume: Resume | null;
   getUserById: (userId: number) => Promise<ApplicantDetailUser | undefined>;
+  handleSendInvitationEmail: (applicantIds: number[], jobId: number) => void;
   isLoading?: boolean;
   isFetchingUserById?: boolean;
   isFetchingUserByIdError?: boolean;
@@ -82,6 +83,7 @@ export const ApplicantDetailPanel = ({
   isFetchingUserById,
   isFetchingUserByIdError,
   job,
+  handleSendInvitationEmail,
 }: ApplicantDetailPanelProps) => {
   const [userDetail, setUserDetail] = useState<ApplicantDetailUser | null>(null);
 
@@ -115,9 +117,11 @@ export const ApplicantDetailPanel = ({
   const avatar = user?.avatar || selectedResume?.applicant?.avatar;
   const cover = user?.coverPhoto || selectedResume?.applicant?.coverPhoto;
   const name = user?.fullName || selectedResume?.applicant?.fullName;
-  const mailToHref = emailForContact
-    ? `mailto:${emailForContact}?subject=${encodeURIComponent(`Thư mời ứng tuyển vị trí ${job}`)}&body=${encodeURIComponent(`Chào bạn,\n\nChúng tôi muốn trao đổi với bạn về vị trí ${job}.`)}`
-    : '';
+
+  const handleSendEmail = () => {
+    if (!userDetail || !job) return;
+    handleSendInvitationEmail([userDetail.accountId], Number(job));
+  };
 
   if (isLoading || isFetchingUserById) {
     return (
@@ -178,11 +182,11 @@ export const ApplicantDetailPanel = ({
                   <UserCheck className="mr-1 size-3" />
                   {availability}
                 </Badge>
-                {job && emailForContact && (
+                {Number(job) !== -1 && emailForContact && (
                   <Button
                     size="sm"
                     type="button"
-                    onClick={() => window.open(mailToHref, '_self')}
+                    onClick={() => handleSendEmail()}
                     style={{ animation: 'mailButtonReveal 360ms cubic-bezier(0.2, 0.9, 0.2, 1) both' }}
                     className="group h-9 w-9 rounded-full border-2 border-sky-100/90 bg-linear-to-br from-sky-400 via-blue-500 to-cyan-500 p-0 text-white shadow-[0_10px_26px_rgba(14,116,244,0.55)] transition-all duration-200 hover:scale-105 hover:brightness-105 hover:shadow-[0_14px_30px_rgba(14,116,244,0.72)] focus-visible:ring-2 focus-visible:ring-sky-100"
                   >
