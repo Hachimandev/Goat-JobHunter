@@ -47,11 +47,8 @@ export const ResumeCard = ({
   const [showEvaluationDialog, setShowEvaluationDialog] = useState(false);
 
   const fileUrlLower = resume.fileUrl?.toLowerCase() || '';
-
   const isPDF = fileUrlLower.endsWith('.pdf') || fileUrlLower.includes('.pdf');
-
   const isImage = fileUrlLower.match(/\.(png|jpg|jpeg|gif|webp|bmp)($|\?)/);
-
   const isDocument = fileUrlLower.match(/\.(doc|docx)($|\?)/);
 
   const handleDelete = () => {

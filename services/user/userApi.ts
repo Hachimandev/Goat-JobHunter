@@ -1,11 +1,12 @@
-import { api } from "@/services/api";
-import { buildSpringQuery } from "@/utils/buildSpringQuery";
+import { api } from '@/services/api';
+import { buildSpringQuery } from '@/utils/buildSpringQuery';
 import {
   CheckCompaniesFollowedResponse,
   CheckRecruitersFollowedResponse,
   CheckReviewedCompaniesResponse,
   CompanyIdsRequest,
   CreateUserRequest,
+  FetchUserResponse,
   FetchUsersRequest,
   FetchUsersResponse,
   FollowCompaniesResponse,
@@ -38,205 +39,209 @@ export const userApi = api.injectEndpoints({
         });
 
         return {
-          url: "/users",
-          method: "GET",
-          params: queryParams
+          url: '/users',
+          method: 'GET',
+          params: queryParams,
         };
       },
-      providesTags: ["User"]
+      providesTags: ['User'],
     }),
 
     searchUsers: builder.query<FetchUsersResponse, string>({
       query: (params) => {
         return {
-          url: "/users/search",
-          method: "GET",
-          params: { keyword: params }
+          url: '/users/search',
+          method: 'GET',
+          params: { keyword: params },
         };
       },
-      providesTags: ["User"]
+      providesTags: ['User'],
     }),
 
-    fetchUserById: builder.query({
-      query: (userId: number) => ({
+    fetchUserById: builder.query<FetchUserResponse, string>({
+      query: (userId: string) => ({
         url: `/users/${userId}`,
-        method: "GET"
+        method: 'GET',
       }),
-      providesTags: (result, error, userId) => [{ type: "User", id: userId }]
+      providesTags: (result, error, userId) => [
+        { type: 'User', id: userId },
+        { type: 'Recruiter', id: userId },
+        { type: 'Applicant', id: userId },
+      ],
     }),
 
     createUser: builder.mutation<UserMutationResponse, CreateUserRequest>({
       query: (data) => ({
-        url: "/users",
-        method: "POST",
-        data
+        url: '/users',
+        method: 'POST',
+        data,
       }),
-      invalidatesTags: ["User"]
+      invalidatesTags: ['User'],
     }),
 
     updatePassword: builder.mutation<UpdatePasswordResponse, UpdatePasswordRequest>({
       query: (data) => ({
-        url: "/users/update-password",
-        method: "PUT",
-        data
-      })
+        url: '/users/update-password',
+        method: 'PUT',
+        data,
+      }),
     }),
 
     resetPassword: builder.mutation<ResetPasswordResponse, ResetPasswordRequest>({
       query: (data) => ({
-        url: "/users/reset-password",
-        method: "PUT",
-        data
-      })
+        url: '/users/reset-password',
+        method: 'PUT',
+        data,
+      }),
     }),
 
     // Follow Recruiters APIs
     getFollowedRecruiters: builder.query<GetFollowedRecruitersResponse, void>({
       query: () => ({
-        url: "/users/me/followed-recruiters",
-        method: "GET"
+        url: '/users/me/followed-recruiters',
+        method: 'GET',
       }),
-      providesTags: ["User"]
+      providesTags: ['User'],
     }),
 
     checkRecruitersFollowed: builder.query<CheckRecruitersFollowedResponse, RecruiterIdsRequest>({
       query: ({ recruiterIds }) => ({
-        url: "/users/me/followed-recruiters/contains",
-        params: { recruiterIds }
+        url: '/users/me/followed-recruiters/contains',
+        params: { recruiterIds },
       }),
-      providesTags: ["User"]
+      providesTags: ['User'],
     }),
 
     followRecruiters: builder.mutation<FollowRecruitersResponse, RecruiterIdsRequest>({
       query: (data) => ({
-        url: "/users/me/followed-recruiters",
-        method: "PUT",
-        data
+        url: '/users/me/followed-recruiters',
+        method: 'PUT',
+        data,
       }),
-      invalidatesTags: ["User"]
+      invalidatesTags: ['User'],
     }),
 
     unfollowRecruiters: builder.mutation<FollowRecruitersResponse, RecruiterIdsRequest>({
       query: (data) => ({
-        url: "/users/me/followed-recruiters",
-        method: "DELETE",
-        data
+        url: '/users/me/followed-recruiters',
+        method: 'DELETE',
+        data,
       }),
-      invalidatesTags: ["User"]
+      invalidatesTags: ['User'],
     }),
 
     // Follow Company APIs
     getFollowedCompanies: builder.query<GetFollowedCompaniesResponse, void>({
       query: () => ({
-        url: "/users/me/followed-companies",
-        method: "GET"
+        url: '/users/me/followed-companies',
+        method: 'GET',
       }),
-      providesTags: ["User"]
+      providesTags: ['User'],
     }),
 
     checkCompaniesFollowed: builder.query<CheckCompaniesFollowedResponse, CompanyIdsRequest>({
       query: ({ companyIds }) => ({
-        url: "/users/me/followed-companies/contains",
-        params: { companyIds }
+        url: '/users/me/followed-companies/contains',
+        params: { companyIds },
       }),
-      providesTags: ["User"]
+      providesTags: ['User'],
     }),
 
     followCompanies: builder.mutation<FollowCompaniesResponse, CompanyIdsRequest>({
       query: (data) => ({
-        url: "/users/me/followed-companies",
-        method: "PUT",
-        data
+        url: '/users/me/followed-companies',
+        method: 'PUT',
+        data,
       }),
-      invalidatesTags: ["User"]
+      invalidatesTags: ['User'],
     }),
 
     unfollowCompanies: builder.mutation<FollowCompaniesResponse, CompanyIdsRequest>({
       query: (data) => ({
-        url: "/users/me/followed-companies",
-        method: "DELETE",
-        data
+        url: '/users/me/followed-companies',
+        method: 'DELETE',
+        data,
       }),
-      invalidatesTags: ["User"]
+      invalidatesTags: ['User'],
     }),
 
     checkReviewedCompanies: builder.query<CheckReviewedCompaniesResponse, CompanyIdsRequest>({
       query: ({ companyIds }) => ({
-        url: "/users/me/reviewed-companies/contains",
-        params: { companyIds }
+        url: '/users/me/reviewed-companies/contains',
+        params: { companyIds },
       }),
-      providesTags: ["User"]
+      providesTags: ['User'],
     }),
 
     // User Status APIs
     activateUsers: builder.mutation<UserStatusResponse, UserIdsRequest>({
       query: (data) => ({
-        url: "/users/activate",
-        method: "PUT",
-        data
+        url: '/users/activate',
+        method: 'PUT',
+        data,
       }),
-      invalidatesTags: ["User", "Recruiter", "Applicant"]
+      invalidatesTags: ['User', 'Recruiter', 'Applicant'],
     }),
 
     deactivateUsers: builder.mutation<UserStatusResponse, UserIdsRequest>({
       query: (data) => ({
-        url: "/users/deactivate",
-        method: "PUT",
-        data
+        url: '/users/deactivate',
+        method: 'PUT',
+        data,
       }),
-      invalidatesTags: ["User", "Recruiter", "Applicant"]
+      invalidatesTags: ['User', 'Recruiter', 'Applicant'],
     }),
 
     // Current jobs
-    fetchJobSubscribersByCurrentUser: builder.query<FetchJobsResponse, Omit<FetchJobsRequest, "active">>({
+    fetchJobSubscribersByCurrentUser: builder.query<FetchJobsResponse, Omit<FetchJobsRequest, 'active'>>({
       query: (params) => {
         const { params: queryParams } = buildSpringQuery({
           params: {
-            ...params
+            ...params,
           },
-          filterFields: ["title", "salary", "active", "level", "workingType", "enabled"],
-          textSearchFields: ["title"],
+          filterFields: ['title', 'salary', 'active', 'level', 'workingType', 'enabled'],
+          textSearchFields: ['title'],
           nestedArrayFields: {
-            skills: "skills.skillId"
+            skills: 'skills.skillId',
           },
           nestedFields: {
-            provinces: "address.province"
+            provinces: 'address.province',
           },
-          defaultSort: "createdAt,desc",
-          sortableFields: ["title", "salary", "createdAt", "updatedAt"]
+          defaultSort: 'createdAt,desc',
+          sortableFields: ['title', 'salary', 'createdAt', 'updatedAt'],
         });
 
         return {
-          url: "/users/me/jobs/subscribers",
-          method: "GET",
-          params: queryParams
+          url: '/users/me/jobs/subscribers',
+          method: 'GET',
+          params: queryParams,
         };
       },
-      providesTags: ["Job"]
+      providesTags: ['Job'],
     }),
 
-    fetchRelatedJobsByCurrentUser: builder.query<FetchJobsResponse, Omit<FetchJobsRequest, "active">>({
+    fetchRelatedJobsByCurrentUser: builder.query<FetchJobsResponse, Omit<FetchJobsRequest, 'active'>>({
       query: (params) => {
         const { params: queryParams } = buildSpringQuery({
           params: {
-            ...params
+            ...params,
           },
-          filterFields: ["title", "salary", "active", "level", "workingType", "enabled"],
-          textSearchFields: ["title"],
+          filterFields: ['title', 'salary', 'active', 'level', 'workingType', 'enabled'],
+          textSearchFields: ['title'],
           nestedArrayFields: {
-            skills: "skills.skillId"
+            skills: 'skills.skillId',
           },
           nestedFields: {
-            provinces: "address.province"
+            provinces: 'address.province',
           },
-          defaultSort: "createdAt,desc",
-          sortableFields: ["title", "salary", "createdAt", "updatedAt"]
+          defaultSort: 'createdAt,desc',
+          sortableFields: ['title', 'salary', 'createdAt', 'updatedAt'],
         });
 
         return {
-          url: "/users/me/jobs/related",
-          method: "GET",
-          params: queryParams
+          url: '/users/me/jobs/related',
+          method: 'GET',
+          params: queryParams,
         };
       },
       providesTags: ['Job'],
@@ -269,6 +274,7 @@ export const {
   useFetchUsersQuery,
   useLazyFetchUsersQuery,
   useFetchUserByIdQuery,
+  useLazyFetchUserByIdQuery,
 
   useCreateUserMutation,
   useUpdatePasswordMutation,
