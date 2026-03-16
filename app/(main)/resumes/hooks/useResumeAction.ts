@@ -1,6 +1,7 @@
 import { useUser } from '@/hooks/useUser';
 import { useToggleAvailableStatusMutation } from '@/services/applicant/applicantApi';
 import { useEvaluateResumeMutation, useFetchEvaluationResumesQuery } from '@/services/evaluation/evaluationApi';
+import { useFetchJobsAvailableQuery, useFetchSuitableResumesForJobQuery } from '@/services/job/jobApi';
 import {
   useCreateResumeMutation,
   useDefaultResumeMutation,
@@ -19,9 +20,16 @@ import { toast } from 'sonner';
 export interface UseResumeFilterOptions {
   initialPage?: number;
   itemsPerPage?: number;
+  companyId?: number;
+  jobId?: string | number;
 }
 
-export const useResumeAction = ({ initialPage = 1, itemsPerPage = 6 }: UseResumeFilterOptions = {}) => {
+export const useResumeAction = ({
+  initialPage = 1,
+  itemsPerPage = 6,
+  companyId,
+  jobId = '-1',
+}: UseResumeFilterOptions = {}) => {
   const { user, isSignedIn } = useUser();
   const [currentPage, setCurrentPage] = useState(initialPage);
   const [selectedResumeId, setSelectedResumeId] = useState<string | null>(null);
@@ -40,19 +48,33 @@ export const useResumeAction = ({ initialPage = 1, itemsPerPage = 6 }: UseResume
   const [privateResume, { isLoading: isSettingPrivate }] = usePrivateResumeMutation();
   const [downloadResume, { isLoading: isDownloading }] = useDownloadResumeMutation();
 
-  const {
-    data: resumesData,
-    isLoading: isFetchingResumes,
-    refetch: refetchResumes,
-  } = useFetchResumesByCurrentUserQuery(
+  const hasSelectedJob = !!jobId && String(jobId) !== '-1';
+  const normalizedJobId = hasSelectedJob ? String(jobId) : undefined;
+
+  const currentUserResumesQuery = useFetchResumesByCurrentUserQuery(
     {
       page: currentPage,
       size: itemsPerPage,
     },
     {
-      skip: !isSignedIn,
+      skip: !isSignedIn || hasSelectedJob,
     },
   );
+
+  const suitableResumesQuery = useFetchSuitableResumesForJobQuery(
+    {
+      jobId: normalizedJobId,
+      page: currentPage,
+      size: itemsPerPage,
+    },
+    {
+      skip: !normalizedJobId,
+    },
+  );
+
+  const resumesData = hasSelectedJob ? suitableResumesQuery.data : currentUserResumesQuery.data;
+  const isFetchingResumes = hasSelectedJob ? suitableResumesQuery.isLoading : currentUserResumesQuery.isLoading;
+  const refetchResumes = hasSelectedJob ? suitableResumesQuery.refetch : currentUserResumesQuery.refetch;
 
   const {
     data: evaluationsData,
@@ -354,7 +376,7 @@ export const useResumeAction = ({ initialPage = 1, itemsPerPage = 6 }: UseResume
         toast.success(newStatus ? 'Đã bật trạng thái sẵn sàng nhận việc!' : 'Đã tắt trạng thái sẵn sàng nhận việc!');
         return response.data;
       }
-    } catch (error) {
+    } catch {
       toast.error('Không thể thay đổi trạng thái. Vui lòng thử lại sau.');
     }
   }, [toggleAvailableStatus, user, isSignedIn]);
@@ -429,6 +451,16 @@ export const useResumeAction = ({ initialPage = 1, itemsPerPage = 6 }: UseResume
     setEvaluationPage(1);
   }, []);
 
+  const { data, isLoading, error } = useFetchJobsAvailableQuery(
+    {
+      companyId,
+    },
+    {
+      skip: companyId === -1,
+    },
+  );
+  const jobs = data?.data?.result || [];
+
   return {
     // Data
     resumes,
@@ -446,6 +478,9 @@ export const useResumeAction = ({ initialPage = 1, itemsPerPage = 6 }: UseResume
     evaluationPageSize,
     totalEvaluationPages: evaluationsMeta.pages,
     totalEvaluations: evaluationsMeta.total,
+    jobs,
+    isLoadingJobs: isLoading,
+    errorJobs: error,
 
     // Loading states
     isFetchingResumes,

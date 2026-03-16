@@ -16,11 +16,13 @@ import { useResumeAction } from './hooks/useResumeAction';
 import { HasApplicant } from '@/components/common/HasRole';
 import { RecruiterResumeView } from './components/RecruiterResumeView';
 import { LoginResponseDto } from '@/types/dto';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 const ResumePage = () => {
   useGetMyAccountQuery();
 
   const { user, isSignedIn } = useUser();
+  const [selectedJobId, setSelectedJobId] = useState<string>('-1');
   const {
     resumes,
     isFetchingResumes,
@@ -53,7 +55,13 @@ const ResumePage = () => {
     hasNextEvaluationPage,
     hasPreviousEvaluationPage,
     totalEvaluations,
-  } = useResumeAction({ initialPage: 1, itemsPerPage: 6 });
+    jobs,
+  } = useResumeAction({
+    initialPage: 1,
+    itemsPerPage: 6,
+    companyId: (user as LoginResponseDto)?.company?.companyId,
+    jobId: selectedJobId || '-1',
+  });
 
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
@@ -77,6 +85,10 @@ const ResumePage = () => {
     }
   };
 
+  const handleJobChange = (value: string) => {
+    setSelectedJobId(value);
+  };
+
   if (!user || !isSignedIn) {
     return (
       <Empty>
@@ -94,12 +106,50 @@ const ResumePage = () => {
     <>
       {isRecruiterOrCompany && (
         <>
-          <RecruiterResumeView
-            resumes={resumes}
-            isLoading={isFetchingResumes || isProcessing}
-            onDownload={handleDownloadResume}
-            user={user as LoginResponseDto}
-          />
+          <div className="h-screen flex flex-col">
+            <div className="border-b border-border bg-primary/5 py-6">
+              <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h1 className="text-3xl md:text-4xl font-bold text-foreground mb-2">Quản lý hồ sơ ứng viên</h1>
+                    <p className="font-bold">Xem và đánh giá hồ sơ ứng viên phù hợp</p>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className="font-bold">Vị trí tuyển dụng:</span>
+                    <Select value={selectedJobId} onValueChange={handleJobChange}>
+                      <SelectTrigger className="w-[320px] cursor-pointer rounded-xl text-primary font-bold">
+                        <SelectValue placeholder="Chọn vị trí để lọc hồ sơ" />
+                      </SelectTrigger>
+                      <SelectContent className="rounded-xl">
+                        <SelectItem key="-1" value="-1" className="cursor-pointer rounded-xl">
+                          Chọn vị trí để lọc hồ sơ
+                        </SelectItem>
+                        {jobs.length > 0 ? (
+                          jobs.map((job) => (
+                            <SelectItem
+                              key={job.jobId}
+                              value={job.jobId.toString()}
+                              className="cursor-pointer rounded-xl"
+                            >
+                              {job.title}
+                            </SelectItem>
+                          ))
+                        ) : (
+                          <div className="px-2 py-6 text-center text-sm text-gray-500">Không có công việc nào</div>
+                        )}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <RecruiterResumeView
+              resumes={resumes}
+              isLoading={isFetchingResumes || isProcessing}
+              onDownload={handleDownloadResume}
+              job={selectedJobId}
+            />
+          </div>
           <CustomPagination
             currentPage={currentPage}
             totalPages={totalPages}

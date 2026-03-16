@@ -1,5 +1,5 @@
 import type { IBackendRes, IModelPaginate } from '@/types/api';
-import type { Applicant, Job } from '@/types/model';
+import type { Applicant, Job, Resume } from '@/types/model';
 import { JobActionType } from '@/types/enum';
 
 export type JobIdsRequest = {
@@ -55,11 +55,9 @@ export type FetchJobByRecruiterRequest = {
 } & Omit<FetchJobsRequest, 'active'>;
 
 export type FetchSuitableApplicantsRequest = {
-    jobId?: number;
+    jobId?: string;
     page?: number;
     size?: number;
-    fullName?: string;
-    email?: string;
 };
 
 // Response Types
@@ -86,7 +84,5 @@ export type JobApplicationCountResponse = IBackendRes<
         applications: number;
     }[]
 >;
-
-export type FetchSuitableApplicantsResponse = IBackendRes<IModelPaginate<Applicant>>;
 
 export type CountJobsByCompanyResponse = IBackendRes<Record<number, number>>;
