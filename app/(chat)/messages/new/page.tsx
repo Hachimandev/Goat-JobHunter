@@ -15,7 +15,7 @@ export default function NewChatRoomPage() {
   const { user } = useUser();
   const { handleSendMessageToNewChat } = useChatRoomAndMessageActions();
 
-  const { data } = useFetchUserByIdQuery(Number(recipientId), {
+  const { data } = useFetchUserByIdQuery(recipientId!, {
     skip: !recipientId || isNaN(Number(recipientId)),
   });
 
