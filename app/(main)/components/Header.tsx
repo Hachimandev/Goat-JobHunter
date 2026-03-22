@@ -102,8 +102,7 @@ export default function Header() {
                   <Link href="/company">
                     <Button
                       size="sm"
-                      variant="outline"
-                      className="border-2 border-primary text-primary hover:bg-primary hover:text-primary-foreground rounded-xl text-sm"
+                      className="bg-primary text-primary-foreground hover:bg-primary/90 rounded-xl text-sm"
                     >
                       Đăng Ký Tài Khoản Công Ty
                     </Button>

@@ -65,17 +65,17 @@ export function OTPForm({ ...props }: React.ComponentProps<typeof Card>) {
             <FieldLabel htmlFor="otp">Mã xác thực</FieldLabel>
             <InputOTP maxLength={6} id="otp" required value={otp} onChange={setOtp}>
               <InputOTPGroup className="gap-2.5 *:data-[slot=input-otp-slot]:rounded-md *:data-[slot=input-otp-slot]:border">
-                <InputOTPSlot className="rounded-lg!" index={0} />
-                <InputOTPSlot className="rounded-lg!" index={1} />
-                <InputOTPSlot className="rounded-lg!" index={2} />
-                <InputOTPSlot className="rounded-lg!" index={3} />
-                <InputOTPSlot className="rounded-lg!" index={4} />
-                <InputOTPSlot className="rounded-lg!" index={5} />
+                <InputOTPSlot className="rounded-xl!" index={0} />
+                <InputOTPSlot className="rounded-xl!" index={1} />
+                <InputOTPSlot className="rounded-xl!" index={2} />
+                <InputOTPSlot className="rounded-xl!" index={3} />
+                <InputOTPSlot className="rounded-xl!" index={4} />
+                <InputOTPSlot className="rounded-xl!" index={5} />
               </InputOTPGroup>
             </InputOTP>
           </Field>
           <FieldGroup>
-            <Button type="submit" onClick={onSubmit} className="rounded-lg!">
+            <Button type="submit" onClick={onSubmit} className="rounded-xl w-full">
               {isVerifying ? 'Đang xác thực...' : 'Xác thực'}
             </Button>
             <FieldDescription className="text-center text-gray-400">
