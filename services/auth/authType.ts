@@ -1,6 +1,6 @@
 import { IBackendRes } from "@/types/api";
 import { Applicant, Recruiter } from "@/types/model";
-import { ApplicantResponse, LoginResponseDto, RecruiterResponse } from "@/types/dto";
+import { ApplicantResponse, CompanyResponse, LoginResponseDto, RecruiterResponse } from "@/types/dto";
 
 // Base Types
 type ContactInfo = {
@@ -45,7 +45,7 @@ export type ResendCodeRequest = {
 // Common Response Types
 type UserResponse = IBackendRes<LoginResponseDto>;
 
-export type FetchAccountResponse = IBackendRes<UserResponse | ApplicantResponse | RecruiterResponse>;
+export type FetchAccountResponse = IBackendRes<UserResponse | ApplicantResponse | RecruiterResponse | CompanyResponse>;
 
 export type LogoutResponse = IBackendRes<string>;
 export type VerifyCodeResponse = IBackendRes<unknown>;

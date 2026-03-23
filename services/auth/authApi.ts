@@ -9,7 +9,7 @@ import type {
   VerifyCodeRequest,
   VerifyCodeResponse,
 } from './authType';
-import { ApplicantResponse, RecruiterResponse, UserResponse } from '@/types/dto';
+import { ApplicantResponse, CompanyResponse, RecruiterResponse, UserResponse } from '@/types/dto';
 import { IBackendRes } from '@/types/api';
 
 export const authApi = api.injectEndpoints({
@@ -68,12 +68,12 @@ export const authApi = api.injectEndpoints({
 
     getMyAccount: builder.query<FetchAccountResponse, void>({
       query: () => ({ url: '/auth/account/users', method: 'GET' }),
-      providesTags: ['Account', 'Applicant', 'Recruiter'],
+      providesTags: ['User', 'Applicant', 'Recruiter', 'Company'],
       async onQueryStarted(_, { dispatch, queryFulfilled }) {
         try {
           const { data } = await queryFulfilled;
           // Dispatch action to save user data to slice
-          dispatch(setUser({ user: data?.data as UserResponse | ApplicantResponse | RecruiterResponse }));
+          dispatch(setUser({ user: data?.data as UserResponse | ApplicantResponse | RecruiterResponse | CompanyResponse }));
         } catch (error) {
           console.error('Failed to fetch account:', error);
         }
