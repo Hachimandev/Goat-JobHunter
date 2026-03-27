@@ -15,6 +15,12 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { useState } from 'react';
 import { HasAdmin, HasApplicant, HasCompany } from '@/components/common/HasRole';
+import {
+  getDisplayImage,
+  getDisplayImageAlt,
+  getDisplayName,
+  getDisplayUsername,
+} from '@/app/(social-hub)/hub/hooks/useDisplay';
 
 export default function UserPopup() {
   const { user, signOut, isSigningOut, isSignedIn } = useUser();
@@ -24,11 +30,13 @@ export default function UserPopup() {
     await signOut();
   };
 
-  const hasAvatar = user?.avatar && !imageError;
+  const hasAvatar = getDisplayImage(user!) && !imageError;
 
   if (!user || !isSignedIn) {
     return null;
   }
+
+  console.log('User data in UserPopup:', user);
 
   return (
     <DropdownMenu>
@@ -37,8 +45,8 @@ export default function UserPopup() {
           {hasAvatar ? (
             <div className="h-10 w-10 rounded-full overflow-hidden bg-muted flex items-center justify-center">
               <Image
-                src={user.avatar}
-                alt={user.fullName || 'User'}
+                src={getDisplayImage(user!)}
+                alt={getDisplayImageAlt(user!)}
                 width={40}
                 height={40}
                 className="h-full w-full object-cover"
@@ -58,8 +66,8 @@ export default function UserPopup() {
             {hasAvatar ? (
               <div className="h-12 w-12 rounded-full overflow-hidden bg-muted shrink-0 flex items-center justify-center">
                 <Image
-                  src={user.avatar}
-                  alt={user.fullName || 'User'}
+                  src={getDisplayImage(user!)}
+                  alt={getDisplayImageAlt(user!)}
                   width={48}
                   height={48}
                   className="h-full w-full object-cover"
@@ -73,10 +81,8 @@ export default function UserPopup() {
             )}
 
             <div className="flex flex-col space-y-1 min-w-0">
-              <p className="text-sm font-semibold leading-none truncate">
-                {user?.fullName ? user.fullName : 'Người Dùng'}
-              </p>
-              <p className="text-xs leading-none text-muted-foreground truncate">{user?.email}</p>
+              <p className="text-sm font-semibold leading-none truncate">{getDisplayName(user!)}</p>
+              <p className="text-xs leading-none text-muted-foreground truncate">{getDisplayUsername(user!)}</p>
             </div>
           </div>
         </DropdownMenuLabel>

@@ -1,10 +1,10 @@
-import { useState, useCallback, useEffect, useMemo } from "react";
+import { useState, useCallback, useEffect, useMemo } from 'react';
 import { useFetchAvailableBlogsQuery } from '@/services/blog/blogApi';
 import { Blog } from '@/types/model';
-import { useInfiniteScroll } from "@/hooks/useInfiniteScroll";
-import { useCheckSavedBlogsQuery } from "@/services/user/savedBlogsApi";
-import { useCheckReactBlogQuery } from "@/services/reaction/reactionApi";
-import { useUser } from "@/hooks/useUser";
+import { useInfiniteScroll } from '@/hooks/useInfiniteScroll';
+import { useCheckSavedBlogsQuery } from '@/services/user/savedBlogsApi';
+import { useCheckReactBlogQuery } from '@/services/reaction/reactionApi';
+import { useUser } from '@/hooks/useUser';
 
 const PAGE_SIZE = 15;
 
@@ -27,8 +27,8 @@ export function useInfiniteScrollBlogs() {
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setAllBlogs((prev) => {
         // Avoid duplicates
-        const existingIds = new Set(prev.map(blog => blog.blogId));
-        const uniqueNewBlogs = newBlogs.filter(blog => !existingIds.has(blog.blogId));
+        const existingIds = new Set(prev.map((blog) => blog.blogId));
+        const uniqueNewBlogs = newBlogs.filter((blog) => !existingIds.has(blog.blogId));
         return page === 1 ? newBlogs : [...prev, ...uniqueNewBlogs];
       });
 
@@ -57,19 +57,28 @@ export function useInfiniteScrollBlogs() {
     setHasMore(true);
   }, []);
 
-  const { data: savedBlogData } = useCheckSavedBlogsQuery({
-    blogIds: allBlogs.map((blog) => blog.blogId) || []
-  }, {
-    skip: !allBlogs || !isSignedIn
-  });
+  const blogIds = useMemo(() => allBlogs.map((blog) => blog.blogId), [allBlogs]);
+  const shouldCheckBlogStates = isSignedIn && blogIds.length > 0;
+
+  const { data: savedBlogData } = useCheckSavedBlogsQuery(
+    {
+      blogIds,
+    },
+    {
+      skip: !shouldCheckBlogStates,
+    },
+  );
 
   const savedBlogIds = useMemo(() => savedBlogData?.data || [], [savedBlogData]);
 
-  const { data: reactedBlogData } = useCheckReactBlogQuery({
-    blogIds: allBlogs.map((blog) => blog.blogId) || []
-  }, {
-    skip: !allBlogs || !isSignedIn
-  });
+  const { data: reactedBlogData } = useCheckReactBlogQuery(
+    {
+      blogIds,
+    },
+    {
+      skip: !shouldCheckBlogStates,
+    },
+  );
 
   const reactedBlogIds = useMemo(() => reactedBlogData?.data || [], [reactedBlogData]);
 

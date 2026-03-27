@@ -1,18 +1,20 @@
-"use client";
+'use client';
 
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Input } from "@/components/ui/input";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Search } from "lucide-react";
-import { ChatRoomItem } from "@/app/(chat)/messages/components/ChatRoomItem";
-import { SearchUsersModal } from "@/app/(chat)/messages/components/SearchUsersModal";
-import { useUser } from "@/hooks/useUser";
-import { useChatRooms } from "@/app/(chat)/messages/hooks/useChatRooms";
-import { useRouter, useParams } from "next/navigation";
-import ErrorMessage from "@/components/common/ErrorMessage";
-import { useState } from "react";
-import { CreateChatTriggerButton } from "@/app/(chat)/messages/components/CreateChatTriggerButton";
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Input } from '@/components/ui/input';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Search } from 'lucide-react';
+import { ChatRoomItem } from '@/app/(chat)/messages/components/ChatRoomItem';
+import { SearchUsersModal } from '@/app/(chat)/messages/components/SearchUsersModal';
+import { useUser } from '@/hooks/useUser';
+import { useChatRooms } from '@/app/(chat)/messages/hooks/useChatRooms';
+import { useRouter, useParams } from 'next/navigation';
+import ErrorMessage from '@/components/common/ErrorMessage';
+import { useState } from 'react';
+import { CreateChatTriggerButton } from '@/app/(chat)/messages/components/CreateChatTriggerButton';
+import { isCompanyResponse } from '@/utils/slug';
+import { MeResponse, CompanyResponse, ApplicantResponse, RecruiterResponse } from '@/types/dto';
 
 export function Sidebar() {
   const { user: currentUser } = useUser();
@@ -30,36 +32,35 @@ export function Sidebar() {
     router.push(`/messages/${id}`);
   };
 
+  const displayName =
+    currentUser && isCompanyResponse(currentUser as MeResponse)
+      ? (currentUser as CompanyResponse).name
+      : (currentUser as ApplicantResponse | RecruiterResponse)?.fullName || 'User';
+  const displayImage =
+    currentUser && isCompanyResponse(currentUser as MeResponse)
+      ? (currentUser as CompanyResponse).logo
+      : (currentUser as ApplicantResponse | RecruiterResponse)?.avatar;
+
   return (
     <div className="h-full flex flex-col bg-card overflow-hidden">
       <div className="px-4 h-16 flex items-center justify-between border-b shrink-0">
         <div className="flex items-center gap-3">
           <Avatar className="h-10 w-10 border">
-            <AvatarImage src={currentUser.avatar || "/placeholder.svg"} alt={currentUser.fullName} />
-            <AvatarFallback>{currentUser.fullName.charAt(0)}</AvatarFallback>
+            <AvatarImage src={displayImage || '/placeholder.svg'} alt={displayName} />
+            <AvatarFallback>{displayName.charAt(0)}</AvatarFallback>
           </Avatar>
           <span className="font-semibold text-lg">Chats</span>
         </div>
 
         <div className="flex items-center gap-2">
-          <CreateChatTriggerButton
-            mode="direct"
-            onClick={() => setDirectChatModalOpen(true)}
-          />
-          <CreateChatTriggerButton
-            mode="group"
-            onClick={() => setGroupChatModalOpen(true)}
-          />
+          <CreateChatTriggerButton mode="direct" onClick={() => setDirectChatModalOpen(true)} />
+          <CreateChatTriggerButton mode="group" onClick={() => setGroupChatModalOpen(true)} />
         </div>
       </div>
 
       <div className="p-2 shrink-0">
-        <div
-          className="relative cursor-pointer"
-          onClick={() => setDirectChatModalOpen(true)}
-        >
-          <Search
-            className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+        <div className="relative cursor-pointer" onClick={() => setDirectChatModalOpen(true)}>
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
           <Input
             placeholder="Tìm người dùng..."
             className="pl-9 bg-accent/50 border-0 focus-visible:ring-1 rounded-full cursor-pointer"
@@ -84,7 +85,7 @@ export function Sidebar() {
             </>
           )}
 
-          {isError && <ErrorMessage message={"Có lỗi xảy ra khi tải các đoạn chat. Vui lòng thử lại sau."} />}
+          {isError && <ErrorMessage message={'Có lỗi xảy ra khi tải các đoạn chat. Vui lòng thử lại sau.'} />}
 
           {!isLoading && !isError && chatRooms.length === 0 && (
             <div className="text-center py-8 text-muted-foreground">
@@ -93,27 +94,21 @@ export function Sidebar() {
             </div>
           )}
 
-          {!isLoading && !isError && chatRooms.map((chatRoom) => (
-            <ChatRoomItem
-              key={chatRoom.roomId}
-              chatRoom={chatRoom}
-              active={activeChatRoomId === String(chatRoom.roomId)}
-              onClick={() => handleSelectConversation(chatRoom.roomId)}
-            />
-          ))}
+          {!isLoading &&
+            !isError &&
+            chatRooms.map((chatRoom) => (
+              <ChatRoomItem
+                key={chatRoom.roomId}
+                chatRoom={chatRoom}
+                active={activeChatRoomId === String(chatRoom.roomId)}
+                onClick={() => handleSelectConversation(chatRoom.roomId)}
+              />
+            ))}
         </div>
       </ScrollArea>
 
-      <SearchUsersModal
-        open={directChatModalOpen}
-        onOpenChange={setDirectChatModalOpen}
-        mode="single"
-      />
-      <SearchUsersModal
-        open={groupChatModalOpen}
-        onOpenChange={setGroupChatModalOpen}
-        mode="multi"
-      />
+      <SearchUsersModal open={directChatModalOpen} onOpenChange={setDirectChatModalOpen} mode="single" />
+      <SearchUsersModal open={groupChatModalOpen} onOpenChange={setGroupChatModalOpen} mode="multi" />
     </div>
   );
 }

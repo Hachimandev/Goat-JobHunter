@@ -33,11 +33,11 @@ export default function CommentItem({ comment }: Readonly<CommentItemProps>) {
   }, [comment.level]);
 
   const author = useMemo(() => {
-    return comment.commentedBy.fullName || comment.commentedBy.username || 'Người dùng ẩn danh';
+    return comment.commentedBy.username || 'Người dùng ẩn danh';
   }, [comment.commentedBy]);
 
   const replyTo = useMemo(() => {
-    return comment.parent?.commentedBy.fullName || comment.parent?.commentedBy.username || 'Người dùng ẩn danh';
+    return comment.parent?.commentedBy.username || 'Người dùng ẩn danh';
   }, [comment.parent?.commentedBy]);
 
   const handleReply = async () => {

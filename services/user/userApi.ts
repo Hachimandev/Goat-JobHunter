@@ -136,7 +136,7 @@ export const userApi = api.injectEndpoints({
         url: '/users/me/followed-companies',
         method: 'GET',
       }),
-      providesTags: ['User'],
+      providesTags: ['User', 'Company'],
     }),
 
     checkCompaniesFollowed: builder.query<CheckCompaniesFollowedResponse, CompanyIdsRequest>({

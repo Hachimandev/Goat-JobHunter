@@ -1,5 +1,6 @@
-import { api } from "@/services/api";
+import { api } from '@/services/api';
 import {
+  CompanyMutationResponse,
   FetchAllCompanyNames,
   FetchCompaniesRequest,
   FetchCompaniesResponse,
@@ -7,9 +8,11 @@ import {
   FetchGroupedAddressesByCompanyResponse,
   FetchJobsByCompanyRequest,
   FetchJobsByCompanyResponse,
-  FetchSkillsByCompanyResponse
-} from "./companyType";
-import { buildSpringQuery } from "@/utils/buildSpringQuery";
+  FetchSkillsByCompanyResponse,
+  UpdateCompanyRequest,
+} from './companyType';
+import { buildSpringQuery } from '@/utils/buildSpringQuery';
+import { setUser } from '@/lib/features/authSlice';
 
 export const companyApi = api.injectEndpoints({
   overrideExisting: true,
@@ -18,108 +21,126 @@ export const companyApi = api.injectEndpoints({
       query: (params) => {
         const { params: queryParams } = buildSpringQuery({
           params,
-          filterFields: ["name"],
-          textSearchFields: ["name"],
-          defaultSort: "createdAt,desc",
-          sortableFields: ["name", "createdAt", "updatedAt"]
+          filterFields: ['name'],
+          textSearchFields: ['name'],
+          defaultSort: 'createdAt,desc',
+          sortableFields: ['name', 'createdAt', 'updatedAt'],
         });
 
         return {
-          url: "/companies",
-          method: "GET",
-          params: queryParams
+          url: '/companies',
+          method: 'GET',
+          params: queryParams,
         };
       },
-      providesTags: ["Company"]
+      providesTags: ['Company'],
     }),
 
     fetchAvailableCompanies: builder.query<FetchCompaniesResponse, FetchCompaniesRequest>({
       query: (params) => {
         const { params: queryParams } = buildSpringQuery({
           params,
-          filterFields: ["name", "verified"],
-          textSearchFields: ["name"],
+          filterFields: ['name', 'verified'],
+          textSearchFields: ['name'],
           nestedArrayFields: {
-            addresses: "addresses.province"
+            addresses: 'addresses.province',
           },
-          defaultSort: "createdAt,desc",
-          sortableFields: ["name", "createdAt", "updatedAt"]
+          defaultSort: 'createdAt,desc',
+          sortableFields: ['name', 'createdAt', 'updatedAt'],
         });
 
         return {
-          url: "/companies/available",
-          method: "GET",
-          params: queryParams
+          url: '/companies/available',
+          method: 'GET',
+          params: queryParams,
         };
       },
-      providesTags: ["Company"]
+      providesTags: ['Company'],
     }),
 
     fetchCompanyById: builder.query<FetchCompanyByIdResponse, number>({
       query: (companyId) => ({
         url: `/companies/${companyId}`,
-        method: "GET"
+        method: 'GET',
       }),
-      providesTags: ["Company"]
+      providesTags: ['Company'],
     }),
 
     fetchCompanyByName: builder.query<FetchCompanyByIdResponse, string>({
       query: (name) => ({
         url: `/companies/slug/${name}`,
-        method: "GET"
+        method: 'GET',
       }),
-      providesTags: ["Company"]
+      providesTags: ['Company'],
     }),
 
     fetchGroupedAddressesByCompany: builder.query<FetchGroupedAddressesByCompanyResponse, number>({
       query: (companyId) => ({
         url: `/companies/${companyId}/group-addresses`,
-        method: "GET"
+        method: 'GET',
       }),
-      providesTags: ["Company"]
+      providesTags: ['Company'],
     }),
 
     fetchSkillsByCompany: builder.query<FetchSkillsByCompanyResponse, number>({
       query: (companyId) => ({
         url: `/companies/${companyId}/jobs/skills`,
-        method: "GET"
+        method: 'GET',
       }),
-      providesTags: ["Company"]
+      providesTags: ['Company'],
     }),
 
     fetchAvailableJobsByCompany: builder.query<FetchJobsByCompanyResponse, FetchJobsByCompanyRequest>({
       query: ({ companyId }) => {
         const { params: queryParams } = buildSpringQuery({
           params: {
-            enabled: true
+            enabled: true,
           },
-          filterFields: ["title", "location", "salary", "level", "workingType", "active", "enabled"],
-          textSearchFields: ["title", "location"],
+          filterFields: ['title', 'location', 'salary', 'level', 'workingType', 'active', 'enabled'],
+          textSearchFields: ['title', 'location'],
           nestedArrayFields: {
-            skills: "skills.name"
+            skills: 'skills.name',
           },
-          defaultSort: "createdAt,desc",
-          sortableFields: ["title", "salary", "createdAt", "updatedAt"]
+          defaultSort: 'createdAt,desc',
+          sortableFields: ['title', 'salary', 'createdAt', 'updatedAt'],
         });
         return {
           url: `/companies/${companyId}/jobs`,
-          method: "GET",
-          params: queryParams
+          method: 'GET',
+          params: queryParams,
         };
       },
-      providesTags: ["Job"]
+      providesTags: ['Job'],
     }),
 
     fetchAllCompanyNames: builder.query<FetchAllCompanyNames, void>({
       query: () => {
         return {
           url: `/companies/name`,
-          method: "GET"
+          method: 'GET',
         };
       },
-      providesTags: ["Company"]
-    })
-  })
+      providesTags: ['Company'],
+    }),
+
+    updateCompany: builder.mutation({
+      query: (formData: FormData) => ({
+        url: `/companies`,
+        method: 'PUT',
+        data: formData,
+      }),
+      invalidatesTags: ['Company', 'Account'],
+      async onQueryStarted(_, { dispatch, queryFulfilled }) {
+        try {
+          const { data } = await queryFulfilled;
+          // Dispatch action to save user data to slice
+          dispatch(setUser({ user: data?.data }));
+        } catch (error) {
+          console.error('Failed to fetch account:', error);
+        }
+      },
+    }),
+  }),
 });
 
 export const {
@@ -130,5 +151,6 @@ export const {
   useFetchGroupedAddressesByCompanyQuery,
   useFetchSkillsByCompanyQuery,
   useFetchAvailableJobsByCompanyQuery,
-  useFetchAllCompanyNamesQuery
+  useFetchAllCompanyNamesQuery,
+  useUpdateCompanyMutation,
 } = companyApi;

@@ -61,7 +61,7 @@ const ProfilePage = () => {
 
   return (
     <main className="flex-1">
-      <ProfileHeader type={"applicant"} />
+      <ProfileHeader type={user?.role?.name} />
       <ProfileTabs activeTab={activeTab} setActiveTab={setActiveTab} />
     </main>
   );

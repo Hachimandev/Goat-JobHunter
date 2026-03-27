@@ -1,17 +1,16 @@
-"use client";
+'use client';
 
-import React, { useMemo } from "react";
-import { Header } from "@/app/(main)/components";
-import { AIChatPopup } from "@/components/common/AIChatPopup";
-import { PopularTags } from "@/app/(social-hub)/components/PopularTags";
-import { UserFriendList } from "@/app/(social-hub)/components/UserFriendList";
-import { UserDisplay } from "@/app/(social-hub)/components/UserDisplay";
-import { NavigationBar } from "@/app/(social-hub)/components/NavigationBar";
-import { useFetchTagsQuery } from "@/services/blog/blogApi";
+import React, { useMemo } from 'react';
+import { Header } from '@/app/(main)/components';
+import { AIChatPopup } from '@/components/common/AIChatPopup';
+import { PopularTags } from '@/app/(social-hub)/components/PopularTags';
+import { UserFriendList } from '@/app/(social-hub)/components/UserFriendList';
+import { UserDisplay } from '@/app/(social-hub)/components/UserDisplay';
+import { NavigationBar } from '@/app/(social-hub)/components/NavigationBar';
+import { useFetchTagsQuery } from '@/services/blog/blogApi';
 
 const Layout = ({ children }: { children: React.ReactNode }) => {
-
-  const { data: tagsResponse } = useFetchTagsQuery({});
+  const { data: tagsResponse } = useFetchTagsQuery({ keyword: '' });
 
   const popularTags = useMemo(() => {
     return tagsResponse?.data || [];
@@ -29,9 +28,7 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
             </div>
           </aside>
 
-          <main className="flex-1 px-8 py-8 min-h-screen">
-            {children}
-          </main>
+          <main className="flex-1 px-8 py-8 min-h-screen">{children}</main>
 
           <aside className="w-80 shrink-0">
             <div className="sticky top-16 space-y-4 py-6 max-h-[calc(100vh-2rem)] overflow-y-auto">

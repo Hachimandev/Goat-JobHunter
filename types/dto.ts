@@ -92,6 +92,45 @@ export type RecruiterResponse = UserResponse & {
   };
 };
 
+export type CompanyResponse = {
+  accountId: number;
+  email: string;
+  name: string;
+  description: string;
+  logo: string;
+  coverPhoto: string;
+  website: string;
+  phone: string;
+  size: string;
+  verified: boolean;
+  country: string;
+  industry: string;
+  workingDays: string;
+  overtimePolicy: string;
+
+  role: {
+    roleId: number;
+    name: string;
+  };
+
+  addresses: {
+    addressId: number;
+    province: string;
+    fullAddress: string;
+  }[];
+
+  awards: {
+    companyAwardId: number;
+    type: string;
+    year: number;
+  }[];
+
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type MeResponse = ApplicantResponse | RecruiterResponse | CompanyResponse;
+
 export type CreateBlogDto = {
   content: string;
   files?: File[];

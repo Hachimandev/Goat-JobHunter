@@ -111,11 +111,11 @@ export enum ReactionType {
 
 export enum ReportReason {
   SPAM = 'SPAM',
-  HARASSMENT = 'Quấy rối',
-  HATE_SPEECH = 'Lời nói bậy',
-  VIOLENCE = 'Bạo lực',
-  FALSE_INFO = 'Tin giả',
-  OTHER = 'Lý do khác',
+  HARASSMENT = 'HARASSMENT',
+  HATE_SPEECH = 'HATE_SPEECH',
+  VIOLENCE = 'VIOLENCE',
+  FALSE_INFO = 'FALSE_INFO',
+  OTHER = 'OTHER',
 }
 
 export enum ChatRoomType {

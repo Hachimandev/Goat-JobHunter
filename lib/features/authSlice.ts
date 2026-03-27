@@ -1,9 +1,9 @@
-import { useAppSelector } from "@/lib/hooks";
-import { createSlice, PayloadAction } from "@reduxjs/toolkit";
-import { ApplicantResponse, LoginResponseDto, RecruiterResponse, UserResponse } from "@/types/dto";
+import { useAppSelector } from '@/lib/hooks';
+import { createSlice, PayloadAction } from '@reduxjs/toolkit';
+import { ApplicantResponse, CompanyResponse, LoginResponseDto, RecruiterResponse, UserResponse } from '@/types/dto';
 
 interface AuthState {
-  user: LoginResponseDto | UserResponse | ApplicantResponse | RecruiterResponse | null;
+  user: LoginResponseDto | UserResponse | ApplicantResponse | RecruiterResponse | CompanyResponse | null;
   roles: string[];
   isAuthenticated: boolean;
 }
@@ -15,12 +15,17 @@ const initialState: AuthState = {
 };
 
 const authSlice = createSlice({
-  name: "auth",
+  name: 'auth',
   initialState,
   reducers: {
     setUser: (
       state,
-      action: PayloadAction<Partial<{ user: LoginResponseDto | UserResponse | ApplicantResponse | RecruiterResponse; roles: string[] }>>,
+      action: PayloadAction<
+        Partial<{
+          user: UserResponse | ApplicantResponse | RecruiterResponse | CompanyResponse | LoginResponseDto;
+          roles: string[];
+        }>
+      >,
     ) => {
       const { user, roles } = action.payload;
       if (user) {
@@ -49,8 +54,7 @@ const authSlice = createSlice({
   },
 });
 
-export const { setUser, clearUser, setIsAuthenticated, setRoles } =
-  authSlice.actions;
+export const { setUser, clearUser, setIsAuthenticated, setRoles } = authSlice.actions;
 
 export const useAuthSlice = () => useAppSelector((state) => state.auth);
 

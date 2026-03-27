@@ -1,10 +1,10 @@
-import { useState, useCallback, useEffect, useMemo } from "react";
-import { useFetchBlogsByCurrentRecruiterQuery } from "@/services/blog/blogApi";
-import { Blog } from "@/types/model";
-import { useInfiniteScroll } from "@/hooks/useInfiniteScroll";
-import { useCheckSavedBlogsQuery } from "@/services/user/savedBlogsApi";
-import { useCheckReactBlogQuery } from "@/services/reaction/reactionApi";
-import { useUser } from "@/hooks/useUser";
+import { useState, useCallback, useEffect, useMemo } from 'react';
+import { useFetchBlogsByCurrentRecruiterQuery } from '@/services/blog/blogApi';
+import { Blog } from '@/types/model';
+import { useInfiniteScroll } from '@/hooks/useInfiniteScroll';
+import { useCheckSavedBlogsQuery } from '@/services/user/savedBlogsApi';
+import { useCheckReactBlogQuery } from '@/services/reaction/reactionApi';
+import { useUser } from '@/hooks/useUser';
 
 const PAGE_SIZE = 15;
 
@@ -14,13 +14,10 @@ export function useInfiniteScrollMyBlogs() {
   const [allBlogs, setAllBlogs] = useState<Blog[]>([]);
   const [hasMore, setHasMore] = useState(true);
 
-  const { data, isLoading, isError, isFetching, isSuccess } =
-    useFetchBlogsByCurrentRecruiterQuery({
-      page,
-      size: PAGE_SIZE,
-    });
-
-  console.log("data", data);
+  const { data, isLoading, isError, isFetching, isSuccess } = useFetchBlogsByCurrentRecruiterQuery({
+    page,
+    size: PAGE_SIZE,
+  });
 
   useEffect(() => {
     if (isSuccess && data?.data?.result) {
@@ -46,7 +43,7 @@ export function useInfiniteScrollMyBlogs() {
     onLoadMore: loadMore,
     hasMore,
     isLoading: isFetching,
-    rootMargin: "200px",
+    rootMargin: '200px',
   });
 
   const reset = useCallback(() => {
@@ -55,19 +52,25 @@ export function useInfiniteScrollMyBlogs() {
     setHasMore(true);
   }, []);
 
-  const { data: savedBlogData } = useCheckSavedBlogsQuery({
-    blogIds: allBlogs.map((blog) => blog.blogId) || []
-  }, {
-    skip: !allBlogs || !isSignedIn
-  });
+  const { data: savedBlogData } = useCheckSavedBlogsQuery(
+    {
+      blogIds: allBlogs.map((blog) => blog.blogId),
+    },
+    {
+      skip: !isSignedIn || allBlogs.length === 0,
+    },
+  );
 
   const savedBlogIds = useMemo(() => savedBlogData?.data || [], [savedBlogData]);
 
-  const { data: reactedBlogData } = useCheckReactBlogQuery({
-    blogIds: allBlogs.map((blog) => blog.blogId) || []
-  }, {
-    skip: !allBlogs || !isSignedIn
-  });
+  const { data: reactedBlogData } = useCheckReactBlogQuery(
+    {
+      blogIds: allBlogs.map((blog) => blog.blogId),
+    },
+    {
+      skip: !isSignedIn || allBlogs.length === 0,
+    },
+  );
 
   const reactedBlogIds = useMemo(() => reactedBlogData?.data || [], [reactedBlogData]);
 

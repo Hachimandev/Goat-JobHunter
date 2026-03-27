@@ -22,6 +22,7 @@ import { useGetCommentsByBlogIdQuery } from "@/services/blog/blogApi";
 import { formatCommentsToNested, NestedComment } from "@/app/(social-hub)/hub/fyp/component/comment/utils/formatComments";
 import CommentInput from "@/app/(social-hub)/hub/fyp/component/comment/CommentInput";
 import CommentSection from "@/app/(social-hub)/hub/fyp/component/comment/CommentSection";
+import { getDisplayImage } from "../../hooks/useDisplay";
 
 export function BlogDetailDialog() {
   const dispatch = useAppDispatch();
@@ -72,7 +73,7 @@ export function BlogDetailDialog() {
           <div className="flex items-center justify-between p-4 border-b">
             <div className="flex items-center gap-3">
               <Avatar className="h-10 w-10">
-                <AvatarImage src="/placeholder.svg" alt={blog.author.fullName} />
+                <AvatarImage src={blog.author.avatar} alt={blog.author.fullName} />
                 <AvatarFallback>{blog.author.fullName[0]}</AvatarFallback>
               </Avatar>
               <div>

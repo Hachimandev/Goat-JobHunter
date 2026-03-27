@@ -1,22 +1,23 @@
-"use client";
+'use client';
 
-import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { ImageIcon } from "lucide-react";
-import { useState } from "react";
-import { useUser } from "@/hooks/useUser";
-import { Separator } from "@/components/ui/separator";
-import { cn } from "@/lib/utils";
-import { RowsPhotoAlbum } from "react-photo-album";
-import { RenderNextImage } from "@/components/common/Photo/RenderNextImage";
-import { Dropzone, DropzoneEmptyState } from "@/components/ui/shadcn-io/dropzone";
-import { useBlogImagesInput } from "@/app/(social-hub)/hub/fyp/hooks/useBlogImagesInput";
-import useBlogActions from "@/hooks/useBlogActions";
-import LoaderSpin from "@/components/common/LoaderSpin";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { MAX_IMAGE_UPLOAD } from "@/constants/constant";
-import RichTextEditor from "@/components/RichText/Editor";
+import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { ImageIcon } from 'lucide-react';
+import { useState } from 'react';
+import { useUser } from '@/hooks/useUser';
+import { Separator } from '@/components/ui/separator';
+import { cn } from '@/lib/utils';
+import { RowsPhotoAlbum } from 'react-photo-album';
+import { RenderNextImage } from '@/components/common/Photo/RenderNextImage';
+import { Dropzone, DropzoneEmptyState } from '@/components/ui/shadcn-io/dropzone';
+import { useBlogImagesInput } from '@/app/(social-hub)/hub/fyp/hooks/useBlogImagesInput';
+import useBlogActions from '@/hooks/useBlogActions';
+import LoaderSpin from '@/components/common/LoaderSpin';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { MAX_IMAGE_UPLOAD } from '@/constants/constant';
+import RichTextEditor from '@/components/RichText/Editor';
+import { getDisplayImage, getDisplayImageAlt, getDisplayName, getDisplayUsername } from '../../hooks/useDisplay';
 
 interface CreateBlogDialogProps {
   open: boolean;
@@ -26,24 +27,18 @@ interface CreateBlogDialogProps {
 export function CreateBlogDialog({ open, onOpenChange }: Readonly<CreateBlogDialogProps>) {
   const { user } = useUser();
   const { handleCreateBlog, isCreating } = useBlogActions();
-  const [content, setContent] = useState("");
+  const [content, setContent] = useState('');
 
-  const {
-    imageFiles,
-    isDragging,
-    formattedImageUrls,
-    handleFilesAdded,
-    resetImages
-  } = useBlogImagesInput(open);
+  const { imageFiles, isDragging, formattedImageUrls, handleFilesAdded, resetImages } = useBlogImagesInput(open);
 
   const handlePost = async () => {
     await handleCreateBlog({
       content,
-      files: imageFiles
+      files: imageFiles,
     });
 
     onOpenChange(false);
-    setContent("");
+    setContent('');
     resetImages();
   };
 
@@ -61,12 +56,12 @@ export function CreateBlogDialog({ open, onOpenChange }: Readonly<CreateBlogDial
         <div className="space-y-4">
           <div className="flex items-center gap-3">
             <Avatar className="h-12 w-12 border">
-              <AvatarImage src={user?.avatar} alt="User" />
-              <AvatarFallback>{user?.fullName[0]}</AvatarFallback>
+              <AvatarImage src={getDisplayImage(user!)} alt={getDisplayImageAlt(user!)} />
+              <AvatarFallback>{getDisplayName(user!)}</AvatarFallback>
             </Avatar>
             <div>
-              <p className="font-semibold">{user?.fullName}</p>
-              <p className="text-muted-foreground text-xs">{user?.username}</p>
+              <p className="font-semibold">{getDisplayName(user!)}</p>
+              <p className="text-muted-foreground text-xs">{getDisplayUsername(user!)}</p>
             </div>
           </div>
 
@@ -84,7 +79,7 @@ export function CreateBlogDialog({ open, onOpenChange }: Readonly<CreateBlogDial
               <div className="fixed inset-0 z-[100] flex items-center justify-center bg-background/80 backdrop-blur-sm">
                 <div className="w-full max-w-2xl px-6">
                   <Dropzone
-                    accept={{ "image/*": [] }}
+                    accept={{ 'image/*': [] }}
                     maxSize={5 * 1024 * 1024}
                     onDrop={handleFilesAdded}
                     multiple
@@ -105,10 +100,7 @@ export function CreateBlogDialog({ open, onOpenChange }: Readonly<CreateBlogDial
             )}
 
             {formattedImageUrls.length > 0 && (
-              <RowsPhotoAlbum
-                photos={formattedImageUrls}
-                render={{ image: RenderNextImage }}
-              />
+              <RowsPhotoAlbum photos={formattedImageUrls} render={{ image: RenderNextImage }} />
             )}
           </ScrollArea>
 
@@ -121,9 +113,9 @@ export function CreateBlogDialog({ open, onOpenChange }: Readonly<CreateBlogDial
                 size="icon"
                 className="h-7 w-7 rounded-full"
                 onClick={() => {
-                  const input = document.createElement("input");
-                  input.type = "file";
-                  input.accept = "image/*";
+                  const input = document.createElement('input');
+                  input.type = 'file';
+                  input.accept = 'image/*';
                   input.multiple = true;
                   input.onchange = (e) => {
                     const files = Array.from((e.target as HTMLInputElement).files || []);
@@ -137,21 +129,21 @@ export function CreateBlogDialog({ open, onOpenChange }: Readonly<CreateBlogDial
             </div>
           </div>
 
-          <div className={cn(!isAllowed && "cursor-not-allowed")}>
+          <div className={cn(!isAllowed && 'cursor-not-allowed')}>
             <Button
               onClick={handlePost}
-              variant={isAllowed ? "default" : "secondary"}
+              variant={isAllowed ? 'default' : 'secondary'}
               disabled={!isAllowed || isCreating}
               className="rounded-xl w-full"
             >
-              {isCreating ?
+              {isCreating ? (
                 <>
                   <LoaderSpin />
                   Đang tải...
                 </>
-                :
+              ) : (
                 <>Đăng bài</>
-              }
+              )}
             </Button>
           </div>
         </div>
