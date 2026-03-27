@@ -3,6 +3,7 @@ import { useUser } from './useUser';
 import { useCallback } from 'react';
 import { CreateTicketRequest } from '@/services/ticket/ticketType';
 import { toast } from 'sonner';
+import { getErrorMessage } from '@/utils/slug';
 
 const useTicketActions = () => {
   const { isSignedIn, user } = useUser();
@@ -22,7 +23,7 @@ const useTicketActions = () => {
         return true;
       } catch (error) {
         console.error('Failed to create blog ticket:', error);
-        toast.error('Không thể gửi báo cáo. Vui lòng thử lại sau.');
+        toast.error(getErrorMessage(error, 'Không thể gửi báo cáo. Vui lòng thử lại sau.'));
         return false;
       }
     },
@@ -42,7 +43,7 @@ const useTicketActions = () => {
         return true;
       } catch (error) {
         console.error('Failed to report comment:', error);
-        toast.error('Không thể gửi báo cáo. Vui lòng thử lại sau.');
+        toast.error(getErrorMessage(error, 'Không thể gửi báo cáo. Vui lòng thử lại sau.'));
         return false;
       }
     },

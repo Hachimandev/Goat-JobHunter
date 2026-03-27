@@ -129,6 +129,8 @@ export type CompanyResponse = {
   updatedAt: string;
 };
 
+export type MeResponse = ApplicantResponse | RecruiterResponse | CompanyResponse;
+
 export type CreateBlogDto = {
   content: string;
   files?: File[];

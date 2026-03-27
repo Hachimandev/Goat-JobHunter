@@ -13,6 +13,8 @@ import {
 } from '@/services/review/reviewApi';
 import { useCheckSavedJobsQuery } from '@/services/user/savedJobsApi';
 import { useCheckCompaniesFollowedQuery, useCheckReviewedCompaniesQuery } from '@/services/user/userApi';
+import { MeResponse } from '@/types/dto';
+import { isCompanyResponse } from '@/utils/slug';
 import { skipToken } from '@reduxjs/toolkit/query';
 import { useMemo } from 'react';
 
@@ -75,7 +77,7 @@ const useDetailCompany = (name: string) => {
         {
             companyIds: companyId ? [companyId] : [],
         },
-        { skip: !companyId || !user || !isSignedIn },
+        { skip: !companyId || !user || !isSignedIn || isCompanyResponse(user as MeResponse) },
     );
     const isReviewed = useMemo(() => {
         if (checkReviewedData && isSuccessReviewed) {

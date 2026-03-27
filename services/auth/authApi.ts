@@ -30,7 +30,7 @@ export const authApi = api.injectEndpoints({
       }),
     }),
 
-    signin: builder.mutation<IBackendRes<UserResponse>, SignInRequest>({
+    signin: builder.mutation<IBackendRes<ApplicantResponse | RecruiterResponse | CompanyResponse>, SignInRequest>({
       query: ({ email, password }) => ({
         url: '/auth/login',
         method: 'POST',

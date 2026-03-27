@@ -5,42 +5,16 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import Link from 'next/link';
 import { useUser } from '@/hooks/useUser';
 import { Button } from '@/components/ui/button';
-import { ApplicantResponse, CompanyResponse, LoginResponseDto, RecruiterResponse, UserResponse } from '@/types/dto';
-
-type UserData = UserResponse | ApplicantResponse | RecruiterResponse | CompanyResponse | LoginResponseDto;
-type UserOthers = UserResponse | ApplicantResponse | RecruiterResponse;
-
-const isCompanyUser = (user: UserData): boolean => {
-  return 'logo' in user && 'name' in user && !('fullName' in user);
-};
-
-const getDisplayImage = (user: UserData): string => {
-  return isCompanyUser(user) ? (user as CompanyResponse).logo : (user as UserOthers)?.avatar;
-};
-
-const getDisplayImageAlt = (user: UserData): string => {
-  return isCompanyUser(user) ? (user as CompanyResponse).name : (user as UserOthers)?.fullName;
-};
-
-const getDisplayInitial = (user: UserData): string => {
-  const name = isCompanyUser(user) ? (user as CompanyResponse).name : (user as UserOthers)?.fullName;
-  return name?.[0] || '';
-};
-
-const getDisplayName = (user: UserData): string => {
-  return isCompanyUser(user)
-    ? (user as CompanyResponse).name
-    : (user as UserOthers)?.fullName || (user as UserResponse)?.email;
-};
-
-const getDisplayUsername = (user: UserData): string | undefined => {
-  return isCompanyUser(user) ? undefined : (user as UserResponse)?.username;
-};
+import {
+  getDisplayImage,
+  getDisplayImageAlt,
+  getDisplayInitial,
+  getDisplayName,
+  getDisplayUsername,
+} from '@/app/(social-hub)/hub/hooks/useDisplay';
 
 export function UserDisplay() {
   const { user, isSignedIn } = useUser();
-
-  console.log('UserDisplay - user:', user);
 
   if (!isSignedIn || !user) {
     return (

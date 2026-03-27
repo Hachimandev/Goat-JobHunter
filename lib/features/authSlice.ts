@@ -22,7 +22,7 @@ const authSlice = createSlice({
       state,
       action: PayloadAction<
         Partial<{
-          user: LoginResponseDto | UserResponse | ApplicantResponse | RecruiterResponse | CompanyResponse;
+          user: UserResponse | ApplicantResponse | RecruiterResponse | CompanyResponse | LoginResponseDto;
           roles: string[];
         }>
       >,

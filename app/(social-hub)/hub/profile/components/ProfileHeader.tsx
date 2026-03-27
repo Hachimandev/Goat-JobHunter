@@ -2,34 +2,12 @@ import { Camera } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import Image from 'next/image';
 import { useUser } from '@/hooks/useUser';
-import { ApplicantResponse, CompanyResponse, LoginResponseDto, RecruiterResponse, UserResponse } from '@/types/dto';
-
-type UserData = UserResponse | ApplicantResponse | RecruiterResponse | CompanyResponse | LoginResponseDto;
-type UserOthers = UserResponse | ApplicantResponse | RecruiterResponse;
-
-const isCompanyUser = (user: UserData): boolean => {
-  return 'logo' in user && 'name' in user && !('fullName' in user);
-};
-
-const getDisplayImage = (user: UserData): string => {
-  return isCompanyUser(user) ? (user as CompanyResponse).logo : (user as UserOthers)?.avatar;
-};
-
-const getDisplayImageAlt = (user: UserData): string => {
-  return isCompanyUser(user) ? (user as CompanyResponse).name : (user as UserOthers)?.fullName;
-};
-
-const getDisplayInitial = (user: UserData): string => {
-  const name = isCompanyUser(user) ? (user as CompanyResponse).name : (user as UserOthers)?.fullName;
-  return name?.[0] || '';
-};
-
-const getCoverPhoto = (user: UserData): string => {
-  return (
-    (user as UserResponse | ApplicantResponse | RecruiterResponse | CompanyResponse)?.coverPhoto ||
-    '/placeholder.svg?height=400&width=1200&query=abstract-landscape'
-  );
-};
+import {
+  getCoverPhoto,
+  getDisplayImage,
+  getDisplayImageAlt,
+  getDisplayInitial,
+} from '@/app/(social-hub)/hub/hooks/useDisplay';
 
 export function ProfileHeader() {
   const { user } = useUser(); // Get user data from redux store

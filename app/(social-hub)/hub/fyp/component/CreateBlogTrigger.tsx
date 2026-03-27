@@ -1,12 +1,13 @@
-"use client";
+'use client';
 
-import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { ImageIcon } from "lucide-react";
-import { useState } from "react";
-import { CreateBlogDialog } from "@/app/(social-hub)/hub/fyp/component/CreateBlogDialog";
-import { useUser } from "@/hooks/useUser";
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { ImageIcon } from 'lucide-react';
+import { useState } from 'react';
+import { CreateBlogDialog } from '@/app/(social-hub)/hub/fyp/component/CreateBlogDialog';
+import { useUser } from '@/hooks/useUser';
+import { getDisplayImage, getDisplayImageAlt, getDisplayName } from '../../hooks/useDisplay';
 
 export function CreateBlogTrigger() {
   const { user } = useUser();
@@ -21,8 +22,8 @@ export function CreateBlogTrigger() {
       <Card className="mb-4 p-4">
         <div className="flex items-center gap-3">
           <Avatar className="h-10 w-10 border">
-            <AvatarImage src={user?.avatar} alt="User" />
-            <AvatarFallback>{user?.fullName[0]}</AvatarFallback>
+            <AvatarImage src={getDisplayImage(user)} alt={getDisplayImageAlt(user)} />
+            <AvatarFallback>{getDisplayName(user)}</AvatarFallback>
           </Avatar>
           <Button
             variant="ghost"
@@ -32,12 +33,7 @@ export function CreateBlogTrigger() {
             Bạn đang nghĩ gì?
           </Button>
           <div className="flex items-center gap-2">
-            <Button
-              variant="ghost"
-              size={"icon-lg"}
-              className="rounded-full"
-              onClick={() => setIsDialogOpen(true)}
-            >
+            <Button variant="ghost" size={'icon-lg'} className="rounded-full" onClick={() => setIsDialogOpen(true)}>
               <ImageIcon className="h-10 w-10 text-green-500" />
             </Button>
           </div>

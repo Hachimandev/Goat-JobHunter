@@ -16,8 +16,8 @@ import { useCallback } from 'react';
 import { toast } from 'sonner';
 import { useUpdateRecruiterMutation } from '@/services/recruiter/recruiterApi';
 import { TUserSignUpSchema } from '@/app/(auth)/components/schemas';
-import { ApplicantUpdateDto, RecruiterUpdateDto } from '@/types/dto';
 import { api } from '@/services/api';
+import { useUpdateCompanyMutation } from '@/services/company/companyApi';
 
 export function useUser() {
   const router = useRouter();
@@ -37,6 +37,7 @@ export function useUser() {
   const [updateApplicant, { isLoading: isUpdatingApplicant }] = useUpdateApplicantMutation();
   const [updateRecruiter, { isLoading: isUpdatingRecruiter }] = useUpdateRecruiterMutation();
   const [createUserMutation, { isLoading: isCreatingUser }] = useCreateUserMutation();
+  const [updateCompany, { isLoading: isUpdatingCompany }] = useUpdateCompanyMutation();
 
   /**
    * Create new user action (admin only)
@@ -315,29 +316,10 @@ export function useUser() {
    * Update applicant information
    */
   const handleUpdateApplicant = useCallback(
-    async (accountId: number, data: Partial<ApplicantUpdateDto>) => {
+    async (formData: FormData) => {
       try {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const updatedData: Record<string, any> = {};
-
-        // Chỉ thêm các field không undefined/null
-        for (const key in data) {
-          const value = data[key as keyof ApplicantUpdateDto];
-          if (value != undefined) {
-            updatedData[key] = value;
-          }
-        }
-
-        // Nếu không có field nào để update
-        if (Object.keys(updatedData).length === 0) {
-          return;
-        }
-
-        // @ts-expect-error Không cần check kỹ lưỡng kiểu dữ liệu ở đây
-        const response = await updateApplicant({
-          ...updatedData,
-          accountId,
-        });
+        // @ts-expect-error FormData is compatible with update mutation
+        const response = await updateApplicant(formData);
 
         if (response.error) {
           toast.error('Cập nhật thông tin thất bại. Vui lòng thử lại sau.');
@@ -357,29 +339,10 @@ export function useUser() {
    * Update recruiter information
    */
   const handleUpdateRecruiter = useCallback(
-    async (accountId: number, data: Partial<RecruiterUpdateDto>) => {
+    async (formData: FormData) => {
       try {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const updatedData: Record<string, any> = {};
-
-        // Chỉ thêm các field không undefined/null
-        for (const key in data) {
-          const value = data[key as keyof RecruiterUpdateDto];
-          if (value) {
-            updatedData[key] = value;
-          }
-        }
-
-        // Nếu không có field nào để update
-        if (Object.keys(updatedData).length === 0) {
-          return;
-        }
-
-        // @ts-expect-error Không cần check kỹ lưỡng kiểu dữ liệu ở đây
-        const response = await updateRecruiter({
-          ...updatedData,
-          accountId,
-        });
+        // @ts-expect-error FormData is compatible with update mutation
+        const response = await updateRecruiter(formData);
 
         if (response.error) {
           toast.error('Cập nhật thông tin thất bại. Vui lòng thử lại sau.');
@@ -393,6 +356,28 @@ export function useUser() {
       }
     },
     [updateRecruiter],
+  );
+
+  /**
+   * Update company information
+   */
+  const handleUpdateCompany = useCallback(
+    async (formData: FormData) => {
+      try {
+        const response = await updateCompany(formData);
+
+        if (response.error) {
+          toast.error('Cập nhật thông tin thất bại. Vui lòng thử lại sau.');
+          return;
+        }
+
+        toast.success('Cập nhật thông tin thành công!');
+      } catch (error) {
+        console.error('Failed to update company:', error);
+        toast.error('Cập nhật thông tin thất bại. Vui lòng thử lại sau.');
+      }
+    },
+    [updateCompany],
   );
 
   return {
@@ -420,13 +405,17 @@ export function useUser() {
     isReseting,
     isUpdatingPassword,
 
-    // Update applicant
+    // Update user info
     handleUpdateApplicant,
     isUpdatingApplicant,
 
     // Update recruiter
     handleUpdateRecruiter,
     isUpdatingRecruiter,
+
+    // Update company
+    handleUpdateCompany,
+    isUpdatingCompany,
 
     // Create user (admin)
     handleCreateUser,

@@ -18,6 +18,8 @@ import { openBlogDetail } from '@/lib/features/blogDetailSlice';
 import BlogActivity from '@/app/(social-hub)/hub/fyp/component/BlogActivity';
 import useBlogActions from '@/hooks/useBlogActions';
 import ReportTicketDialog from '@/components/management/blogs/ReportTicketDialog';
+import { useUser } from '@/hooks/useUser';
+import { toast } from 'sonner';
 
 interface SocialBlogCardProps {
   blog: Blog;
@@ -29,6 +31,7 @@ export function SocialBlogCard({ blog, isSaved, initialReaction }: Readonly<Soci
   const dispatch = useAppDispatch();
   const { handleToggleSaveBlog, isLoading } = useBlogActions();
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
+  const { isSignedIn, user } = useUser();
 
   const timeAgo = formatDistanceToNow(new Date(blog.createdAt), {
     addSuffix: true,
@@ -46,6 +49,11 @@ export function SocialBlogCard({ blog, isSaved, initialReaction }: Readonly<Soci
   };
 
   const handleReportClick = () => {
+    if (!isSignedIn || !user) {
+      toast.error('Bạn phải đăng nhập để thực hiện chức năng này.');
+      return;
+    }
+
     localStorage.setItem('selectedReportItem', blog.blogId.toString());
     localStorage.setItem('selectedReportType', 'blog');
     setIsReportModalOpen(true);
