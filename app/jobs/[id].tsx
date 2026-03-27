@@ -6,15 +6,18 @@ import {
   ScrollView,
   ActivityIndicator,
   TouchableOpacity,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useFetchJobByIdQuery } from '../../services/job/jobApi';
 import { useCheckSavedJobsQuery } from '../../services/user/savedJobsApi';
 import { useJobActions } from '../../hooks/useJobActions';
+import { useUser } from '../../hooks/useUser';
 import { formatCurrency } from '../../utils/formatCurrency';
 import { formatDate } from '../../utils/formatDate';
 import { stripHtmlTags } from '../../utils/stripHtmlTags';
+import ApplicationModal from '../../components/common/ApplicationModal';
 import { Skill } from '../../types/model';
 
 export default function JobDetailPage() {
@@ -22,6 +25,11 @@ export default function JobDetailPage() {
   const router = useRouter();
   const { data, isLoading, error } = useFetchJobByIdQuery(id);
   const { handleToggleSaveJob } = useJobActions();
+  const { user, isSignedIn } = useUser();
+  
+  // State for description expand/collapse
+  const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
+  const [isApplicationModalOpen, setIsApplicationModalOpen] = useState(false);
   
   // Check if job is saved
   const { data: checkSavedJobData } = useCheckSavedJobsQuery(
@@ -35,11 +43,31 @@ export default function JobDetailPage() {
     }
     return false;
   }, [checkSavedJobData, id]);
-  
-  // State for description expand/collapse
-  const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
 
   const job = data?.data;
+
+  const handleApplyPress = () => {
+    if (!isSignedIn) {
+      Alert.alert(
+        'Chưa đăng nhập',
+        'Vui lòng đăng nhập để ứng tuyển.',
+        [
+          {
+            text: 'Hủy',
+            onPress: () => {},
+            style: 'cancel',
+          },
+          {
+            text: 'Đăng nhập',
+            onPress: () => router.push('/(auth)/login'),
+          },
+        ]
+      );
+      return;
+    }
+
+    setIsApplicationModalOpen(true);
+  };
 
   if (isLoading) {
     return (
@@ -209,6 +237,7 @@ export default function JobDetailPage() {
           <TouchableOpacity 
             style={[styles.applyButton, !job.active && styles.applyButtonDisabled]}
             disabled={!job.active}
+            onPress={handleApplyPress}
           >
             <Text style={styles.applyButtonText}>
               {job.active ? '📨 Ứng Tuyển Ngay' : '❌ Đã Đóng'}
@@ -218,6 +247,14 @@ export default function JobDetailPage() {
 
         <View style={styles.bottomSpace} />
       </ScrollView>
+
+      {/* Application Modal */}
+      <ApplicationModal
+        visible={isApplicationModalOpen}
+        onClose={() => setIsApplicationModalOpen(false)}
+        jobId={job.jobId}
+        jobTitle={job.title}
+      />
     </SafeAreaView>
   );
 }
