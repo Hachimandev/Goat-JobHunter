@@ -15,8 +15,9 @@ import { ViewEvaluationsDialog } from './components/ViewEvaluationsDialog';
 import { useResumeAction } from './hooks/useResumeAction';
 import { HasApplicant } from '@/components/common/HasRole';
 import { RecruiterResumeView } from './components/RecruiterResumeView';
-import { LoginResponseDto } from '@/types/dto';
+import { LoginResponseDto, MeResponse } from '@/types/dto';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { isCompanyResponse } from '@/utils/slug';
 
 const ResumePage = () => {
   useGetMyAccountQuery();
@@ -59,7 +60,9 @@ const ResumePage = () => {
   } = useResumeAction({
     initialPage: 1,
     itemsPerPage: 6,
-    companyId: (user as LoginResponseDto)?.company?.companyId,
+    companyId: isCompanyResponse(user as MeResponse)
+      ? (user as MeResponse)?.accountId
+      : (user as LoginResponseDto)?.company?.companyId,
     jobId: selectedJobId || '-1',
   });
 

@@ -1,4 +1,4 @@
-import { api } from "@/services/api";
+import { api } from '@/services/api';
 import type {
   CreateSubscriberRequest,
   FetchSubscriberByIdResponse,
@@ -6,80 +6,62 @@ import type {
   FetchSubscribersResponse,
   GetSubscriberSkillsResponse,
   SubscriberMutationResponse,
-  UpdateSubscriberRequest
-} from "./subcriberType";
+  UpdateSubscriberRequest,
+} from './subcriberType';
 
 export const subscriberApi = api.injectEndpoints({
   endpoints: (builder) => ({
-    createSubscriber: builder.mutation<
-      SubscriberMutationResponse,
-      CreateSubscriberRequest
-    >({
+    createSubscriber: builder.mutation<SubscriberMutationResponse, CreateSubscriberRequest>({
       query: (data) => ({
-        url: "/subscribers",
-        method: "POST",
-        data
+        url: '/subscribers',
+        method: 'POST',
+        data,
       }),
-      invalidatesTags: ["Subscriber"]
+      invalidatesTags: ['Subscriber'],
     }),
 
-    updateSubscriber: builder.mutation<
-      SubscriberMutationResponse,
-      UpdateSubscriberRequest
-    >({
+    updateSubscriber: builder.mutation<SubscriberMutationResponse, UpdateSubscriberRequest>({
       query: (data) => ({
-        url: "/subscribers",
-        method: "PUT",
-        data
+        url: '/subscribers',
+        method: 'PUT',
+        data,
       }),
-      invalidatesTags: ["Subscriber"]
+      invalidatesTags: ['Subscriber'],
     }),
 
-    deleteSubscriber: builder.mutation<
-      SubscriberMutationResponse,
-      number
-    >({
+    deleteSubscriber: builder.mutation<SubscriberMutationResponse, number>({
       query: (id) => ({
         url: `/subscribers/${id}`,
-        method: "DELETE"
+        method: 'DELETE',
       }),
-      invalidatesTags: ["Subscriber"]
+      invalidatesTags: ['Subscriber'],
     }),
 
-    fetchSubscriberById: builder.query<
-      FetchSubscriberByIdResponse,
-      number
-    >({
+    fetchSubscriberById: builder.query<FetchSubscriberByIdResponse, number>({
       query: (id) => ({
         url: `/subscribers/${id}`,
-        method: "GET"
+        method: 'GET',
       }),
-      providesTags: ["Subscriber"]
+      providesTags: ['Subscriber'],
     }),
 
-    fetchSubscribers: builder.query<
-      FetchSubscribersResponse,
-      FetchSubscribersRequest
-    >({
+    fetchSubscribers: builder.query<FetchSubscribersResponse, FetchSubscribersRequest>({
       query: (params) => ({
-        url: "/subscribers",
-        method: "GET",
-        params
+        url: '/subscribers',
+        method: 'GET',
+        params,
       }),
-      providesTags: ["Subscriber"]
+      providesTags: ['Subscriber'],
     }),
 
-    getCurrentUserSubscriberSkills: builder.query<
-      GetSubscriberSkillsResponse,
-      void
-    >({
+    getCurrentUserSubscriberSkills: builder.query<GetSubscriberSkillsResponse, void>({
       query: () => ({
-        url: "/subscribers/skills",
-        method: "GET"
+        url: '/subscribers/skills',
+        method: 'GET',
       }),
-      providesTags: ["Subscriber"]
-    })
-  })
+      providesTags: ['Subscriber'],
+    }),
+  }),
 });
 
 export const {
@@ -88,5 +70,5 @@ export const {
   useDeleteSubscriberMutation,
   useFetchSubscriberByIdQuery,
   useFetchSubscribersQuery,
-  useGetCurrentUserSubscriberSkillsQuery
+  useGetCurrentUserSubscriberSkillsQuery,
 } = subscriberApi;

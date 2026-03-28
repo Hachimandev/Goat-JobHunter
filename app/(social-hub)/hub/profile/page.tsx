@@ -9,9 +9,6 @@ import { SocialBlogCard } from "@/app/(social-hub)/hub/fyp/component/SocialBlogC
 import { useInfiniteScrollMyBlogs } from "@/app/(social-hub)/hub/profile/hooks/useInfiniteScrollMyBlogs";
 
 export default function ProfilePage() {
-
-  // Fetch user data to ensure it's up-to-date when accessing the profile page,
-  // the data returned is stored in the redux store handle by rtk query automatically
   useGetMyAccountQuery();
 
   const {

@@ -30,7 +30,7 @@ interface UserFormProps {
 const UserForm = ({ open, onOpenChange, profile }: UserFormProps) => {
   const { handleUpdateApplicant, isUpdatingApplicant, handleUpdateRecruiter, isUpdatingRecruiter } = useUser();
 
-  const isApplicant = profile.role.name === ROLE.APPLICANT;
+  const isApplicant = profile?.role?.name === ROLE.APPLICANT;
   const isUpdating = isApplicant ? isUpdatingApplicant : isUpdatingRecruiter;
 
   const form = useForm<UserFormData>({
@@ -96,28 +96,23 @@ const UserForm = ({ open, onOpenChange, profile }: UserFormProps) => {
       return;
     }
 
-    const basePayload = {
-      fullName: data.fullName,
-      username: data.username,
-      dob: data.dob.toISOString(),
-      gender: data.gender,
-      email: data.email,
-      phone: data.phone,
-      addresses: data.addresses,
-    };
+    const formData = new FormData();
+    formData.append('fullName', data.fullName);
+    formData.append('username', data.username);
+    formData.append('dob', data.dob.toISOString());
+    formData.append('gender', data.gender);
+    formData.append('email', data.email);
+    formData.append('phone', data.phone!);
+    formData.append('addresses', JSON.stringify(data.addresses));
 
     if (isApplicant) {
-      await handleUpdateApplicant(profile.accountId, {
-        ...basePayload,
-        education: data.education!,
-        level: data.level!,
-        availableStatus: data.availableStatus!,
-      });
+      formData.append('education', data.education!);
+      formData.append('level', data.level!);
+      formData.append('availableStatus', String(data.availableStatus!));
+      await handleUpdateApplicant(formData);
     } else {
-      await handleUpdateRecruiter(profile.accountId, {
-        ...basePayload,
-        position: data.position!,
-      });
+      formData.append('position', data.position!);
+      await handleUpdateRecruiter(formData);
     }
 
     onOpenChange(false);

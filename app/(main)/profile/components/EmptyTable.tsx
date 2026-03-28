@@ -1,14 +1,14 @@
 interface EmptyTableProps {
-  type?: 'jobs' | 'recruiters' | 'applicants';
+  type?: 'jobs' | 'companies' | 'applicants';
 }
 
 const EmptyTable = ({ type = 'jobs' }: EmptyTableProps) => {
   const getMessage = () => {
     switch (type) {
-      case 'recruiters':
+      case 'companies':
         return {
-          title: 'Chưa theo dõi nhà tuyển dụng nào',
-          description: 'Hãy theo dõi các nhà tuyển dụng để nhận thông báo việc làm mới',
+          title: 'Chưa theo dõi công ty nào',
+          description: 'Hãy theo dõi các công ty để nhận thông báo việc làm mới',
         };
       default:
         return {

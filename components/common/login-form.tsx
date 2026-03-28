@@ -13,10 +13,13 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import Image from 'next/image';
+import { Eye, EyeOff } from 'lucide-react';
+import { useState } from 'react';
 
 export function LoginForm({ className, ...props }: React.ComponentProps<'div'>) {
   const { signIn } = useUser();
   const router = useRouter();
+  const [showPassword, setShowPassword] = useState(false);
 
   const signInForm = useForm<TSignInSchema>({
     resolver: zodResolver(SignInSchema),
@@ -38,12 +41,12 @@ export function LoginForm({ className, ...props }: React.ComponentProps<'div'>) 
       const result = await signIn(data);
 
       if (result.success) {
-        if (result.user?.role.name === "SUPER_ADMIN") {
+        if (result.user?.role.name === 'SUPER_ADMIN') {
           router.push('/dashboard');
           return;
         }
-        router.push("/")
-        return
+        router.push('/');
+        return;
       }
 
       // xử lý lỗi cụ thể
@@ -52,9 +55,8 @@ export function LoginForm({ className, ...props }: React.ComponentProps<'div'>) 
           type: 'manual',
           message: 'Email hoặc mật khẩu không đúng',
         });
-        return
+        return;
       }
-
     } catch (error) {
       console.error('Login error:', error);
     }
@@ -105,7 +107,22 @@ export function LoginForm({ className, ...props }: React.ComponentProps<'div'>) 
                       </Link>
                     </div>
                     <FormControl>
-                      <Input type="password" placeholder="*********" className="rounded-xl" {...field} />
+                      <div className="relative">
+                        <Input
+                          type={showPassword ? 'text' : 'password'}
+                          placeholder="*********"
+                          className="rounded-xl pr-10"
+                          {...field}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowPassword((prev) => !prev)}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                          aria-label={showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
+                        >
+                          {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                        </button>
+                      </div>
                     </FormControl>
                     <FormMessage />
                   </FormItem>

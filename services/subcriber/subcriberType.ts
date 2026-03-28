@@ -1,17 +1,13 @@
-import type { IBackendRes, IModelPaginate } from "@/types/api";
-import type { Skill, Subscriber } from "@/types/model";
+import type { IBackendRes, IModelPaginate } from '@/types/api';
+import type { Skill, Subscriber } from '@/types/model';
 
 // Create & Update
 export type CreateSubscriberRequest = {
-  name: string;
-  email: string;
   skillIds: number[];
 };
 
 export type UpdateSubscriberRequest = {
   subscriberId: number;
-  name?: string;
-  email?: string;
   skillIds?: number[];
 };
 

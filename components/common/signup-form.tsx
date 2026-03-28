@@ -1,49 +1,32 @@
-"use client";
+'use client';
 
-import {
-  SignUpType,
-  SignUpTypeOptions,
-  TUserSignUpSchema,
-  UserSignUpSchema
-} from "@/app/(auth)/components/schemas";
-import CheckPasswordStrength from "@/components/common/CheckPasswordStrength";
-import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle
-} from "@/components/ui/card";
-import { FieldDescription } from "@/components/ui/field";
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage
-} from "@/components/ui/form";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { useUser } from "@/hooks/useUser";
-import { cn } from "@/lib/utils";
-import { zodResolver } from "@hookform/resolvers/zod";
-import Image from "next/image";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useForm } from "react-hook-form";
-import { useFetchAllCompanyNamesQuery } from "@/services/company/companyApi";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { SignUpType, SignUpTypeOptions, TUserSignUpSchema, UserSignUpSchema } from '@/app/(auth)/components/schemas';
+import CheckPasswordStrength from '@/components/common/CheckPasswordStrength';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { FieldDescription } from '@/components/ui/field';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { useUser } from '@/hooks/useUser';
+import { cn } from '@/lib/utils';
+import { zodResolver } from '@hookform/resolvers/zod';
+import Image from 'next/image';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { useForm } from 'react-hook-form';
+import { useFetchAllCompanyNamesQuery } from '@/services/company/companyApi';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Eye, EyeOff } from 'lucide-react';
+import { useState } from 'react';
 
-export function SignupForm({
- className,
- ...props
-}: React.ComponentProps<"div">) {
+export function SignupForm({ className, ...props }: React.ComponentProps<'div'>) {
   const router = useRouter();
   const { userSignUp, isSigningUp } = useUser();
   const { data: companyNamesResponse } = useFetchAllCompanyNamesQuery();
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const signUpForm = useForm<TUserSignUpSchema>({
     resolver: zodResolver(UserSignUpSchema),
@@ -66,6 +49,7 @@ export function SignupForm({
     formState: { isSubmitting },
   } = signUpForm;
 
+  // eslint-disable-next-line react-hooks/incompatible-library
   const selectedType = watch('type');
 
   const onSubmit = async (data: TUserSignUpSchema) => {
@@ -220,7 +204,22 @@ export function SignupForm({
                       Mật khẩu
                     </FormLabel>
                     <FormControl>
-                      <Input type="password" placeholder="*********" className="rounded-xl" {...field} />
+                      <div className="relative">
+                        <Input
+                          type={showPassword ? 'text' : 'password'}
+                          placeholder="*********"
+                          className="rounded-xl pr-10"
+                          {...field}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowPassword((prev) => !prev)}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                          aria-label={showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
+                        >
+                          {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                        </button>
+                      </div>
                     </FormControl>
                     {field.value && <CheckPasswordStrength password={field.value} />}
                     <FormMessage />
@@ -237,7 +236,22 @@ export function SignupForm({
                       Xác nhận mật khẩu
                     </FormLabel>
                     <FormControl>
-                      <Input type="password" placeholder="*********" className="rounded-xl" {...field} />
+                      <div className="relative">
+                        <Input
+                          type={showConfirmPassword ? 'text' : 'password'}
+                          placeholder="*********"
+                          className="rounded-xl pr-10"
+                          {...field}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowConfirmPassword((prev) => !prev)}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                          aria-label={showConfirmPassword ? 'Ẩn mật khẩu xác nhận' : 'Hiện mật khẩu xác nhận'}
+                        >
+                          {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                        </button>
+                      </div>
                     </FormControl>
                     <FormMessage />
                   </FormItem>
