@@ -1,6 +1,5 @@
 import { api } from '@/services/api';
 import {
-  CompanyMutationResponse,
   FetchAllCompanyNames,
   FetchCompaniesRequest,
   FetchCompaniesResponse,
@@ -9,7 +8,6 @@ import {
   FetchJobsByCompanyRequest,
   FetchJobsByCompanyResponse,
   FetchSkillsByCompanyResponse,
-  UpdateCompanyRequest,
 } from './companyType';
 import { buildSpringQuery } from '@/utils/buildSpringQuery';
 import { setUser } from '@/lib/features/authSlice';

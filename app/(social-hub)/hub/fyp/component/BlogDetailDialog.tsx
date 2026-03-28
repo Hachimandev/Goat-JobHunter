@@ -22,7 +22,6 @@ import { useGetCommentsByBlogIdQuery } from "@/services/blog/blogApi";
 import { formatCommentsToNested, NestedComment } from "@/app/(social-hub)/hub/fyp/component/comment/utils/formatComments";
 import CommentInput from "@/app/(social-hub)/hub/fyp/component/comment/CommentInput";
 import CommentSection from "@/app/(social-hub)/hub/fyp/component/comment/CommentSection";
-import { getDisplayImage } from "../../hooks/useDisplay";
 
 export function BlogDetailDialog() {
   const dispatch = useAppDispatch();

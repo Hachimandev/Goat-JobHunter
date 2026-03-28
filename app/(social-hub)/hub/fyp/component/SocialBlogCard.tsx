@@ -25,9 +25,10 @@ interface SocialBlogCardProps {
   blog: Blog;
   isSaved: boolean;
   initialReaction: string | null;
+  owned?: boolean;
 }
 
-export function SocialBlogCard({ blog, isSaved, initialReaction }: Readonly<SocialBlogCardProps>) {
+export function SocialBlogCard({ blog, isSaved, initialReaction, owned = false }: Readonly<SocialBlogCardProps>) {
   const dispatch = useAppDispatch();
   const { handleToggleSaveBlog, isLoading } = useBlogActions();
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
@@ -85,25 +86,31 @@ export function SocialBlogCard({ blog, isSaved, initialReaction }: Readonly<Soci
               </UserHoverCard>
               <div className="text-xs text-muted-foreground">{timeAgo}</div>
             </div>
-            <Button
-              variant="outline"
-              size="icon"
-              className="h-8 w-8 rounded-full"
-              title="Lưu bài viết"
-              onClick={handleSaveClick}
-              disabled={isLoading}
-            >
-              <Bookmark className={`h-4 w-4 ${isSaved ? 'fill-primary text-primary' : 'fill-white text-foreground'}`} />
-            </Button>
-            <Button
-              variant="outline"
-              size="icon"
-              className="h-8 w-8 rounded-full"
-              title="Báo cáo bài viết"
-              onClick={handleReportClick}
-            >
-              <Flag className="h-4 w-4" />
-            </Button>
+            {!owned && (
+              <>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="h-8 w-8 rounded-full"
+                  title="Lưu bài viết"
+                  onClick={handleSaveClick}
+                  disabled={isLoading}
+                >
+                  <Bookmark
+                    className={`h-4 w-4 ${isSaved ? 'fill-primary text-primary' : 'fill-white text-foreground'}`}
+                  />
+                </Button>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="h-8 w-8 rounded-full"
+                  title="Báo cáo bài viết"
+                  onClick={handleReportClick}
+                >
+                  <Flag className="h-4 w-4" />
+                </Button>
+              </>
+            )}
           </div>
 
           <RichTextPreview content={blog.content} className="mb-3 text-sm" />
