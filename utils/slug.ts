@@ -20,9 +20,9 @@ export const getErrorMessage = (error: unknown, fallback: string): string => {
 
 export const isCompanyResponse = (user: MeResponse): user is CompanyResponse => 'logo' in user;
 export const isRecruiterResponse = (user: MeResponse): user is RecruiterResponse =>
-  'company' in user && 'position' in user;
+  'company' in user || 'position' in user;
 export const isApplicantResponse = (user: MeResponse): user is ApplicantResponse =>
-  'education' in user && 'level' in user;
+  'education' in user || 'level' in user || 'availableStatus' in user;
 
 export const normalizeWebsiteUrl = (website: string): string => {
   if (/^https?:\/\//i.test(website)) {

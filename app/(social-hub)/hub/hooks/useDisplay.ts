@@ -32,7 +32,6 @@ export const getDisplayUsername = (user: UserData): string | undefined => {
 
 export const getCoverPhoto = (user: UserData): string => {
   return (
-    (user as UserResponse | ApplicantResponse | RecruiterResponse | CompanyResponse)?.coverPhoto ||
-    '/placeholder.svg?height=400&width=1200&query=abstract-landscape'
+    (user as UserResponse | ApplicantResponse | RecruiterResponse | CompanyResponse)?.coverPhoto || '/default-cover.svg'
   );
 };
