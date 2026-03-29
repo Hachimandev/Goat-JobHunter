@@ -93,7 +93,7 @@ export default function ProfileHeader({ fullPage = false, type }: Readonly<Profi
               {isApplicant && user && (
                 <TooltipProvider>
                   <Tooltip>
-                    <TooltipTrigger asChild>
+                    <TooltipTrigger asChild className="cursor-pointer">
                       <div className="flex items-center gap-2 py-1 rounded-full">
                         {(me as ApplicantResponse).availableStatus ? (
                           <Eye className="h-5 w-5 text-green-600" />
@@ -115,7 +115,7 @@ export default function ProfileHeader({ fullPage = false, type }: Readonly<Profi
             </div>
 
             <div className="text-sm space-y-1">
-              {me?.username && <p className="text-sm text-muted-foreground">@ {me.username}</p>}
+              {me?.username && <p className="text-sm text-muted-foreground">@{me.username}</p>}
 
               {me?.email && (
                 <div className="flex items-center gap-2 text-muted-foreground">

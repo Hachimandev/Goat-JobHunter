@@ -1,3 +1,4 @@
+import { ApplicantFormData, applicantSchema } from '@/app/(main)/profile/components/ProfileInfo/schema';
 import { Button } from '@/components/ui/button';
 import { DatePicker } from '@/components/ui/example-date-picker';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -5,29 +6,31 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useUser } from '@/hooks/useUser';
-import { RecruiterResponse } from '@/types/dto';
-import { Gender } from '@/types/enum';
+import { ApplicantResponse } from '@/types/dto';
+import { Education, Gender, Level } from '@/types/enum';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { capitalize } from 'lodash';
 import { Loader2, Plus, Trash2 } from 'lucide-react';
 import { useEffect } from 'react';
 import { useFieldArray, useForm } from 'react-hook-form';
 import { toast } from 'sonner';
-import { RecruiterFormData, recruiterSchema } from './schema';
 
-interface RecruiterUserFormProps {
+interface ApplicantUserFormProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  profile: RecruiterResponse;
+  profile: ApplicantResponse;
 }
 
-const RecruiterUserForm = ({ open, onOpenChange, profile }: RecruiterUserFormProps) => {
-  const { handleUpdateRecruiter, isUpdatingRecruiter } = useUser();
+const ApplicantUserForm = ({ open, onOpenChange, profile }: ApplicantUserFormProps) => {
+  const { handleUpdateApplicant, isUpdatingApplicant } = useUser();
 
-  const form = useForm<RecruiterFormData>({
-    resolver: zodResolver(recruiterSchema),
+  const form = useForm<ApplicantFormData>({
+    resolver: zodResolver(applicantSchema),
     defaultValues: {
       fullName: '',
       username: '',
@@ -35,7 +38,9 @@ const RecruiterUserForm = ({ open, onOpenChange, profile }: RecruiterUserFormPro
       phone: '',
       dob: new Date(),
       gender: Gender.NAM,
-      position: '',
+      education: Education.SCHOOL,
+      level: Level.INTERN,
+      availableStatus: true,
       headline: '',
       bio: '',
       addresses: [{ province: '', fullAddress: '' }],
@@ -59,7 +64,9 @@ const RecruiterUserForm = ({ open, onOpenChange, profile }: RecruiterUserFormPro
       phone: profile.phone || '',
       dob: profile.dob ? new Date(profile.dob) : new Date(),
       gender: profile.gender || Gender.NAM,
-      position: profile.position || '',
+      education: profile.education || Education.SCHOOL,
+      level: profile.level || Level.INTERN,
+      availableStatus: profile.availableStatus ?? true,
       headline: profile.headline || '',
       bio: profile.bio || '',
       addresses:
@@ -73,26 +80,30 @@ const RecruiterUserForm = ({ open, onOpenChange, profile }: RecruiterUserFormPro
     });
   }, [profile, form]);
 
-  const onSubmit = async (data: RecruiterFormData) => {
+  const onSubmit = async (data: ApplicantFormData) => {
     if (!profile?.accountId) {
       toast.error('Không thể cập nhật thông tin. Vui lòng thử lại sau.');
       return;
     }
 
+    const dobFormatted = data.dob.toLocaleDateString('sv-SE');
+
     const formData = new FormData();
     formData.append('accountId', String(profile.accountId));
     formData.append('fullName', data.fullName);
     formData.append('username', data.username);
-    formData.append('dob',  data.dob.toLocaleDateString('sv-SE'));
+    formData.append('dob', dobFormatted);
     formData.append('gender', data.gender);
     formData.append('email', data.email);
     formData.append('phone', data.phone || '');
-    formData.append('position', data.position || '');
     formData.append('addresses', JSON.stringify(data.addresses));
+    formData.append('education', data.education || '');
+    formData.append('level', data.level || '');
+    formData.append('availableStatus', String(data.availableStatus ?? true));
     formData.append('headline', data.headline || '');
     formData.append('bio', data.bio || '');
 
-    await handleUpdateRecruiter(formData);
+    await handleUpdateApplicant(formData);
 
     onOpenChange(false);
     form.reset();
@@ -107,7 +118,7 @@ const RecruiterUserForm = ({ open, onOpenChange, profile }: RecruiterUserFormPro
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl! max-h-[90vh] overflow-y-auto rounded-2xl">
         <DialogHeader>
-          <DialogTitle className="text-xl">Cập Nhật Thông Tin Nhà Tuyển Dụng</DialogTitle>
+          <DialogTitle className="text-xl">Cập Nhật Thông Tin Ứng Viên</DialogTitle>
         </DialogHeader>
 
         <Form {...form}>
@@ -194,12 +205,19 @@ const RecruiterUserForm = ({ open, onOpenChange, profile }: RecruiterUserFormPro
 
                 <FormField
                   control={form.control}
-                  name="position"
+                  name="gender"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Vị trí</FormLabel>
+                      <FormLabel>Giới tính</FormLabel>
                       <FormControl>
-                        <Input {...field} className="rounded-xl" placeholder="Vị trí công việc" />
+                        <RadioGroup value={field.value} onValueChange={field.onChange} className="flex flex-row">
+                          {Object.entries(Gender).map(([key, value]) => (
+                            <div key={key} className="flex items-center gap-3">
+                              <RadioGroupItem value={value} id={`applicant-gender-${key}`} />
+                              <Label htmlFor={`applicant-gender-${key}`}>{capitalize(key)}</Label>
+                            </div>
+                          ))}
+                        </RadioGroup>
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -210,37 +228,84 @@ const RecruiterUserForm = ({ open, onOpenChange, profile }: RecruiterUserFormPro
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <FormField
                   control={form.control}
-                  name="gender"
+                  name="education"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Giới tính</FormLabel>
+                      <FormLabel>Học vấn</FormLabel>
                       <FormControl>
-                        <RadioGroup value={field.value} onValueChange={field.onChange} className="flex flex-row">
-                          {Object.entries(Gender).map(([key, value]) => (
-                            <div key={key} className="flex items-center gap-3">
-                              <RadioGroupItem value={value} id={`recruiter-gender-${key}`} />
-                              <Label htmlFor={`recruiter-gender-${key}`}>{capitalize(key)}</Label>
-                            </div>
-                          ))}
-                        </RadioGroup>
+                        <Select value={field.value} onValueChange={field.onChange}>
+                          <SelectTrigger className="rounded-xl w-full">
+                            <SelectValue placeholder="Chọn học vấn" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {Object.entries(Education).map(([key, value]) => (
+                              <SelectItem key={key} value={value}>
+                                {capitalize(key)}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
                       </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
 
-                <div className="space-y-2">
-                  <Label htmlFor="recruiter-company" className="capitalize">
-                    Công ty
-                  </Label>
-                  <Input
-                    id="recruiter-company"
-                    value={profile.company?.name || 'Chưa cập nhật'}
-                    disabled
-                    className="rounded-xl"
-                  />
-                </div>
+                <FormField
+                  control={form.control}
+                  name="level"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Trình độ</FormLabel>
+                      <FormControl>
+                        <Select value={field.value} onValueChange={field.onChange}>
+                          <SelectTrigger className="rounded-xl w-full">
+                            <SelectValue placeholder="Chọn trình độ" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {Object.entries(Level).map(([key, value]) => (
+                              <SelectItem key={key} value={value}>
+                                {capitalize(key)}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
               </div>
+
+              <FormField
+                control={form.control}
+                name="availableStatus"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Trạng thái tài khoản</FormLabel>
+                    <FormControl>
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <div className="flex items-center gap-2">
+                              <Switch checked={field.value} onCheckedChange={field.onChange} />
+                              <Label className="cursor-pointer">{field.value ? 'Công khai hồ sơ' : 'Ẩn hồ sơ'}</Label>
+                            </div>
+                          </TooltipTrigger>
+                          <TooltipContent align="start">
+                            <p>
+                              {field.value
+                                ? 'Hồ sơ của bạn có thể được tìm thấy bởi nhà tuyển dụng'
+                                : 'Hồ sơ của bạn sẽ bị ẩn khỏi nhà tuyển dụng'}
+                            </p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
@@ -334,10 +399,10 @@ const RecruiterUserForm = ({ open, onOpenChange, profile }: RecruiterUserFormPro
               </Button>
               <Button
                 type="submit"
-                disabled={isUpdatingRecruiter}
+                disabled={isUpdatingApplicant}
                 className="bg-primary hover:bg-primary/90 text-primary-foreground rounded-xl px-6"
               >
-                {isUpdatingRecruiter ? (
+                {isUpdatingApplicant ? (
                   <>
                     <Loader2 className="h-4 w-4 animate-spin mr-2" />
                     Đang lưu...
@@ -354,4 +419,4 @@ const RecruiterUserForm = ({ open, onOpenChange, profile }: RecruiterUserFormPro
   );
 };
 
-export default RecruiterUserForm;
+export default ApplicantUserForm;

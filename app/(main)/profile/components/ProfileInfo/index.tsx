@@ -2,19 +2,15 @@
 
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { getRevertGenderKeyValue } from '@/utils/getRevertEnumKeyValue';
-import { capitalize } from 'lodash';
 import { Edit2 } from 'lucide-react';
 import { useState } from 'react';
-import UserForm from '@/app/(main)/profile/components/ProfileInfo/UserForm';
 import CompanyUserForm from '@/app/(main)/profile/components/ProfileInfo/CompanyUserForm';
 import RecruiterUserForm from '@/app/(main)/profile/components/ProfileInfo/RecruiterUserForm';
+import ApplicantUserForm from '@/app/(main)/profile/components/ProfileInfo/ApplicantUserForm';
 import CompanyProfileInfo from '@/app/(main)/profile/components/ProfileInfo/CompanyProfileInfo';
 import RecruiterProfileInfo from '@/app/(main)/profile/components/ProfileInfo/RecruiterProfileInfo';
+import ApplicantProfileInfo from '@/app/(main)/profile/components/ProfileInfo/ApplicantProfileInfo';
 import ErrorMessage from '@/components/common/ErrorMessage';
-import { formatDate } from '@/utils/formatDate';
 import { useUser } from '@/hooks/useUser';
 import { ApplicantResponse, RecruiterResponse, CompanyResponse, MeResponse } from '@/types/dto';
 import { isApplicantResponse, isRecruiterResponse, isCompanyResponse } from '@/utils/slug';
@@ -33,8 +29,6 @@ export default function ProfileInfo() {
   const isApplicant = isApplicantResponse(me);
   const isRecruiter = isRecruiterResponse(me);
   const isCompany = isCompanyResponse(me);
-
-  const userPersonal = !isCompany ? (me as ApplicantResponse | RecruiterResponse) : null;
 
   return (
     <>
@@ -59,138 +53,11 @@ export default function ProfileInfo() {
         </div>
 
         <div className="space-y-4">
-          {isApplicant && (
-            <>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label className="capitalize" htmlFor="fullName">
-                    Họ Tên
-                  </Label>
-                  <Input
-                    id="fullName"
-                    value={userPersonal?.fullName || 'Chưa cập nhật'}
-                    disabled
-                    className="rounded-xl text-gray-800"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label className="capitalize" htmlFor="username">
-                    Tên hiển thị
-                  </Label>
-                  <Input
-                    id="username"
-                    value={userPersonal?.username || 'Chưa cập nhật'}
-                    disabled
-                    className="rounded-xl text-gray-800"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label className="capitalize" htmlFor="email">
-                    Email
-                  </Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    value={userPersonal?.email || 'Chưa cập nhật'}
-                    disabled
-                    className="rounded-xl text-gray-800"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label className="capitalize" htmlFor="phone">
-                    Số Điện Thoại
-                  </Label>
-                  <Input
-                    id="phone"
-                    value={userPersonal?.phone || 'Chưa cập nhật'}
-                    disabled
-                    className="rounded-xl text-gray-800"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label className="capitalize" htmlFor="gender">
-                    Giới tính
-                  </Label>
-                  <Input
-                    id="gender"
-                    type="text"
-                    value={
-                      userPersonal?.gender ? capitalize(getRevertGenderKeyValue(userPersonal.gender)) : 'Chưa cập nhật'
-                    }
-                    disabled
-                    className="rounded-xl text-gray-800"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label className="capitalize" htmlFor="dob">
-                    Ngày sinh
-                  </Label>
-                  <Input
-                    id="dob"
-                    value={userPersonal?.dob ? formatDate(userPersonal.dob) : 'Chưa cập nhật'}
-                    disabled
-                    className="rounded-xl text-gray-800"
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label className="capitalize">Địa chỉ</Label>
-                {userPersonal?.addresses && userPersonal.addresses.length > 0 ? (
-                  <div className="space-y-2">
-                    {userPersonal.addresses.map((addr, index) => (
-                      <Input
-                        key={addr.addressId || index}
-                        value={`${addr.province} - ${addr.fullAddress}`}
-                        disabled
-                        className="rounded-xl text-gray-800"
-                      />
-                    ))}
-                  </div>
-                ) : (
-                  <Input value="Chưa cập nhật" disabled className="rounded-xl text-gray-800" />
-                )}
-              </div>
-            </>
-          )}
+          {isApplicant && <ApplicantProfileInfo applicant={me as ApplicantResponse} />}
 
           {isRecruiter && <RecruiterProfileInfo recruiter={me as RecruiterResponse} />}
 
           {isCompany && <CompanyProfileInfo company={me as CompanyResponse} />}
-
-          {isApplicant && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label className="capitalize" htmlFor="level">
-                  Trình độ
-                </Label>
-                <Input
-                  id="level"
-                  value={capitalize(me.level) || 'Chưa cập nhật'}
-                  disabled
-                  className="rounded-xl text-gray-800"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label className="capitalize" htmlFor="education">
-                  Học Vấn
-                </Label>
-                <Input
-                  id="education"
-                  type="text"
-                  value={capitalize(me.education) || 'Chưa cập nhật'}
-                  disabled
-                  className="rounded-xl text-gray-800"
-                />
-              </div>
-            </div>
-          )}
         </div>
       </Card>
       {isCompany ? (
@@ -202,11 +69,7 @@ export default function ProfileInfo() {
           profile={me as RecruiterResponse}
         />
       ) : (
-        <UserForm
-          open={showModal}
-          onOpenChange={setShowModal}
-          profile={userPersonal as ApplicantResponse | RecruiterResponse}
-        />
+        <ApplicantUserForm open={showModal} onOpenChange={setShowModal} profile={me as ApplicantResponse} />
       )}
     </>
   );
