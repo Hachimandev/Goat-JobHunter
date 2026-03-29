@@ -20,6 +20,9 @@ import useBlogActions from '@/hooks/useBlogActions';
 import ReportTicketDialog from '@/components/management/blogs/ReportTicketDialog';
 import { useUser } from '@/hooks/useUser';
 import { toast } from 'sonner';
+import { extractPlainTextFromHtml } from '@/utils/extractPlainTextFromHtml';
+
+const BLOG_CONTENT_PREVIEW_LENGTH = 280;
 
 interface SocialBlogCardProps {
   blog: Blog;
@@ -32,6 +35,7 @@ export function SocialBlogCard({ blog, isSaved, initialReaction, owned = false }
   const dispatch = useAppDispatch();
   const { handleToggleSaveBlog, isLoading } = useBlogActions();
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
+  const [isContentExpanded, setIsContentExpanded] = useState(false);
   const { isSignedIn, user } = useUser();
 
   const timeAgo = formatDistanceToNow(new Date(blog.createdAt), {
@@ -40,6 +44,12 @@ export function SocialBlogCard({ blog, isSaved, initialReaction, owned = false }
   });
 
   const formattedImageUrls = useMemo(() => formatImageUrlsForPhotoView(blog?.images), [blog?.images]);
+  const plainContent = useMemo(() => extractPlainTextFromHtml(blog.content).trim(), [blog.content]);
+  const shouldShowReadMore = plainContent.length > BLOG_CONTENT_PREVIEW_LENGTH;
+  const shortContent = useMemo(() => {
+    if (!shouldShowReadMore) return plainContent;
+    return `${plainContent.slice(0, BLOG_CONTENT_PREVIEW_LENGTH).trimEnd()}...`;
+  }, [plainContent, shouldShowReadMore]);
 
   const handleOpenDetail = () => {
     dispatch(openBlogDetail(blog));
@@ -113,7 +123,21 @@ export function SocialBlogCard({ blog, isSaved, initialReaction, owned = false }
             )}
           </div>
 
-          <RichTextPreview content={blog.content} className="mb-3 text-sm" />
+          {isContentExpanded || !shouldShowReadMore ? (
+            <RichTextPreview content={blog.content} className="mb-3 text-sm" />
+          ) : (
+            <p className="mb-2 text-sm whitespace-pre-line">{shortContent}</p>
+          )}
+          {shouldShowReadMore && (
+            <Button
+              type="button"
+              variant="link"
+              className="mb-3 h-auto p-0 text-sm font-semibold"
+              onClick={() => setIsContentExpanded((prev) => !prev)}
+            >
+              {isContentExpanded ? 'Thu gọn' : 'Xem thêm'}
+            </Button>
+          )}
 
           {blog.tags.length > 0 && (
             <div className="mb-3 flex flex-wrap gap-2">
