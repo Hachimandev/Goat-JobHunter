@@ -60,3 +60,9 @@ export enum Gender {
   NU = "NU",
   OTHER = "OTHER",
 }
+
+export enum ApplicationStatus {
+  PENDING = "PENDING",
+  ACCEPTED = "ACCEPTED",
+  REJECTED = "REJECTED",
+}

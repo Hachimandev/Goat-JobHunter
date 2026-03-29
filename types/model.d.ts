@@ -1,4 +1,4 @@
-import { CompanySize, Level, WorkingType } from "./enum";
+import { CompanySize, Level, WorkingType, ApplicationStatus } from "./enum";
 
 export type Address = {
   addressId: number;
@@ -197,4 +197,22 @@ export type ChatRoom = {
   lastMessagePreview: string | null;
   lastMessageTime: string | null;
   currentUserSentLastMessage: boolean | null;
+};
+
+export type Application = {
+  applicationId: number;
+  email: string;
+  coverLetter: string;
+  status: ApplicationStatus;
+  job: { jobId: number; title: string };
+  applicant: { accountId: number; email: string; fullName: string };
+  resume: { resumeId: number; fileUrl: string };
+  interview?: {
+    interviewId?: number;
+    scheduledAt?: string;
+  };
+  createdAt: string;
+  createdBy: string;
+  updatedAt: string;
+  updatedBy: string;
 };
