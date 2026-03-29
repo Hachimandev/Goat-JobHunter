@@ -10,7 +10,9 @@ import { Edit2 } from 'lucide-react';
 import { useState } from 'react';
 import UserForm from '@/app/(main)/profile/components/ProfileInfo/UserForm';
 import CompanyUserForm from '@/app/(main)/profile/components/ProfileInfo/CompanyUserForm';
+import RecruiterUserForm from '@/app/(main)/profile/components/ProfileInfo/RecruiterUserForm';
 import CompanyProfileInfo from '@/app/(main)/profile/components/ProfileInfo/CompanyProfileInfo';
+import RecruiterProfileInfo from '@/app/(main)/profile/components/ProfileInfo/RecruiterProfileInfo';
 import ErrorMessage from '@/components/common/ErrorMessage';
 import { formatDate } from '@/utils/formatDate';
 import { useUser } from '@/hooks/useUser';
@@ -20,6 +22,7 @@ import { isApplicantResponse, isRecruiterResponse, isCompanyResponse } from '@/u
 export default function ProfileInfo() {
   const [showModal, setShowModal] = useState(false);
   const [showCompanyModal, setShowCompanyModal] = useState(false);
+  const [showRecruiterModal, setShowRecruiterModal] = useState(false);
   const { user } = useUser();
 
   if (!user) {
@@ -42,6 +45,8 @@ export default function ProfileInfo() {
             onClick={() => {
               if (isCompany) {
                 setShowCompanyModal(true);
+              } else if (isRecruiter) {
+                setShowRecruiterModal(true);
               } else {
                 setShowModal(true);
               }
@@ -54,7 +59,7 @@ export default function ProfileInfo() {
         </div>
 
         <div className="space-y-4">
-          {!isCompany && (
+          {isApplicant && (
             <>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
@@ -155,6 +160,8 @@ export default function ProfileInfo() {
             </>
           )}
 
+          {isRecruiter && <RecruiterProfileInfo recruiter={me as RecruiterResponse} />}
+
           {isCompany && <CompanyProfileInfo company={me as CompanyResponse} />}
 
           {isApplicant && (
@@ -184,37 +191,16 @@ export default function ProfileInfo() {
               </div>
             </div>
           )}
-
-          {isRecruiter && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label className="capitalize" htmlFor="position">
-                  Vị trí
-                </Label>
-                <Input
-                  id="position"
-                  value={me.position || 'Chưa cập nhật'}
-                  disabled
-                  className="rounded-xl text-gray-800"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label className="capitalize" htmlFor="company">
-                  Công ty
-                </Label>
-                <Input
-                  id="company"
-                  value={me.company?.name || 'Chưa cập nhật'}
-                  disabled
-                  className="rounded-xl text-gray-800"
-                />
-              </div>
-            </div>
-          )}
         </div>
       </Card>
       {isCompany ? (
         <CompanyUserForm open={showCompanyModal} onOpenChange={setShowCompanyModal} profile={me as CompanyResponse} />
+      ) : isRecruiter ? (
+        <RecruiterUserForm
+          open={showRecruiterModal}
+          onOpenChange={setShowRecruiterModal}
+          profile={me as RecruiterResponse}
+        />
       ) : (
         <UserForm
           open={showModal}
