@@ -18,11 +18,9 @@ export const getErrorMessage = (error: unknown, fallback: string): string => {
   return fallback;
 };
 
-export const isCompanyResponse = (user: MeResponse): user is CompanyResponse => 'logo' in user;
-export const isRecruiterResponse = (user: MeResponse): user is RecruiterResponse =>
-  'company' in user || 'position' in user;
-export const isApplicantResponse = (user: MeResponse): user is ApplicantResponse =>
-  'education' in user || 'level' in user || 'availableStatus' in user;
+export const isCompanyResponse = (user: MeResponse): user is CompanyResponse => user.role.name === 'COMPANY';
+export const isRecruiterResponse = (user: MeResponse): user is RecruiterResponse => user.role.name === 'HR';
+export const isApplicantResponse = (user: MeResponse): user is ApplicantResponse => user.role.name === 'APPLICANT';
 
 export const normalizeWebsiteUrl = (website: string): string => {
   if (/^https?:\/\//i.test(website)) {
