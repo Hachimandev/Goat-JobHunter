@@ -43,14 +43,14 @@ const useCommentActions = () => {
     }
   };
 
-  const handleDeleteComment = async (commentId: number) => {
+  const handleDeleteComment = async ({ commentId, blogId }: { commentId: number; blogId: number }) => {
     if (!isSignedIn || !user) {
       toast.error("Bạn phải đăng nhập để thực hiện chức năng này.");
       return;
     }
 
     try {
-      await deleteComment(commentId);
+      await deleteComment({ commentId, blogId });
       toast.success("Đã xóa bình luận.");
     } catch (e) {
       console.log(e);

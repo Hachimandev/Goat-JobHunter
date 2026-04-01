@@ -57,7 +57,11 @@ export default function CommentItem({ comment }: Readonly<CommentItemProps>) {
   };
 
   const handleDelete = async () => {
-    await handleDeleteComment(comment.commentId);
+    if (!blog) {
+      toast.error('Không tìm thấy bài viết để xóa bình luận.');
+      return;
+    }
+    await handleDeleteComment({ commentId: comment.commentId, blogId: blog.blogId });
     setIsDeleteOpen(false);
   };
 

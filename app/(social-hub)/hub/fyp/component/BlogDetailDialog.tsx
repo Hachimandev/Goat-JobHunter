@@ -1,65 +1,76 @@
-"use client";
+'use client';
 
-import { Dialog, DialogContent, DialogFooter, DialogTitle } from "@/components/ui/dialog";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { formatDistanceToNow } from "date-fns";
-import { vi } from "date-fns/locale";
-import { UserHoverCard } from "./UserHoverCard";
-import Link from "next/link";
-import RichTextPreview from "@/components/RichText/Preview";
-import { RowsPhotoAlbum } from "react-photo-album";
-import { RenderBlogImage } from "@/components/common/Photo/RenderNextImage";
-import { useMemo } from "react";
-import formatImageUrlsForPhotoView from "@/utils/formatImageUrlsForPhotoView";
-import { useAppDispatch, useAppSelector } from "@/lib/hooks";
-import { closeBlogDetail } from "@/lib/features/blogDetailSlice";
-import { VisuallyHidden } from "@radix-ui/react-visually-hidden";
-import BlogActivity from "@/app/(social-hub)/hub/fyp/component/BlogActivity";
-import { useUser } from "@/hooks/useUser";
-import { useGetCommentsByBlogIdQuery } from "@/services/blog/blogApi";
-import { formatCommentsToNested, NestedComment } from "@/app/(social-hub)/hub/fyp/component/comment/utils/formatComments";
-import CommentInput from "@/app/(social-hub)/hub/fyp/component/comment/CommentInput";
-import CommentSection from "@/app/(social-hub)/hub/fyp/component/comment/CommentSection";
+import { Dialog, DialogContent, DialogFooter, DialogTitle } from '@/components/ui/dialog';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Badge } from '@/components/ui/badge';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { formatDistanceToNow } from 'date-fns';
+import { vi } from 'date-fns/locale';
+import { UserHoverCard } from './UserHoverCard';
+import Link from 'next/link';
+import RichTextPreview from '@/components/RichText/Preview';
+import { RowsPhotoAlbum } from 'react-photo-album';
+import { RenderBlogImage } from '@/components/common/Photo/RenderNextImage';
+import { useEffect, useMemo } from 'react';
+import formatImageUrlsForPhotoView from '@/utils/formatImageUrlsForPhotoView';
+import { useAppDispatch, useAppSelector } from '@/lib/hooks';
+import { closeBlogDetail, openBlogDetail } from '@/lib/features/blogDetailSlice';
+import { VisuallyHidden } from '@radix-ui/react-visually-hidden';
+import BlogActivity from '@/app/(social-hub)/hub/fyp/component/BlogActivity';
+import { useUser } from '@/hooks/useUser';
+import { useFetchBlogByIdReadQuery, useGetCommentsByBlogIdQuery } from '@/services/blog/blogApi';
+import {
+  formatCommentsToNested,
+  NestedComment,
+} from '@/app/(social-hub)/hub/fyp/component/comment/utils/formatComments';
+import CommentInput from '@/app/(social-hub)/hub/fyp/component/comment/CommentInput';
+import CommentSection from '@/app/(social-hub)/hub/fyp/component/comment/CommentSection';
+import { useInfiniteScrollBlogs } from '../hooks/useInfiniteScrollBlogs';
+import { Blog } from '@/types/model';
 
 export function BlogDetailDialog() {
   const dispatch = useAppDispatch();
   const { user, isSignedIn } = useUser();
   const { blog, open } = useAppSelector((state) => state.blogDetail);
+  const { reactedBlogIds } = useInfiniteScrollBlogs();
 
   const {
     data: commentsData,
     isLoading: isLoadingComments,
-    isError: isLoadCommentsFailed
+    isError: isLoadCommentsFailed,
   } = useGetCommentsByBlogIdQuery(blog?.blogId || -1, {
-    skip: !blog
+    skip: !blog,
   });
 
+  const { data: fetchedBlog } = useFetchBlogByIdReadQuery(blog?.blogId || -1, {
+    skip: !blog,
+  });
+
+  useEffect(() => {
+    if (fetchedBlog) {
+      dispatch(openBlogDetail(fetchedBlog?.data as Blog));
+    }
+  }, [fetchedBlog, dispatch]);
+
   const comments: NestedComment[] = useMemo(() => {
-    if (!commentsData?.data) return []
+    if (!commentsData?.data) return [];
 
-    const rawComments = Array.isArray(commentsData.data)
-      ? commentsData.data
-      : [commentsData.data];
+    const rawComments = Array.isArray(commentsData.data) ? commentsData.data : [commentsData.data];
 
-    return formatCommentsToNested(rawComments)
+    return formatCommentsToNested(rawComments);
   }, [commentsData]);
 
   const handleClose = () => {
     dispatch(closeBlogDetail());
   };
 
-  const formattedImageUrls = useMemo(
-    () => formatImageUrlsForPhotoView(blog?.images),
-    [blog?.images]
-  );
+  const formattedImageUrls = useMemo(() => formatImageUrlsForPhotoView(blog?.images), [blog?.images]);
 
   if (!blog || !open) return null;
 
   const timeAgo = formatDistanceToNow(new Date(blog.createdAt), {
     addSuffix: true,
-    locale: vi
+    locale: vi,
   });
 
   return (
@@ -111,45 +122,33 @@ export function BlogDetailDialog() {
 
               {formattedImageUrls.length > 0 && (
                 <div className="mb-2 border">
-                  <RowsPhotoAlbum
-                    photos={formattedImageUrls}
-                    render={{ image: RenderBlogImage }}
-                    spacing={0}
-                  />
+                  <RowsPhotoAlbum photos={formattedImageUrls} render={{ image: RenderBlogImage }} spacing={0} />
                 </div>
               )}
 
               <BlogActivity
                 blog={blog}
                 className="p-0 my-2"
-                initialReaction={null}
+                initialReaction={reactedBlogIds.find((b) => b.blogId === blog.blogId)?.reactionType || null}
               />
 
               <div className="space-y-4">
-                <h3 className="font-semibold">
-                  Tất cả bình luận
-                </h3>
-                {comments && comments.length > 0 &&
-                  <CommentSection
-                    comments={comments}
-                    isLoading={isLoadingComments}
-                    isError={isLoadCommentsFailed}
-                  />
-                }
-                {(!comments || comments.length === 0) &&
-                  <p className="text-sm text-muted-foreground text-center py-8">
-                    Chưa có bình luận nào
-                  </p>
-                }
+                <h3 className="font-semibold">Tất cả bình luận</h3>
+                {comments && comments.length > 0 && (
+                  <CommentSection comments={comments} isLoading={isLoadingComments} isError={isLoadCommentsFailed} />
+                )}
+                {(!comments || comments.length === 0) && (
+                  <p className="text-sm text-muted-foreground text-center py-8">Chưa có bình luận nào</p>
+                )}
               </div>
             </div>
           </ScrollArea>
         </div>
-        {isSignedIn && user &&
+        {isSignedIn && user && (
           <DialogFooter className="px-4 pt-4 border-t">
             <CommentInput />
           </DialogFooter>
-        }
+        )}
       </DialogContent>
     </Dialog>
   );

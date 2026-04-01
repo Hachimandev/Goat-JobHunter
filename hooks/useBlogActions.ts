@@ -145,8 +145,6 @@ const useBlogActions = () => {
         return;
       }
 
-      console.log('Creating blog with data:', data.content);
-
       try {
         const formData = new FormData();
         formData.append('content', data.content);
