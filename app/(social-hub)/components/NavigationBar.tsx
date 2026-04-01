@@ -16,7 +16,7 @@ const NAV_ITEMS = [
   { href: '/profile?tab=info', label: 'Thông tin cá nhân', icon: UserRoundCog },
   { href: '/hub/tags', label: 'Khám phá Tags', icon: Tag },
   { href: '/hub/profile/saved', label: 'Đã lưu', icon: Bookmark },
-  { href: '/hub/profile/cvs', label: 'Cv của bạn', icon: FileUser },
+  { href: '/resumes', label: 'Cv của bạn', icon: FileUser },
 ] as const;
 
 export function NavigationBar() {
@@ -26,14 +26,14 @@ export function NavigationBar() {
   const isActive = (href: string) => pathname == href;
 
   const filteredNavItems = NAV_ITEMS.filter((item) => {
-    const requiresLogin = ['/hub/profile', '/profile?tab=info', '/hub/profile/saved', '/hub/profile/cvs'];
+    const requiresLogin = ['/hub/profile', '/profile?tab=info', '/hub/profile/saved', '/resumes'];
 
     if (!user && requiresLogin.includes(item.href)) {
       return false;
     }
 
     if (
-      item.href === '/hub/profile/cvs' &&
+      item.href === '/resumes' &&
       user &&
       (isCompanyResponse(user as MeResponse) || isRecruiterResponse(user as MeResponse))
     ) {

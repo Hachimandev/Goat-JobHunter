@@ -1,9 +1,10 @@
 import { Card, CardContent } from '@/components/ui/card';
 import { useUser } from '@/hooks/useUser';
-import { MeResponse, UserResponse } from '@/types/dto';
+import { ApplicantResponse, MeResponse, RecruiterResponse, UserResponse } from '@/types/dto';
 import { Mail } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { isApplicantResponse, isCompanyResponse, isRecruiterResponse, normalizeWebsiteUrl } from '@/utils/slug';
+import { formatDate } from '@/utils/formatDate';
 
 export function ProfileInfo() {
   const { user } = useUser();
@@ -17,33 +18,123 @@ export function ProfileInfo() {
   const email = me.email;
   const description = isCompany ? me.description : (me as UserResponse).headline;
   const bio = isCompany ? me.overtimePolicy : (me as UserResponse).bio;
+  const recruiter = isRecruiterResponse(me) ? (me as RecruiterResponse) : null;
+  const applicant = isApplicantResponse(me) ? (me as ApplicantResponse) : null;
 
-  const detailItems = [
-    ...(isRecruiterResponse(me)
-      ? [
-          { label: 'Vị trí', value: me.position || 'Chưa cập nhật' },
-          { label: 'Công ty', value: me.company?.name || 'Chưa cập nhật' },
-        ]
-      : []),
-    ...(isApplicantResponse(me)
-      ? [
-          { label: 'Trình độ', value: me.level || 'Chưa cập nhật' },
-          { label: 'Học vấn', value: me.education || 'Chưa cập nhật' },
+  const recruiterAddresses = recruiter?.addresses?.length
+    ? recruiter.addresses.map((address) => `${address.fullAddress}, ${address.province}`).join('; ')
+    : 'Chưa cập nhật';
+  const applicantAddresses = applicant?.addresses?.length
+    ? applicant.addresses.map((address) => `${address.fullAddress}, ${address.province}`).join('; ')
+    : 'Chưa cập nhật';
+  const companyAddresses = isCompany
+    ? me.addresses?.length
+      ? me.addresses.map((address) => `${address.fullAddress}, ${address.province}`).join('; ')
+      : 'Chưa cập nhật'
+    : 'Chưa cập nhật';
+  const companyAwards = isCompany
+    ? me.awards?.length
+      ? me.awards.map((award) => `${award.type} (${award.year})`).join('; ')
+      : 'Chưa cập nhật'
+    : 'Chưa cập nhật';
+
+  const infoSections: Array<{ title: string; items: Array<{ label: string; value: string }> }> = [];
+
+  if (recruiter) {
+    infoSections.push(
+      {
+        title: 'Thông tin cá nhân',
+        items: [
+          { label: 'Họ tên', value: recruiter.fullName || 'Chưa cập nhật' },
+          { label: 'Giới tính', value: recruiter.gender || 'Chưa cập nhật' },
+          { label: 'Ngày sinh', value: recruiter.dob ? formatDate(recruiter.dob) : 'Chưa cập nhật' },
+          { label: 'Role', value: recruiter.role?.name || 'Chưa cập nhật' },
+          { label: 'Trạng thái tài khoản', value: recruiter.enabled ? 'Đang hoạt động' : 'Đã khóa' },
+        ],
+      },
+      {
+        title: 'Thông tin liên hệ',
+        items: [
+          { label: 'Số điện thoại', value: recruiter.phone || 'Chưa cập nhật' },
+          { label: 'Địa chỉ', value: recruiterAddresses },
+        ],
+      },
+      {
+        title: 'Thông tin công việc',
+        items: [
+          { label: 'Vị trí', value: recruiter.position || 'Chưa cập nhật' },
+          { label: 'Công ty', value: recruiter.company?.name || 'Chưa cập nhật' },
+          { label: 'Headline', value: recruiter.headline || 'Chưa cập nhật' },
+          { label: 'Bio', value: recruiter.bio || 'Chưa cập nhật' },
+        ],
+      },
+    );
+  }
+
+  if (applicant) {
+    infoSections.push(
+      {
+        title: 'Thông tin ứng viên cơ bản',
+        items: [
+          { label: 'Họ tên', value: applicant.fullName || 'Chưa cập nhật' },
+          { label: 'Username', value: applicant.username || 'Chưa cập nhật' },
+          { label: 'Email', value: applicant.email || 'Chưa cập nhật' },
+          { label: 'Số điện thoại', value: applicant.phone || 'Chưa cập nhật' },
+          { label: 'Giới tính', value: applicant.gender || 'Chưa cập nhật' },
+          { label: 'Ngày sinh', value: applicant.dob ? formatDate(applicant.dob) : 'Chưa cập nhật' },
+          { label: 'Role', value: applicant.role?.name || 'Chưa cập nhật' },
+        ],
+      },
+      {
+        title: 'Hồ sơ ứng viên',
+        items: [
+          { label: 'Địa chỉ', value: applicantAddresses },
+          { label: 'Headline', value: applicant.headline || 'Chưa cập nhật' },
+          { label: 'Bio', value: applicant.bio || 'Chưa cập nhật' },
+          { label: 'Học vấn', value: applicant.education || 'Chưa cập nhật' },
+          { label: 'Trình độ', value: applicant.level || 'Chưa cập nhật' },
           {
             label: 'Trạng thái tìm việc',
-            value: me.availableStatus ? 'Đang tìm việc' : 'Chưa sẵn sàng',
+            value: applicant.availableStatus ? 'Đang tìm việc' : 'Chưa sẵn sàng',
           },
-        ]
-      : []),
-    ...(isCompany
-      ? [
-          { label: 'Lĩnh vực', value: me.industry || 'Chưa cập nhật' },
-          { label: 'Quy mô', value: me.size || 'Chưa cập nhật' },
-          { label: 'Quốc gia', value: me.country || 'Chưa cập nhật' },
+        ],
+      },
+    );
+  }
+
+  if (isCompany) {
+    infoSections.push(
+      {
+        title: 'Thông tin công ty cơ bản',
+        items: [
+          { label: 'Tên công ty', value: me.name || 'Chưa cập nhật' },
+          { label: 'Email', value: me.email || 'Chưa cập nhật' },
+          { label: 'Mô tả', value: me.description || 'Chưa cập nhật' },
           { label: 'Website', value: me.website || 'Chưa cập nhật' },
-        ]
-      : []),
-  ];
+          { label: 'Vai trò', value: me.role?.name || 'Chưa cập nhật' },
+        ],
+      },
+      {
+        title: 'Liên hệ và vận hành',
+        items: [
+          { label: 'Số điện thoại', value: me.phone || 'Chưa cập nhật' },
+          { label: 'Quy mô', value: me.size || 'Chưa cập nhật' },
+          { label: 'Đã xác minh', value: me.verified ? 'Đã xác minh' : 'Chưa xác minh' },
+          { label: 'Quốc gia', value: me.country || 'Chưa cập nhật' },
+          { label: 'Lĩnh vực', value: me.industry || 'Chưa cập nhật' },
+          { label: 'Ngày làm việc', value: me.workingDays || 'Chưa cập nhật' },
+          { label: 'Chính sách OT', value: me.overtimePolicy || 'Chưa cập nhật' },
+        ],
+      },
+      {
+        title: 'Địa chỉ và thành tựu',
+        items: [
+          { label: 'Địa chỉ', value: companyAddresses },
+          { label: 'Giải thưởng', value: companyAwards },
+        ],
+      },
+    );
+  }
 
   return (
     <Card className="mt-16 border-none shadow-none bg-transparent">
@@ -70,24 +161,31 @@ export function ProfileInfo() {
             <p className="text-sm">Mô tả: {description || 'Chưa cập nhật mô tả'}</p>
             <p className="text-sm">Tiểu sử: {bio || 'Chưa cập nhật tiểu sử'}</p>
 
-            {detailItems.length > 0 && (
-              <div className="space-y-2 pt-2">
-                {detailItems.map((item) => (
-                  <p key={item.label} className="text-sm text-muted-foreground">
-                    <span className="font-medium text-foreground">{item.label}: </span>
-                    {item.label === 'Website' && item.value !== 'Chưa cập nhật' ? (
-                      <a
-                        href={normalizeWebsiteUrl(item.value)}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-blue-600 hover:underline"
-                      >
-                        {item.value}
-                      </a>
-                    ) : (
-                      <span>{item.value}</span>
-                    )}
-                  </p>
+            {infoSections.length > 0 && (
+              <div className="space-y-4 pt-2">
+                {infoSections.map((section) => (
+                  <div key={section.title} className="space-y-2">
+                    <h3 className="text-sm font-semibold text-foreground">{section.title}</h3>
+                    <div className="space-y-1">
+                      {section.items.map((item) => (
+                        <p key={`${section.title}-${item.label}`} className="text-sm text-muted-foreground">
+                          <span className="font-medium text-foreground">{item.label}: </span>
+                          {item.label === 'Website' && item.value !== 'Chưa cập nhật' ? (
+                            <a
+                              href={normalizeWebsiteUrl(item.value)}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-blue-600 hover:underline"
+                            >
+                              {item.value}
+                            </a>
+                          ) : (
+                            <span>{item.value}</span>
+                          )}
+                        </p>
+                      ))}
+                    </div>
+                  </div>
                 ))}
               </div>
             )}

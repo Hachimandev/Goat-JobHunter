@@ -160,7 +160,7 @@ export const jobApi = api.injectEndpoints({
         });
 
         return {
-          url: '/jobs',
+          url: '/jobs/related',
           method: 'GET',
           params: queryParams,
         };

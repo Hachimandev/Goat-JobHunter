@@ -3,14 +3,19 @@ import {
   useEnableBlogsMutation,
   useDisableBlogsMutation,
   useCreateBlogMutation,
-  useUpdateBlogMutation
-} from "@/services/blog/blogApi";
-import { useCallback } from "react";
-import { toast } from "sonner";
-import { BlogActionType } from "@/types/enum";
-import { useUser } from "@/hooks/useUser";
-import { CreateBlogDto } from "@/types/dto";
-import { useSaveBlogsMutation, useUnsaveBlogsMutation } from "@/services/user/savedBlogsApi";
+  useUpdateBlogMutation,
+} from '@/services/blog/blogApi';
+import { useCallback } from 'react';
+import { toast } from 'sonner';
+import { BlogActionType } from '@/types/enum';
+import { useUser } from '@/hooks/useUser';
+import { CreateBlogDto } from '@/types/dto';
+import { useSaveBlogsMutation, useUnsaveBlogsMutation } from '@/services/user/savedBlogsApi';
+import { extractPlainTextFromHtml } from '@/utils/extractPlainTextFromHtml';
+
+const isEmptyBlogContent = (content: string): boolean => {
+  return !extractPlainTextFromHtml(content).trim();
+};
 
 const useBlogActions = () => {
   const { isSignedIn, user } = useUser();
@@ -24,243 +29,251 @@ const useBlogActions = () => {
   const [unsaveBlogs, { isLoading: isUnsaving, isSuccess: isUnsaveBlogSuccess, isError: isUnsaveBlogError }] =
     useUnsaveBlogsMutation();
 
-
   // Delete multiple blogs
   const handleDeleteBlogs = useCallback(
     async (blogIds: number[]) => {
       if (!isSignedIn || !user) {
-        toast.error("Bạn phải đăng nhập để thực hiện chức năng này.");
+        toast.error('Bạn phải đăng nhập để thực hiện chức năng này.');
         return;
       }
 
       try {
         await deleteBlog({
           blogIds,
-          mode: BlogActionType.DELETE
+          mode: BlogActionType.DELETE,
         }).unwrap();
 
-        toast.success("Xóa bài viết thành công!", {
-          description: `Đã xóa ${blogIds.length} bài viết`
+        toast.success('Xóa bài viết thành công!', {
+          description: `Đã xóa ${blogIds.length} bài viết`,
         });
       } catch (error) {
-        console.error("Failed to delete blogs:", error);
-        toast.error("Không thể xóa bài viết. Vui lòng thử lại sau.");
+        console.error('Failed to delete blogs:', error);
+        toast.error('Không thể xóa bài viết. Vui lòng thử lại sau.');
         throw error;
       }
     },
-    [deleteBlog, isSignedIn, user]
+    [deleteBlog, isSignedIn, user],
   );
 
   // Enable blogs
   const handleEnableBlogs = useCallback(
     async (blogIds: number[]) => {
       if (!isSignedIn || !user) {
-        toast.error("Bạn phải đăng nhập để thực hiện chức năng này.");
+        toast.error('Bạn phải đăng nhập để thực hiện chức năng này.');
         return;
       }
       try {
         await enableBlogs({
           blogIds,
-          mode: BlogActionType.ACCEPT
+          mode: BlogActionType.ACCEPT,
         }).unwrap();
 
-        toast.success("Hiển thị bài viết thành công!");
+        toast.success('Hiển thị bài viết thành công!');
       } catch (error) {
-        console.error("Failed to enable blogs:", error);
-        toast.error("Không thể hiển thị bài viết. Vui lòng thử lại sau.");
+        console.error('Failed to enable blogs:', error);
+        toast.error('Không thể hiển thị bài viết. Vui lòng thử lại sau.');
         throw error;
       }
     },
-    [enableBlogs, isSignedIn, user]
+    [enableBlogs, isSignedIn, user],
   );
 
   // Disable blogs
   const handleDisableBlogs = useCallback(
     async (blogIds: number[], reason?: string) => {
       if (!isSignedIn || !user) {
-        toast.error("Bạn phải đăng nhập để thực hiện chức năng này.");
+        toast.error('Bạn phải đăng nhập để thực hiện chức năng này.');
         return;
       }
       try {
         await disableBlogs({
           blogIds,
           mode: BlogActionType.REJECT,
-          reason: reason ?? ""
+          reason: reason ?? '',
         }).unwrap();
 
-        toast.success("Ẩn bài viết thành công!");
+        toast.success('Ẩn bài viết thành công!');
       } catch (error) {
-        console.error("Failed to disable blogs:", error);
-        toast.error("Không thể ẩn bài viết. Vui lòng thử lại sau.");
+        console.error('Failed to disable blogs:', error);
+        toast.error('Không thể ẩn bài viết. Vui lòng thử lại sau.');
         throw error;
       }
     },
-    [disableBlogs, isSignedIn, user]
+    [disableBlogs, isSignedIn, user],
   );
 
   // Toggle enable/disable for single blog
   const handleToggleBlogStatus = useCallback(
     async (blogId: number, isEnabled: boolean) => {
       if (!isSignedIn || !user) {
-        toast.error("Bạn phải đăng nhập để thực hiện chức năng này.");
+        toast.error('Bạn phải đăng nhập để thực hiện chức năng này.');
         return;
       }
       try {
         if (isEnabled) {
           await disableBlogs({
             blogIds: [blogId],
-            mode: BlogActionType.REJECT
+            mode: BlogActionType.REJECT,
           }).unwrap();
-          toast.success("Đã ẩn bài viết");
+          toast.success('Đã ẩn bài viết');
         } else {
           await enableBlogs({
             blogIds: [blogId],
-            mode: BlogActionType.ACCEPT
+            mode: BlogActionType.ACCEPT,
           }).unwrap();
-          toast.success("Đã hiển thị bài viết");
+          toast.success('Đã hiển thị bài viết');
         }
       } catch (error) {
-        console.error("Failed to toggle blog status:", error);
-        toast.error(
-          "Không thể thay đổi trạng thái bài viết. Vui lòng thử lại sau."
-        );
+        console.error('Failed to toggle blog status:', error);
+        toast.error('Không thể thay đổi trạng thái bài viết. Vui lòng thử lại sau.');
         throw error;
       }
     },
-    [isSignedIn, user, disableBlogs, enableBlogs]
+    [isSignedIn, user, disableBlogs, enableBlogs],
   );
 
   // Create blog
   const handleCreateBlog = useCallback(
     async (data: CreateBlogDto) => {
       if (!isSignedIn || !user) {
-        toast.error("Bạn phải đăng nhập để thực hiện chức năng này.");
+        toast.error('Bạn phải đăng nhập để thực hiện chức năng này.');
+        return;
+      }
+
+      if (isEmptyBlogContent(data.content)) {
+        toast.error('Nội dung bài viết không được để trống.');
         return;
       }
 
       try {
-
         const formData = new FormData();
-
-        formData.append("content", data.content);
+        formData.append('content', data.content);
 
         if (data.files) {
           for (const file of data.files) {
-            formData.append("files", file);
+            formData.append('files', file);
           }
         }
 
         const response = await createBlog(formData).unwrap();
 
         if (response.data) {
-          toast.success("Tạo bài viết thành công!");
+          toast.success('Tạo bài viết thành công!');
           return response.data;
         }
       } catch (error) {
-        console.error("Failed to create blog:", error);
-        toast.error("Không thể tạo bài viết. Vui lòng thử lại sau.");
+        console.error('Failed to create blog:', error);
+        toast.error('Không thể tạo bài viết. Vui lòng thử lại sau.');
         throw error;
       }
     },
-    [createBlog, isSignedIn, user]
+    [createBlog, isSignedIn, user],
   );
 
   // Update blog
   const handleUpdateBlog = useCallback(
     async (blogId: number, data: CreateBlogDto) => {
       if (!isSignedIn || !user) {
-        toast.error("Bạn phải đăng nhập để thực hiện chức năng này.");
+        toast.error('Bạn phải đăng nhập để thực hiện chức năng này.');
+        return;
+      }
+
+      if (isEmptyBlogContent(data.content)) {
+        toast.error('Nội dung bài viết không được để trống.');
         return;
       }
 
       try {
         const formData = new FormData();
 
-        formData.append("content", data.content);
+        formData.append('content', data.content);
 
         if (data.files) {
           for (const file of data.files) {
-            formData.append("files", file);
+            formData.append('files', file);
           }
         }
 
         const response = await updateBlog({
           blogId,
-          formData
+          formData,
         }).unwrap();
 
         if (response.data) {
-          toast.success("Cập nhật bài viết thành công!");
+          toast.success('Cập nhật bài viết thành công!');
           return response.data;
         }
       } catch (error) {
-        console.error("Failed to update blog:", error);
-        toast.error("Không thể cập nhật bài viết. Vui lòng thử lại sau.");
+        console.error('Failed to update blog:', error);
+        toast.error('Không thể cập nhật bài viết. Vui lòng thử lại sau.');
         throw error;
       }
     },
-    [isSignedIn, updateBlog, user]
+    [isSignedIn, updateBlog, user],
   );
 
   // Unsave blog
   const handleUnsaveBlog = useCallback(
     async (blogId: number) => {
       if (!isSignedIn || !user) {
-        toast.error("Bạn phải đăng nhập để thực hiện chức năng này.");
+        toast.error('Bạn phải đăng nhập để thực hiện chức năng này.');
         return;
       }
 
       await unsaveBlogs({
-        blogIds: [blogId]
+        blogIds: [blogId],
       });
 
       if (isUnsaveBlogSuccess) {
-        toast.success("Đã bỏ lưu bài viết.");
+        toast.success('Đã bỏ lưu bài viết.');
       }
 
       if (isUnsaveBlogError) {
-        toast.error("Đã xảy ra lỗi. Vui lòng thử lại.");
+        toast.error('Đã xảy ra lỗi. Vui lòng thử lại.');
       }
     },
-    [isSignedIn, user, unsaveBlogs, isUnsaveBlogSuccess, isUnsaveBlogError]
+    [isSignedIn, user, unsaveBlogs, isUnsaveBlogSuccess, isUnsaveBlogError],
   );
 
   // Toggle save blog
   const handleToggleSaveBlog = useCallback(
-    async (
-      e: React.MouseEvent,
-      blogId: number,
-      isSaved: boolean
-    ) => {
+    async (e: React.MouseEvent, blogId: number, isSaved: boolean) => {
       e.preventDefault();
       e.stopPropagation();
 
       if (!isSignedIn || !user) {
-        toast.error("Bạn phải đăng nhập để thực hiện chức năng này.");
+        toast.error('Bạn phải đăng nhập để thực hiện chức năng này.');
         return;
       }
 
       if (isSaved) {
         await unsaveBlogs({
-          blogIds: [blogId]
+          blogIds: [blogId],
         });
       } else {
         await saveBlogs({
-          blogIds: [blogId]
+          blogIds: [blogId],
         });
       }
 
       if (isSaveBlogSuccess || isUnsaveBlogSuccess) {
-        toast.success(
-          isSaved ? "Đã bỏ lưu bài viết." : "Đã lưu bài viết thành công."
-        );
+        toast.success(isSaved ? 'Đã bỏ lưu bài viết.' : 'Đã lưu bài viết thành công.');
       }
 
       if (isSaveBlogError || isUnsaveBlogError) {
-        toast.error("Đã xảy ra lỗi. Vui lòng thử lại.");
+        toast.error('Đã xảy ra lỗi. Vui lòng thử lại.');
       }
     },
-    [isSignedIn, user, saveBlogs, unsaveBlogs, isSaveBlogSuccess, isUnsaveBlogSuccess, isSaveBlogError, isUnsaveBlogError]
+    [
+      isSignedIn,
+      user,
+      saveBlogs,
+      unsaveBlogs,
+      isSaveBlogSuccess,
+      isUnsaveBlogSuccess,
+      isSaveBlogError,
+      isUnsaveBlogError,
+    ],
   );
 
   return {
@@ -271,14 +284,7 @@ const useBlogActions = () => {
     isUpdating,
     isSaving,
     isUnsaving,
-    isLoading:
-      isDeleting ||
-      isEnabling ||
-      isDisabling ||
-      isCreating ||
-      isUpdating ||
-      isSaving ||
-      isUnsaving,
+    isLoading: isDeleting || isEnabling || isDisabling || isCreating || isUpdating || isSaving || isUnsaving,
 
     handleDeleteBlogs,
     handleEnableBlogs,
@@ -287,7 +293,7 @@ const useBlogActions = () => {
     handleCreateBlog,
     handleUpdateBlog,
     handleUnsaveBlog,
-    handleToggleSaveBlog
+    handleToggleSaveBlog,
   };
 };
 

@@ -1,6 +1,6 @@
 import { Option } from '@/components/ui/MultipleSelector';
 import useSubscriberActions from '@/hooks/useSubcriberActions';
-import { useGetSkillsQuery } from '@/services/skill/skillApi';
+import { useGetAllSkillsQuery } from '@/services/skill/skillApi';
 import { useGetCurrentUserSubscriberSkillsQuery } from '@/services/subcriber/subcriberApi';
 import { Skill } from '@/types/model';
 import { debounce } from 'lodash';
@@ -21,10 +21,8 @@ const useSkillSubscription = () => {
   } = useGetCurrentUserSubscriberSkillsQuery();
 
   // Fetch skills from API (only when user types)
-  const { data: skillsData, isFetching: isFetchingSkills } = useGetSkillsQuery(
+  const { data: skillsData, isFetching: isFetchingSkills } = useGetAllSkillsQuery(
     {
-      page: 1,
-      size: 50,
       name: debouncedInputValue,
     },
     {

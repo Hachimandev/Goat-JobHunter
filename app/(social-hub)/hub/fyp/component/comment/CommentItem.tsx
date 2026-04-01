@@ -17,7 +17,7 @@ interface CommentItemProps {
 }
 
 export default function CommentItem({ comment }: Readonly<CommentItemProps>) {
-  const { user } = useUser();
+  const { user, isSignedIn } = useUser();
   const { blog } = useAppSelector((state) => state.blogDetail);
   const { handleReplyComment, handleDeleteComment, isCommenting } = useCommentActions();
 
@@ -57,11 +57,19 @@ export default function CommentItem({ comment }: Readonly<CommentItemProps>) {
   };
 
   const handleDelete = async () => {
-    await handleDeleteComment(comment.commentId);
+    if (!blog) {
+      toast.error('Không tìm thấy bài viết để xóa bình luận.');
+      return;
+    }
+    await handleDeleteComment({ commentId: comment.commentId, blogId: blog.blogId });
     setIsDeleteOpen(false);
   };
 
   const handleReportClick = () => {
+    if (!isSignedIn || !user) {
+      toast.error('Bạn cần đăng nhập để báo cáo bình luận.');
+      return;
+    }
     localStorage.setItem('selectedReportItem', comment.commentId.toString());
     localStorage.setItem('selectedReportType', 'comment');
     setIsReportOpen(true);

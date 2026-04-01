@@ -1,5 +1,5 @@
-import { api } from "@/services/api";
-import { buildSpringQuery } from "@/utils/buildSpringQuery";
+import { api } from '@/services/api';
+import { buildSpringQuery } from '@/utils/buildSpringQuery';
 import {
   CreateRecruiterRequest,
   FetchCurrentRecruiterResponse,
@@ -7,123 +7,104 @@ import {
   FetchRecruitersRequest,
   FetchRecruitersResponse,
   RecruiterMutationResponse,
-  UpdateRecruiterRequest
-} from "./recruiterType";
-import { setUser } from "@/lib/features/authSlice";
+} from './recruiterType';
+import { setUser } from '@/lib/features/authSlice';
 
 export const recruiterApi = api.injectEndpoints({
   overrideExisting: true,
   endpoints: (builder) => ({
-    createRecruiter: builder.mutation<
-      RecruiterMutationResponse,
-      CreateRecruiterRequest
-    >({
+    createRecruiter: builder.mutation<RecruiterMutationResponse, CreateRecruiterRequest>({
       query: (data) => ({
-        url: "/recruiters",
-        method: "POST",
-        data: { ...data, type: "recruiter" }
+        url: '/recruiters',
+        method: 'POST',
+        data: { ...data, type: 'recruiter' },
       }),
-      invalidatesTags: ["Recruiter"]
+      invalidatesTags: ['Recruiter'],
     }),
 
-    updateRecruiter: builder.mutation<
-      RecruiterMutationResponse,
-      UpdateRecruiterRequest
-    >({
-      query: (data) => ({
+    updateRecruiter: builder.mutation({
+      query: (formData: FormData) => ({
         url: `/recruiters`,
-        method: "PUT",
-        data
+        method: 'PUT',
+        data: formData,
       }),
-      invalidatesTags: ["Recruiter", "Account", "User"],
+      invalidatesTags: ['Recruiter', 'Account', 'User'],
       async onQueryStarted(_, { dispatch, queryFulfilled }) {
         try {
           const { data } = await queryFulfilled;
           // Dispatch action to save user data to slice
           dispatch(setUser({ user: data?.data }));
         } catch (error) {
-          console.error("Failed to fetch account:", error);
+          console.error('Failed to fetch account:', error);
         }
       },
     }),
 
-    deleteRecruiter: builder.mutation<
-      RecruiterMutationResponse,
-      number
-    >({
+    deleteRecruiter: builder.mutation<RecruiterMutationResponse, number>({
       query: (recruiterId) => ({
         url: `/recruiters/${recruiterId}`,
-        method: "DELETE"
+        method: 'DELETE',
       }),
-      invalidatesTags: ["Recruiter"]
+      invalidatesTags: ['Recruiter'],
     }),
 
-    fetchRecruiters: builder.query<
-      FetchRecruitersResponse,
-      FetchRecruitersRequest
-    >({
+    fetchRecruiters: builder.query<FetchRecruitersResponse, FetchRecruitersRequest>({
       query: (params) => {
         const { params: queryParams } = buildSpringQuery({
           params,
-          filterFields: ["fullName", "address", "enabled"],
-          textSearchFields: ["fullName", "address"],
-          defaultSort: "createdAt,desc",
-          sortableFields: ["fullName", "createdAt", "updatedAt"]
+          filterFields: ['fullName', 'address', 'enabled'],
+          textSearchFields: ['fullName', 'address'],
+          defaultSort: 'createdAt,desc',
+          sortableFields: ['fullName', 'createdAt', 'updatedAt'],
         });
 
         return {
-          url: "/recruiters",
-          method: "GET",
-          params: queryParams
+          url: '/recruiters',
+          method: 'GET',
+          params: queryParams,
         };
       },
-      providesTags: ["Recruiter"]
+      providesTags: ['Recruiter'],
     }),
 
-    fetchAvailableRecruiters: builder.query<
-      FetchRecruitersResponse,
-      Omit<FetchRecruitersRequest, "enabled">
-    >({
+    fetchAvailableRecruiters: builder.query<FetchRecruitersResponse, Omit<FetchRecruitersRequest, 'enabled'>>({
       query: (params) => {
         const { params: queryParams } = buildSpringQuery({
           params: {
             ...params,
-            enabled: true
+            enabled: true,
           },
-          filterFields: ["fullName", "address", "enabled"],
-          textSearchFields: ["fullName", "address"],
-          defaultSort: "createdAt,desc",
-          sortableFields: ["fullName", "createdAt", "updatedAt"]
+          filterFields: ['fullName', 'address', 'enabled'],
+          textSearchFields: ['fullName', 'address'],
+          defaultSort: 'createdAt,desc',
+          sortableFields: ['fullName', 'createdAt', 'updatedAt'],
         });
 
         return {
-          url: "/recruiters",
-          method: "GET",
-          params: queryParams
+          url: '/recruiters',
+          method: 'GET',
+          params: queryParams,
         };
       },
-      providesTags: ["Recruiter"]
+      providesTags: ['Recruiter'],
     }),
 
-    fetchRecruiterById: builder.query<
-      FetchRecruiterByIdResponse,
-      number
-    >({
+    fetchRecruiterById: builder.query<FetchRecruiterByIdResponse, number>({
       query: (recruiterId) => ({
         url: `/recruiters/${recruiterId}`,
-        method: "GET"
+        method: 'GET',
       }),
-      providesTags: ["Recruiter"]
+      providesTags: ['Recruiter'],
     }),
 
     fetchCurrentRecruiter: builder.query<FetchCurrentRecruiterResponse, void>({
       query: () => ({
         url: `/recruiters/me`,
-        method: "GET"
+        method: 'GET',
       }),
-      providesTags: ["Recruiter"]
-    })
-  })
+      providesTags: ['Recruiter'],
+    }),
+  }),
 });
 
 export const {
@@ -133,5 +114,5 @@ export const {
   useFetchRecruitersQuery,
   useFetchAvailableRecruitersQuery,
   useFetchRecruiterByIdQuery,
-  useFetchCurrentRecruiterQuery
+  useFetchCurrentRecruiterQuery,
 } = recruiterApi;

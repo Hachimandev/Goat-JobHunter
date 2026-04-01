@@ -16,7 +16,6 @@ export enum WorkingType {
 export enum Gender {
   NAM = 'MALE',
   NỮ = 'FEMALE',
-  KHÁC = 'OTHER',
 }
 
 export enum Education {

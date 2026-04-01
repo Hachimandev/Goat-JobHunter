@@ -3,13 +3,11 @@
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { ImageIcon } from 'lucide-react';
+import { ImageIcon, X } from 'lucide-react';
 import { useState } from 'react';
 import { useUser } from '@/hooks/useUser';
 import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
-import { RowsPhotoAlbum } from 'react-photo-album';
-import { RenderNextImage } from '@/components/common/Photo/RenderNextImage';
 import { Dropzone, DropzoneEmptyState } from '@/components/ui/shadcn-io/dropzone';
 import { useBlogImagesInput } from '@/app/(social-hub)/hub/fyp/hooks/useBlogImagesInput';
 import useBlogActions from '@/hooks/useBlogActions';
@@ -18,6 +16,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { MAX_IMAGE_UPLOAD } from '@/constants/constant';
 import RichTextEditor from '@/components/RichText/Editor';
 import { getDisplayImage, getDisplayImageAlt, getDisplayName, getDisplayUsername } from '../../hooks/useDisplay';
+import Image from 'next/image';
 
 interface CreateBlogDialogProps {
   open: boolean;
@@ -29,7 +28,8 @@ export function CreateBlogDialog({ open, onOpenChange }: Readonly<CreateBlogDial
   const { handleCreateBlog, isCreating } = useBlogActions();
   const [content, setContent] = useState('');
 
-  const { imageFiles, isDragging, formattedImageUrls, handleFilesAdded, resetImages } = useBlogImagesInput(open);
+  const { imageFiles, imagePreviews, isDragging, handleFilesAdded, removeImageAt, resetImages } =
+    useBlogImagesInput(open);
 
   const handlePost = async () => {
     await handleCreateBlog({
@@ -76,7 +76,7 @@ export function CreateBlogDialog({ open, onOpenChange }: Readonly<CreateBlogDial
             </div>
 
             {isDragging && (
-              <div className="fixed inset-0 z-[100] flex items-center justify-center bg-background/80 backdrop-blur-sm">
+              <div className="fixed inset-0 z-100 flex items-center justify-center bg-background/80 backdrop-blur-sm">
                 <div className="w-full max-w-2xl px-6">
                   <Dropzone
                     accept={{ 'image/*': [] }}
@@ -99,8 +99,29 @@ export function CreateBlogDialog({ open, onOpenChange }: Readonly<CreateBlogDial
               </div>
             )}
 
-            {formattedImageUrls.length > 0 && (
-              <RowsPhotoAlbum photos={formattedImageUrls} render={{ image: RenderNextImage }} />
+            {imagePreviews.length > 0 && (
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                {imagePreviews.map((preview, index) => (
+                  <div key={`${preview}-${index}`} className="group relative overflow-hidden rounded-lg border">
+                    <Image
+                      src={preview}
+                      alt={`Selected image ${index + 1}`}
+                      width={300}
+                      height={300}
+                      className="h-24 w-full object-cover"
+                    />
+                    <Button
+                      type="button"
+                      variant="destructive"
+                      size="icon"
+                      className="absolute right-1 top-1 h-6 w-6 rounded-full opacity-80 hover:opacity-100"
+                      onClick={() => removeImageAt(index)}
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
             )}
           </ScrollArea>
 

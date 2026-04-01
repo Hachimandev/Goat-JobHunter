@@ -31,7 +31,7 @@ const useDetailJob = (id: string) => {
       jobIds: [Number(id)],
     },
     {
-      skip: !id || !isSignedIn || !user,
+      skip: !isSignedIn || !user || !id,
     },
   );
 
