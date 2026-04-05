@@ -45,10 +45,9 @@ export function ProfileInfo() {
       {
         title: 'Thông tin cá nhân',
         items: [
-          { label: 'Họ tên', value: recruiter.fullName || 'Chưa cập nhật' },
           { label: 'Giới tính', value: recruiter.gender || 'Chưa cập nhật' },
           { label: 'Ngày sinh', value: recruiter.dob ? formatDate(recruiter.dob) : 'Chưa cập nhật' },
-          { label: 'Role', value: recruiter.role?.name || 'Chưa cập nhật' },
+          { label: 'Vai trò', value: recruiter.role?.name || 'Chưa cập nhật' },
           { label: 'Trạng thái tài khoản', value: recruiter.enabled ? 'Đang hoạt động' : 'Đã khóa' },
         ],
       },
@@ -64,8 +63,6 @@ export function ProfileInfo() {
         items: [
           { label: 'Vị trí', value: recruiter.position || 'Chưa cập nhật' },
           { label: 'Công ty', value: recruiter.company?.name || 'Chưa cập nhật' },
-          { label: 'Headline', value: recruiter.headline || 'Chưa cập nhật' },
-          { label: 'Bio', value: recruiter.bio || 'Chưa cập nhật' },
         ],
       },
     );
@@ -76,21 +73,16 @@ export function ProfileInfo() {
       {
         title: 'Thông tin ứng viên cơ bản',
         items: [
-          { label: 'Họ tên', value: applicant.fullName || 'Chưa cập nhật' },
-          { label: 'Username', value: applicant.username || 'Chưa cập nhật' },
-          { label: 'Email', value: applicant.email || 'Chưa cập nhật' },
           { label: 'Số điện thoại', value: applicant.phone || 'Chưa cập nhật' },
           { label: 'Giới tính', value: applicant.gender || 'Chưa cập nhật' },
           { label: 'Ngày sinh', value: applicant.dob ? formatDate(applicant.dob) : 'Chưa cập nhật' },
-          { label: 'Role', value: applicant.role?.name || 'Chưa cập nhật' },
+          { label: 'Vai trò', value: applicant.role?.name || 'Chưa cập nhật' },
         ],
       },
       {
         title: 'Hồ sơ ứng viên',
         items: [
           { label: 'Địa chỉ', value: applicantAddresses },
-          { label: 'Headline', value: applicant.headline || 'Chưa cập nhật' },
-          { label: 'Bio', value: applicant.bio || 'Chưa cập nhật' },
           { label: 'Học vấn', value: applicant.education || 'Chưa cập nhật' },
           { label: 'Trình độ', value: applicant.level || 'Chưa cập nhật' },
           {
@@ -107,9 +99,6 @@ export function ProfileInfo() {
       {
         title: 'Thông tin công ty cơ bản',
         items: [
-          { label: 'Tên công ty', value: me.name || 'Chưa cập nhật' },
-          { label: 'Email', value: me.email || 'Chưa cập nhật' },
-          { label: 'Mô tả', value: me.description || 'Chưa cập nhật' },
           { label: 'Website', value: me.website || 'Chưa cập nhật' },
           { label: 'Vai trò', value: me.role?.name || 'Chưa cập nhật' },
         ],
@@ -123,7 +112,6 @@ export function ProfileInfo() {
           { label: 'Quốc gia', value: me.country || 'Chưa cập nhật' },
           { label: 'Lĩnh vực', value: me.industry || 'Chưa cập nhật' },
           { label: 'Ngày làm việc', value: me.workingDays || 'Chưa cập nhật' },
-          { label: 'Chính sách OT', value: me.overtimePolicy || 'Chưa cập nhật' },
         ],
       },
       {
@@ -140,13 +128,12 @@ export function ProfileInfo() {
     <Card className="mt-16 border-none shadow-none bg-transparent">
       <CardContent className="p-0">
         <div className="flex-1 min-w-0">
-          <div className="flex flex-wrap items-center gap-3 mb-2">
+          <div className="flex flex-wrap items-baseline gap-2 mb-2">
             <h1 className="text-3xl font-bold text-foreground">{displayName}</h1>
+            {username && <p className="text-sm text-muted-foreground">@{username}</p>}
           </div>
 
           <div className="text-sm space-y-1">
-            {username && <p className="text-sm text-muted-foreground">@ {username}</p>}
-
             {email && (
               <div className="flex items-center gap-2 text-muted-foreground">
                 <Mail className="h-4 w-4 shrink-0" />
@@ -162,7 +149,7 @@ export function ProfileInfo() {
             <p className="text-sm">Tiểu sử: {bio || 'Chưa cập nhật tiểu sử'}</p>
 
             {infoSections.length > 0 && (
-              <div className="space-y-4 pt-2">
+              <div className="space-y-4 top-2">
                 {infoSections.map((section) => (
                   <div key={section.title} className="space-y-2">
                     <h3 className="text-sm font-semibold text-foreground">{section.title}</h3>
