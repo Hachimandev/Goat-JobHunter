@@ -12,13 +12,14 @@ import { usePathname } from 'next/navigation';
 import { Home, Briefcase, Building2, MessageCircleMore, FileUser } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { ROLE } from '@/constants/constant';
+import { toast } from 'sonner';
 
 const NAV_LINKS = [
   { href: '/hub', label: 'Trang chủ', icon: Home },
   { href: '/jobs', label: 'Việc làm', icon: Briefcase },
   { href: '/companies', label: 'Công ty', icon: Building2 },
-  { href: '/messages', label: 'Tin nhắn', icon: MessageCircleMore },
-  { href: '/resumes', label: 'Ứng viên', icon: FileUser, requiresRole: [ROLE.HR, ROLE.COMPANY] },
+  { href: '/messages', label: 'Tin nhắn', icon: MessageCircleMore, requiresAuth: true },
+  { href: '/resumes', label: 'Ứng viên', icon: FileUser, requiresRole: [ROLE.HR, ROLE.COMPANY], requiresAuth: true },
 ] as const;
 
 export default function Header() {
@@ -55,6 +56,12 @@ export default function Header() {
                 <Link
                   key={link.href}
                   href={link.href}
+                  onClick={(event) => {
+                    if (!isSignedIn && 'requiresAuth' in link && link.requiresAuth) {
+                      event.preventDefault();
+                      toast.error('Bạn cần đăng nhập để thực hiện.');
+                    }
+                  }}
                   className={cn(
                     'relative text-sm font-medium transition-colors flex flex-col items-center gap-1',
                     isActive(link.href) ? 'text-primary' : 'text-muted-foreground hover:text-primary',

@@ -7,6 +7,7 @@ import {
   useFetchJobSubscribersByCurrentUserQuery,
   useFetchRelatedJobsByCurrentUserQuery,
 } from '@/services/user/userApi';
+import { useUser } from '@/hooks/useUser';
 
 export interface JobFilters {
   provinces?: string[];
@@ -24,6 +25,7 @@ export interface UseJobsFilterOptions {
 
 export const useJobsFilter = (options?: UseJobsFilterOptions) => {
   const { initialPage = 1, itemsPerPage = 10, initialFilters = {} } = options || {};
+  const { isSignedIn, user } = useUser();
 
   const router = useRouter();
 
@@ -118,7 +120,7 @@ export const useJobsFilter = (options?: UseJobsFilterOptions) => {
     isError: isErrorSubscribers,
     error: errorSubscribers,
   } = useFetchJobSubscribersByCurrentUserQuery(queryParams, {
-    skip: filters.activeTab !== 'subscribers',
+    skip: filters.activeTab !== 'subscribers' || !user || !isSignedIn,
   });
 
   const {
@@ -128,7 +130,7 @@ export const useJobsFilter = (options?: UseJobsFilterOptions) => {
     isError: isErrorRecommended,
     error: errorRecommended,
   } = useFetchRelatedJobsByCurrentUserQuery(queryParams, {
-    skip: filters.activeTab !== 'recommended',
+    skip: filters.activeTab !== 'recommended' || !user || !isSignedIn,
   });
 
   const jobsResponse =
@@ -215,12 +217,13 @@ export const useJobsFilter = (options?: UseJobsFilterOptions) => {
 
   // Active filters count
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const activeFiltersCount = Object.entries(filters).filter(([_, value]) => {
-    if (Array.isArray(value)) {
-      return value.length > 0;
-    }
-    return value !== undefined && value !== null && value !== '';
-  }).length - 1;
+  const activeFiltersCount =
+    Object.entries(filters).filter(([_, value]) => {
+      if (Array.isArray(value)) {
+        return value.length > 0;
+      }
+      return value !== undefined && value !== null && value !== '';
+    }).length - 1;
 
   return {
     // Data

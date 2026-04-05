@@ -5,7 +5,6 @@ import {
   CreateApplicantRequest,
   FetchApplicantByIdResponse,
   FetchApplicantsResponse,
-  UpdateApplicantRequest,
 } from './applicantType';
 import { setUser } from '@/lib/features/authSlice';
 
@@ -24,11 +23,11 @@ export const applicantApi = api.injectEndpoints({
       invalidatesTags: ['Applicant'],
     }),
 
-    updateApplicant: builder.mutation<ApplicantMutationResponse, UpdateApplicantRequest>({
-      query: (data) => ({
+    updateApplicant: builder.mutation({
+      query: (formData: FormData) => ({
         url: `/applicants`,
         method: 'PUT',
-        data,
+        data: formData,
       }),
       invalidatesTags: ['Applicant', 'Account', 'User'],
       async onQueryStarted(_, { dispatch, queryFulfilled }) {

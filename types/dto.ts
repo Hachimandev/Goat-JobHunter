@@ -96,6 +96,7 @@ export type CompanyResponse = {
   accountId: number;
   email: string;
   name: string;
+  username: string;
   description: string;
   logo: string;
   coverPhoto: string;

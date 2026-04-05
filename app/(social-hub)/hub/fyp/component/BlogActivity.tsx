@@ -1,11 +1,11 @@
-import React from "react";
-import { Button } from "@/components/ui/button";
-import { Eye, MessageCircle } from "lucide-react";
-import { Blog } from "@/types/model";
-import { cn } from "@/lib/utils";
-import { ReactionButton } from "@/app/(social-hub)/hub/fyp/component/ReactionButton";
-import useReactionActions from "@/hooks/useReactionActions";
-import { ReactionType } from "@/types/enum";
+import React from 'react';
+import { Button } from '@/components/ui/button';
+import { Eye, MessageCircle } from 'lucide-react';
+import { Blog } from '@/types/model';
+import { cn } from '@/lib/utils';
+import { ReactionButton } from '@/app/(social-hub)/hub/fyp/component/ReactionButton';
+import useReactionActions from '@/hooks/useReactionActions';
+import { ReactionType } from '@/types/enum';
 
 interface BlogActivityProps {
   blog: Blog;
@@ -15,7 +15,6 @@ interface BlogActivityProps {
 }
 
 const BlogActivity = ({ blog, onCommentClick, initialReaction, className }: BlogActivityProps) => {
-
   const { handleReactBlog, handleUnreactBlog } = useReactionActions();
 
   const handleReactionChange = (reactionId: string | null) => {
@@ -26,15 +25,14 @@ const BlogActivity = ({ blog, onCommentClick, initialReaction, className }: Blog
   };
 
   return (
-    <div className={cn("flex items-center justify-between px-4 py-3", className)}>
+    <div className={cn('flex items-center justify-between px-4 py-3', className)}>
       <div className="flex items-center gap-4 text-sm text-muted-foreground">
-        <ReactionButton totalReactions={blog.activity?.totalLikes || 0} onReactionChange={handleReactionChange} initialReaction={initialReaction} />
-        <Button
-          variant="ghost"
-          size="icon"
-          className="flex items-center rounded-full gap-1"
-          onClick={onCommentClick}
-        >
+        <ReactionButton
+          totalReactions={blog.activity?.totalLikes || 0}
+          onReactionChange={handleReactionChange}
+          initialReaction={initialReaction}
+        />
+        <Button variant="ghost" size="icon" className="flex items-center rounded-full gap-1" onClick={onCommentClick}>
           <MessageCircle className="h-4 w-4" />
           <span>{blog.activity?.totalComments || 0}</span>
         </Button>

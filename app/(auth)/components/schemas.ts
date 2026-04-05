@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { Gender } from '@/types/enum';
 
 const MIN_LENGTH = 8;
 const RE_LOWER = /[a-z]/;
@@ -25,6 +26,7 @@ export const UserSignUpSchema = z
     email: z.string().nonempty('Email không được để trống').email('Email không hợp lệ'),
     fullName: z.string().nonempty('Họ tên không được để trống'),
     username: z.string().nonempty('Tên hiển thị không được để trống'),
+    gender: z.nativeEnum(Gender, { message: 'Giới tính không hợp lệ' }),
     phone: z.string().regex(/^\d{10}$/, 'Số điện thoại không hợp lệ'),
     password: z.string().nonempty('Mật khẩu không được để trống'),
     confirmPassword: z.string().nonempty('Xác nhận mật khẩu không được để trống'),
@@ -62,6 +64,11 @@ export enum SignUpType {
 export const SignUpTypeOptions = [
   { label: 'Ứng viên', value: SignUpType.APPLICANT },
   { label: 'Nhà tuyển dụng', value: SignUpType.RECRUITER },
+];
+
+export const GenderOptions = [
+  { label: 'Nam', value: Gender.NAM },
+  { label: 'Nữ', value: Gender.NỮ },
 ];
 
 export const CompanyAddressSchema = z.object({

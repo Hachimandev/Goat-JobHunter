@@ -1,6 +1,13 @@
 'use client';
 
-import { SignUpType, SignUpTypeOptions, TUserSignUpSchema, UserSignUpSchema } from '@/app/(auth)/components/schemas';
+import {
+  GenderOptions,
+  SignUpType,
+  SignUpTypeOptions,
+  TUserSignUpSchema,
+  UserSignUpSchema,
+} from '@/app/(auth)/components/schemas';
+import { Gender } from '@/types/enum';
 import CheckPasswordStrength from '@/components/common/CheckPasswordStrength';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -34,6 +41,7 @@ export function SignupForm({ className, ...props }: React.ComponentProps<'div'>)
       email: '',
       fullName: '',
       username: '',
+      gender: Gender.NAM,
       phone: '',
       password: '',
       confirmPassword: '',
@@ -95,26 +103,51 @@ export function SignupForm({ className, ...props }: React.ComponentProps<'div'>)
                 )}
               />
 
-              <FormField
-                control={control}
-                name="type"
-                render={({ field }) => (
-                  <FormItem>
-                    <Label>Bạn là</Label>
-                    <FormControl>
-                      <RadioGroup value={field.value} onValueChange={field.onChange} className="flex">
-                        {SignUpTypeOptions.map((option) => (
-                          <div key={option.value} className="flex items-center space-x-2">
-                            <RadioGroupItem value={option.value} id={option.value} />
-                            <Label htmlFor={option.value}>{option.label}</Label>
-                          </div>
-                        ))}
-                      </RadioGroup>
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+              <div className="flex gap-25">
+                <FormField
+                  control={control}
+                  name="type"
+                  render={({ field }) => (
+                    <FormItem>
+                      <Label>Bạn là</Label>
+                      <FormControl>
+                        <RadioGroup value={field.value} onValueChange={field.onChange} className="flex">
+                          {SignUpTypeOptions.map((option) => (
+                            <div key={option.value} className="flex items-center space-x-2">
+                              <RadioGroupItem value={option.value} id={option.value} />
+                              <Label htmlFor={option.value}>{option.label}</Label>
+                            </div>
+                          ))}
+                        </RadioGroup>
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={control}
+                  name="gender"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel required className="capitalize">
+                        Giới tính
+                      </FormLabel>
+                      <FormControl>
+                        <RadioGroup value={field.value} onValueChange={field.onChange} className="flex flex-wrap gap-4">
+                          {GenderOptions.map((option) => (
+                            <div key={option.value} className="flex items-center space-x-2">
+                              <RadioGroupItem value={option.value} id={`gender-${option.value}`} />
+                              <Label htmlFor={`gender-${option.value}`}>{option.label}</Label>
+                            </div>
+                          ))}
+                        </RadioGroup>
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
 
               {selectedType === SignUpType.RECRUITER && (
                 <FormField
