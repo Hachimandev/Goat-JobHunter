@@ -47,7 +47,7 @@ export default function BlogDetail() {
           {blog?.content
             .replace(/<[^>]*>/g, "")
             .split(/\s+/)
-            .slice(0, 2)
+            .slice(0, 10)
             .join(" ") + "..."}
         </Text>
         <Icon source="share-variant-outline" size={24} color="#000" />
