@@ -1,6 +1,6 @@
 import BlogCard from "@/components/blog/BlogCard";
 import CreateBlogModal from "@/components/blog/CreateBlogModal";
-import { useFetchBlogsQuery } from "@/services/blog/blogApi";
+import { useFetchAvailableBlogsQuery } from "@/services/blog/blogApi";
 import { useFocusEffect } from "expo-router";
 import { useCallback, useState } from "react";
 import {
@@ -35,17 +35,17 @@ export default function BlogPage() {
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [createVisible, setCreateVisible] = useState(false);
 
-  const { data, isLoading, isFetching, refetch } = useFetchBlogsQuery(
+  const { data, isLoading, isFetching, refetch } = useFetchAvailableBlogsQuery(
     {
       page: page,
       size: size,
-      title: searchText || undefined,
+      title: searchText.trim() || undefined,
       tags:
         selectedCategory === "all"
           ? undefined
           : [categories.find((c) => c.key === selectedCategory)?.label || ""],
     },
-    { skip: false },
+    { refetchOnMountOrArgChange: true },
   );
 
   useFocusEffect(
@@ -147,9 +147,7 @@ export default function BlogPage() {
                 onLike={() => {
                   // TODO: handle like/unlike
                 }}
-                onSave={() => {
-                  // TODO: handle save/unsave
-                }}
+                isSaved={item.isSaved}
               />
             )}
             ListEmptyComponent={renderEmpty}
