@@ -1,41 +1,50 @@
-import { api } from '../api';
+import { api } from "../api";
 import {
-  CreateApplicationRequest,
   ApplicationMutationResponse,
   CountApplicationsRequest,
   CountApplicationsResponse,
+  CreateApplicationRequest,
   FetchApplicationsRequest,
   FetchApplicationsResponse,
-} from './applicationType';
+} from "./applicationType";
 
 export const applicationApi = api.injectEndpoints({
   overrideExisting: true,
   endpoints: (builder) => ({
-    createApplication: builder.mutation<ApplicationMutationResponse, CreateApplicationRequest>({
+    createApplication: builder.mutation<
+      ApplicationMutationResponse,
+      CreateApplicationRequest
+    >({
       query: (data) => ({
-        url: '/applications',
-        method: 'POST',
+        url: "/applications",
+        method: "POST",
         data,
       }),
-      invalidatesTags: ['Application'],
+      invalidatesTags: ["Application"],
     }),
 
-    fetchApplicationsByCurrentApplicant: builder.query<FetchApplicationsResponse, FetchApplicationsRequest>({
+    fetchApplicationsByCurrentApplicant: builder.query<
+      FetchApplicationsResponse,
+      FetchApplicationsRequest
+    >({
       query: (params) => ({
-        url: '/applications/by-applicant',
-        method: 'GET',
+        url: "/applications/by-applicant",
+        method: "GET",
         params,
       }),
-      providesTags: ['Application'],
+      providesTags: ["Application"],
     }),
 
-    countApplicationsByJobAndApplicant: builder.query<CountApplicationsResponse, CountApplicationsRequest>({
+    countApplicationsByJobAndApplicant: builder.query<
+      CountApplicationsResponse,
+      CountApplicationsRequest
+    >({
       query: ({ jobId }) => ({
         url: `/applications/count`,
-        method: 'GET',
+        method: "GET",
         params: { jobId },
       }),
-      providesTags: ['Application'],
+      providesTags: ["Application"],
     }),
   }),
 });

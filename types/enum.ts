@@ -22,6 +22,13 @@ export enum CompanySize {
   LARGE = "LARGE",
 }
 
+export enum Education {
+  COLLEGE = "COLLEGE",
+  UNIVERSITY = "UNIVERSITY",
+  SCHOOL = "SCHOOL",
+  ENGINEER = "ENGINEER",
+}
+
 export enum BlogActionType {
   DELETE = "DELETE",
   REJECT = "REJECT",

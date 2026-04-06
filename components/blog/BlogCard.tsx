@@ -8,6 +8,7 @@ import { useRouter } from "expo-router";
 import { useState } from "react";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import Icon from "react-native-vector-icons/Feather";
+import BlogActivity from "./BlogActivity";
 import CommentSheet from "./CommentSheet";
 import ReportTicketModal from "./ReportTicketModal";
 
@@ -32,6 +33,7 @@ export default function BlogCard({
 
   const { handleToggleSaveBlog, isSaving } = useBlogActionsMobile();
   const [isSaved, setIsSaved] = useState(initialIsSaved);
+  const [isExpanded, setIsExpanded] = useState(false);
 
   const onSavePress = async () => {
     const currentSavedStatus = !!isSaved;
@@ -45,6 +47,26 @@ export default function BlogCard({
       setIsSaved(currentSavedStatus);
     }
   };
+
+  const plainText = blog.content.replace(/<[^>]*>/g, "").trim();
+  const words = plainText.split(/\s+/);
+  const wordCount = words.length;
+
+  const SHORT_LIMIT = 65;
+  const LONG_LIMIT = 120;
+
+  const handleReadMore = () => {
+    if (wordCount > LONG_LIMIT) {
+      router.push(`/blog/${blog.blogId}`);
+    } else {
+      setIsExpanded(true);
+    }
+  };
+
+  let displayText = plainText;
+  if (!isExpanded && wordCount > SHORT_LIMIT) {
+    displayText = words.slice(0, SHORT_LIMIT).join(" ") + "...";
+  }
 
   return (
     <TouchableOpacity
@@ -90,13 +112,13 @@ export default function BlogCard({
       </View>
 
       <View style={styles.textContainer}>
-        <Text style={styles.blogTitle}>
-          {blog.content
-            .replace(/<[^>]*>/g, "")
-            .split(/\s+/)
-            .slice(0, 10)
-            .join(" ") + "..."}
-        </Text>
+        <Text style={styles.blogTitle}>{displayText}</Text>
+
+        {!isExpanded && wordCount > SHORT_LIMIT && (
+          <TouchableOpacity onPress={handleReadMore} style={styles.readMoreBtn}>
+            <Text style={styles.readMoreText}>Xem Thêm</Text>
+          </TouchableOpacity>
+        )}
 
         {blog.tags && blog.tags.length > 0 && (
           <View style={styles.tagWrapper}>
@@ -116,42 +138,12 @@ export default function BlogCard({
           contentFit="cover"
         />
       )}
+      <BlogActivity
+        blog={blog}
+        initialReaction={blog.userReaction}
+        onCommentClick={() => setCommentVisible(true)}
+      />
 
-      <View style={styles.footerRow}>
-        <View style={styles.leftStats}>
-          <TouchableOpacity
-            style={styles.statItem}
-            onPress={(e) => {
-              e.stopPropagation();
-              onLike?.();
-            }}
-          >
-            <Icon name="thumbs-up" size={18} color="#666" />
-            <Text style={styles.statText}>
-              {blog.activity?.totalLikes || 0}
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.statItem}
-            onPress={(e) => {
-              e.stopPropagation();
-              setCommentVisible(!isCommentVisible);
-            }}
-          >
-            <Icon name="message-circle" size={18} color="#666" />
-            <Text style={styles.statText}>
-              {blog.activity?.totalComments || 0}
-            </Text>
-          </TouchableOpacity>
-        </View>
-        <View style={styles.statItem}>
-          <Icon name="eye" size={18} color="#666" />
-          <Text style={styles.statText}>
-            {blog.activity?.totalReads || 0} lượt xem
-          </Text>
-        </View>
-      </View>
       <CommentSheet
         blogId={blog.blogId}
         isVisible={isCommentVisible}
@@ -198,4 +190,14 @@ const styles = StyleSheet.create({
   leftStats: { flexDirection: "row", gap: 20 },
   statItem: { flexDirection: "row", alignItems: "center", gap: 5 },
   statText: { fontSize: 13, color: "#65676b" },
+  readMoreBtn: {
+    paddingVertical: 4,
+    marginTop: 2,
+    marginBottom: 15,
+  },
+  readMoreText: {
+    color: "#00a651",
+    fontWeight: "bold",
+    fontSize: 15,
+  },
 });
