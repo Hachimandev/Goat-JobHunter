@@ -56,6 +56,9 @@ export const api = createApi({
     "SavedJob",
     "Application",
     "Resume",
+    "Applicant",
+    "Account",
+    "Recruiter",
   ],
   endpoints: () => ({}),
 });

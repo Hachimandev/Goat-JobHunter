@@ -12,6 +12,24 @@ export type Address = {
   updatedBy?: string;
 };
 
+export interface User {
+  accountId: number;
+  fullName: string;
+  username: string;
+  email: string;
+  phone?: string;
+  dob?: string;
+  gender?: string;
+  role?: { name: string };
+  addresses?: { addressId?: number; province: string; fullAddress: string }[];
+  availableStatus?: boolean;
+  headline?: string;
+  bio?: string;
+  education?: string;
+  level?: string;
+  position?: string;
+}
+
 export type Account = {
   accountId: number;
   username: string;
@@ -216,4 +234,20 @@ export type Application = {
   createdBy: string;
   updatedAt: string;
   updatedBy: string;
+};
+
+export type Contact = {
+  phone?: string;
+  email?: string;
+};
+
+export type Recruiter = User & {
+  position: string;
+  company: Company;
+};
+
+export type Applicant = User & {
+  availableStatus: boolean;
+  education: Education;
+  level: Level;
 };
