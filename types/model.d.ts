@@ -1,4 +1,4 @@
-import { CompanySize, Level, WorkingType, ApplicationStatus } from "./enum";
+import { ApplicationStatus, CompanySize, Level, WorkingType } from "./enum";
 
 export type Address = {
   addressId: number;
@@ -121,6 +121,7 @@ export type Blog = {
   tags: string[];
   draft: boolean;
   enabled: boolean;
+  userReaction?: string | null;
   activity?: {
     totalLikes: number;
     totalComments: number;

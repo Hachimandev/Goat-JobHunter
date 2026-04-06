@@ -8,6 +8,7 @@ import { useRouter } from "expo-router";
 import { useState } from "react";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import Icon from "react-native-vector-icons/Feather";
+import BlogActivity from "./BlogActivity";
 import CommentSheet from "./CommentSheet";
 import ReportTicketModal from "./ReportTicketModal";
 
@@ -137,42 +138,12 @@ export default function BlogCard({
           contentFit="cover"
         />
       )}
+      <BlogActivity
+        blog={blog}
+        initialReaction={blog.userReaction}
+        onCommentClick={() => setCommentVisible(true)}
+      />
 
-      <View style={styles.footerRow}>
-        <View style={styles.leftStats}>
-          <TouchableOpacity
-            style={styles.statItem}
-            onPress={(e) => {
-              e.stopPropagation();
-              onLike?.();
-            }}
-          >
-            <Icon name="thumbs-up" size={18} color="#666" />
-            <Text style={styles.statText}>
-              {blog.activity?.totalLikes || 0}
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.statItem}
-            onPress={(e) => {
-              e.stopPropagation();
-              setCommentVisible(!isCommentVisible);
-            }}
-          >
-            <Icon name="message-circle" size={18} color="#666" />
-            <Text style={styles.statText}>
-              {blog.activity?.totalComments || 0}
-            </Text>
-          </TouchableOpacity>
-        </View>
-        <View style={styles.statItem}>
-          <Icon name="eye" size={18} color="#666" />
-          <Text style={styles.statText}>
-            {blog.activity?.totalReads || 0} lượt xem
-          </Text>
-        </View>
-      </View>
       <CommentSheet
         blogId={blog.blogId}
         isVisible={isCommentVisible}
