@@ -11,6 +11,8 @@ export type FetchJobsRequest = {
   salary?: number;
   active?: boolean;
   skills?: number[];
+  provinces?: string[];
+  companyId?: number;
 };
 
 export type FetchJobsResponse = IBackendRes<IModelPaginate<Job>>;

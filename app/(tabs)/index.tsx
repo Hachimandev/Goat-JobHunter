@@ -8,41 +8,76 @@ import {
   RefreshControl,
   TextInput,
   TouchableOpacity,
+  ScrollView,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { useFetchJobsAvailableQuery } from '../../services/job/jobApi';
+import { useJobsFilter } from '../../hooks/useJobsFilter';
 import { JobCard } from '../../components/job/JobCard';
+import { JobFilter } from '../../components/job/JobFilter';
 import { Job } from '../../types/model';
+import { useUser } from '../../hooks/useUser';
 
 export default function Index() {
   const router = useRouter();
-  const [page, setPage] = useState(1);
-  const [searchText, setSearchText] = useState('');
-  const [searchQuery, setSearchQuery] = useState('');
+  const { isSignedIn } = useUser();
+  const [showFilter, setShowFilter] = useState(false);
 
-  const { data, isLoading, isFetching, error, refetch } = useFetchJobsAvailableQuery({
-    page,
-    size: 10,
-    title: searchQuery || undefined,
+  const {
+    jobs,
+    isLoading,
+    isFetching,
+    error,
+    filters,
+    handleFilterChange,
+    resetFilters,
+    activeFiltersCount,
+    meta,
+    nextPage,
+    previousPage,
+    hasNextPage,
+    skillsData,
+    isFetchingSkills,
+    skillInputValue,
+    handleSkillInputChange,
+  } = useJobsFilter({
+    itemsPerPage: 10,
   });
-
-  const jobs = data?.data?.result || [];
-  const meta = data?.data?.meta;
-
-  const handleSearch = () => {
-    setSearchQuery(searchText);
-    setPage(1);
-  };
-
-  const handleLoadMore = () => {
-    if (meta && page < meta.pages && !isFetching) {
-      setPage(page + 1);
-    }
-  };
 
   const handleJobPress = (jobId: number) => {
     router.push(`/jobs/${jobId}`);
+  };
+
+  const handleLevelToggle = (level: string) => {
+    const newLevels = filters.level?.includes(level)
+      ? filters.level.filter((l) => l !== level)
+      : [...(filters.level || []), level];
+    handleFilterChange({ level: newLevels });
+  };
+
+  const handleWorkingTypeToggle = (type: string) => {
+    const newTypes = filters.workingType?.includes(type)
+      ? filters.workingType.filter((t) => t !== type)
+      : [...(filters.workingType || []), type];
+    handleFilterChange({ workingType: newTypes });
+  };
+
+  const handleProvinceToggle = (province: string) => {
+    const newProvinces = filters.provinces?.includes(province)
+      ? filters.provinces.filter((p) => p !== province)
+      : [...(filters.provinces || []), province];
+    handleFilterChange({ provinces: newProvinces });
+  };
+
+  const handleSkillToggle = (skill: string) => {
+    const newSkills = filters.skills?.includes(skill)
+      ? filters.skills.filter((s) => s !== skill)
+      : [...(filters.skills || []), skill];
+    handleFilterChange({ skills: newSkills });
+  };
+
+  const handleTabChange = (tab: 'all' | 'subscribers' | 'recommended') => {
+    handleFilterChange({ activeTab: tab });
   };
 
   const renderJobItem = ({ item }: { item: Job }) => (
@@ -51,36 +86,120 @@ export default function Index() {
 
   const renderHeader = () => (
     <View style={styles.header}>
-      <Text style={styles.title}>Công Việc Nổi Bật</Text>
+      <Text style={styles.title}>Công Việc</Text>
       <Text style={styles.subtitle}>
-        Những cơ hội việc làm mới nhất từ các công ty hàng đầu
+        {filters.activeTab === 'all' && 'Tất cả cơ hội việc làm'}
+        {filters.activeTab === 'subscribers' && 'Công việc theo dõi'}
+        {filters.activeTab === 'recommended' && 'Công việc được đề xuất'}
       </Text>
-      
-      <View style={styles.searchContainer}>
-        <TextInput
-          style={styles.searchInput}
-          placeholder="Tìm kiếm việc làm..."
-          placeholderTextColor="#9ca3af"
-          value={searchText}
-          onChangeText={setSearchText}
-          onSubmitEditing={handleSearch}
-          returnKeyType="search"
-        />
-        <TouchableOpacity style={styles.searchButton} onPress={handleSearch}>
-          <Text style={styles.searchButtonText}>🔍</Text>
+
+      {/* Tabs */}
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        style={styles.tabContainer}
+        contentContainerStyle={styles.tabContent}
+      >
+        <TouchableOpacity
+          style={[
+            styles.tab,
+            filters.activeTab === 'all' && styles.tabActive,
+          ]}
+          onPress={() => handleTabChange('all')}
+        >
+          <Text
+            style={[
+              styles.tabText,
+              filters.activeTab === 'all' && styles.tabTextActive,
+            ]}
+          >
+            Tất cả
+          </Text>
+        </TouchableOpacity>
+
+        {isSignedIn && (
+          <>
+            <TouchableOpacity
+              style={[
+                styles.tab,
+                filters.activeTab === 'subscribers' && styles.tabActive,
+              ]}
+              onPress={() => handleTabChange('subscribers')}
+            >
+              <Text
+                style={[
+                  styles.tabText,
+                  filters.activeTab === 'subscribers' &&
+                    styles.tabTextActive,
+                ]}
+              >
+                Đang theo dõi
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[
+                styles.tab,
+                filters.activeTab === 'recommended' && styles.tabActive,
+              ]}
+              onPress={() => handleTabChange('recommended')}
+            >
+              <Text
+                style={[
+                  styles.tabText,
+                  filters.activeTab === 'recommended' &&
+                    styles.tabTextActive,
+                ]}
+              >
+                Được đề xuất
+              </Text>
+            </TouchableOpacity>
+          </>
+        )}
+      </ScrollView>
+
+      {/* Filter Button */}
+      <View style={styles.filterButtonContainer}>
+        <TouchableOpacity
+          style={styles.filterButton}
+          onPress={() => setShowFilter(!showFilter)}
+        >
+          <Text style={styles.filterButtonText}>
+            🔽 Lọc ({activeFiltersCount})
+          </Text>
         </TouchableOpacity>
       </View>
 
+      {/* Filter Component */}
+      {showFilter && (
+        <JobFilter
+          levels={['INTERN', 'FRESHER', 'JUNIOR', 'MIDDLE', 'SENIOR']}
+          workingTypes={['FULLTIME', 'PARTTIME', 'ONLINE', 'OFFLINE']}
+          selectedLevels={filters.level || []}
+          selectedWorkingTypes={filters.workingType || []}
+          selectedSkills={filters.skills || []}
+          onLevelChange={handleLevelToggle}
+          onWorkingTypeChange={handleWorkingTypeToggle}
+          onSkillChange={handleSkillToggle}
+          onReset={resetFilters}
+          skills={skillsData}
+          isFetchingSkills={isFetchingSkills}
+          skillInputValue={skillInputValue}
+          onSkillInputChange={handleSkillInputChange}
+        />
+      )}
+
       {meta && (
         <Text style={styles.resultCount}>
-          {meta.total} việc làm • Trang {meta.page}/{meta.pages}
+          {meta.total} việc làm • Trang {(meta as any).current ?? (meta as any).page ?? 1}/{meta.pages}
         </Text>
       )}
     </View>
   );
 
   const renderFooter = () => {
-    if (!isFetching || page === 1) return null;
+    const currentPage = (meta as any)?.current ?? (meta as any)?.page ?? 1;
+    if (!isFetching || currentPage === 1) return null;
     return (
       <View style={styles.footer}>
         <ActivityIndicator size="small" color="#1976d2" />
@@ -94,18 +213,22 @@ export default function Index() {
     return (
       <View style={styles.emptyContainer}>
         <Text style={styles.emptyIcon}>📭</Text>
-        <Text style={styles.emptyTitle}>Không Có Việc Làm Nổi Bật</Text>
+        <Text style={styles.emptyTitle}>Không Có Việc Làm</Text>
         <Text style={styles.emptyText}>
-          {error ? 'Có lỗi xảy ra. Vui lòng thử lại sau.' : 'Không có việc làm nổi bật nào vào lúc này.'}
+          {error
+            ? 'Có lỗi xảy ra. Vui lòng thử lại sau.'
+            : 'Không có việc làm nào phù hợp với bộ lọc của bạn.'}
         </Text>
-        <TouchableOpacity style={styles.retryButton} onPress={() => refetch()}>
-          <Text style={styles.retryButtonText}>🔄 Tải lại</Text>
+        <TouchableOpacity style={styles.retryButton} onPress={resetFilters}>
+          <Text style={styles.retryButtonText}>
+            {error ? '🔄 Tải lại' : '✕ Xóa lọc'}
+          </Text>
         </TouchableOpacity>
       </View>
     );
   };
 
-  if (isLoading && page === 1) {
+  if (isLoading) {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#1976d2" />
@@ -123,15 +246,12 @@ export default function Index() {
         ListHeaderComponent={renderHeader}
         ListFooterComponent={renderFooter}
         ListEmptyComponent={renderEmpty}
-        onEndReached={handleLoadMore}
+        onEndReached={hasNextPage ? () => nextPage() : undefined}
         onEndReachedThreshold={0.5}
         refreshControl={
           <RefreshControl
-            refreshing={isFetching && page === 1}
-            onRefresh={() => {
-              setPage(1);
-              refetch();
-            }}
+            refreshing={isFetching && ((meta as any)?.current ?? (meta as any)?.page ?? 0) === 0}
+            onRefresh={() => resetFilters()}
             colors={['#1976d2']}
             tintColor="#1976d2"
           />
@@ -174,38 +294,52 @@ const styles = StyleSheet.create({
   subtitle: {
     fontSize: 14,
     color: '#6b7280',
-    marginBottom: 16,
-  },
-  searchContainer: {
-    flexDirection: 'row',
     marginBottom: 12,
   },
-  searchInput: {
-    flex: 1,
-    height: 48,
-    backgroundColor: '#fff',
-    borderRadius: 8,
+  tabContainer: {
+    marginBottom: 12,
+  },
+  tabContent: {
+    gap: 8,
+    paddingEnd: 16,
+  },
+  tab: {
     paddingHorizontal: 16,
-    fontSize: 15,
-    borderWidth: 1,
-    borderColor: '#e5e7eb',
-    color: '#111827',
+    paddingVertical: 8,
+    borderRadius: 20,
+    backgroundColor: '#e5e7eb',
   },
-  searchButton: {
-    width: 48,
-    height: 48,
+  tabActive: {
     backgroundColor: '#1976d2',
-    borderRadius: 8,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginLeft: 8,
   },
-  searchButtonText: {
-    fontSize: 20,
-  },
-  resultCount: {
+  tabText: {
     fontSize: 14,
     color: '#6b7280',
+    fontWeight: '500',
+  },
+  tabTextActive: {
+    color: '#fff',
+  },
+  filterButtonContainer: {
+    marginBottom: 12,
+  },
+  filterButton: {
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    borderRadius: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+  },
+  filterButtonText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#374151',
+  },
+  resultCount: {
+    fontSize: 12,
+    color: '#9ca3af',
+    marginTop: 8,
   },
   footer: {
     paddingVertical: 16,

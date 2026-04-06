@@ -7,10 +7,11 @@ import {
   ActivityIndicator,
   TouchableOpacity,
   Alert,
+  FlatList,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useFetchJobByIdQuery } from '../../services/job/jobApi';
+import { useFetchJobByIdQuery, useFetchRelatedJobsQuery } from '../../services/job/jobApi';
 import { useCheckSavedJobsQuery } from '../../services/user/savedJobsApi';
 import { useJobActions } from '../../hooks/useJobActions';
 import { useUser } from '../../hooks/useUser';
@@ -18,6 +19,7 @@ import { formatCurrency } from '../../utils/formatCurrency';
 import { formatDate } from '../../utils/formatDate';
 import { stripHtmlTags } from '../../utils/stripHtmlTags';
 import ApplicationModal from '../../components/common/ApplicationModal';
+import { JobCard } from '../../components/job/JobCard';
 import { Skill } from '../../types/model';
 
 export default function JobDetailPage() {
@@ -46,6 +48,31 @@ export default function JobDetailPage() {
 
   const job = data?.data;
 
+  // Fetch related jobs based on skills
+  const skillIds = useMemo(() => {
+    return job?.skills?.map((skill) => skill.skillId) || [];
+  }, [job?.skills]);
+
+  const {
+    data: relatedJobsData,
+    isLoading: isLoadingRelated,
+  } = useFetchRelatedJobsQuery(
+    {
+      skills: skillIds,
+      page: 1,
+      size: 6,
+    },
+    {
+      skip: !job || skillIds.length === 0,
+    }
+  );
+
+  const relatedJobs = useMemo(() => {
+    const allRelatedJobs = relatedJobsData?.data?.result || [];
+    // Filter out the current job
+    return allRelatedJobs.filter((j) => j.jobId !== Number(id));
+  }, [relatedJobsData, id]);
+
   const handleApplyPress = () => {
     if (!isSignedIn) {
       Alert.alert(
@@ -59,7 +86,7 @@ export default function JobDetailPage() {
           },
           {
             text: 'Đăng nhập',
-            onPress: () => router.push('/(auth)/login'),
+            onPress: () => router.push('/(auth)/signin'),
           },
         ]
       );
@@ -229,6 +256,47 @@ export default function JobDetailPage() {
                 </View>
               ))}
             </View>
+          </View>
+        )}
+
+        {/* Related Jobs Card */}
+        {relatedJobs.length > 0 && (
+          <View style={styles.card}>
+            <Text style={styles.sectionTitle}>Công Việc Liên Quan</Text>
+            <FlatList
+              data={relatedJobs}
+              renderItem={({ item }) => (
+                <TouchableOpacity 
+                  style={styles.relatedJobCard}
+                  onPress={() => {
+                    router.push(`/jobs/${item.jobId}`);
+                  }}
+                >
+                  <View style={styles.relatedJobHeader}>
+                    <Text style={styles.relatedJobTitle} numberOfLines={2}>
+                      {item.title}
+                    </Text>
+                    <Text style={styles.relatedJobLevel}>{item.level}</Text>
+                  </View>
+                  <Text style={styles.relatedJobCompany} numberOfLines={1}>
+                    {item.company.name}
+                  </Text>
+                  <View style={styles.relatedJobFooter}>
+                    <Text style={styles.relatedJobSalary}>
+                      {formatCurrency(item.salary)}
+                    </Text>
+                    <Text style={styles.relatedJobType}>{item.workingType}</Text>
+                  </View>
+                </TouchableOpacity>
+              )}
+              keyExtractor={(item) => item.jobId.toString()}
+              scrollEnabled={false}
+            />
+            {isLoadingRelated && (
+              <View style={styles.relatedJobsLoading}>
+                <ActivityIndicator size="small" color="#1976d2" />
+              </View>
+            )}
           </View>
         )}
 
@@ -474,6 +542,58 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#374151',
     fontWeight: '500',
+  },
+  relatedJobCard: {
+    backgroundColor: '#f9fafb',
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+  },
+  relatedJobHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 6,
+  },
+  relatedJobTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#111827',
+    flex: 1,
+    marginRight: 8,
+  },
+  relatedJobLevel: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: '#fff',
+    backgroundColor: '#1976d2',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 4,
+  },
+  relatedJobCompany: {
+    fontSize: 13,
+    color: '#6b7280',
+    marginBottom: 8,
+  },
+  relatedJobFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  relatedJobSalary: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#1976d2',
+  },
+  relatedJobType: {
+    fontSize: 12,
+    color: '#6b7280',
+  },
+  relatedJobsLoading: {
+    paddingVertical: 12,
+    alignItems: 'center',
   },
   applyContainer: {
     paddingHorizontal: 16,
