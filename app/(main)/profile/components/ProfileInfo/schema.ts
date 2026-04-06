@@ -1,6 +1,37 @@
 import { z } from 'zod';
 import { Education, Gender, Level } from '@/types/enum';
 
+const optionalProfileAddressSchema = z
+  .object({
+    addressId: z.number().optional(),
+    province: z.string().trim(),
+    fullAddress: z.string().trim(),
+  })
+  .superRefine((value, ctx) => {
+    const hasProvince = value.province.length > 0;
+    const hasFullAddress = value.fullAddress.length > 0;
+
+    if (hasProvince !== hasFullAddress) {
+      const message = 'Vui lòng nhập đầy đủ tỉnh/thành phố và địa chỉ chi tiết hoặc xóa dòng địa chỉ này';
+
+      if (!hasProvince) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message,
+          path: ['province'],
+        });
+      }
+
+      if (!hasFullAddress) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message,
+          path: ['fullAddress'],
+        });
+      }
+    }
+  });
+
 export const userSchema = z.object({
   fullName: z.string().min(1, 'Vui lòng nhập họ tên'),
   username: z.string().min(1, 'Vui lòng nhập tên hiển thị'),
@@ -64,14 +95,8 @@ export const applicantSchema = z.object({
   headline: z.string().optional(),
   bio: z.string().optional(),
   addresses: z
-    .array(
-      z.object({
-        addressId: z.number().optional(),
-        province: z.string().min(1, 'Vui lòng nhập tỉnh/thành phố'),
-        fullAddress: z.string().min(1, 'Vui lòng nhập địa chỉ chi tiết'),
-      }),
-    )
-    .min(1, 'Phải có ít nhất một địa chỉ'),
+    .array(optionalProfileAddressSchema)
+    .transform((addresses) => addresses.filter((address) => address.province && address.fullAddress)),
 });
 export type ApplicantFormData = z.infer<typeof applicantSchema>;
 
@@ -86,13 +111,7 @@ export const recruiterSchema = z.object({
   headline: z.string().optional(),
   bio: z.string().optional(),
   addresses: z
-    .array(
-      z.object({
-        addressId: z.number().optional(),
-        province: z.string().min(1, 'Vui lòng nhập tỉnh/thành phố'),
-        fullAddress: z.string().min(1, 'Vui lòng nhập địa chỉ chi tiết'),
-      }),
-    )
-    .min(1, 'Phải có ít nhất một địa chỉ'),
+    .array(optionalProfileAddressSchema)
+    .transform((addresses) => addresses.filter((address) => address.province && address.fullAddress)),
 });
 export type RecruiterFormData = z.infer<typeof recruiterSchema>;
