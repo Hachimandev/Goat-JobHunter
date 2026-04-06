@@ -1,4 +1,4 @@
-import { IBackendRes } from '../../types/api';
+import { IBackendRes } from "../../types/api";
 
 // Sign Up
 export type UserSignUpRequest = {
@@ -8,7 +8,8 @@ export type UserSignUpRequest = {
   phone: string;
   password: string;
   confirmPassword: string;
-  type: 'applicant' | 'recruiter';
+  type: "applicant" | "recruiter";
+  gender: "MALE" | "FEMALE" | "OTHER";
 };
 
 export type UserSignUpResponse = IBackendRes<unknown>;
@@ -78,7 +79,7 @@ export type CompanySignUpRequest = {
   coverPhoto: string;
   website?: string;
   phone: string;
-  size: 'STARTUP' | 'SMALL' | 'MEDIUM' | 'LARGE' | 'ENTERPRISE';
+  size: "STARTUP" | "SMALL" | "MEDIUM" | "LARGE" | "ENTERPRISE";
   country: string;
   industry: string;
   workingDays: string;
@@ -90,4 +91,3 @@ export type CompanySignUpRequest = {
 };
 
 export type CompanySignUpResponse = IBackendRes<unknown>;
-
