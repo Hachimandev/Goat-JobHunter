@@ -45,7 +45,7 @@ export default function ProfileHeader({ fullPage = false, type }: Readonly<Profi
           onClick={() => setIsCoverPhotoDialogOpen(true)}
           size="icon"
           variant="secondary"
-          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 shadow-lg opacity-0 group-hover:opacity-100 transition-opacity"
+          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 shadow-lg opacity-0 group-hover:opacity-100 transition-opacity rounded-full"
         >
           <Camera className="h-4 w-4" />
         </Button>

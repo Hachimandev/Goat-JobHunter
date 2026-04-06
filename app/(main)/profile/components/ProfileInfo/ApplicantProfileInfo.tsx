@@ -2,6 +2,7 @@
 
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import { ApplicantResponse } from '@/types/dto';
 import { formatDate } from '@/utils/formatDate';
 import { getRevertGenderKeyValue } from '@/utils/getRevertEnumKeyValue';
@@ -164,7 +165,7 @@ export default function ApplicantProfileInfo({ applicant }: Readonly<ApplicantPr
 
       <div className="space-y-2">
         <Label className="capitalize">Headline</Label>
-        <textarea
+        <Textarea
           value={applicant.headline || 'Chưa cập nhật'}
           disabled
           rows={3}
@@ -174,7 +175,7 @@ export default function ApplicantProfileInfo({ applicant }: Readonly<ApplicantPr
 
       <div className="space-y-2">
         <Label className="capitalize">Bio</Label>
-        <textarea
+        <Textarea
           value={applicant.bio || 'Chưa cập nhật'}
           disabled
           rows={5}
