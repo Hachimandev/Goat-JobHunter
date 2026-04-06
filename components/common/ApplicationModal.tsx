@@ -313,7 +313,7 @@ export default function ApplicationModal({
               ]}>
                 {formData.resumeSelectionType === 'upload' && <View style={styles.radioButtonDot} />}
               </View>
-              <Text style={styles.radioLabel}>Tải lên CV từ máy tính</Text>
+              <Text style={styles.radioLabel}>Tải lên CV từ thiết bị</Text>
             </TouchableOpacity>
 
             {formData.resumeSelectionType === 'upload' && (

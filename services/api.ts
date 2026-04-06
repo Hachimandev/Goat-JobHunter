@@ -45,6 +45,6 @@ export const api = createApi({
   baseQuery: axiosBaseQuery({
     baseUrl: process.env.EXPO_PUBLIC_API_URL || "http://localhost:5000/api/v1",
   }),
-  tagTypes: ['Job', 'User', 'Auth', 'Company', 'Review', 'Blog', 'Comment', 'SavedJob', 'Application', 'Resume'],
+  tagTypes: ['Job', 'User', 'Auth', 'Company', 'Review', 'Blog', 'Comment', 'SavedJob', 'Application', 'Resume', 'Skill'],
   endpoints: () => ({}),
 });
