@@ -21,6 +21,7 @@ export const chatRoomApi = api.injectEndpoints({
         url: "/chatrooms/me",
         method: "GET",
         params: { page, size },
+        credentials: "include",
       }),
       providesTags: (result) =>
         result?.data?.result
