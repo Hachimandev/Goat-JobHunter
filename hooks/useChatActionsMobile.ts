@@ -31,42 +31,52 @@ export default function useChatActionsMobile() {
       const formData = new FormData();
 
       if (images && images.length > 0) {
-        images.forEach((img, index) => {
-          const fileToAppend = {
-            uri:
-              Platform.OS === "android"
-                ? img.uri
-                : img.uri.replace("file://", ""),
-            name: img.fileName || `img_${Date.now()}_${index}.jpg`,
-            type: img.mimeType || "image/jpeg",
-          };
-          // @ts-ignore
-          formData.append("files", fileToAppend);
-        });
+        for (const img of images) {
+          if (Platform.OS === "web") {
+            const response = await fetch(img.uri);
+            const blob = await response.blob();
+            formData.append("files", blob, img.fileName || "image.jpg");
+          } else {
+            const filePayload = {
+              uri:
+                Platform.OS === "android"
+                  ? img.uri
+                  : img.uri.replace("file://", ""),
+              name: img.fileName || `img_${Date.now()}.jpg`,
+              type: img.mimeType || "image/jpeg",
+            };
+            // @ts-ignore
+            formData.append("files", filePayload);
+          }
+        }
       }
 
-      if (content?.trim()) {
-        const requestBody = JSON.stringify({ content: content.trim() });
-        if (Platform.OS === "web") {
-          formData.append(
-            "request",
-            new Blob([requestBody], { type: "application/json" }),
-          );
-        } else {
-          formData.append("request", requestBody);
-        }
+      const payload = { content: content?.trim() || "" };
+
+      if (Platform.OS === "web") {
+        const jsonBlob = new Blob([JSON.stringify(payload)], {
+          type: "application/json",
+        });
+        formData.append("request", jsonBlob);
+      } else {
+        formData.append("request", {
+          string: JSON.stringify(payload),
+          type: "application/json",
+        } as any);
       }
 
       await sendMessageToChatRoom({
         chatRoomId,
-        content,
+        content: content,
         // @ts-ignore
         data: formData,
       } as any).unwrap();
 
       return { success: true };
-    } catch (error) {
-      console.error("Send Error:", error);
+    } catch (error: any) {
+      console.error(">>> SEND MESSAGE FAILED:", error);
+      const serverMsg = error?.data?.message || "Lỗi không xác định";
+      console.log(">>> SERVER ERROR MESSAGE:", serverMsg);
       throw error;
     }
   };

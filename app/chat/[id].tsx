@@ -164,24 +164,26 @@ export default function ChatDetail() {
                   activeOpacity={0.8}
                   style={{ maxWidth: "80%" }}
                 >
-                  <View
-                    style={[
-                      styles.bubble,
-                      isRevoked
-                        ? styles.revokedBubble
-                        : isMe
-                          ? styles.myBubble
-                          : styles.otherBubble,
-                      isSendingMsg && { opacity: 0.7 },
-                      // { opacity: 0.7 },
-                    ]}
-                  >
-                    {isS3Image ? (
-                      <Image
-                        source={{ uri: content }}
-                        style={styles.chatImage}
-                      />
-                    ) : (
+                  {isS3Image ? (
+                    <Image
+                      source={{ uri: content }}
+                      style={[
+                        styles.chatImage,
+                        isSendingMsg && { opacity: 0.7 },
+                      ]}
+                    />
+                  ) : (
+                    <View
+                      style={[
+                        styles.bubble,
+                        isRevoked
+                          ? styles.revokedBubble
+                          : isMe
+                            ? styles.myBubble
+                            : styles.otherBubble,
+                        isSendingMsg && { opacity: 0.7 },
+                      ]}
+                    >
                       <Text
                         style={[
                           styles.messageText,
@@ -192,8 +194,8 @@ export default function ChatDetail() {
                       >
                         {isRevoked ? "Tin nhắn đã được thu hồi" : content}
                       </Text>
-                    )}
-                  </View>
+                    </View>
+                  )}
                 </TouchableOpacity>
               </View>
             );
