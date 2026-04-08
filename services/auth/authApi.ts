@@ -1,4 +1,4 @@
-import { setUser } from '@/lib/features/authSlice';
+import { setUserIfNewer } from '@/lib/features/authSlice';
 import { api } from '@/services/api';
 import type {
   FetchAccountResponse,
@@ -39,8 +39,9 @@ export const authApi = api.injectEndpoints({
       async onQueryStarted(_, { dispatch, queryFulfilled }) {
         try {
           const { data } = await queryFulfilled;
-          // Dispatch action to save user data to slice
-          dispatch(setUser({ user: data?.data }));
+          if (data?.data) {
+            dispatch(setUserIfNewer({ user: data.data, force: true }));
+          }
         } catch (error) {
           console.error('Failed to sign in:', error);
         }
@@ -72,8 +73,13 @@ export const authApi = api.injectEndpoints({
       async onQueryStarted(_, { dispatch, queryFulfilled }) {
         try {
           const { data } = await queryFulfilled;
-          // Dispatch action to save user data to slice
-          dispatch(setUser({ user: data?.data as UserResponse | ApplicantResponse | RecruiterResponse | CompanyResponse }));
+          if (data?.data) {
+            dispatch(
+              setUserIfNewer({
+                user: data.data as UserResponse | ApplicantResponse | RecruiterResponse | CompanyResponse,
+              }),
+            );
+          }
         } catch (error) {
           console.error('Failed to fetch account:', error);
         }

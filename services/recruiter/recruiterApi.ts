@@ -8,7 +8,7 @@ import {
   FetchRecruitersResponse,
   RecruiterMutationResponse,
 } from './recruiterType';
-import { setUser } from '@/lib/features/authSlice';
+import { setUserIfNewer } from '@/lib/features/authSlice';
 
 export const recruiterApi = api.injectEndpoints({
   overrideExisting: true,
@@ -32,8 +32,9 @@ export const recruiterApi = api.injectEndpoints({
       async onQueryStarted(_, { dispatch, queryFulfilled }) {
         try {
           const { data } = await queryFulfilled;
-          // Dispatch action to save user data to slice
-          dispatch(setUser({ user: data?.data }));
+          if (data?.data) {
+            dispatch(setUserIfNewer({ user: data.data }));
+          }
         } catch (error) {
           console.error('Failed to fetch account:', error);
         }
