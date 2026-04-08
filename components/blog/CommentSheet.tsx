@@ -12,7 +12,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import Icon from "react-native-vector-icons/Feather";
+import { X, XCircle } from 'lucide-react-native';
 import CommentInput from "./CommentInput";
 import CommentItem from "./CommentItem";
 
@@ -57,7 +57,7 @@ export default function CommentSheet({ isVisible, onClose, blogId }: any) {
               <View style={styles.titleRow}>
                 <Text style={styles.title}>Bình luận</Text>
                 <TouchableOpacity onPress={onClose}>
-                  <Icon name="x" size={24} color="#000" />
+                  <X size={24} color="#000" />
                 </TouchableOpacity>
               </View>
             </View>
@@ -89,7 +89,7 @@ export default function CommentSheet({ isVisible, onClose, blogId }: any) {
                     Đang trả lời {replyTarget.name}
                   </Text>
                   <TouchableOpacity onPress={() => setReplyTarget(null)}>
-                    <Icon name="x-circle" size={16} color="#666" />
+                    <XCircle size={16} color="#666" />
                   </TouchableOpacity>
                 </View>
               )}

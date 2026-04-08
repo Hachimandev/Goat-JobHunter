@@ -3,7 +3,7 @@ import { ReactionType } from "@/types/enum";
 import { Blog } from "@/types/model";
 import React from "react";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
-import Icon from "react-native-vector-icons/Feather";
+import { MessageCircle, Eye } from 'lucide-react-native';
 import { ReactionButton } from "./ReactionButton";
 
 interface BlogActivityProps {
@@ -39,7 +39,7 @@ const BlogActivity = ({
 
         {/* Comment Button */}
         <TouchableOpacity style={styles.statItem} onPress={onCommentClick}>
-          <Icon name="message-circle" size={18} color="#666" />
+          <MessageCircle size={18} color="#666" />
           <Text style={styles.statText}>
             {blog.activity?.totalComments || 0}
           </Text>
@@ -48,7 +48,7 @@ const BlogActivity = ({
 
       {/* View Count */}
       <View style={styles.statItem}>
-        <Icon name="eye" size={18} color="#666" />
+        <Eye size={18} color="#666" />
         <Text style={styles.statText}>
           {blog.activity?.totalReads || 0} lượt xem
         </Text>

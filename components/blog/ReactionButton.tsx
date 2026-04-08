@@ -8,16 +8,25 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import MaterialIcon from "react-native-vector-icons/MaterialCommunityIcons";
+import { ThumbsUp, PartyPopper, Hand, Heart, Lightbulb, Smile } from 'lucide-react-native';
 
 // Khai báo data icon khớp với Web
+const reactionIcons: { [key in ReactionType]: React.ComponentType<any> } = {
+  [ReactionType.LIKE]: ThumbsUp,
+  [ReactionType.CELEBRATE]: PartyPopper,
+  [ReactionType.SUPPORT]: Hand,
+  [ReactionType.LOVE]: Heart,
+  [ReactionType.INSIGHTFUL]: Lightbulb,
+  [ReactionType.FUNNY]: Smile,
+};
+
 export const reactions = [
-  { id: ReactionType.LIKE, icon: "thumb-up", color: "#1976d2" },
-  { id: ReactionType.CELEBRATE, icon: "party-popper", color: "#4caf50" },
-  { id: ReactionType.SUPPORT, icon: "hand-heart", color: "#ff7043" },
-  { id: ReactionType.LOVE, icon: "heart", color: "#f44336" },
-  { id: ReactionType.INSIGHTFUL, icon: "lightbulb-outline", color: "#fbc02d" },
-  { id: ReactionType.FUNNY, icon: "emoticon-happy-outline", color: "#ffb300" },
+  { id: ReactionType.LIKE, color: "#1976d2" },
+  { id: ReactionType.CELEBRATE, color: "#4caf50" },
+  { id: ReactionType.SUPPORT, color: "#ff7043" },
+  { id: ReactionType.LOVE, color: "#f44336" },
+  { id: ReactionType.INSIGHTFUL, color: "#fbc02d" },
+  { id: ReactionType.FUNNY, color: "#ffb300" },
 ];
 
 export function ReactionButton({
@@ -29,6 +38,7 @@ export function ReactionButton({
 
   // Tìm data của reaction hiện tại
   const current = reactions.find((r) => r.id === initialReaction);
+  const CurrentIcon = initialReaction ? reactionIcons[initialReaction as ReactionType] : ThumbsUp;
 
   const handlePress = () => {
     onReactionChange(initialReaction ? null : ReactionType.LIKE);
@@ -43,10 +53,10 @@ export function ReactionButton({
         onPress={handlePress}
         style={styles.btn}
       >
-        <MaterialIcon
-          name={current ? current.icon : "thumb-up-outline"}
+        <CurrentIcon
           size={22}
           color={current ? current.color : "#666"}
+          fill={current ? current.color : "none"}
         />
         <Text style={[styles.txt, current && { color: current.color }]}>
           {totalReactions}
@@ -56,18 +66,21 @@ export function ReactionButton({
       <Modal visible={showPicker} transparent animationType="fade">
         <Pressable style={styles.overlay} onPress={() => setShowPicker(false)}>
           <View style={styles.picker}>
-            {reactions.map((r) => (
-              <TouchableOpacity
-                key={r.id}
-                onPress={() => {
-                  onReactionChange(r.id);
-                  setShowPicker(false);
-                }}
-                style={[styles.item, { backgroundColor: r.color }]}
-              >
-                <MaterialIcon name={r.icon} size={24} color="#fff" />
-              </TouchableOpacity>
-            ))}
+            {reactions.map((r) => {
+              const ReactionIcon = reactionIcons[r.id];
+              return (
+                <TouchableOpacity
+                  key={r.id}
+                  onPress={() => {
+                    onReactionChange(r.id);
+                    setShowPicker(false);
+                  }}
+                  style={[styles.item, { backgroundColor: r.color }]}
+                >
+                  <ReactionIcon size={24} color="#fff" fill="#fff" />
+                </TouchableOpacity>
+              );
+            })}
           </View>
         </Pressable>
       </Modal>

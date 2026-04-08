@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { Star } from 'lucide-react-native';
 
 interface StarRatingProps {
   rating: number;
@@ -11,11 +11,11 @@ export default function StarRating({ rating, size = 20 }: StarRatingProps) {
   return (
     <View style={styles.container}>
       {[1, 2, 3, 4, 5].map((star) => (
-        <Ionicons
+        <Star
           key={star}
-          name={star <= Math.round(rating) ? 'star' : 'star-outline'}
           size={size}
           color={star <= Math.round(rating) ? '#ff9119' : '#d1d5db'}
+          fill={star <= Math.round(rating) ? '#ff9119' : 'none'}
           style={styles.star}
         />
       ))}

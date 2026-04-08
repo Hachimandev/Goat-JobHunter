@@ -10,6 +10,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAppSelector } from "../../lib/hooks";
 import { formatDate } from "../../utils/formatDate";
+import { ArrowLeft, User, Users, Cake, Phone, Bell, GraduationCap, Building, Briefcase } from "lucide-react-native";
 
 const formatLabel = (str?: string) => {
   if (!str) return "Chưa cập nhật";
@@ -33,15 +34,15 @@ export default function ProfileInfoScreen() {
   const InfoRow = ({
     label,
     value,
-    icon,
+    icon: IconComponent,
   }: {
     label: string;
     value?: string;
-    icon: string;
+    icon: React.ReactNode;
   }) => (
     <View style={styles.infoRow}>
       <View style={styles.labelContainer}>
-        <Text style={styles.infoIcon}>{icon}</Text>
+        {IconComponent}
         <Text style={styles.infoLabel}>{label}</Text>
       </View>
       <Text style={styles.infoValue} numberOfLines={1}>
@@ -55,7 +56,7 @@ export default function ProfileInfoScreen() {
       {/* Header đồng bộ với trang Edit */}
       <View style={styles.header}>
         <TouchableOpacity onPress={handleBack} style={styles.backButton}>
-          <Text style={styles.backIcon}>←</Text>
+          <ArrowLeft size={24} color="#111827" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Hồ sơ cá nhân</Text>
         <TouchableOpacity
@@ -86,9 +87,9 @@ export default function ProfileInfoScreen() {
         {/* Thông tin cơ bản */}
         <View style={styles.section}>
           <Text style={styles.sectionHeader}>Thông tin cơ bản</Text>
-          <InfoRow icon="👤" label="Tên hiển thị" value={userData?.username} />
+          <InfoRow icon={<User size={18} color="#6b7280" />} label="Tên hiển thị" value={userData?.username} />
           <InfoRow
-            icon="👫"
+            icon={<Users size={18} color="#6b7280" />}
             label="Giới tính"
             value={
               userData?.gender === "MALE"
@@ -99,13 +100,13 @@ export default function ProfileInfoScreen() {
             }
           />
           <InfoRow
-            icon="🎂"
+            icon={<Cake size={18} color="#6b7280" />}
             label="Ngày sinh"
             value={userData?.dob ? formatDate(userData.dob) : "Chưa cập nhật"}
           />
-          <InfoRow icon="📞" label="Số điện thoại" value={userData?.phone} />
+          <InfoRow icon={<Phone size={18} color="#6b7280" />} label="Số điện thoại" value={userData?.phone} />
           <InfoRow
-            icon="📢"
+            icon={<Bell size={18} color="#6b7280" />}
             label="Trạng thái"
             value={
               userData?.availableStatus ? "Hồ sơ công khai" : "Hồ sơ đang ẩn"
@@ -154,18 +155,18 @@ export default function ProfileInfoScreen() {
           {userData?.role?.name === "APPLICANT" ? (
             <>
               <InfoRow
-                icon="🎓"
+                icon={<GraduationCap size={18} color="#6b7280" />}
                 label="Trình độ"
                 value={formatLabel(userData?.level)}
               />
               <InfoRow
-                icon="🏫"
+                icon={<Building size={18} color="#6b7280" />}
                 label="Học vấn"
                 value={formatLabel(userData?.education)}
               />
             </>
           ) : (
-            <InfoRow icon="💼" label="Vị trí" value={userData?.position} />
+            <InfoRow icon={<Briefcase size={18} color="#6b7280" />} label="Vị trí" value={userData?.position} />
           )}
         </View>
 

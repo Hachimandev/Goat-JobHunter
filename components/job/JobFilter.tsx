@@ -10,6 +10,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { Level, WorkingType } from '@/types/enum';
+import { ChevronDown, ChevronRight, Check } from 'lucide-react-native';
 
 interface JobFilterProps {
   levels: string[];
@@ -79,7 +80,11 @@ export const JobFilter: React.FC<JobFilterProps> = ({
             <Text style={styles.selectedCount}> ({selectedItems.length})</Text>
           )}
         </Text>
-        <Text style={styles.toggleIcon}>{isOpen ? '▼' : '▶'}</Text>
+        {isOpen ? (
+          <ChevronDown size={18} color="#6b7280" />
+        ) : (
+          <ChevronRight size={18} color="#6b7280" />
+        )}
       </TouchableOpacity>
 
       {isOpen && (
@@ -97,7 +102,7 @@ export const JobFilter: React.FC<JobFilterProps> = ({
                 ]}
               >
                 {selectedItems.includes(option) && (
-                  <Text style={styles.checkboxText}>✓</Text>
+                  <Check size={14} color="#fff" />
                 )}
               </View>
               <Text style={styles.optionText}>{option}</Text>
@@ -168,7 +173,11 @@ export const JobFilter: React.FC<JobFilterProps> = ({
                 </Text>
               )}
             </Text>
-            <Text style={styles.toggleIcon}>{showSkillFilter ? '▼' : '▶'}</Text>
+            {showSkillFilter ? (
+              <ChevronDown size={18} color="#6b7280" />
+            ) : (
+              <ChevronRight size={18} color="#6b7280" />
+            )}
           </TouchableOpacity>
 
           {showSkillFilter && (
@@ -201,7 +210,7 @@ export const JobFilter: React.FC<JobFilterProps> = ({
                         ]}
                       >
                         {selectedSkills.includes(item.name) && (
-                          <Text style={styles.checkboxText}>✓</Text>
+                          <Check size={14} color="#fff" />
                         )}
                       </View>
                       <Text style={styles.optionText}>{item.name}</Text>

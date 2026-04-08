@@ -17,6 +17,7 @@ import { useApplicationActions } from '@/hooks/useApplicationActions';
 import { useUser } from '@/hooks/useUser';
 import type { CreateApplicationRequest } from '@/services/application/applicationType';
 import type { Resume } from '@/services/resume/resumeType';
+import { X, FolderOpen, FileText } from 'lucide-react-native';
 
 const MAX_FILE_SIZE = 2 * 1024 * 1024; // 2MB
 
@@ -222,7 +223,7 @@ export default function ApplicationModal({
         {/* Header */}
         <View style={styles.header}>
           <TouchableOpacity onPress={handleClose} style={styles.closeButton}>
-            <Text style={styles.closeButtonText}>✕</Text>
+            <X size={24} color="#111827" />
           </TouchableOpacity>
           <Text style={styles.title} numberOfLines={2}>
             Ứng tuyển {jobTitle}
@@ -255,7 +256,10 @@ export default function ApplicationModal({
 
           {/* Resume Selection */}
           <View style={styles.section}>
-            <Text style={styles.label}>📄 Chọn CV để ứng tuyển</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+              <FileText size={18} color="#111827" />
+              <Text style={styles.label}>Chọn CV để Ứng tuyển</Text>
+            </View>
 
             {/* Radio: Use from library */}
             <TouchableOpacity
@@ -324,13 +328,13 @@ export default function ApplicationModal({
                     onPress={handleFilePickerPress}
                     disabled={isSubmitting || isValidating}
                   >
-                    <Text style={styles.uploadButtonIcon}>📁</Text>
+                    <FolderOpen size={24} color="#1976d2" style={styles.uploadButtonIcon} />
                     <Text style={styles.uploadButtonText}>Chọn CV</Text>
                     <Text style={styles.uploadHintText}>PDF, DOC, DOCX - Tối đa 2MB</Text>
                   </TouchableOpacity>
                 ) : (
                   <View style={styles.uploadedFileContainer}>
-                    <Text style={styles.uploadedFileIcon}>📄</Text>
+                    <FileText size={18} color="#6b7280" style={styles.uploadedFileIcon} />
                     <View style={styles.uploadedFileInfo}>
                       <Text style={styles.uploadedFileName} numberOfLines={1}>
                         {uploadedFile.name || 'File'}
@@ -344,7 +348,7 @@ export default function ApplicationModal({
                       disabled={isSubmitting || isValidating}
                       style={styles.removeFileButton}
                     >
-                      <Text style={styles.removeFileIcon}>✕</Text>
+                      <X size={18} color="#ef4444" />
                     </TouchableOpacity>
                   </View>
                 )}

@@ -9,7 +9,7 @@ import {
 } from 'react-native';
 import { Job } from '@/types/model';
 import { Link } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
+import { DollarSign, MapPin, TrendingUp, ChevronRight } from 'lucide-react-native';
 
 interface JobListSectionProps {
   jobs: Job[];
@@ -78,31 +78,31 @@ export default function JobListSection({ jobs, isLoading, isError, savedJobs }: 
                 {job.title}
               </Text>
               <View style={styles.jobInfo}>
-                {job.minSalary && job.maxSalary && (
+                {job.salary && (
                   <View style={styles.infoRow}>
-                    <Ionicons name="cash-outline" size={14} color="#6b7280" />
+                    <DollarSign size={14} color="#6b7280" />
                     <Text style={styles.infoText}>
-                      {job.minSalary.toLocaleString()} - {job.maxSalary.toLocaleString()} VND
+                      {job.salary.toLocaleString()} VND
                     </Text>
                   </View>
                 )}
-                {job.location && (
+                {job.address && (
                   <View style={styles.infoRow}>
-                    <Ionicons name="location-outline" size={14} color="#6b7280" />
+                    <MapPin size={14} color="#6b7280" />
                     <Text style={styles.infoText} numberOfLines={1}>
-                      {job.location}
+                      {job.address.fullAddress}
                     </Text>
                   </View>
                 )}
                 {job.level && (
                   <View style={styles.infoRow}>
-                    <Ionicons name="trending-up-outline" size={14} color="#6b7280" />
+                    <TrendingUp size={14} color="#6b7280" />
                     <Text style={styles.infoText}>{job.level}</Text>
                   </View>
                 )}
               </View>
               <View style={styles.footer}>
-                <Ionicons name="chevron-forward" size={16} color="#1976d2" />
+                <ChevronRight size={16} color="#1976d2" />
               </View>
             </TouchableOpacity>
           </Link>

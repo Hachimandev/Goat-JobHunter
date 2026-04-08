@@ -10,14 +10,14 @@ import {
   TouchableOpacity,
   ScrollView,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useJobsFilter } from '../../hooks/useJobsFilter';
 import { JobCard } from '../../components/job/JobCard';
 import { JobFilter } from '../../components/job/JobFilter';
 import { Job } from '../../types/model';
 import { useUser } from '../../hooks/useUser';
-
+import { ChevronDown, MailOpen, RotateCw, X } from 'lucide-react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 export default function Index() {
   const router = useRouter();
   const { isSignedIn } = useUser();
@@ -164,9 +164,12 @@ export default function Index() {
           style={styles.filterButton}
           onPress={() => setShowFilter(!showFilter)}
         >
-          <Text style={styles.filterButtonText}>
-            🔽 Lọc ({activeFiltersCount})
-          </Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            <ChevronDown size={18} color="#374151" />
+            <Text style={styles.filterButtonText}>
+              Lọc ({activeFiltersCount})
+            </Text>
+          </View>
         </TouchableOpacity>
       </View>
 
@@ -212,7 +215,9 @@ export default function Index() {
     if (isLoading) return null;
     return (
       <View style={styles.emptyContainer}>
-        <Text style={styles.emptyIcon}>📭</Text>
+        <View style={styles.emptyIconContainer}>
+          <MailOpen size={64} color="#d1d5db" />
+        </View>
         <Text style={styles.emptyTitle}>Không Có Việc Làm</Text>
         <Text style={styles.emptyText}>
           {error
@@ -220,9 +225,16 @@ export default function Index() {
             : 'Không có việc làm nào phù hợp với bộ lọc của bạn.'}
         </Text>
         <TouchableOpacity style={styles.retryButton} onPress={resetFilters}>
-          <Text style={styles.retryButtonText}>
-            {error ? '🔄 Tải lại' : '✕ Xóa lọc'}
-          </Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            {error ? (
+              <RotateCw size={16} color="#374151" />
+            ) : (
+              <X size={16} color="#374151" />
+            )}
+            <Text style={styles.retryButtonText}>
+              {error ? 'Tải lại' : 'Xóa lọc'}
+            </Text>
+          </View>
         </TouchableOpacity>
       </View>
     );
@@ -238,7 +250,8 @@ export default function Index() {
   }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={{ flex: 1 }}>
+    <View style={styles.container}>
       <FlatList
         data={jobs}
         renderItem={renderJobItem}
@@ -259,6 +272,7 @@ export default function Index() {
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
       />
+    </View>
     </SafeAreaView>
   );
 }
@@ -356,6 +370,9 @@ const styles = StyleSheet.create({
   },
   emptyIcon: {
     fontSize: 64,
+    marginBottom: 16,
+  },
+  emptyIconContainer: {
     marginBottom: 16,
   },
   emptyTitle: {
