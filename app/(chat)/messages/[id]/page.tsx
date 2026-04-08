@@ -1,19 +1,31 @@
 'use client';
 
 import { ChatWindow } from '@/app/(chat)/messages/components/ChatWindow';
+import { ForwardMessageModal } from '@/app/(chat)/messages/components/ForwardMessageModal';
 import { useParams } from 'next/navigation';
 import { useFetchChatRoomsByIdQuery, useFetchMessagesInChatRoomQuery } from '@/services/chatRoom/chatRoomApi';
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { subscribeToChatRoom, unsubscribeFromChatRoom } from '@/services/chatRoom/message/messageApi';
 import { useUser } from '@/hooks/useUser';
 import useChatRoomAndMessageActions from '@/hooks/useChatRoomAndMessageActions';
+import { MessageType } from '@/types/model';
 
 export default function ChatRoomPage() {
   const params = useParams();
   const chatRoomId = params?.id as string;
   const { user } = useUser();
-  const { handleSendMessage, handleDeleteMessage, handleRecallMessage, isDeletingMessage, isRecallingMessage } =
-    useChatRoomAndMessageActions();
+  const [forwardMessage, setForwardMessage] = useState<MessageType | null>(null);
+  const [forwardModalOpen, setForwardModalOpen] = useState(false);
+
+  const {
+    handleSendMessage,
+    handleDeleteMessage,
+    handleForwardMessage,
+    handleRecallMessage,
+    isDeletingMessage,
+    isForwardingMessage,
+    isRecallingMessage,
+  } = useChatRoomAndMessageActions();
 
   // Subscribe vào chat room khi component mount
   useEffect(() => {
@@ -66,22 +78,61 @@ export default function ChatRoomPage() {
     );
   }
 
+  const handleOpenForwardModal = (message: MessageType) => {
+    setForwardMessage(message);
+    setForwardModalOpen(true);
+  };
+
+  const handleForwardModalOpenChange = (open: boolean) => {
+    setForwardModalOpen(open);
+    if (!open) {
+      setForwardMessage(null);
+    }
+  };
+
+  const handleConfirmForward = async (targetChatRoomIds: number[]) => {
+    if (!forwardMessage) {
+      return null;
+    }
+
+    const result = await handleForwardMessage(Number(chatRoomId), forwardMessage.messageId, targetChatRoomIds);
+
+    if (result && result.failedCount === 0) {
+      handleForwardModalOpenChange(false);
+    }
+
+    return result;
+  };
+
   return (
-    <ChatWindow
-      chatRoom={currentChatRoom}
-      messages={messages}
-      currentUserId={user?.accountId?.toString()}
-      onSendMessage={async (text, files) => {
-        await handleSendMessage(Number(chatRoomId), text, files);
-      }}
-      onDeleteMessage={async (messageId) => {
-        await handleDeleteMessage(Number(chatRoomId), messageId);
-      }}
-      isDeletingMessage={isDeletingMessage}
-      onRecallMessage={async (messageId) => {
-        await handleRecallMessage(Number(chatRoomId), messageId);
-      }}
-      isRecallingMessage={isRecallingMessage}
-    />
+    <>
+      <ChatWindow
+        chatRoom={currentChatRoom}
+        messages={messages}
+        currentUserId={user?.accountId?.toString()}
+        onSendMessage={async (text, files) => {
+          await handleSendMessage(Number(chatRoomId), text, files);
+        }}
+        onForwardMessage={handleOpenForwardModal}
+        isForwardingMessage={isForwardingMessage}
+        onDeleteMessage={async (messageId) => {
+          await handleDeleteMessage(Number(chatRoomId), messageId);
+        }}
+        isDeletingMessage={isDeletingMessage}
+        onRecallMessage={async (messageId) => {
+          await handleRecallMessage(Number(chatRoomId), messageId);
+        }}
+        isRecallingMessage={isRecallingMessage}
+      />
+
+      <ForwardMessageModal
+        open={forwardModalOpen}
+        onOpenChange={handleForwardModalOpenChange}
+        sourceChatRoomId={Number(chatRoomId)}
+        message={forwardMessage}
+        isSubmitting={isForwardingMessage}
+        onConfirm={handleConfirmForward}
+      />
+    </>
   );
 }

@@ -3,6 +3,8 @@ import {
   DeleteMessagePermanentRequest,
   FetchChatRoomsRequest,
   FetchChatRoomsResponse,
+  ForwardMessageBatchRequest,
+  ForwardMessageBatchResponse,
   FetchMessagesInChatRoomRequest,
   FetchMessagesInChatRoomResponse,
   RecallMessageRequest,
@@ -214,6 +216,37 @@ export const chatRoomApi = api.injectEndpoints({
       },
     }),
 
+    forwardMessageBatch: builder.mutation<IBackendRes<ForwardMessageBatchResponse>, ForwardMessageBatchRequest>({
+      query: ({ sourceChatRoomId, messageId, targetChatRoomIds }) => ({
+        url: `/chatrooms/${sourceChatRoomId}/messages/${messageId}/forward`,
+        method: 'POST',
+        data: {
+          targetChatRoomIds,
+        },
+      }),
+      async onQueryStarted({ targetChatRoomIds }, { dispatch, queryFulfilled }) {
+        try {
+          const { data: response } = await queryFulfilled;
+
+          const failedIds = new Set((response?.data?.failedTargetChatRooms || []).map((item) => item.chatRoomId));
+
+          const successfulIds =
+            response?.data?.successfulTargetChatRoomIds && response.data.successfulTargetChatRoomIds.length > 0
+              ? response.data.successfulTargetChatRoomIds
+              : targetChatRoomIds.filter((id) => !failedIds.has(id));
+
+          const messageTags = successfulIds.map((chatRoomId) => ({
+            type: 'ChatRoom' as const,
+            id: `MESSAGES_${chatRoomId}`,
+          }));
+
+          dispatch(chatRoomApi.util.invalidateTags([...messageTags, { type: 'ChatRoom', id: 'LIST' }]));
+        } catch (error) {
+          console.error('Failed to forward message:', error);
+        }
+      },
+    }),
+
     recallMessage: builder.mutation<IBackendRes<null>, RecallMessageRequest>({
       query: ({ chatRoomId, messageId }) => ({
         url: `/chatrooms/${chatRoomId}/messages/${messageId}`,
@@ -255,5 +288,6 @@ export const {
   useSendMessageToNewChatRoomMutation,
   useLazyCheckExistingChatRoomQuery,
   useDeleteMessagePermanentMutation,
+  useForwardMessageBatchMutation,
   useRecallMessageMutation,
 } = chatRoomApi;

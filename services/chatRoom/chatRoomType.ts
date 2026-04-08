@@ -37,3 +37,21 @@ export type DeleteMessagePermanentRequest = {
   chatRoomId: number;
   messageId: string;
 };
+
+export type ForwardMessageBatchRequest = {
+  sourceChatRoomId: number;
+  messageId: string;
+  targetChatRoomIds: number[];
+};
+
+export type ForwardMessageFailureItem = {
+  chatRoomId: number;
+  reason?: string;
+};
+
+export type ForwardMessageBatchResponse = {
+  successfulTargetChatRoomIds?: number[];
+  failedTargetChatRooms?: ForwardMessageFailureItem[];
+  successCount?: number;
+  failedCount?: number;
+};

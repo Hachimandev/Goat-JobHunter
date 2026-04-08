@@ -323,8 +323,6 @@ export type Conversation = {
 };
 
 export type MessageType = {
-  chatRoomBucket: string;
-  messageSk: string;
   chatRoomId: string;
   messageId: string;
   sender: {
@@ -338,6 +336,8 @@ export type MessageType = {
   messageType: MessageTypeEnum;
   replyTo?: string;
   isHidden: boolean;
+  isForwarded?: boolean;
+  originalMessageId?: string;
   createdAt: string;
   updatedAt: string;
   role?: MessageTypeRole; // temporary field to avoid error for build in chat container

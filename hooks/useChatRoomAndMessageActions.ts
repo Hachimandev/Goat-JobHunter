@@ -1,14 +1,17 @@
 import {
   useDeleteMessagePermanentMutation,
+  useForwardMessageBatchMutation,
   useRecallMessageMutation,
   useSendMessageToChatRoomMutation,
   useSendMessageToNewChatRoomMutation,
 } from '@/services/chatRoom/chatRoomApi';
+import { ForwardMessageBatchResponse } from '@/services/chatRoom/chatRoomType';
 import { toast } from 'sonner';
 import { useUser } from '@/hooks/useUser';
 import { useRouter } from 'next/navigation';
 import { usePendingMessages } from '@/contexts/PendingMessagesContext';
 import { useCallback, useState } from 'react';
+import { IBackendRes } from '@/types/api';
 
 type ApiMutationError = {
   status?: number;
@@ -20,6 +23,14 @@ type ApiMutationError = {
   };
 };
 
+export type ForwardMessageSubmitResult = {
+  requestedCount: number;
+  successCount: number;
+  failedCount: number;
+  successfulTargetChatRoomIds: number[];
+  failedTargetChatRoomIds: number[];
+};
+
 const useChatRoomAndMessageActions = () => {
   const { user, isSignedIn } = useUser();
   const router = useRouter();
@@ -27,6 +38,7 @@ const useChatRoomAndMessageActions = () => {
   const [sendMessageToChatRoom, { isLoading: isSendingMessage }] = useSendMessageToChatRoomMutation();
   const [sendMessageToNewChatRoom, { isLoading: isSendingNewMessage }] = useSendMessageToNewChatRoomMutation();
   const [deleteMessagePermanent] = useDeleteMessagePermanentMutation();
+  const [forwardMessageBatch, { isLoading: isForwardingMessage }] = useForwardMessageBatchMutation();
   const [recallMessage] = useRecallMessageMutation();
   const [deletingMessageIds, setDeletingMessageIds] = useState<Set<string>>(new Set());
   const [recallingMessageIds, setRecallingMessageIds] = useState<Set<string>>(new Set());
@@ -43,6 +55,58 @@ const useChatRoomAndMessageActions = () => {
     }
 
     return apiError?.data?.message || apiError?.data?.data?.message || 'Không thể xóa tin nhắn.';
+  };
+
+  const getForwardMessageError = (error: unknown) => {
+    const apiError = error as ApiMutationError;
+
+    if (apiError?.status === 403) {
+      return 'Bạn không có quyền chuyển tiếp tin nhắn này.';
+    }
+
+    if (apiError?.status === 404) {
+      return 'Tin nhắn hoặc cuộc trò chuyện không tồn tại.';
+    }
+
+    return apiError?.data?.message || apiError?.data?.data?.message || 'Không thể chuyển tiếp tin nhắn.';
+  };
+
+  const normalizeForwardResult = (
+    response: IBackendRes<ForwardMessageBatchResponse>,
+    targetChatRoomIds: number[],
+  ): ForwardMessageSubmitResult => {
+    const normalizedTargetIds = Array.from(new Set(targetChatRoomIds));
+    const requestedCount = normalizedTargetIds.length;
+
+    const failedTargetChatRoomIds = Array.from(
+      new Set((response?.data?.failedTargetChatRooms || []).map((item) => item.chatRoomId)),
+    );
+
+    const successfulTargetChatRoomIds = Array.from(
+      new Set(
+        response?.data?.successfulTargetChatRoomIds && response.data.successfulTargetChatRoomIds.length > 0
+          ? response.data.successfulTargetChatRoomIds
+          : normalizedTargetIds.filter((roomId) => !failedTargetChatRoomIds.includes(roomId)),
+      ),
+    );
+
+    const successCount =
+      typeof response?.data?.successCount === 'number'
+        ? response.data.successCount
+        : successfulTargetChatRoomIds.length;
+
+    const failedCount =
+      typeof response?.data?.failedCount === 'number'
+        ? response.data.failedCount
+        : Math.max(requestedCount - successCount, 0);
+
+    return {
+      requestedCount,
+      successCount,
+      failedCount,
+      successfulTargetChatRoomIds,
+      failedTargetChatRoomIds,
+    };
   };
 
   const handleSendMessage = async (chatRoomId: number, content?: string, files?: File[]) => {
@@ -183,6 +247,53 @@ const useChatRoomAndMessageActions = () => {
     }
   };
 
+  const handleForwardMessage = async (
+    sourceChatRoomId: number,
+    messageId: string,
+    targetChatRoomIds: number[],
+  ): Promise<ForwardMessageSubmitResult | null> => {
+    try {
+      if (!isSignedIn || !user) {
+        toast.error('Vui lòng đăng nhập để chuyển tiếp tin nhắn.');
+        return null;
+      }
+
+      if (!sourceChatRoomId || !messageId) {
+        toast.error('Không thể chuyển tiếp tin nhắn.');
+        return null;
+      }
+
+      const normalizedTargetIds = Array.from(new Set(targetChatRoomIds));
+
+      if (normalizedTargetIds.length === 0) {
+        toast.error('Vui lòng chọn ít nhất 1 cuộc trò chuyện đích.');
+        return null;
+      }
+
+      const response = await forwardMessageBatch({
+        sourceChatRoomId,
+        messageId,
+        targetChatRoomIds: normalizedTargetIds,
+      }).unwrap();
+
+      const result = normalizeForwardResult(response, normalizedTargetIds);
+
+      if (result.failedCount === 0) {
+        toast.success('Đã chuyển tiếp tin nhắn thành công.');
+      } else if (result.successCount > 0) {
+        toast(`Đã chuyển tiếp ${result.successCount}/${result.requestedCount} cuộc trò chuyện.`);
+      } else {
+        toast.error(response?.message || 'Không thể chuyển tiếp tin nhắn.');
+      }
+
+      return result;
+    } catch (error) {
+      console.error('Error forwarding message:', error);
+      toast.error(getForwardMessageError(error));
+      return null;
+    }
+  };
+
   const isRecallingMessage = useCallback(
     (messageId: string) => recallingMessageIds.has(messageId),
     [recallingMessageIds],
@@ -194,8 +305,10 @@ const useChatRoomAndMessageActions = () => {
     handleSendMessage,
     handleSendMessageToNewChat,
     handleDeleteMessage,
+    handleForwardMessage,
     handleRecallMessage,
     isDeletingMessage,
+    isForwardingMessage,
     isRecallingMessage,
     isSendingMessage,
     isSendingNewMessage,

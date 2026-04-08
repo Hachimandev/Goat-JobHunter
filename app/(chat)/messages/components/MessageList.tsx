@@ -10,6 +10,8 @@ interface MessageListProps {
   messages: MessageType[];
   currentUserId?: string;
   isGroup?: boolean;
+  onForwardMessage?: (message: MessageType) => void;
+  isForwardingMessage?: boolean;
   onDeleteMessage?: (messageId: string) => Promise<void> | void;
   isDeletingMessage?: (messageId: string) => boolean;
   onRecallMessage?: (messageId: string) => Promise<void> | void;
@@ -20,6 +22,8 @@ export function MessageList({
   messages,
   currentUserId,
   isGroup = false,
+  onForwardMessage,
+  isForwardingMessage = false,
   onDeleteMessage,
   isDeletingMessage,
   onRecallMessage,
@@ -44,6 +48,8 @@ export function MessageList({
               showAvatar={isGroup}
               senderName={message.sender.fullName || message.sender.username}
               senderAvatar={message.sender.avatar || undefined}
+              onForward={onForwardMessage}
+              isForwarding={isForwardingMessage}
               onDelete={onDeleteMessage}
               isDeleting={isDeletingMessage?.(message.messageId) ?? false}
               onRecall={onRecallMessage}
