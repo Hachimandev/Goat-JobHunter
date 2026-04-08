@@ -323,10 +323,16 @@ const ApplicantUserForm = ({ open, onOpenChange, profile }: ApplicantUserFormPro
                 </div>
 
                 {fields.map((field, index) => (
-                  <div key={field.id} className="p-4 border rounded-xl space-y-3 bg-muted/30">
+                  <div key={field.id} className="px-4 py-3 border rounded-xl space-y-3 bg-muted/30">
                     <div className="flex items-center justify-between mb-2">
                       <span className="text-sm font-medium">Địa chỉ {index + 1}</span>
-                      <Button type="button" variant="ghost" size="sm" onClick={() => remove(index)}>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        className="rounded-full"
+                        size="icon-sm"
+                        onClick={() => remove(index)}
+                      >
                         <Trash2 className="h-4 w-4 text-destructive" />
                       </Button>
                     </div>

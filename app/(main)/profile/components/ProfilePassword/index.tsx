@@ -1,27 +1,17 @@
-"use client";
+'use client';
 
-import {
-  PasswordFormData,
-  passwordSchema,
-} from "@/app/(main)/profile/components/ProfilePassword/schema";
-import CheckPasswordStrength from "@/components/common/CheckPasswordStrength";
-import LoaderSpin from "@/components/common/LoaderSpin";
-import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from "@/components/ui/form";
-import { Input } from "@/components/ui/input";
-import { useUser } from "@/hooks/useUser";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { Pencil } from "lucide-react";
-import { useForm } from "react-hook-form";
-import { toast } from "sonner";
+import { PasswordFormData, passwordSchema } from '@/app/(main)/profile/components/ProfilePassword/schema';
+import CheckPasswordStrength from '@/components/common/CheckPasswordStrength';
+import LoaderSpin from '@/components/common/LoaderSpin';
+import { Button } from '@/components/ui/button';
+import { Card, CardHeader, CardTitle } from '@/components/ui/card';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { Input } from '@/components/ui/input';
+import { useUser } from '@/hooks/useUser';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { Pencil } from 'lucide-react';
+import { useForm } from 'react-hook-form';
+import { toast } from 'sonner';
 
 export default function ProfilePassword() {
   const { updatePassword, isUpdatingPassword } = useUser();
@@ -29,9 +19,9 @@ export default function ProfilePassword() {
   const form = useForm<PasswordFormData>({
     resolver: zodResolver(passwordSchema),
     defaultValues: {
-      oldPassword: "",
-      newPassword: "",
-      confirmPassword: "",
+      oldPassword: '',
+      newPassword: '',
+      confirmPassword: '',
     },
   });
 
@@ -45,26 +35,29 @@ export default function ProfilePassword() {
 
       if (result.success) {
         form.reset();
-        toast.success("Cập nhật mật khẩu thành công!");
-        return
+        toast.success('Cập nhật mật khẩu thành công!');
+        return;
       }
 
-      if (result.error === "Invalid old password") {
-        form.setError("oldPassword", {
-          type: "manual",
-          message: "Mật khẩu cũ không đúng",
+      if (result.error === 'Invalid old password') {
+        form.setError('oldPassword', {
+          type: 'manual',
+          message: 'Mật khẩu cũ không đúng',
         });
-        return
+        return;
       }
-
     } catch (error) {
-      console.error("Error updating password:", error);
-      toast.error("Có lỗi xảy ra khi cập nhật mật khẩu");
+      console.error('Error updating password:', error);
+      toast.error('Có lỗi xảy ra khi cập nhật mật khẩu');
     }
   };
 
   return (
-    <Card className="p-6">
+    <Card className="p-6 gap-2">
+      <CardHeader className="px-0">
+        <CardTitle className="text-lg font-semibold">Đổi mật khẩu</CardTitle>
+      </CardHeader>
+
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
           <FormField
@@ -74,12 +67,7 @@ export default function ProfilePassword() {
               <FormItem>
                 <FormLabel>Mật khẩu cũ</FormLabel>
                 <FormControl>
-                  <Input
-                    {...field}
-                    type="password"
-                    placeholder="Nhập mật khẩu cũ"
-                    className="rounded-xl"
-                  />
+                  <Input {...field} type="password" placeholder="Nhập mật khẩu cũ" className="rounded-xl" />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -93,17 +81,10 @@ export default function ProfilePassword() {
               <FormItem>
                 <FormLabel>Mật khẩu mới</FormLabel>
                 <FormControl>
-                  <Input
-                    {...field}
-                    type="password"
-                    placeholder="Nhập mật khẩu mới"
-                    className="rounded-xl"
-                  />
+                  <Input {...field} type="password" placeholder="Nhập mật khẩu mới" className="rounded-xl" />
                 </FormControl>
                 <FormMessage />
-                {field.value && (
-                  <CheckPasswordStrength password={field.value} />
-                )}
+                {field.value && <CheckPasswordStrength password={field.value} />}
               </FormItem>
             )}
           />
@@ -115,12 +96,7 @@ export default function ProfilePassword() {
               <FormItem>
                 <FormLabel>Xác nhận mật khẩu mới</FormLabel>
                 <FormControl>
-                  <Input
-                    {...field}
-                    type="password"
-                    placeholder="Xác nhận mật khẩu"
-                    className="rounded-xl"
-                  />
+                  <Input {...field} type="password" placeholder="Xác nhận mật khẩu" className="rounded-xl" />
                 </FormControl>
                 <FormMessage />
               </FormItem>

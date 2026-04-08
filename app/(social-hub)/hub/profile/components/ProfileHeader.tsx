@@ -1,4 +1,3 @@
-import { Camera } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import Image from 'next/image';
 import { useUser } from '@/hooks/useUser';
@@ -26,9 +25,6 @@ export function ProfileHeader() {
             <AvatarImage src={getDisplayImage(user)} alt={getDisplayImageAlt(user)} />
             <AvatarFallback className="text-2xl">{getDisplayInitial(user)}</AvatarFallback>
           </Avatar>
-          <div className="absolute inset-0 flex items-center justify-center bg-black/40 rounded-full opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer">
-            <Camera className="w-8 h-8 text-white" />
-          </div>
         </div>
       </div>
     </div>
