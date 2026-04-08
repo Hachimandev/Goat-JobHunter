@@ -1,5 +1,6 @@
 import { useSendMessageToChatRoomMutation } from "@/services/chatRoom/chatRoomApi";
-import { Alert } from "react-native";
+import * as ImagePicker from "expo-image-picker";
+import { Alert, Platform } from "react-native";
 import { useUser } from "./useUser";
 
 export default function useChatActionsMobile() {
@@ -7,24 +8,68 @@ export default function useChatActionsMobile() {
   const [sendMessageToChatRoom, { isLoading: isSending }] =
     useSendMessageToChatRoomMutation();
 
-  const handleSendMessage = async (chatRoomId: number, content: string) => {
+  const pickImage = async () => {
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsMultipleSelection: true,
+      quality: 0.8,
+    });
+    return !result.canceled ? result.assets : null;
+  };
+
+  const handleSendMessage = async (
+    chatRoomId: number,
+    content?: string,
+    images?: ImagePicker.ImagePickerAsset[],
+  ) => {
     if (!isSignedIn || !user) {
-      Alert.alert("Lỗi", "Vui lòng đăng nhập để gửi tin nhắn.");
-      return;
+      Alert.alert("Lỗi", "Vui lòng đăng nhập.");
+      return { success: false };
     }
 
-    if (!content.trim()) return;
-
     try {
+      const formData = new FormData();
+
+      if (images && images.length > 0) {
+        images.forEach((img, index) => {
+          const fileToAppend = {
+            uri:
+              Platform.OS === "android"
+                ? img.uri
+                : img.uri.replace("file://", ""),
+            name: img.fileName || `img_${Date.now()}_${index}.jpg`,
+            type: img.mimeType || "image/jpeg",
+          };
+          // @ts-ignore
+          formData.append("files", fileToAppend);
+        });
+      }
+
+      if (content?.trim()) {
+        const requestBody = JSON.stringify({ content: content.trim() });
+        if (Platform.OS === "web") {
+          formData.append(
+            "request",
+            new Blob([requestBody], { type: "application/json" }),
+          );
+        } else {
+          formData.append("request", requestBody);
+        }
+      }
+
       await sendMessageToChatRoom({
         chatRoomId,
-        content: content.trim(),
-      }).unwrap();
+        content,
+        // @ts-ignore
+        data: formData,
+      } as any).unwrap();
+
+      return { success: true };
     } catch (error) {
-      console.error("Send message error:", error);
-      Alert.alert("Lỗi", "Gửi tin nhắn thất bại.");
+      console.error("Send Error:", error);
+      throw error;
     }
   };
 
-  return { handleSendMessage, isSending };
+  return { handleSendMessage, pickImage, isSending };
 }
