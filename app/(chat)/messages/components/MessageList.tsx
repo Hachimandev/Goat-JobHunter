@@ -3,16 +3,24 @@
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { MessageType } from '@/types/model';
 import { useEffect, useRef } from 'react';
-import { MessageBubble, MessageBubbleLoading } from "./MessageBubble";
-import { usePendingMessages } from "@/contexts/PendingMessagesContext";
+import { MessageBubble, MessageBubbleLoading } from './MessageBubble';
+import { usePendingMessages } from '@/contexts/PendingMessagesContext';
 
 interface MessageListProps {
   messages: MessageType[];
   currentUserId?: string;
   isGroup?: boolean;
+  onRecallMessage?: (messageId: string) => Promise<void> | void;
+  isRecallingMessage?: (messageId: string) => boolean;
 }
 
-export function MessageList({ messages, currentUserId, isGroup = false }: Readonly<MessageListProps>) {
+export function MessageList({
+  messages,
+  currentUserId,
+  isGroup = false,
+  onRecallMessage,
+  isRecallingMessage,
+}: Readonly<MessageListProps>) {
   const bottomRef = useRef<HTMLDivElement>(null);
   const { pendingMessages } = usePendingMessages();
 
@@ -32,6 +40,8 @@ export function MessageList({ messages, currentUserId, isGroup = false }: Readon
               showAvatar={isGroup}
               senderName={message.sender.fullName || message.sender.username}
               senderAvatar={message.sender.avatar || undefined}
+              onRecall={onRecallMessage}
+              isRecalling={isRecallingMessage?.(message.messageId) ?? false}
             />
           ))}
           {pendingMessages.map((pending) => (
