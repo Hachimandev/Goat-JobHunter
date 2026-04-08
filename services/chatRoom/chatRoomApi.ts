@@ -242,6 +242,17 @@ export const chatRoomApi = api.injectEndpoints({
         { type: "ChatRoom", id: `EXISTS_${accountId}` },
       ],
     }),
+
+    // revoke message
+    revokeMessage: builder.mutation<
+      any,
+      { chatRoomId: number; messageId: string }
+    >({
+      query: ({ chatRoomId, messageId }) => ({
+        url: `/chatrooms/${chatRoomId}/messages/${messageId}`,
+        method: "DELETE",
+      }),
+    }),
   }),
 });
 
@@ -254,4 +265,5 @@ export const {
   useSendMessageToChatRoomMutation,
   useSendMessageToNewChatRoomMutation,
   useLazyCheckExistingChatRoomQuery,
+  useRevokeMessageMutation,
 } = chatRoomApi;
