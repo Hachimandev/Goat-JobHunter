@@ -10,11 +10,23 @@ import {
 import { cn } from '@/lib/utils';
 import { formatDistanceToNow } from 'date-fns';
 import { vi } from 'date-fns/locale';
-import { FileIcon, UserPlus, UserMinus, Crown, ImageIcon, Users, MoreVertical, Undo2, Loader2 } from 'lucide-react';
+import {
+  FileIcon,
+  UserPlus,
+  UserMinus,
+  Crown,
+  ImageIcon,
+  Users,
+  MoreVertical,
+  Undo2,
+  Loader2,
+  Trash2,
+} from 'lucide-react';
 import Image from 'next/image';
 import { MessageEvent, MessageTypeEnum } from '@/types/enum';
-import { JSX, useMemo } from 'react';
+import { JSX, useMemo, useState } from 'react';
 import MarkdownDisplay from '@/components/common/MarkdownDisplay';
+import ConfirmDialog from '@/components/common/ConfirmDialog';
 
 interface MessageBubbleProps {
   message: MessageType;
@@ -23,7 +35,9 @@ interface MessageBubbleProps {
   senderName?: string;
   senderAvatar?: string;
   onRecall?: (messageId: string) => void | Promise<void>;
+  onDelete?: (messageId: string) => void | Promise<void>;
   isRecalling?: boolean;
+  isDeleting?: boolean;
 }
 
 export function MessageBubble({
@@ -33,8 +47,12 @@ export function MessageBubble({
   senderName,
   senderAvatar,
   onRecall,
+  onDelete,
   isRecalling = false,
+  isDeleting = false,
 }: Readonly<MessageBubbleProps>) {
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+
   const timeAgo = formatDistanceToNow(new Date(message.createdAt), {
     addSuffix: true,
     locale: vi,
@@ -51,6 +69,10 @@ export function MessageBubble({
 
   const isSystem = useMemo(() => type === MessageTypeEnum.SYSTEM, [type]);
   const disableRecallAction = isRecalled || isRecalling || !onRecall;
+  const disableDeleteAction = isDeleting || isRecalling || !onDelete;
+  const canShowRecallAction = !isRecalled && !!onRecall;
+  const canShowDeleteAction = !!onDelete;
+  const canShowActionMenu = isOwn && !isSystem && (canShowRecallAction || canShowDeleteAction);
 
   if (!message.content && !isRecalled) return null;
 
@@ -154,64 +176,103 @@ export function MessageBubble({
     await onRecall(message.messageId);
   };
 
-  return (
-    <div className={cn('flex w-full mb-2', isOwn ? 'justify-end' : 'justify-start')}>
-      {!isOwn && showAvatar && (
-        <Avatar className="h-10 w-10 mr-2 shrink-0 border">
-          <AvatarImage src={senderAvatar || '/placeholder.svg'} alt={senderName} />
-          <AvatarFallback>{senderName?.charAt(0) || 'U'}</AvatarFallback>
-        </Avatar>
-      )}
-      <div className={cn('flex items-start gap-1', isOwn ? 'flex-row-reverse' : 'flex-row')}>
-        <div className={cn('flex flex-col w-full', isOwn ? 'items-end' : 'items-start')}>
-          {!isOwn && showAvatar && senderName && (
-            <span className="text-xs font-medium text-muted-foreground mb-1 px-1">{senderName}</span>
-          )}
-          {isMedia ? (
-            renderContent()
-          ) : (
-            <div
-              className={cn(
-                'rounded-2xl px-4 py-2',
-                isRecalled
-                  ? 'bg-muted text-muted-foreground border border-border/50'
-                  : isOwn
-                    ? 'bg-primary text-primary-foreground'
-                    : 'bg-secondary text-secondary-foreground',
-              )}
-            >
-              {renderContent()}
-            </div>
-          )}
-          <span className="text-xs text-muted-foreground mt-1 px-1">{timeAgo}</span>
-        </div>
+  const handleDelete = async () => {
+    if (!onDelete || disableDeleteAction) return;
+    await onDelete(message.messageId);
+    setIsDeleteDialogOpen(false);
+  };
 
-        {isOwn && !isSystem && !isRecalled && (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-7 w-7 rounded-full mt-0.5"
-                disabled={disableRecallAction}
-              >
-                {isRecalling ? <Loader2 className="h-4 w-4 animate-spin" /> : <MoreVertical className="h-4 w-4" />}
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="rounded-xl">
-              <DropdownMenuItem
-                onClick={handleRecall}
-                disabled={disableRecallAction}
-                className="rounded-xl text-destructive focus:text-destructive"
-              >
-                <Undo2 className="h-4 w-4 text-destructive" />
-                Thu hồi tin nhắn
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+  return (
+    <>
+      <div className={cn('flex w-full mb-2', isOwn ? 'justify-end' : 'justify-start')}>
+        {!isOwn && showAvatar && (
+          <Avatar className="h-10 w-10 mr-2 shrink-0 border">
+            <AvatarImage src={senderAvatar || '/placeholder.svg'} alt={senderName} />
+            <AvatarFallback>{senderName?.charAt(0) || 'U'}</AvatarFallback>
+          </Avatar>
         )}
+        <div className={cn('flex items-start gap-1', isOwn ? 'flex-row-reverse' : 'flex-row')}>
+          <div className={cn('flex flex-col w-full', isOwn ? 'items-end' : 'items-start')}>
+            {!isOwn && showAvatar && senderName && (
+              <span className="text-xs font-medium text-muted-foreground mb-1 px-1">{senderName}</span>
+            )}
+            {isMedia ? (
+              renderContent()
+            ) : (
+              <div
+                className={cn(
+                  'rounded-2xl px-4 py-2',
+                  isRecalled
+                    ? 'bg-muted text-muted-foreground border border-border/50'
+                    : isOwn
+                      ? 'bg-primary text-primary-foreground'
+                      : 'bg-secondary text-secondary-foreground',
+                )}
+              >
+                {renderContent()}
+              </div>
+            )}
+            <span className="text-xs text-muted-foreground mt-1 px-1">{timeAgo}</span>
+          </div>
+
+          {canShowActionMenu && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7 rounded-full mt-0.5"
+                  disabled={isDeleting || isRecalling}
+                >
+                  {isRecalling || isDeleting ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <MoreVertical className="h-4 w-4" />
+                  )}
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="rounded-xl">
+                {canShowRecallAction && (
+                  <DropdownMenuItem
+                    onClick={handleRecall}
+                    disabled={disableRecallAction}
+                    className="rounded-xl text-destructive focus:text-destructive"
+                  >
+                    <Undo2 className="h-4 w-4 text-destructive" />
+                    Thu hồi tin nhắn
+                  </DropdownMenuItem>
+                )}
+
+                {canShowDeleteAction && (
+                  <DropdownMenuItem
+                    onClick={() => setIsDeleteDialogOpen(true)}
+                    disabled={disableDeleteAction}
+                    className="rounded-xl text-destructive focus:text-destructive"
+                  >
+                    <Trash2 className="h-4 w-4 text-destructive" />
+                    Xóa tin nhắn
+                  </DropdownMenuItem>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
+        </div>
       </div>
-    </div>
+
+      <ConfirmDialog
+        open={isDeleteDialogOpen}
+        onOpenChange={setIsDeleteDialogOpen}
+        title="Xóa tin nhắn"
+        description="Tin nhắn sẽ bị xóa vĩnh viễn và không thể khôi phục."
+        confirmText="Xóa"
+        cancelText="Hủy"
+        confirmBtnClass="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+        disableCancel={isDeleting}
+        disableConfirm={disableDeleteAction}
+        isLoading={isDeleting}
+        onConfirm={handleDelete}
+      />
+    </>
   );
 }
 

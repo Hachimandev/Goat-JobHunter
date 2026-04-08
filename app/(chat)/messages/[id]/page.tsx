@@ -12,7 +12,8 @@ export default function ChatRoomPage() {
   const params = useParams();
   const chatRoomId = params?.id as string;
   const { user } = useUser();
-  const { handleSendMessage, handleRecallMessage, isRecallingMessage } = useChatRoomAndMessageActions();
+  const { handleSendMessage, handleDeleteMessage, handleRecallMessage, isDeletingMessage, isRecallingMessage } =
+    useChatRoomAndMessageActions();
 
   // Subscribe vào chat room khi component mount
   useEffect(() => {
@@ -73,6 +74,10 @@ export default function ChatRoomPage() {
       onSendMessage={async (text, files) => {
         await handleSendMessage(Number(chatRoomId), text, files);
       }}
+      onDeleteMessage={async (messageId) => {
+        await handleDeleteMessage(Number(chatRoomId), messageId);
+      }}
+      isDeletingMessage={isDeletingMessage}
       onRecallMessage={async (messageId) => {
         await handleRecallMessage(Number(chatRoomId), messageId);
       }}

@@ -1,5 +1,6 @@
 import { api } from '@/services/api';
 import {
+  DeleteMessagePermanentRequest,
   FetchChatRoomsRequest,
   FetchChatRoomsResponse,
   FetchMessagesInChatRoomRequest,
@@ -190,6 +191,29 @@ export const chatRoomApi = api.injectEndpoints({
       providesTags: (_, __, accountId) => [{ type: 'ChatRoom', id: `EXISTS_${accountId}` }],
     }),
 
+    deleteMessagePermanent: builder.mutation<IBackendRes<null>, DeleteMessagePermanentRequest>({
+      query: ({ chatRoomId, messageId }) => ({
+        url: `/chatrooms/${chatRoomId}/messages/${messageId}/permanent`,
+        method: 'DELETE',
+      }),
+      async onQueryStarted({ chatRoomId, messageId }, { dispatch, queryFulfilled }) {
+        try {
+          await queryFulfilled;
+
+          dispatch(
+            chatRoomApi.util.updateQueryData('fetchMessagesInChatRoom', { chatRoomId, page: 1, size: 50 }, (draft) => {
+              if (!draft?.data) return;
+              draft.data = draft.data.filter((message) => message.messageId !== messageId);
+            }),
+          );
+
+          dispatch(chatRoomApi.util.invalidateTags([{ type: 'ChatRoom', id: 'LIST' }]));
+        } catch (error) {
+          console.error('Failed to permanently delete message:', error);
+        }
+      },
+    }),
+
     recallMessage: builder.mutation<IBackendRes<null>, RecallMessageRequest>({
       query: ({ chatRoomId, messageId }) => ({
         url: `/chatrooms/${chatRoomId}/messages/${messageId}`,
@@ -230,5 +254,6 @@ export const {
   useSendMessageToChatRoomMutation,
   useSendMessageToNewChatRoomMutation,
   useLazyCheckExistingChatRoomQuery,
+  useDeleteMessagePermanentMutation,
   useRecallMessageMutation,
 } = chatRoomApi;

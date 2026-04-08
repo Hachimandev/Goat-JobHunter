@@ -32,3 +32,8 @@ export type RecallMessageRequest = {
   chatRoomId: number;
   messageId: string;
 };
+
+export type DeleteMessagePermanentRequest = {
+  chatRoomId: number;
+  messageId: string;
+};

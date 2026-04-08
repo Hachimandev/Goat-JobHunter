@@ -10,6 +10,8 @@ interface MessageListProps {
   messages: MessageType[];
   currentUserId?: string;
   isGroup?: boolean;
+  onDeleteMessage?: (messageId: string) => Promise<void> | void;
+  isDeletingMessage?: (messageId: string) => boolean;
   onRecallMessage?: (messageId: string) => Promise<void> | void;
   isRecallingMessage?: (messageId: string) => boolean;
 }
@@ -18,6 +20,8 @@ export function MessageList({
   messages,
   currentUserId,
   isGroup = false,
+  onDeleteMessage,
+  isDeletingMessage,
   onRecallMessage,
   isRecallingMessage,
 }: Readonly<MessageListProps>) {
@@ -40,6 +44,8 @@ export function MessageList({
               showAvatar={isGroup}
               senderName={message.sender.fullName || message.sender.username}
               senderAvatar={message.sender.avatar || undefined}
+              onDelete={onDeleteMessage}
+              isDeleting={isDeletingMessage?.(message.messageId) ?? false}
               onRecall={onRecallMessage}
               isRecalling={isRecallingMessage?.(message.messageId) ?? false}
             />

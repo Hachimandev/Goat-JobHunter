@@ -1,4 +1,5 @@
 import {
+  useDeleteMessagePermanentMutation,
   useRecallMessageMutation,
   useSendMessageToChatRoomMutation,
   useSendMessageToNewChatRoomMutation,
@@ -9,14 +10,40 @@ import { useRouter } from 'next/navigation';
 import { usePendingMessages } from '@/contexts/PendingMessagesContext';
 import { useCallback, useState } from 'react';
 
+type ApiMutationError = {
+  status?: number;
+  data?: {
+    message?: string;
+    data?: {
+      message?: string;
+    };
+  };
+};
+
 const useChatRoomAndMessageActions = () => {
   const { user, isSignedIn } = useUser();
   const router = useRouter();
   const { addPendingMessage, removePendingMessage } = usePendingMessages();
   const [sendMessageToChatRoom, { isLoading: isSendingMessage }] = useSendMessageToChatRoomMutation();
   const [sendMessageToNewChatRoom, { isLoading: isSendingNewMessage }] = useSendMessageToNewChatRoomMutation();
+  const [deleteMessagePermanent] = useDeleteMessagePermanentMutation();
   const [recallMessage] = useRecallMessageMutation();
+  const [deletingMessageIds, setDeletingMessageIds] = useState<Set<string>>(new Set());
   const [recallingMessageIds, setRecallingMessageIds] = useState<Set<string>>(new Set());
+
+  const getDeleteMessageError = (error: unknown) => {
+    const apiError = error as ApiMutationError;
+
+    if (apiError?.status === 403) {
+      return 'Bạn không có quyền xóa tin nhắn này.';
+    }
+
+    if (apiError?.status === 404) {
+      return 'Tin nhắn không tồn tại hoặc đã bị xóa.';
+    }
+
+    return apiError?.data?.message || apiError?.data?.data?.message || 'Không thể xóa tin nhắn.';
+  };
 
   const handleSendMessage = async (chatRoomId: number, content?: string, files?: File[]) => {
     let pendingId: string | null = null;
@@ -121,15 +148,54 @@ const useChatRoomAndMessageActions = () => {
     }
   };
 
+  const handleDeleteMessage = async (chatRoomId: number, messageId: string) => {
+    try {
+      if (!isSignedIn || !user) {
+        toast.error('Vui lòng đăng nhập để xóa tin nhắn.');
+        return;
+      }
+
+      if (!chatRoomId || !messageId) {
+        toast.error('Không thể xóa tin nhắn.');
+        return;
+      }
+
+      if (deletingMessageIds.has(messageId)) {
+        return;
+      }
+
+      setDeletingMessageIds((prev) => {
+        const next = new Set(prev);
+        next.add(messageId);
+        return next;
+      });
+
+      await deleteMessagePermanent({ chatRoomId, messageId }).unwrap();
+    } catch (error) {
+      console.error('Error deleting message:', error);
+      toast.error(getDeleteMessageError(error));
+    } finally {
+      setDeletingMessageIds((prev) => {
+        const next = new Set(prev);
+        next.delete(messageId);
+        return next;
+      });
+    }
+  };
+
   const isRecallingMessage = useCallback(
     (messageId: string) => recallingMessageIds.has(messageId),
     [recallingMessageIds],
   );
 
+  const isDeletingMessage = useCallback((messageId: string) => deletingMessageIds.has(messageId), [deletingMessageIds]);
+
   return {
     handleSendMessage,
     handleSendMessageToNewChat,
+    handleDeleteMessage,
     handleRecallMessage,
+    isDeletingMessage,
     isRecallingMessage,
     isSendingMessage,
     isSendingNewMessage,
