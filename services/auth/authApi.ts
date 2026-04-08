@@ -1,4 +1,3 @@
-import { setUserIfNewer } from '@/lib/features/authSlice';
 import { api } from '@/services/api';
 import type {
   FetchAccountResponse,
@@ -9,8 +8,9 @@ import type {
   VerifyCodeRequest,
   VerifyCodeResponse,
 } from './authType';
-import { ApplicantResponse, CompanyResponse, RecruiterResponse, UserResponse } from '@/types/dto';
+import { ApplicantResponse, CompanyResponse, RecruiterResponse } from '@/types/dto';
 import { IBackendRes } from '@/types/api';
+import { createUserSyncOnQueryStarted } from '@/services/utils/userSyncOnQueryStarted';
 
 export const authApi = api.injectEndpoints({
   endpoints: (builder) => ({
@@ -36,16 +36,7 @@ export const authApi = api.injectEndpoints({
         method: 'POST',
         data: { email, password },
       }),
-      async onQueryStarted(_, { dispatch, queryFulfilled }) {
-        try {
-          const { data } = await queryFulfilled;
-          if (data?.data) {
-            dispatch(setUserIfNewer({ user: data.data, force: true }));
-          }
-        } catch (error) {
-          console.error('Failed to sign in:', error);
-        }
-      },
+      onQueryStarted: createUserSyncOnQueryStarted({ operation: 'sign in', force: true }),
     }),
 
     logout: builder.mutation<LogoutResponse, void>({
@@ -70,20 +61,7 @@ export const authApi = api.injectEndpoints({
     getMyAccount: builder.query<FetchAccountResponse, void>({
       query: () => ({ url: '/auth/account/users', method: 'GET' }),
       providesTags: ['User', 'Applicant', 'Recruiter', 'Company'],
-      async onQueryStarted(_, { dispatch, queryFulfilled }) {
-        try {
-          const { data } = await queryFulfilled;
-          if (data?.data) {
-            dispatch(
-              setUserIfNewer({
-                user: data.data as UserResponse | ApplicantResponse | RecruiterResponse | CompanyResponse,
-              }),
-            );
-          }
-        } catch (error) {
-          console.error('Failed to fetch account:', error);
-        }
-      },
+      onQueryStarted: createUserSyncOnQueryStarted({ operation: 'fetch account' }),
     }),
   }),
 });

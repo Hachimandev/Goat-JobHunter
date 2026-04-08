@@ -6,7 +6,7 @@ import {
   FetchApplicantByIdResponse,
   FetchApplicantsResponse,
 } from './applicantType';
-import { setUserIfNewer } from '@/lib/features/authSlice';
+import { createUserSyncOnQueryStarted } from '@/services/utils/userSyncOnQueryStarted';
 
 export const applicantApi = api.injectEndpoints({
   endpoints: (builder) => ({
@@ -30,16 +30,7 @@ export const applicantApi = api.injectEndpoints({
         data: formData,
       }),
       invalidatesTags: ['Applicant', 'Account', 'User'],
-      async onQueryStarted(_, { dispatch, queryFulfilled }) {
-        try {
-          const { data } = await queryFulfilled;
-          if (data?.data) {
-            dispatch(setUserIfNewer({ user: data.data }));
-          }
-        } catch (error) {
-          console.error('Failed to fetch account:', error);
-        }
-      },
+      onQueryStarted: createUserSyncOnQueryStarted({ operation: 'update applicant profile' }),
     }),
 
     deleteApplicant: builder.mutation<ApplicantMutationResponse, number>({
@@ -77,16 +68,7 @@ export const applicantApi = api.injectEndpoints({
         method: 'PUT',
       }),
       invalidatesTags: ['Applicant', 'Account', 'User'],
-      async onQueryStarted(_, { dispatch, queryFulfilled }) {
-        try {
-          const { data } = await queryFulfilled;
-          if (data?.data) {
-            dispatch(setUserIfNewer({ user: data.data }));
-          }
-        } catch (error) {
-          console.error('Failed to fetch account:', error);
-        }
-      },
+      onQueryStarted: createUserSyncOnQueryStarted({ operation: 'toggle applicant available status' }),
     }),
   }),
 });

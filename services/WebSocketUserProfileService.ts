@@ -7,16 +7,16 @@ import { store } from '@/lib/store';
 import {
   USER_PROFILE_UPDATED_EVENT,
   USER_PROFILE_TYPES,
+  UserProfilePatch,
   UserProfileType,
-  UserProfileUpdatedEventPayload,
+  UserProfileUpdatedEventRaw,
 } from '@/services/user/userProfileRealtimeType';
-import { MeResponse } from '@/types/dto';
 
 type ParsedProfileUpdateEvent = {
   userId: number;
   profileType: UserProfileType;
   emittedAt?: string;
-  profile: Partial<MeResponse>;
+  profile: UserProfilePatch;
 };
 
 export class WebSocketUserProfileService {
@@ -96,54 +96,69 @@ export class WebSocketUserProfileService {
   }
 
   private parseProfileUpdateEvent(payload: unknown): ParsedProfileUpdateEvent | null {
-    if (!payload || typeof payload !== 'object') {
+    const rawEvent = this.parseRawEvent(payload);
+
+    if (!rawEvent) {
       return null;
     }
 
-    const event = payload as UserProfileUpdatedEventPayload;
-
-    if (event.event !== USER_PROFILE_UPDATED_EVENT) {
+    if (rawEvent.event !== USER_PROFILE_UPDATED_EVENT) {
       return null;
     }
 
-    if (!this.isSupportedProfileType(event.profileType)) {
+    if (!this.isSupportedProfileType(rawEvent.profileType)) {
       return null;
     }
 
-    const emittedAt = typeof event.emittedAt === 'string' ? event.emittedAt : undefined;
+    const emittedAt = typeof rawEvent.emittedAt === 'string' ? rawEvent.emittedAt : undefined;
 
-    const profileSource = event.data;
-
-    if (!profileSource || typeof profileSource !== 'object') {
+    if (!rawEvent.data || typeof rawEvent.data !== 'object') {
       return null;
     }
 
-    const profilePatch = Object.entries(profileSource as Record<string, unknown>).reduce((patch, [key, value]) => {
-      if (value !== undefined) {
-        (patch as Record<string, unknown>)[key] = value;
-      }
-      return patch;
-    }, {} as Partial<MeResponse>);
+    const profilePatch = this.normalizeProfilePatch(rawEvent.data);
 
     if (Object.keys(profilePatch).length === 0) {
       return null;
     }
 
-    const userId = Number(profilePatch.accountId);
-    if (Number.isNaN(userId)) {
+    const userId = this.parseUserId(profilePatch.accountId);
+    if (userId === null) {
       return null;
     }
 
-    if (typeof profilePatch.accountId !== 'number') {
-      profilePatch.accountId = userId;
-    }
+    const normalizedProfilePatch =
+      typeof profilePatch.accountId === 'number' ? profilePatch : { ...profilePatch, accountId: userId };
 
     return {
       userId,
-      profileType: event.profileType,
+      profileType: rawEvent.profileType,
       emittedAt,
-      profile: profilePatch,
+      profile: normalizedProfilePatch,
     };
+  }
+
+  private parseRawEvent(payload: unknown): UserProfileUpdatedEventRaw | null {
+    if (!payload || typeof payload !== 'object') {
+      return null;
+    }
+
+    return payload as UserProfileUpdatedEventRaw;
+  }
+
+  private normalizeProfilePatch(profile: UserProfilePatch): UserProfilePatch {
+    return Object.entries(profile as Record<string, unknown>).reduce((patch, [key, value]) => {
+      if (value !== undefined) {
+        (patch as Record<string, unknown>)[key] = value;
+      }
+
+      return patch;
+    }, {} as UserProfilePatch);
+  }
+
+  private parseUserId(accountId: unknown): number | null {
+    const userId = Number(accountId);
+    return Number.isNaN(userId) ? null : userId;
   }
 
   private isSupportedProfileType(profileType: unknown): profileType is UserProfileType {

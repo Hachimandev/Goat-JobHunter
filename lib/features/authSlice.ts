@@ -1,139 +1,8 @@
 import { useAppSelector } from '@/lib/hooks';
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
-import { LoginResponseDto, MeResponse, UserResponse } from '@/types/dto';
-
-type AuthUser = LoginResponseDto | UserResponse | MeResponse;
-
-type UserSyncPayload = {
-  user: AuthUser;
-  emittedAt?: string;
-  force?: boolean;
-};
-
-type MergeUserProfilePayload = {
-  userId: number;
-  profile: Partial<AuthUser>;
-  emittedAt?: string;
-};
-
-const toRecord = (value: unknown): Record<string, unknown> => {
-  if (value && typeof value === 'object') {
-    return value as Record<string, unknown>;
-  }
-
-  return {};
-};
-
-const parseIsoTime = (value?: string | null): number | null => {
-  if (!value) {
-    return null;
-  }
-
-  const timestamp = Date.parse(value);
-  return Number.isNaN(timestamp) ? null : timestamp;
-};
-
-const getUserUpdatedAt = (user: unknown): string | undefined => {
-  const updatedAt = toRecord(user).updatedAt;
-  return typeof updatedAt === 'string' ? updatedAt : undefined;
-};
-
-const deepEqual = (left: unknown, right: unknown): boolean => {
-  if (left === right) {
-    return true;
-  }
-
-  if (typeof left !== typeof right) {
-    return false;
-  }
-
-  if (left === null || right === null) {
-    return left === right;
-  }
-
-  if (Array.isArray(left) && Array.isArray(right)) {
-    if (left.length !== right.length) {
-      return false;
-    }
-
-    return left.every((item, index) => deepEqual(item, right[index]));
-  }
-
-  if (typeof left !== 'object' || typeof right !== 'object') {
-    return false;
-  }
-
-  const leftRecord = left as Record<string, unknown>;
-  const rightRecord = right as Record<string, unknown>;
-  const leftKeys = Object.keys(leftRecord);
-  const rightKeys = Object.keys(rightRecord);
-
-  if (leftKeys.length !== rightKeys.length) {
-    return false;
-  }
-
-  return leftKeys.every((key) => deepEqual(leftRecord[key], rightRecord[key]));
-};
-
-const sanitizeProfilePatch = (profile: Partial<AuthUser>): Partial<AuthUser> => {
-  const sanitizedProfile: Partial<AuthUser> = {};
-
-  Object.entries(toRecord(profile)).forEach(([key, value]) => {
-    if (value !== undefined) {
-      (sanitizedProfile as Record<string, unknown>)[key] = value;
-    }
-  });
-
-  return sanitizedProfile;
-};
-
-const shouldApplyIncomingByRecency = ({
-  currentUser,
-  incomingUser,
-  currentEmittedAt,
-  incomingEmittedAt,
-  force = false,
-}: {
-  currentUser: AuthUser | null;
-  incomingUser: unknown;
-  currentEmittedAt?: string | null;
-  incomingEmittedAt?: string;
-  force?: boolean;
-}) => {
-  if (force || !currentUser) {
-    return true;
-  }
-
-  const currentUpdatedAt = parseIsoTime(getUserUpdatedAt(currentUser));
-  const incomingUpdatedAt = parseIsoTime(getUserUpdatedAt(incomingUser));
-
-  if (incomingUpdatedAt !== null && currentUpdatedAt !== null) {
-    if (incomingUpdatedAt > currentUpdatedAt) {
-      return true;
-    }
-
-    if (incomingUpdatedAt < currentUpdatedAt) {
-      return false;
-    }
-  }
-
-  if (incomingUpdatedAt !== null && currentUpdatedAt === null) {
-    return true;
-  }
-
-  const currentEmittedTimestamp = parseIsoTime(currentEmittedAt);
-  const incomingEmittedTimestamp = parseIsoTime(incomingEmittedAt);
-
-  if (incomingEmittedTimestamp !== null && currentEmittedTimestamp !== null) {
-    return incomingEmittedTimestamp > currentEmittedTimestamp;
-  }
-
-  if (incomingEmittedTimestamp !== null && currentEmittedTimestamp === null) {
-    return true;
-  }
-
-  return false;
-};
+import { shouldApplyUserSyncByRecency } from '@/lib/features/authSyncRecency';
+import { AuthUser, MergeUserProfilePayload, UserSyncPayload } from '@/lib/features/authSyncTypes';
+import { deepEqual, sanitizeProfilePatch, toRecord } from '@/lib/features/authSyncUtils';
 
 interface AuthState {
   user: AuthUser | null;
@@ -147,6 +16,12 @@ const initialState: AuthState = {
   roles: [],
   isAuthenticated: false,
   lastUserSyncEmittedAt: null,
+};
+
+const setLastUserSyncEmittedAt = (state: AuthState, emittedAt?: string) => {
+  if (emittedAt) {
+    state.lastUserSyncEmittedAt = emittedAt;
+  }
 };
 
 const authSlice = createSlice({
@@ -176,6 +51,7 @@ const authSlice = createSlice({
       state.isAuthenticated = true;
     },
     setUserIfNewer: (state, action: PayloadAction<UserSyncPayload>) => {
+      // Apply full user snapshot only when it is newer than current state.
       const { user, emittedAt, force } = action.payload;
 
       if (!user) {
@@ -183,7 +59,7 @@ const authSlice = createSlice({
       }
 
       if (
-        !shouldApplyIncomingByRecency({
+        !shouldApplyUserSyncByRecency({
           currentUser: state.user,
           incomingUser: user,
           currentEmittedAt: state.lastUserSyncEmittedAt,
@@ -195,20 +71,17 @@ const authSlice = createSlice({
       }
 
       if (state.user && deepEqual(state.user, user)) {
-        if (emittedAt) {
-          state.lastUserSyncEmittedAt = emittedAt;
-        }
+        setLastUserSyncEmittedAt(state, emittedAt);
         state.isAuthenticated = true;
         return;
       }
 
       state.user = user;
       state.isAuthenticated = true;
-      if (emittedAt) {
-        state.lastUserSyncEmittedAt = emittedAt;
-      }
+      setLastUserSyncEmittedAt(state, emittedAt);
     },
     mergeUserProfileIfNewer: (state, action: PayloadAction<MergeUserProfilePayload>) => {
+      // Merge partial realtime profile updates after user and recency guards pass.
       const { userId, profile, emittedAt } = action.payload;
 
       if (!state.user) {
@@ -233,7 +106,7 @@ const authSlice = createSlice({
       }
 
       if (
-        !shouldApplyIncomingByRecency({
+        !shouldApplyUserSyncByRecency({
           currentUser: state.user,
           incomingUser: incomingProfileRecord,
           currentEmittedAt: state.lastUserSyncEmittedAt,
@@ -249,18 +122,13 @@ const authSlice = createSlice({
       } as AuthUser;
 
       if (deepEqual(state.user, mergedUser)) {
-        if (emittedAt) {
-          state.lastUserSyncEmittedAt = emittedAt;
-        }
+        setLastUserSyncEmittedAt(state, emittedAt);
         return;
       }
 
       state.user = mergedUser;
       state.isAuthenticated = true;
-
-      if (emittedAt) {
-        state.lastUserSyncEmittedAt = emittedAt;
-      }
+      setLastUserSyncEmittedAt(state, emittedAt);
     },
     clearUser: (state) => {
       state.user = null;
