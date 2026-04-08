@@ -1,4 +1,5 @@
 import { useUser } from "@/hooks/useUser";
+import { Ionicons } from "@expo/vector-icons";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import dayjs from "dayjs";
 import { useRouter } from "expo-router";
@@ -18,6 +19,7 @@ import {
   View,
 } from "react-native";
 import { RadioButton } from "react-native-paper";
+import RNPickerSelect from "react-native-picker-select";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 interface ExtendedUser {
@@ -278,6 +280,75 @@ export default function EditProfileScreen() {
               )}
             />
           </View>
+          {isApplicant && (
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Chuyên môn</Text>
+              <View style={styles.row}>
+                {/* CỘT LEVEL */}
+                <View style={styles.inputGroup}>
+                  <Text style={styles.label}>Cấp bậc *</Text>
+                  <Controller
+                    control={control}
+                    name="level"
+                    render={({ field: { onChange, value } }) => (
+                      <RNPickerSelect
+                        onValueChange={onChange}
+                        value={value}
+                        items={[
+                          { label: "Intern", value: "INTERN" },
+                          { label: "Fresher", value: "FRESHER" },
+                          { label: "Junior", value: "JUNIOR" },
+                          { label: "Middle", value: "MIDDLE" },
+                          { label: "Senior", value: "SENIOR" },
+                        ]}
+                        style={pickerStyles}
+                        useNativeAndroidPickerStyle={false}
+                        Icon={() => (
+                          <Ionicons
+                            name="chevron-down"
+                            size={18}
+                            color="#94a3b8"
+                            style={{ marginTop: 12, marginRight: 8 }}
+                          />
+                        )}
+                      />
+                    )}
+                  />
+                </View>
+
+                {/* CỘT EDUCATION */}
+                <View style={styles.inputGroup}>
+                  <Text style={styles.label}>Học vấn *</Text>
+                  <Controller
+                    control={control}
+                    name="education"
+                    render={({ field: { onChange, value } }) => (
+                      <RNPickerSelect
+                        onValueChange={onChange}
+                        value={value}
+                        items={[
+                          { label: "School", value: "SCHOOL" },
+                          { label: "College", value: "COLLEGE" },
+                          { label: "Universtity", value: "UNIVERSITY" },
+                          { label: "Engineer", value: "ENGINEER" },
+                        ]}
+                        style={pickerStyles}
+                        useNativeAndroidPickerStyle={false}
+                        Icon={() => (
+                          <Ionicons
+                            name="chevron-down"
+                            size={18}
+                            color="#94a3b8"
+                            style={{ marginTop: 12, marginRight: 8 }}
+                          />
+                        )}
+                      />
+                    )}
+                  />
+                </View>
+              </View>
+            </View>
+          )}
 
           <View style={styles.section}>
             <View style={styles.rowBetween}>
@@ -463,5 +534,42 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
     marginBottom: 15,
+  },
+  pickerContainer: {
+    borderWidth: 1,
+    borderColor: "#e2e8f0",
+    borderRadius: 8,
+    backgroundColor: "#f8fafc",
+    justifyContent: "center",
+    height: 45,
+  },
+});
+
+const pickerStyles = StyleSheet.create({
+  inputIOS: {
+    fontSize: 14,
+    paddingVertical: 12,
+    paddingHorizontal: 10,
+    borderWidth: 1,
+    borderColor: "#e2e8f0",
+    borderRadius: 8,
+    color: "#1e293b",
+    backgroundColor: "#f8fafc",
+    paddingRight: 30,
+  },
+  inputAndroid: {
+    fontSize: 14,
+    paddingHorizontal: 10,
+    paddingVertical: 10,
+    borderWidth: 1,
+    borderColor: "#e2e8f0",
+    borderRadius: 8,
+    color: "#1e293b",
+    backgroundColor: "#f8fafc",
+    paddingRight: 30,
+  },
+  iconContainer: {
+    top: 0,
+    right: 0,
   },
 });

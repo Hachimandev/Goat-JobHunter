@@ -89,44 +89,28 @@ export const chatRoomApi = api.injectEndpoints({
       ],
     }),
 
-    // Send message to a existed chat room
     sendMessageToChatRoom: builder.mutation<
       MessageType,
       SendMessageToChatRoomRequest
     >({
-      query: ({ chatRoomId, content, files }) => {
-        const formData = new FormData();
-
-        // Add files nếu có
-        if (files && files.length > 0) {
-          files.forEach((file) => {
-            formData.append("files", file);
-          });
-        }
-
-        // Add content nếu có (dưới dạng JSON part)
-        if (content && content.trim()) {
-          const requestBlob = new Blob([JSON.stringify({ content })], {
-            type: "application/json",
-          });
-          formData.append("request", requestBlob);
-        }
+      query: ({ chatRoomId, ...args }) => {
+        // @ts-ignore
+        const bodyData = args.data || args;
 
         return {
           url: `/chatrooms/${chatRoomId}/messages`,
           method: "POST",
-          data: formData,
+          data: bodyData,
         };
       },
       invalidatesTags: (result, error, { chatRoomId }) => [
-        { type: "ChatRoom", id: `MESSAGES_${chatRoomId}` }, // Làm mới tin nhắn bên trong
-        { type: "ChatRoom", id: "LIST" }, // Làm mới danh sách bên ngoài
+        { type: "ChatRoom", id: `MESSAGES_${chatRoomId}` },
+        { type: "ChatRoom", id: "LIST" },
       ],
       async onQueryStarted({ chatRoomId }, { dispatch, queryFulfilled }) {
         try {
           const { data: newMessage } = await queryFulfilled;
 
-          // Update chat rooms list cache
           dispatch(
             chatRoomApi.util.updateQueryData(
               "fetchChatRooms",
@@ -140,11 +124,9 @@ export const chatRoomApi = api.injectEndpoints({
                   if (chatRoomIndex !== -1) {
                     const chatRoom = draft.data.result[chatRoomIndex];
 
-                    // Update last message info
                     chatRoom.lastMessagePreview = newMessage.content;
                     chatRoom.lastMessageTime = newMessage.createdAt;
 
-                    // Move to top if not already first
                     if (chatRoomIndex !== 0) {
                       draft.data.result.splice(chatRoomIndex, 1);
                       draft.data.result.unshift(chatRoom);
