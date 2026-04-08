@@ -1,16 +1,32 @@
+import { useUser } from "@/hooks/useUser";
+import * as ImagePicker from "expo-image-picker";
 import { useRouter } from "expo-router";
+import {
+  ArrowLeft,
+  Bell,
+  Briefcase,
+  Building,
+  Cake,
+  Camera,
+  GraduationCap,
+  Phone,
+  User,
+  Users,
+} from "lucide-react-native";
 import React from "react";
 import {
+  Alert,
+  Platform,
+  Image as RNImage,
   ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from "react-native";
+import { ActivityIndicator } from "react-native-paper";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useAppSelector } from "../../lib/hooks";
 import { formatDate } from "../../utils/formatDate";
-import { ArrowLeft, User, Users, Cake, Phone, Bell, GraduationCap, Building, Briefcase } from "lucide-react-native";
 
 const formatLabel = (str?: string) => {
   if (!str) return "Chưa cập nhật";
@@ -19,10 +35,102 @@ const formatLabel = (str?: string) => {
 
 export default function ProfileInfoScreen() {
   const router = useRouter();
-  const { user } = useAppSelector((state) => state.auth);
-  const userData = user as any;
 
-  // Hàm xử lý quay lại an toàn
+  const {
+    user,
+    handleUpdateApplicant,
+    handleUpdateRecruiter,
+    isUpdatingApplicant,
+    isUpdatingRecruiter,
+  } = useUser();
+  const userData = user as any;
+  const isUpdating = isUpdatingApplicant || isUpdatingRecruiter;
+
+  const handleAvatarPress = () => {
+    if (Platform.OS === "web") {
+      onPickImage(false);
+    } else {
+      Alert.alert(
+        "Cập nhật ảnh đại diện",
+        "Bạn muốn chụp ảnh mới hay chọn từ thư viện?",
+        [
+          { text: "Máy ảnh", onPress: () => onPickImage(true) },
+          { text: "Thư viện ảnh", onPress: () => onPickImage(false) },
+          { text: "Hủy", style: "cancel" },
+        ],
+      );
+    }
+  };
+
+  const onPickImage = async (useCamera: boolean) => {
+    if (Platform.OS !== "web") {
+      const permission = useCamera
+        ? await ImagePicker.requestCameraPermissionsAsync()
+        : await ImagePicker.requestMediaLibraryPermissionsAsync();
+
+      if (!permission.granted) {
+        return Alert.alert("Lỗi", "Ứng dụng cần quyền truy cập để thực hiện");
+      }
+    }
+
+    let result;
+
+    if (useCamera && Platform.OS !== "web") {
+      result = await ImagePicker.launchCameraAsync({
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.6,
+      });
+    } else {
+      result = await ImagePicker.launchImageLibraryAsync({
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.6,
+      });
+    }
+
+    if (!result.canceled) {
+      uploadAvatar(result.assets[0]);
+    }
+  };
+
+  const uploadAvatar = async (asset: ImagePicker.ImagePickerAsset) => {
+    try {
+      const formData = new FormData();
+      formData.append("accountId", String(userData.accountId));
+
+      if (Platform.OS === "web") {
+        const response = await fetch(asset.uri);
+        const blob = await response.blob();
+
+        const fieldName =
+          userData?.role?.name === "COMPANY" ? "logo" : "avatar";
+        formData.append(fieldName, blob, asset.fileName || "avatar.jpg");
+      } else {
+        const fileData = {
+          uri:
+            Platform.OS === "android"
+              ? asset.uri
+              : asset.uri.replace("file://", ""),
+          name: asset.fileName || `avatar_${Date.now()}.jpg`,
+          type: asset.mimeType || "image/jpeg",
+        };
+        const fieldName =
+          userData?.role?.name === "COMPANY" ? "logo" : "avatar";
+        formData.append(fieldName, fileData as any);
+      }
+
+      const res =
+        userData?.role?.name === "APPLICANT"
+          ? await handleUpdateApplicant(formData)
+          : await handleUpdateRecruiter(formData);
+
+      if (res?.success) Alert.alert("Thành công", "Đã cập nhật ảnh đại diện");
+    } catch (e) {
+      Alert.alert("Lỗi", "Cập nhật ảnh thất bại");
+    }
+  };
+
   const handleBack = () => {
     if (router.canGoBack()) {
       router.back();
@@ -73,21 +181,38 @@ export default function ProfileInfoScreen() {
       >
         {/* Top Profile Card */}
         <View style={styles.topSection}>
-          <View style={styles.avatarLarge}>
-            <Text style={styles.avatarLargeText}>
-              {userData?.fullName?.charAt(0).toUpperCase()}
-            </Text>
-          </View>
-          <Text style={styles.mainName}>
-            {userData?.fullName || "Người dùng"}
-          </Text>
+          <TouchableOpacity onPress={handleAvatarPress} disabled={isUpdating}>
+            <View style={styles.avatarLarge}>
+              {isUpdating ? (
+                <ActivityIndicator color="#fff" />
+              ) : userData?.avatar ? (
+                <RNImage
+                  source={{ uri: userData.avatar }}
+                  style={styles.fullAvatar}
+                />
+              ) : (
+                <Text style={styles.avatarLargeText}>
+                  {userData?.fullName?.charAt(0).toUpperCase()}
+                </Text>
+              )}
+              {/* Badge Icon máy ảnh */}
+              <View style={styles.cameraBadge}>
+                <Camera size={14} color="#fff" />
+              </View>
+            </View>
+          </TouchableOpacity>
+          <Text style={styles.mainName}>{userData?.fullName}</Text>
           <Text style={styles.mainSub}>{userData?.email}</Text>
         </View>
 
         {/* Thông tin cơ bản */}
         <View style={styles.section}>
           <Text style={styles.sectionHeader}>Thông tin cơ bản</Text>
-          <InfoRow icon={<User size={18} color="#6b7280" />} label="Tên hiển thị" value={userData?.username} />
+          <InfoRow
+            icon={<User size={18} color="#6b7280" />}
+            label="Tên hiển thị"
+            value={userData?.username}
+          />
           <InfoRow
             icon={<Users size={18} color="#6b7280" />}
             label="Giới tính"
@@ -104,7 +229,11 @@ export default function ProfileInfoScreen() {
             label="Ngày sinh"
             value={userData?.dob ? formatDate(userData.dob) : "Chưa cập nhật"}
           />
-          <InfoRow icon={<Phone size={18} color="#6b7280" />} label="Số điện thoại" value={userData?.phone} />
+          <InfoRow
+            icon={<Phone size={18} color="#6b7280" />}
+            label="Số điện thoại"
+            value={userData?.phone}
+          />
           <InfoRow
             icon={<Bell size={18} color="#6b7280" />}
             label="Trạng thái"
@@ -166,7 +295,11 @@ export default function ProfileInfoScreen() {
               />
             </>
           ) : (
-            <InfoRow icon={<Briefcase size={18} color="#6b7280" />} label="Vị trí" value={userData?.position} />
+            <InfoRow
+              icon={<Briefcase size={18} color="#6b7280" />}
+              label="Vị trí"
+              value={userData?.position}
+            />
           )}
         </View>
 
@@ -270,5 +403,19 @@ const styles = StyleSheet.create({
     fontStyle: "italic",
     textAlign: "center",
     marginTop: 10,
+  },
+  fullAvatar: { width: 80, height: 80, borderRadius: 40 },
+  cameraBadge: {
+    position: "absolute",
+    bottom: 0,
+    right: 0,
+    backgroundColor: "#00a651",
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 2,
+    borderColor: "#fff",
   },
 });
