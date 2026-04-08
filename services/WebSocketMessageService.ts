@@ -7,14 +7,18 @@ import { chatRoomApi } from '@/services/chatRoom/chatRoomApi';
 import { MessageType } from '@/types/model';
 import { groupChatApi } from '@/services/chatRoom/groupChat/groupChatApi';
 
+type DeleteMessageRealtimeEvent = {
+  messageId: string;
+  chatRoomId: string | number;
+};
+
 export class WebSocketMessageService {
   private client: Client | null = null;
   private subscribedChatRooms: Set<number> = new Set();
   private onConnectedCallback: (() => void) | null = null;
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   constructor(
-    private readonly dispatch: ThunkDispatch<any, any, UnknownAction>,
+    private readonly dispatch: ThunkDispatch<any, any, UnknownAction>, // eslint-disable-line @typescript-eslint/no-explicit-any
     onConnected?: () => void,
   ) {
     this.onConnectedCallback = onConnected || null;
@@ -55,7 +59,14 @@ export class WebSocketMessageService {
 
     this.client.subscribe(`/topic/chatrooms/${chatRoomId}`, (frame) => {
       try {
-        const message: MessageType = JSON.parse(frame.body);
+        const payload: unknown = JSON.parse(frame.body);
+
+        if (this.isDeleteMessageEvent(payload)) {
+          this.handleDeleteMessageEvent(chatRoomId, payload);
+          return;
+        }
+
+        const message = payload as MessageType;
 
         if (message.messageType === 'SYSTEM') {
           this.handleGroupEvent(chatRoomId, message);
@@ -102,6 +113,41 @@ export class WebSocketMessageService {
     this.client.onWebSocketClose = () => {
       console.log('⚠️ WebSocket Message closed');
     };
+  }
+
+  private isDeleteMessageEvent(payload: unknown): payload is DeleteMessageRealtimeEvent {
+    if (!payload || typeof payload !== 'object') {
+      return false;
+    }
+
+    const candidate = payload as Record<string, unknown>;
+    const hasValidMessageId = typeof candidate.messageId === 'string';
+    const hasValidChatRoomId = typeof candidate.chatRoomId === 'string' || typeof candidate.chatRoomId === 'number';
+    const hasSender = 'sender' in candidate;
+
+    return hasValidMessageId && hasValidChatRoomId && !hasSender;
+  }
+
+  private handleDeleteMessageEvent(subscribedChatRoomId: number, payload: DeleteMessageRealtimeEvent) {
+    const parsedChatRoomId = Number(payload.chatRoomId);
+    const targetChatRoomId = Number.isNaN(parsedChatRoomId) ? subscribedChatRoomId : parsedChatRoomId;
+
+    this.dispatch(
+      chatRoomApi.util.updateQueryData(
+        'fetchMessagesInChatRoom',
+        {
+          chatRoomId: targetChatRoomId,
+          page: 1,
+          size: 50,
+        },
+        (draft) => {
+          if (!draft?.data) return;
+          draft.data = draft.data.filter((message) => message.messageId !== payload.messageId);
+        },
+      ),
+    );
+
+    this.dispatch(chatRoomApi.util.invalidateTags([{ type: 'ChatRoom', id: 'LIST' }]));
   }
 
   private handleMessage(chatRoomId: number, message: MessageType) {
