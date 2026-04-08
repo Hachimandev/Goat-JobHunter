@@ -18,6 +18,7 @@ import {
   ImageIcon,
   Users,
   MoreVertical,
+  Forward,
   Undo2,
   Loader2,
   Trash2,
@@ -34,8 +35,10 @@ interface MessageBubbleProps {
   showAvatar?: boolean;
   senderName?: string;
   senderAvatar?: string;
+  onForward?: (message: MessageType) => void;
   onRecall?: (messageId: string) => void | Promise<void>;
   onDelete?: (messageId: string) => void | Promise<void>;
+  isForwarding?: boolean;
   isRecalling?: boolean;
   isDeleting?: boolean;
 }
@@ -46,8 +49,10 @@ export function MessageBubble({
   showAvatar = false,
   senderName,
   senderAvatar,
+  onForward,
   onRecall,
   onDelete,
+  isForwarding = false,
   isRecalling = false,
   isDeleting = false,
 }: Readonly<MessageBubbleProps>) {
@@ -58,6 +63,7 @@ export function MessageBubble({
     locale: vi,
   });
   const type = useMemo(() => message.messageType, [message.messageType]);
+  const isForwarded = useMemo(() => Boolean(message.isForwarded), [message.isForwarded]);
   const isRecalled = useMemo(() => message.isHidden, [message.isHidden]);
 
   const isMedia = useMemo(
@@ -68,11 +74,14 @@ export function MessageBubble({
   );
 
   const isSystem = useMemo(() => type === MessageTypeEnum.SYSTEM, [type]);
+  const disableForwardAction = isForwarding || isRecalled || !onForward;
   const disableRecallAction = isRecalled || isRecalling || !onRecall;
   const disableDeleteAction = isDeleting || isRecalling || !onDelete;
-  const canShowRecallAction = !isRecalled && !!onRecall;
-  const canShowDeleteAction = !!onDelete;
-  const canShowActionMenu = isOwn && !isSystem && (canShowRecallAction || canShowDeleteAction);
+  const canShowForwardAction = !isSystem && !isRecalled && !!onForward;
+  const canShowRecallAction = isOwn && !isRecalled && !!onRecall;
+  const canShowDeleteAction = isOwn && !!onDelete;
+  const canShowOwnerActions = isOwn && !isSystem && (canShowRecallAction || canShowDeleteAction);
+  const canShowActionMenu = canShowForwardAction || canShowOwnerActions;
 
   if (!message.content && !isRecalled) return null;
 
@@ -176,6 +185,11 @@ export function MessageBubble({
     await onRecall(message.messageId);
   };
 
+  const handleForward = () => {
+    if (!onForward || disableForwardAction) return;
+    onForward(message);
+  };
+
   const handleDelete = async () => {
     if (!onDelete || disableDeleteAction) return;
     await onDelete(message.messageId);
@@ -193,9 +207,20 @@ export function MessageBubble({
         )}
         <div className={cn('flex items-start gap-1', isOwn ? 'flex-row-reverse' : 'flex-row')}>
           <div className={cn('flex flex-col w-full', isOwn ? 'items-end' : 'items-start')}>
-            {!isOwn && showAvatar && senderName && (
-              <span className="text-xs font-medium text-muted-foreground mb-1 px-1">{senderName}</span>
-            )}
+            <p className="flex">
+              {!isOwn && showAvatar && senderName && (
+                <>
+                  {isForwarded && <Forward className="h-3 w-3" />}
+                  <span className="text-xs font-medium text-muted-foreground mb-1 px-1">{senderName}</span>
+                </>
+              )}
+              {isForwarded && (
+                <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground mb-1 px-1">
+                  {isOwn && <Forward className="h-3 w-3" />}
+                  {isOwn ? 'Bạn đã chuyển tiếp tin nhắn' : 'đã chuyển tiếp tin nhắn'}
+                </span>
+              )}
+            </p>
             {isMedia ? (
               renderContent()
             ) : (
@@ -222,9 +247,9 @@ export function MessageBubble({
                   variant="ghost"
                   size="icon"
                   className="h-7 w-7 rounded-full mt-0.5"
-                  disabled={isDeleting || isRecalling}
+                  disabled={isDeleting || isRecalling || isForwarding}
                 >
-                  {isRecalling || isDeleting ? (
+                  {isRecalling || isDeleting || isForwarding ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
                   ) : (
                     <MoreVertical className="h-4 w-4" />
@@ -232,6 +257,13 @@ export function MessageBubble({
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="rounded-xl">
+                {canShowForwardAction && (
+                  <DropdownMenuItem onClick={handleForward} disabled={disableForwardAction} className="rounded-xl">
+                    <Forward className="h-4 w-4" />
+                    Chuyển tiếp
+                  </DropdownMenuItem>
+                )}
+
                 {canShowRecallAction && (
                   <DropdownMenuItem
                     onClick={handleRecall}

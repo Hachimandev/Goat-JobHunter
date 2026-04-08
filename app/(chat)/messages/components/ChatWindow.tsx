@@ -14,6 +14,8 @@ interface ChatWindowProps {
   messages: MessageType[];
   currentUserId?: string;
   onSendMessage: (text?: string, files?: File[]) => void;
+  onForwardMessage?: (message: MessageType) => void;
+  isForwardingMessage?: boolean;
   onDeleteMessage?: (messageId: string) => Promise<void> | void;
   isDeletingMessage?: (messageId: string) => boolean;
   onRecallMessage?: (messageId: string) => Promise<void> | void;
@@ -25,6 +27,8 @@ export function ChatWindow({
   messages,
   currentUserId,
   onSendMessage,
+  onForwardMessage,
+  isForwardingMessage,
   onDeleteMessage,
   isDeletingMessage,
   onRecallMessage,
@@ -41,6 +45,8 @@ export function ChatWindow({
           messages={messages}
           currentUserId={currentUserId}
           isGroup={isGroup}
+          onForwardMessage={onForwardMessage}
+          isForwardingMessage={isForwardingMessage}
           onDeleteMessage={onDeleteMessage}
           isDeletingMessage={isDeletingMessage}
           onRecallMessage={onRecallMessage}
