@@ -130,12 +130,12 @@ export function ProfileInfo() {
         <div className="flex-1 min-w-0">
           <div className="flex flex-wrap items-baseline gap-2 mb-2">
             <h1 className="text-3xl font-bold text-foreground">{displayName}</h1>
-            {username && <p className="text-sm text-muted-foreground">@{username}</p>}
           </div>
 
           <div className="text-sm space-y-1">
+            {username && <p className="text-sm text-muted-foreground">@{username}</p>}
             {email && (
-              <div className="flex items-center gap-2 text-muted-foreground">
+              <div className="flex items-center gap-1 text-muted-foreground">
                 <Mail className="h-4 w-4 shrink-0" />
                 <span className="truncate">{email}</span>
               </div>

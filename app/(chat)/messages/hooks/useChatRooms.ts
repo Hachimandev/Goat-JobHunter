@@ -1,10 +1,17 @@
-import { useFetchChatRoomsQuery } from "@/services/chatRoom/chatRoomApi";
-import { ChatRoom } from "@/types/model";
+import { useFetchChatRoomsQuery } from '@/services/chatRoom/chatRoomApi';
+import { ChatRoom } from '@/types/model';
 
-export function useChatRooms() {
+type UseChatRoomsOptions = {
+  page?: number;
+  size?: number;
+};
+
+export function useChatRooms(options: UseChatRoomsOptions = {}) {
+  const { page = 1, size = 50 } = options;
+
   const { data, isLoading, isError, refetch } = useFetchChatRoomsQuery({
-    page: 1,
-    size: 50
+    page,
+    size,
   });
 
   const chatRooms: ChatRoom[] = data?.data?.result || [];
@@ -15,6 +22,6 @@ export function useChatRooms() {
     total,
     isLoading,
     isError,
-    refetch
+    refetch,
   };
 }
