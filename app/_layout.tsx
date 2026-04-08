@@ -1,6 +1,7 @@
 import { Stack } from "expo-router";
 import React, { useEffect, useState } from "react";
 import { ActivityIndicator, View } from "react-native";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { Provider } from "react-redux";
 import { PersistGate } from "redux-persist/integration/react";
 import { setUser } from "../lib/authSlice";
@@ -59,23 +60,25 @@ function AuthChecker() {
 
 export default function RootLayout() {
   return (
-    <Provider store={store}>
-      <PersistGate loading={null} persistor={persistor}>
-        <AuthChecker />
-        <Stack
-          screenOptions={{
-            headerShown: false,
-          }}
-        >
-          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-          <Stack.Screen name="jobs/[id]" options={{ headerShown: false }} />
-          <Stack.Screen
-            name="companies/[id]"
-            options={{ headerShown: false }}
-          />
-          <Stack.Screen name="(auth)" options={{ headerShown: false }} />
-        </Stack>
-      </PersistGate>
-    </Provider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <Provider store={store}>
+        <PersistGate loading={null} persistor={persistor}>
+          <AuthChecker />
+          <Stack
+            screenOptions={{
+              headerShown: false,
+            }}
+          >
+            <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+            <Stack.Screen name="jobs/[id]" options={{ headerShown: false }} />
+            <Stack.Screen
+              name="companies/[id]"
+              options={{ headerShown: false }}
+            />
+            <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+          </Stack>
+        </PersistGate>
+      </Provider>
+    </GestureHandlerRootView>
   );
 }

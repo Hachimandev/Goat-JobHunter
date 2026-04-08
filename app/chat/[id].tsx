@@ -1,19 +1,26 @@
 import useChatActionsMobile from "@/hooks/useChatActionsMobile";
 import { useUser } from "@/hooks/useUser";
-import { useFetchMessagesInChatRoomQuery } from "@/services/chatRoom/chatRoomApi";
+import {
+  useFetchMessagesInChatRoomQuery,
+  useRevokeMessageMutation,
+} from "@/services/chatRoom/chatRoomApi";
 import { MessageType } from "@/types/model";
 import { Ionicons } from "@expo/vector-icons";
+import BottomSheet, { BottomSheetView } from "@gorhom/bottom-sheet";
 import { router, useLocalSearchParams } from "expo-router";
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
+  KeyboardAvoidingView,
+  Platform,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
+
 import { SafeAreaView } from "react-native-safe-area-context";
 interface OptimisticMessage extends Partial<MessageType> {
   messageId: string;
@@ -26,10 +33,18 @@ export default function ChatDetail() {
   const { user } = useUser();
   const [text, setText] = useState("");
   const { handleSendMessage, isSending } = useChatActionsMobile();
+  const [revokeMessage] = useRevokeMessageMutation();
+
+  const bottomSheetRef = useRef<BottomSheet>(null);
+  const snapPoints = useMemo(() => ["25%"], []);
+
+  const [selectedMessage, setSelectedMessage] =
+    useState<OptimisticMessage | null>(null);
 
   const [optimisticMessages, setOptimisticMessages] = useState<
     OptimisticMessage[]
   >([]);
+  const [highlightId, setHighlightId] = useState<string | null>(null);
 
   const {
     data: messagesData,
@@ -102,79 +117,156 @@ export default function ChatDetail() {
     }
   };
 
+  ///
+  const handleRevoke = async (message: OptimisticMessage) => {
+    try {
+      await revokeMessage({
+        chatRoomId,
+        messageId: message.messageId!,
+      }).unwrap();
+
+      refetch();
+
+      setOptimisticMessages((prev) =>
+        prev.map((m) =>
+          m.messageId === message.messageId
+            ? { ...m, content: "Tin nhắn đã được thu hồi" }
+            : m,
+        ),
+      );
+    } catch (err) {
+      console.log("Revoke error", err);
+    }
+  };
+  const handleLongPress = (message: OptimisticMessage) => {
+    setHighlightId(message.messageId);
+    setSelectedMessage(message);
+    bottomSheetRef.current?.expand();
+  };
+
   if (isLoading && !messagesData)
     return <ActivityIndicator style={{ flex: 1 }} />;
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()}>
-          <Ionicons name="chevron-back" size={24} color="#fff" />
-        </TouchableOpacity>
-        <View style={styles.headerInfo}>
-          <Text style={styles.headerTitle}>{name}</Text>
-          <Text style={styles.headerStatus}>Đang hoạt động</Text>
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+        keyboardVerticalOffset={Platform.OS === "ios" ? 80 : 0}
+      >
+        <View style={styles.header}>
+          <TouchableOpacity onPress={() => router.back()}>
+            <Ionicons name="chevron-back" size={24} color="#fff" />
+          </TouchableOpacity>
+          <View style={styles.headerInfo}>
+            <Text style={styles.headerTitle}>{name}</Text>
+            <Text style={styles.headerStatus}>Đang hoạt động</Text>
+          </View>
+          <TouchableOpacity
+            onPress={() =>
+              router.push({ pathname: "/chat/detail", params: { id, name } })
+            }
+          >
+            <Ionicons
+              name="information-circle-outline"
+              size={24}
+              color="#fff"
+            />
+          </TouchableOpacity>
         </View>
-        <TouchableOpacity
-          onPress={() =>
-            router.push({ pathname: "/chat/detail", params: { id, name } })
-          }
-        >
-          <Ionicons name="information-circle-outline" size={24} color="#fff" />
-        </TouchableOpacity>
-      </View>
 
-      <FlatList
-        data={processedMessages}
-        inverted
-        keyExtractor={(item) => item.messageId?.toString()}
-        contentContainerStyle={{ padding: 12 }}
-        renderItem={({ item }) => {
-          const isMe = item.sender?.accountId === user?.accountId;
-          const isSendingMsg = (item as OptimisticMessage).sending;
-          return (
-            <View
-              style={[
-                styles.messageRow,
-                { justifyContent: isMe ? "flex-end" : "flex-start" },
-              ]}
-            >
+        <FlatList
+          data={processedMessages}
+          inverted
+          keyExtractor={(item) => item.messageId?.toString()}
+          contentContainerStyle={{ padding: 12 }}
+          renderItem={({ item }) => {
+            const isMe = item.sender?.accountId === user?.accountId;
+            const isSendingMsg = (item as OptimisticMessage).sending;
+
+            return (
               <View
                 style={[
-                  styles.bubble,
-                  isMe ? styles.myBubble : styles.otherBubble,
-                  isSendingMsg && { opacity: 0.6 },
+                  styles.messageRow,
+                  { justifyContent: isMe ? "flex-end" : "flex-start" },
                 ]}
               >
-                <Text style={{ color: isMe ? "#fff" : "#000" }}>
-                  {item.content}
-                </Text>
+                <TouchableOpacity
+                  onLongPress={() => handleLongPress(item)}
+                  activeOpacity={0.7}
+                >
+                  <View
+                    style={[
+                      styles.bubble,
+                      isMe ? styles.myBubble : styles.otherBubble,
+                      isSendingMsg && { opacity: 0.6 },
+                      highlightId === item.messageId && {
+                        transform: [{ scale: 1.05 }],
+                      },
+                    ]}
+                  >
+                    <Text
+                      style={{
+                        color: "#aaa",
+                        fontStyle: item.content ? "normal" : "italic",
+                      }}
+                    >
+                      {item.content || "Tin nhắn đã bị thu hồi"}
+                    </Text>
+                  </View>
+                </TouchableOpacity>
               </View>
-            </View>
-          );
-        }}
-      />
-
-      <View style={styles.inputBar}>
-        <TextInput
-          value={text}
-          onChangeText={setText}
-          placeholder="Tin nhắn"
-          style={styles.input}
-          multiline
+            );
+          }}
         />
-        <TouchableOpacity
-          onPress={onSend}
-          style={[styles.sendBtn, !text.trim() && { opacity: 0.5 }]}
-          disabled={!text.trim()}
-        >
-          {isSending ? (
-            <ActivityIndicator color="#fff" size="small" />
-          ) : (
-            <Text style={{ color: "#fff" }}>➤</Text>
-          )}
-        </TouchableOpacity>
-      </View>
+
+        <View style={styles.inputBar}>
+          <TextInput
+            value={text}
+            onChangeText={setText}
+            placeholder="Tin nhắn"
+            style={styles.input}
+            multiline
+          />
+          <TouchableOpacity
+            onPress={onSend}
+            style={[styles.sendBtn, !text.trim() && { opacity: 0.5 }]}
+            disabled={!text.trim()}
+          >
+            {isSending ? (
+              <ActivityIndicator color="#fff" size="small" />
+            ) : (
+              <Text style={{ color: "#fff" }}>➤</Text>
+            )}
+          </TouchableOpacity>
+        </View>
+      </KeyboardAvoidingView>
+      <BottomSheet
+        ref={bottomSheetRef}
+        index={-1}
+        snapPoints={snapPoints}
+        enablePanDownToClose
+        onClose={() => setHighlightId(null)}
+      >
+        <BottomSheetView style={styles.sheetContainer}>
+          <TouchableOpacity
+            style={styles.sheetItem}
+            onPress={() => {
+              if (selectedMessage) handleRevoke(selectedMessage);
+              bottomSheetRef.current?.close();
+            }}
+          >
+            <Text style={styles.sheetText}>Thu hồi tin nhắn</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.sheetItem}
+            onPress={() => bottomSheetRef.current?.close()}
+          >
+            <Text style={styles.sheetCancel}>Hủy</Text>
+          </TouchableOpacity>
+        </BottomSheetView>
+      </BottomSheet>
     </SafeAreaView>
   );
 }
@@ -259,5 +351,27 @@ const styles = StyleSheet.create({
   headerStatus: {
     color: "#E0E0E0",
     fontSize: 12,
+  },
+  sheetContainer: {
+    padding: 16,
+  },
+
+  sheetItem: {
+    paddingVertical: 14,
+    borderBottomWidth: 0.5,
+    borderColor: "#ddd",
+  },
+
+  sheetText: {
+    fontSize: 16,
+    color: "red",
+    fontWeight: "600",
+  },
+
+  sheetCancel: {
+    fontSize: 16,
+    textAlign: "center",
+    marginTop: 10,
+    color: "#333",
   },
 });
