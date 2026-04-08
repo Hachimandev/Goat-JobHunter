@@ -4,7 +4,7 @@ import dayjs from "dayjs";
 import { Image } from "expo-image";
 import React, { useState } from "react";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
-import Icon from "react-native-vector-icons/Feather";
+import { Trash2 } from 'lucide-react-native';
 import CommentInput from "./CommentInput";
 import ReportTicketModal from "./ReportTicketModal";
 
@@ -74,7 +74,7 @@ export default function CommentItem({ comment, blogId, isReply = false }: any) {
                   onPress={handleDelete}
                   style={styles.deleteBtn}
                 >
-                  <Icon name="trash-2" size={14} color="#ef4444" />
+                  <Trash2 size={14} color="#ef4444" />
                 </TouchableOpacity>
               )}
               {/* {isOwner && (

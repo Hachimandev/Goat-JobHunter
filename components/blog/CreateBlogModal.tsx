@@ -1,6 +1,6 @@
 import useBlogActionsMobile from "@/hooks/useBlogActions";
 import { useUser } from "@/hooks/useUser";
-import { Ionicons } from "@expo/vector-icons";
+import { ImagePlus } from 'lucide-react-native';
 import * as ImagePicker from "expo-image-picker";
 import { useState } from "react";
 import {
@@ -17,7 +17,7 @@ import {
   View,
 } from "react-native";
 
-export default function CreateBlogModal({ visible, onClose, onSuccess }) {
+export default function CreateBlogModal({ visible, onClose, onSuccess }: { visible: boolean; onClose: () => void; onSuccess?: () => void }) {
   const [content, setContent] = useState("");
   const [images, setImages] = useState<any[]>([]);
   const { handleCreateBlog, isCreating } = useBlogActionsMobile();
@@ -131,7 +131,7 @@ export default function CreateBlogModal({ visible, onClose, onSuccess }) {
         {/* ===== Footer Actions ===== */}
         <View style={styles.footer}>
           <TouchableOpacity style={styles.addImageBtn} onPress={pickImage}>
-            <Ionicons name="images" size={22} color="#22c55e" />
+            <ImagePlus size={22} color="#22c55e" />
             <Text style={styles.addImageText}>Ảnh</Text>
           </TouchableOpacity>
         </View>

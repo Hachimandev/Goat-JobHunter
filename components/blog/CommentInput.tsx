@@ -9,7 +9,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import Icon from "react-native-vector-icons/MaterialCommunityIcons";
+import { Send } from 'lucide-react-native';
 
 export default function CommentInput({ blogId, replyTo, onCancelReply }: any) {
   const { user } = useUser();
@@ -49,8 +49,7 @@ export default function CommentInput({ blogId, replyTo, onCancelReply }: any) {
         {isCommenting ? (
           <ActivityIndicator size="small" />
         ) : (
-          <Icon
-            name="send"
+          <Send
             size={24}
             color={text.trim() ? "#1976d2" : "#ccc"}
           />

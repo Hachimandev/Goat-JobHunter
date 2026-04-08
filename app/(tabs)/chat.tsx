@@ -1,6 +1,6 @@
 import { useUser } from "@/hooks/useUser";
 import { useFetchChatRoomsQuery } from "@/services/chatRoom/chatRoomApi";
-import { Ionicons } from "@expo/vector-icons";
+import { Search } from 'lucide-react-native';
 import dayjs from "dayjs";
 import { router, useFocusEffect } from "expo-router";
 import React, { useCallback, useState } from "react";
@@ -14,7 +14,7 @@ import {
   View,
 } from "react-native";
 import { ActivityIndicator } from "react-native-paper";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function ChatListScreen() {
   const [search, setSearch] = useState("");
@@ -44,12 +44,13 @@ export default function ChatListScreen() {
   if (isLoading) return <ActivityIndicator style={{ flex: 1 }} />;
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.searchBar}>
-        <Ionicons name="search" size={18} color="#fff" />
-        <TextInput
-          value={search}
-          onChangeText={setSearch}
+    <SafeAreaView style={{ flex: 1 }}>
+      <View style={styles.container}>
+        <View style={styles.searchBar}>
+          <Search size={18} color="#fff" />
+          <TextInput
+            value={search}
+            onChangeText={setSearch}
           placeholder="Tìm kiếm"
           placeholderTextColor="#E0E0E0"
           style={styles.searchInput}
@@ -61,6 +62,7 @@ export default function ChatListScreen() {
         keyExtractor={(item) => item.roomId.toString()}
         refreshing={isLoading}
         onRefresh={refetch}
+        contentInsetAdjustmentBehavior="scrollableAxes"
         renderItem={({ item }) => (
           <TouchableOpacity
             style={styles.chatItem}
@@ -93,7 +95,9 @@ export default function ChatListScreen() {
           </TouchableOpacity>
         )}
       />
-    </SafeAreaView>
+    </View>
+      </SafeAreaView>
+
   );
 }
 

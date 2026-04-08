@@ -1,6 +1,5 @@
 import { Tabs } from "expo-router";
-import { Text } from "react-native";
-import { Icon } from "react-native-paper";
+import { Briefcase, Building, Newspaper, MessageCircle, User } from "lucide-react-native";
 
 export default function TabsLayout() {
   return (
@@ -12,8 +11,8 @@ export default function TabsLayout() {
           backgroundColor: "#fff",
           borderTopColor: "#e5e7eb",
           borderTopWidth: 1,
-          height: 60,
-          paddingBottom: 8,
+          height: 80,
+          paddingBottom: 25,
           paddingTop: 8,
         },
         tabBarLabelStyle: {
@@ -28,7 +27,7 @@ export default function TabsLayout() {
         options={{
           title: "Việc làm",
           tabBarIcon: ({ color, size }) => (
-            <Text style={{ fontSize: size, color }}>💼</Text>
+            <Briefcase size={size} color={color} />
           ),
         }}
       />
@@ -37,7 +36,7 @@ export default function TabsLayout() {
         options={{
           title: "Công ty",
           tabBarIcon: ({ color, size }) => (
-            <Text style={{ fontSize: size, color }}>🏢</Text>
+            <Building size={size} color={color} />
           ),
         }}
       />
@@ -45,12 +44,8 @@ export default function TabsLayout() {
         name="blog"
         options={{
           title: "Blog",
-          tabBarIcon: ({ color }) => (
-            <Icon
-              color={color}
-              size={24}
-              source={"newspaper-variant-outline"}
-            ></Icon>
+          tabBarIcon: ({ color, size }) => (
+            <Newspaper size={size} color={color} />
           ),
         }}
       />
@@ -58,8 +53,8 @@ export default function TabsLayout() {
         name="chat"
         options={{
           title: "Chat",
-          tabBarIcon: ({ color }) => (
-            <Icon color={color} size={24} source={"chat-outline"}></Icon>
+          tabBarIcon: ({ color, size }) => (
+            <MessageCircle size={size} color={color} />
           ),
         }}
       />
@@ -68,7 +63,7 @@ export default function TabsLayout() {
         options={{
           title: "Cá nhân",
           tabBarIcon: ({ color, size }) => (
-            <Text style={{ fontSize: size, color }}>👤</Text>
+            <User size={size} color={color} />
           ),
         }}
       />

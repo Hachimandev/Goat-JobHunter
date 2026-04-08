@@ -7,7 +7,7 @@ import { Image } from "expo-image";
 import { useRouter } from "expo-router";
 import { useState } from "react";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
-import Icon from "react-native-vector-icons/Feather";
+import { Bookmark, Flag } from 'lucide-react-native';
 import BlogActivity from "./BlogActivity";
 import CommentSheet from "./CommentSheet";
 import ReportTicketModal from "./ReportTicketModal";
@@ -90,17 +90,17 @@ export default function BlogCard({
             style={styles.iconBtn}
             disabled={isSaving}
           >
-            <Icon
-              name="bookmark"
+            <Bookmark
               size={20}
               color={isSaved ? "#1976d2" : "#666"}
+              fill={isSaved ? "#1976d2" : "none"}
             />
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.iconBtn}
             onPress={() => setReportVisible(true)}
           >
-            <Icon name="flag" size={20} color="#666" />
+            <Flag size={20} color="#666" />
           </TouchableOpacity>
           <ReportTicketModal
             isVisible={isReportVisible}

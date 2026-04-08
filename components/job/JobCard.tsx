@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity, Pressable } from 'react-nativ
 import { Job } from '../../types/model';
 import { formatCurrency } from '../../utils/formatCurrency';
 import { formatDate } from '../../utils/formatDate';
+import { MapPin, DollarSign, Calendar } from 'lucide-react-native';
 
 type JobCardProps = {
   job: Job;
@@ -37,17 +38,17 @@ export const JobCard: React.FC<JobCardProps> = ({ job, onPress }) => {
       {/* Job Info */}
       <View style={styles.infoContainer}>
         <View style={styles.infoRow}>
-          <Text style={styles.icon}>📍</Text>
+          <MapPin size={14} color="#6b7280" />
           <Text style={styles.infoText} numberOfLines={1}>{job.address.province}</Text>
         </View>
 
         <View style={styles.infoRow}>
-          <Text style={styles.icon}>💰</Text>
+          <DollarSign size={14} color="#6b7280" />
           <Text style={styles.infoValue}>{formatCurrency(job.salary)}</Text>
         </View>
 
         <View style={styles.infoRow}>
-          <Text style={styles.icon}>📅</Text>
+          <Calendar size={14} color="#6b7280" />
           <Text style={styles.infoText}>{formatDate(job.startDate)}</Text>
         </View>
       </View>

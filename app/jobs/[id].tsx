@@ -21,6 +21,7 @@ import { stripHtmlTags } from '../../utils/stripHtmlTags';
 import ApplicationModal from '../../components/common/ApplicationModal';
 import { JobCard } from '../../components/job/JobCard';
 import { Skill } from '../../types/model';
+import { AlertTriangle, Heart, Calendar, Clock, Users, Briefcase, MapPin, ChevronDown, ChevronUp, ArrowLeft, DollarSign } from 'lucide-react-native';
 
 export default function JobDetailPage() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -109,7 +110,7 @@ export default function JobDetailPage() {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.errorContainer}>
-          <Text style={styles.errorIcon}>⚠️</Text>
+          <AlertTriangle size={64} color="#ef4444" />
           <Text style={styles.errorTitle}>Có lỗi xảy ra</Text>
           <Text style={styles.errorText}>
             Có lỗi xảy ra khi tải thông tin công việc. Vui lòng thử lại sau hoặc quay lại trang việc làm.
@@ -130,7 +131,10 @@ export default function JobDetailPage() {
           style={styles.backButtonTop} 
           onPress={() => router.back()}
         >
-          <Text style={styles.backButtonTopText}>← Quay lại trang việc làm</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <ArrowLeft size={18} color="#1976d2" />
+            <Text style={styles.backButtonTopText}>Quảy lại trang việc làm</Text>
+          </View>
         </TouchableOpacity>
 
         {/* Job Header Card */}
@@ -141,7 +145,11 @@ export default function JobDetailPage() {
               style={styles.saveButton}
               onPress={() => job && handleToggleSaveJob(job, isSaved)}
             >
-              <Text style={styles.saveButtonIcon}>{isSaved ? '❤️' : '🤍'}</Text>
+              <Heart 
+                size={18} 
+                color={isSaved ? "#ef4444" : "#d1d5db"} 
+                fill={isSaved ? "#ef4444" : "none"}
+              />
               <Text style={styles.saveButtonText}>
                 {isSaved ? 'Đã lưu' : 'Lưu việc'}
               </Text>
@@ -174,7 +182,7 @@ export default function JobDetailPage() {
         <View style={styles.card}>
           <View style={styles.infoGrid}>
             <View style={styles.infoItem}>
-              <Text style={styles.infoIcon}>💰</Text>
+              <DollarSign size={18} color="#6b7280" />
               <View style={styles.infoContent}>
                 <Text style={styles.infoLabel}>Lương</Text>
                 <Text style={styles.infoValue}>{formatCurrency(job.salary)}</Text>
@@ -182,7 +190,7 @@ export default function JobDetailPage() {
             </View>
 
             <View style={styles.infoItem}>
-              <Text style={styles.infoIcon}>📅</Text>
+              <Calendar size={18} color="#6b7280" />
               <View style={styles.infoContent}>
                 <Text style={styles.infoLabel}>Ngày bắt đầu</Text>
                 <Text style={styles.infoValue}>{formatDate(job.startDate)}</Text>
@@ -190,7 +198,7 @@ export default function JobDetailPage() {
             </View>
 
             <View style={styles.infoItem}>
-              <Text style={styles.infoIcon}>⏰</Text>
+              <Clock size={18} color="#6b7280" />
               <View style={styles.infoContent}>
                 <Text style={styles.infoLabel}>Hạn nộp</Text>
                 <Text style={styles.infoValue}>{formatDate(job.endDate)}</Text>
@@ -198,7 +206,7 @@ export default function JobDetailPage() {
             </View>
 
             <View style={styles.infoItem}>
-              <Text style={styles.infoIcon}>👥</Text>
+              <Users size={18} color="#6b7280" />
               <View style={styles.infoContent}>
                 <Text style={styles.infoLabel}>Số lượng</Text>
                 <Text style={styles.infoValue}>{job.quantity} vị trí</Text>
@@ -206,7 +214,7 @@ export default function JobDetailPage() {
             </View>
 
             <View style={styles.infoItem}>
-              <Text style={styles.infoIcon}>💼</Text>
+              <Briefcase size={18} color="#6b7280" />
               <View style={styles.infoContent}>
                 <Text style={styles.infoLabel}>Ngành nghề</Text>
                 <Text style={styles.infoValue}>{job.career.name}</Text>
@@ -214,7 +222,7 @@ export default function JobDetailPage() {
             </View>
 
             <View style={styles.infoItem}>
-              <Text style={styles.infoIcon}>📍</Text>
+              <MapPin size={18} color="#6b7280" />
               <View style={styles.infoContent}>
                 <Text style={styles.infoLabel}>Địa điểm</Text>
                 <Text style={styles.infoValue}>{job.address.fullAddress || job.address.province}</Text>
@@ -238,9 +246,17 @@ export default function JobDetailPage() {
               onPress={() => setIsDescriptionExpanded(!isDescriptionExpanded)}
               style={styles.readMoreButton}
             >
-              <Text style={styles.readMoreText}>
-                {isDescriptionExpanded ? '▲ Thu gọn' : '▼ Xem thêm'}
-              </Text>
+              {isDescriptionExpanded ? (
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                  <ChevronUp size={16} color="#1976d2" />
+                  <Text style={styles.readMoreText}>Thu gọn</Text>
+                </View>
+              ) : (
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                  <ChevronDown size={16} color="#1976d2" />
+                  <Text style={styles.readMoreText}>Xem thêm</Text>
+                </View>
+              )}
             </TouchableOpacity>
           )}
         </View>
