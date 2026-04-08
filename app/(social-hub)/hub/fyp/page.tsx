@@ -17,7 +17,7 @@ export default function FypPage() {
       <div className="mx-auto max-w-4xl">
         <div className="mb-6">
           <h1 className="mb-6 text-4xl font-bold text-balance">
-            Welcome to <span className="bg-gradient-to-r bg-primary bg-clip-text text-transparent">Story Hub!</span>
+            Welcome to <span className="bg-linear-to-r bg-primary uppercase bg-clip-text text-transparent">Goat!</span>
           </h1>
         </div>
 
