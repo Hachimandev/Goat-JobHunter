@@ -1,6 +1,7 @@
 import useChatActionsMobile from "@/hooks/useChatActionsMobile";
 import { useUser } from "@/hooks/useUser";
 import {
+  useDeleteMessagePermanentMutation,
   useFetchMessagesInChatRoomQuery,
   useRevokeMessageMutation,
 } from "@/services/chatRoom/chatRoomApi";
@@ -38,6 +39,8 @@ export default function ChatDetail() {
   const [text, setText] = useState("");
   const { handleSendMessage, pickImage, isSending } = useChatActionsMobile();
   const [revokeMessage] = useRevokeMessageMutation();
+  const [deleteMessagePermanent] = useDeleteMessagePermanentMutation();
+
   const [isEmojiOpen, setIsEmojiOpen] = useState(false);
 
   const bottomSheetRef = useRef<BottomSheet>(null);
@@ -91,6 +94,7 @@ export default function ChatDetail() {
     }
   };
 
+  //revoke
   const handleRevoke = async (message: OptimisticMessage) => {
     try {
       await revokeMessage({
@@ -100,6 +104,25 @@ export default function ChatDetail() {
       refetch();
     } catch (err) {
       console.log("Revoke error", err);
+    }
+  };
+
+  //delete
+
+  const handleDelete = async (message: OptimisticMessage) => {
+    try {
+      await deleteMessagePermanent({
+        chatRoomId,
+        messageId: message.messageId!,
+      }).unwrap();
+      // Xóa local optimistic message nếu cần
+      setOptimisticMessages((prev) =>
+        prev.filter((msg) => msg.messageId !== message.messageId),
+      );
+      refetch();
+      bottomSheetRef.current?.close();
+    } catch (err) {
+      console.log("Delete error", err);
     }
   };
 
@@ -289,6 +312,16 @@ export default function ChatDetail() {
           >
             <Ionicons name="trash-outline" size={22} color="#FF3B30" />
             <Text style={styles.sheetText}>Thu hồi tin nhắn</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.sheetItem}
+            onPress={() => {
+              if (selectedMessage) handleDelete(selectedMessage);
+            }}
+          >
+            <Ionicons name="close-outline" size={22} color="#FF3B30" />
+            <Text style={styles.sheetText}>Xóa tin nhắn</Text>
           </TouchableOpacity>
         </BottomSheetView>
       </BottomSheet>

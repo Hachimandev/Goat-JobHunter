@@ -235,6 +235,16 @@ export const chatRoomApi = api.injectEndpoints({
         method: "DELETE",
       }),
     }),
+    // delete permanently
+    deleteMessagePermanent: builder.mutation<
+      any,
+      { chatRoomId: number; messageId: string }
+    >({
+      query: ({ chatRoomId, messageId }) => ({
+        url: `/chatrooms/${chatRoomId}/messages/${messageId}/permanent`,
+        method: "DELETE",
+      }),
+    }),
   }),
 });
 
@@ -248,4 +258,5 @@ export const {
   useSendMessageToNewChatRoomMutation,
   useLazyCheckExistingChatRoomQuery,
   useRevokeMessageMutation,
+  useDeleteMessagePermanentMutation,
 } = chatRoomApi;
