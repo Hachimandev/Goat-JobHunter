@@ -156,7 +156,7 @@ export const blogApi = api.injectEndpoints({
       }),
     }),
 
-    fetchBlogsByCurrentRecruiter: builder.query<FetchBlogsResponse, FetchBlogsRequest>({
+    fetchBlogsByCurrentUser: builder.query<FetchBlogsResponse, FetchBlogsRequest>({
       query: (params) => {
         const { params: queryParams } = buildSpringQuery({
           params,
@@ -168,6 +168,25 @@ export const blogApi = api.injectEndpoints({
 
         return {
           url: '/blogs/me',
+          method: 'GET',
+          params: queryParams,
+        };
+      },
+      providesTags: ['Blog'],
+    }),
+
+    fetchBlogsByAuthor: builder.query<FetchBlogsResponse, FetchBlogsRequest>({
+      query: (params) => {
+        const { params: queryParams } = buildSpringQuery({
+          params,
+          filterFields: ['title', 'draft', 'authorId', 'enabled'],
+          textSearchFields: ['title'],
+          arrayFields: ['tags'],
+          defaultSort: 'createdAt,desc',
+        });
+
+        return {
+          url: '/blogs',
           method: 'GET',
           params: queryParams,
         };
@@ -256,7 +275,8 @@ export const {
   useFetchBlogByIdReadQuery,
 
   useFetchTagsQuery,
-  useFetchBlogsByCurrentRecruiterQuery,
+  useFetchBlogsByCurrentUserQuery,
+  useFetchBlogsByAuthorQuery,
 
   useEnableBlogsMutation,
   useDisableBlogsMutation,

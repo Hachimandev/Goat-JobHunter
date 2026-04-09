@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useMemo } from 'react';
-import { useFetchAvailableBlogsQuery } from '@/services/blog/blogApi';
+import { useFetchBlogsByAuthorQuery } from '@/services/blog/blogApi';
 import { Blog } from '@/types/model';
 import { useInfiniteScroll } from '@/hooks/useInfiniteScroll';
 import { useCheckSavedBlogsQuery } from '@/services/user/savedBlogsApi';
@@ -7,40 +7,50 @@ import { useCheckReactBlogQuery } from '@/services/reaction/reactionApi';
 import { useUser } from '@/hooks/useUser';
 import { DEFAULT_BLOG_PAGE_SIZE } from '@/constants/constant';
 
-export function useInfiniteScrollBlogs() {
+type UseInfiniteScrollUserBlogsOptions = {
+  enabled?: boolean;
+};
+
+export function useInfiniteScrollUserBlogs(accountId: number, options?: UseInfiniteScrollUserBlogsOptions) {
   const { isSignedIn } = useUser();
   const [page, setPage] = useState(1);
   const [allBlogs, setAllBlogs] = useState<Blog[]>([]);
   const [hasMore, setHasMore] = useState(true);
 
-  const { data, isLoading, isError, isFetching, isSuccess } = useFetchAvailableBlogsQuery({
-    page,
-    size: DEFAULT_BLOG_PAGE_SIZE,
-  });
+  const isQueryEnabled = options?.enabled ?? true;
+  const shouldFetchBlogs = isQueryEnabled && Number.isFinite(accountId) && accountId > 0;
 
-  // Update blogs when new data arrives
+  const { data, isLoading, isError, isFetching, isSuccess } = useFetchBlogsByAuthorQuery(
+    {
+      page,
+      size: DEFAULT_BLOG_PAGE_SIZE,
+      authorId: accountId,
+      draft: false,
+      enabled: true,
+    },
+    {
+      skip: !shouldFetchBlogs,
+    },
+  );
+
   useEffect(() => {
     if (isSuccess && data?.data?.result) {
       const newBlogs = data.data.result;
 
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setAllBlogs((prev) => {
-        // Avoid duplicates
-        const existingIds = new Set(prev.map((blog) => blog.blogId));
-        const uniqueNewBlogs = newBlogs.filter((blog) => !existingIds.has(blog.blogId));
-        return page === 1 ? newBlogs : [...prev, ...uniqueNewBlogs];
+        const existingIds = new Set(prev.map((b) => b.blogId));
+        const uniqueNew = newBlogs.filter((b) => !existingIds.has(b.blogId));
+        return page === 1 ? newBlogs : [...prev, ...uniqueNew];
       });
 
-      // Check if there are more blogs to load
       const totalPages = data.data.meta.pages || 1;
       setHasMore(page < totalPages);
     }
   }, [data, isSuccess, page]);
 
   const loadMore = useCallback(() => {
-    if (!isFetching && hasMore) {
-      setPage((prev) => prev + 1);
-    }
+    if (!isFetching && hasMore) setPage((prev) => prev + 1);
   }, [isFetching, hasMore]);
 
   const { targetRef } = useInfiniteScroll({
@@ -57,7 +67,7 @@ export function useInfiniteScrollBlogs() {
   }, []);
 
   const blogIds = useMemo(() => allBlogs.map((blog) => blog.blogId), [allBlogs]);
-  const shouldCheckBlogStates = isSignedIn && blogIds.length > 0;
+  const shouldCheckBlogStates = isQueryEnabled && isSignedIn && blogIds.length > 0;
 
   const { data: savedBlogData } = useCheckSavedBlogsQuery(
     {
