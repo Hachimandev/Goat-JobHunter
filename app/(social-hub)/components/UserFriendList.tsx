@@ -6,13 +6,18 @@ import { useChatRooms } from '@/app/(chat)/messages/hooks/useChatRooms';
 import ErrorMessage from '@/components/common/ErrorMessage';
 import Link from 'next/link';
 import { truncate } from 'lodash';
+import { useUser } from '@/hooks/useUser';
 
 const LATEST_ROOMS_LIMIT = 10;
 
 export function UserFriendList() {
-  const { chatRooms, isLoading, isError } = useChatRooms();
-
+  const { user, isSignedIn } = useUser();
+  const { chatRooms, isLoading, isError } = useChatRooms({ isSignedIn: !!user && isSignedIn });
   const latestRooms = useMemo(() => chatRooms.slice(0, LATEST_ROOMS_LIMIT), [chatRooms]);
+
+  if (!chatRooms.length) {
+    return null;
+  }
 
   return (
     <Card>

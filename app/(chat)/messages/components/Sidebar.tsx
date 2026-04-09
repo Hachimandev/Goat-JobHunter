@@ -18,7 +18,7 @@ import { MeResponse, CompanyResponse, ApplicantResponse, RecruiterResponse } fro
 
 export function Sidebar() {
   const { user: currentUser } = useUser();
-  const { chatRooms, isLoading, isError } = useChatRooms();
+  const { chatRooms, isLoading, isError } = useChatRooms({ isSignedIn: !!currentUser });
   const router = useRouter();
   const params = useParams();
   const activeChatRoomId = params?.id as string | undefined;
