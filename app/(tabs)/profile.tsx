@@ -18,6 +18,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { clearUser } from "../../lib/authSlice";
 import { useAppDispatch, useAppSelector } from "../../lib/hooks";
 import { useLogoutMutation } from "../../services/auth/authApi";
@@ -61,7 +62,7 @@ export default function ProfileScreen() {
 
   if (!user || !isAuthenticated) {
     return (
-      <View style={styles.container}>
+      <SafeAreaView style={styles.container}>
         <ScrollView contentContainerStyle={styles.scrollContent}>
           {/* Header */}
           <View style={styles.header}>
@@ -111,12 +112,12 @@ export default function ProfileScreen() {
             </TouchableOpacity>
           </View>
         </ScrollView>
-      </View>
+      </SafeAreaView>
     );
   }
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.scrollContent}>
         {/* User info */}
         <TouchableOpacity
@@ -185,7 +186,7 @@ export default function ProfileScreen() {
           <Text style={styles.logoutButtonText}>Đăng xuất</Text>
         </TouchableOpacity>
       </ScrollView>
-    </View>
+    </SafeAreaView>
   );
 }
 

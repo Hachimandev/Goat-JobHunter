@@ -2,6 +2,7 @@ import { api } from "../api";
 import {
   CheckCompaniesFollowedResponse,
   CheckReviewedCompaniesResponse,
+  FetchUsersResponse,
   FollowCompaniesRequest,
   ResetPasswordRequest,
   ResetPasswordResponse,
@@ -36,6 +37,17 @@ export const userApi = api
           method: "PUT",
           data,
         }),
+      }),
+
+      searchUsers: builder.query<FetchUsersResponse, string>({
+        query: (params) => {
+          return {
+            url: "/users/search",
+            method: "GET",
+            params: { keyword: params },
+          };
+        },
+        providesTags: ["User"],
       }),
 
       // Follow Company APIs
@@ -82,6 +94,7 @@ export const userApi = api
   });
 
 export const {
+  useLazySearchUsersQuery,
   useUpdatePasswordMutation,
   useResetPasswordMutation,
   useCheckCompaniesFollowedQuery,
