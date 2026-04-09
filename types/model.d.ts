@@ -28,6 +28,7 @@ export interface User {
   education?: string;
   level?: string;
   position?: string;
+  avatar?: string;
 }
 
 export type Account = {
