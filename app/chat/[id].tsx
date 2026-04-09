@@ -24,6 +24,7 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import EmojiPicker from "rn-emoji-keyboard";
 
 interface OptimisticMessage extends Partial<MessageType> {
   messageId: string;
@@ -37,6 +38,7 @@ export default function ChatDetail() {
   const [text, setText] = useState("");
   const { handleSendMessage, pickImage, isSending } = useChatActionsMobile();
   const [revokeMessage] = useRevokeMessageMutation();
+  const [isEmojiOpen, setIsEmojiOpen] = useState(false);
 
   const bottomSheetRef = useRef<BottomSheet>(null);
   const snapPoints = useMemo(() => ["20%"], []);
@@ -231,6 +233,12 @@ export default function ChatDetail() {
         {/* INPUT BAR */}
         <View style={styles.inputContainer}>
           <TouchableOpacity
+            onPress={() => setIsEmojiOpen(true)}
+            style={styles.iconBtn}
+          >
+            <Ionicons name="happy-outline" size={26} color="#0084FF" />
+          </TouchableOpacity>
+          <TouchableOpacity
             onPress={async () => {
               const imgs = await pickImage();
               if (imgs) setSelectedImages((prev) => [...prev, ...imgs]);
@@ -284,6 +292,13 @@ export default function ChatDetail() {
           </TouchableOpacity>
         </BottomSheetView>
       </BottomSheet>
+      <EmojiPicker
+        onEmojiSelected={(emoji) => {
+          setText((prev) => prev + emoji.emoji);
+        }}
+        open={isEmojiOpen}
+        onClose={() => setIsEmojiOpen(false)}
+      />
     </SafeAreaView>
   );
 }
