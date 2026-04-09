@@ -11,6 +11,7 @@ import { GroupInfoModal } from './GroupInfoModal';
 import { useSearchUsers } from '@/app/(chat)/messages/hooks/useSearchUsers';
 import { useDirectMessageNavigation } from '@/hooks/useDirectMessageNavigation';
 import { toast } from 'sonner';
+import { Visibility } from '@/types/enum';
 
 interface UserSearchModalProps {
   open: boolean;
@@ -70,7 +71,12 @@ export function SearchUsersModal({
 
     // Default single mode behavior
     if (mode === 'single') {
-      const isNavigated = await navigateToDirectChat(user.accountId);
+      if (user.visibility === Visibility.PRIVATE) {
+        toast.error('Tài khoản này đang ở chế độ riêng tư. Bạn không thể bắt đầu cuộc trò chuyện mới.');
+        return;
+      }
+
+      const isNavigated = await navigateToDirectChat(user.accountId, { visibility: user.visibility });
 
       if (isNavigated) {
         onOpenChange(false);

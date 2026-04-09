@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useUser } from '@/hooks/useUser';
 import { useDirectMessageNavigation } from '@/hooks/useDirectMessageNavigation';
+import { Visibility } from '@/types/enum';
 
 interface UserHoverCardProps {
   userId: number;
@@ -13,14 +14,26 @@ interface UserHoverCardProps {
   avatar?: string;
   username?: string;
   bio?: string;
+  visibility?: Visibility | string | null;
   children: React.ReactNode;
 }
 
-export function UserHoverCard({ userId, fullName, avatar, username, bio, children }: Readonly<UserHoverCardProps>) {
+export function UserHoverCard({
+  userId,
+  fullName,
+  avatar,
+  username,
+  bio,
+  visibility,
+  children,
+}: Readonly<UserHoverCardProps>) {
   const router = useRouter();
   const { isSignedIn, user } = useUser();
   const { navigateToDirectChat, isLoading } = useDirectMessageNavigation();
   const isSelf = user?.accountId === userId;
+  const isPrivateAccount = visibility === Visibility.PRIVATE;
+  const showMessageButton = !isSelf && !isPrivateAccount;
+  const showPrivateMessage = !isSelf && isPrivateAccount;
 
   const handleMessageClick = async (event: React.MouseEvent<HTMLButtonElement>) => {
     event.preventDefault();
@@ -28,13 +41,19 @@ export function UserHoverCard({ userId, fullName, avatar, username, bio, childre
 
     if (isSelf) return;
 
+    if (isPrivateAccount) return;
+
     if (!isSignedIn) {
       router.push('/signin');
       return;
     }
 
-    await navigateToDirectChat(userId);
+    await navigateToDirectChat(userId, { visibility });
   };
+
+  // render nothing: isSelf
+  // render send message button: is not self and not private
+  // render private account message: is not self and is private
 
   return (
     <HoverCard openDelay={300}>
@@ -57,10 +76,14 @@ export function UserHoverCard({ userId, fullName, avatar, username, bio, childre
           {bio && <p className="text-sm text-muted-foreground line-clamp-3">{bio}</p>}
 
           <div className="flex">
-            <Button className="w-full rounded-xl" size="sm" onClick={handleMessageClick} disabled={isLoading || isSelf}>
-              <MessageCircle className="h-4 w-4 mr-2" />
-              {isSelf ? 'Đây là bạn' : isLoading ? 'Đang mở chat...' : 'Nhắn tin'}
-            </Button>
+            {showMessageButton && (
+              <Button className="w-full rounded-xl" size="sm" onClick={handleMessageClick} disabled={isLoading}>
+                <MessageCircle className="h-4 w-4 mr-2" />
+                {isLoading ? 'Đang mở chat...' : 'Nhắn tin'}
+              </Button>
+            )}
+
+            {showPrivateMessage && <p>Tài khoản đang ở chế độ riêng tư.</p>}
           </div>
         </div>
       </HoverCardContent>

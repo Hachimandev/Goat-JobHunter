@@ -10,6 +10,7 @@ import {
   MessageTypeEnum,
   MessageTypeRole,
   NotificationTypeEnum,
+  Visibility,
   WorkingType,
 } from '@/types/enum';
 import { LucideIcon } from 'lucide-react';
@@ -31,6 +32,7 @@ export type Account = {
   password: string;
   avatar?: string;
   enabled: boolean;
+  visibility?: Visibility;
   addresses: Address[];
   createdAt: string;
   createdBy: string;
@@ -241,6 +243,7 @@ export type Blog = {
     fullName: string;
     username: string;
     avatar: string;
+    visibility?: Visibility;
     bio: string;
     headline: string;
     coverPhoto: string;

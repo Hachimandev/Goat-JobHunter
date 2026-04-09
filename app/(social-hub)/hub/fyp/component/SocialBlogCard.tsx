@@ -70,6 +70,10 @@ export function SocialBlogCard({ blog, isSaved, initialReaction, owned = false }
     setIsReportModalOpen(true);
   };
 
+  console.log({
+    author: blog.author,
+  });
+
   return (
     <>
       <Card className="overflow-hidden border border-border bg-card py-0 gap-0">
@@ -86,6 +90,7 @@ export function SocialBlogCard({ blog, isSaved, initialReaction, owned = false }
                 avatar={blog.author.avatar}
                 username={blog.author.username}
                 bio={blog.author.bio}
+                visibility={blog.author.visibility}
               >
                 <Link
                   href={`/hub/users/${blog.author.accountId}`}
