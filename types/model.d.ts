@@ -229,7 +229,6 @@ export type Blog = {
   images: string[];
   content: string;
   tags: string[];
-  draft: boolean;
   enabled: boolean;
   activity?: {
     totalLikes: number;
@@ -250,6 +249,8 @@ export type Blog = {
   createdBy: string;
   updatedAt: string;
   updatedBy: string;
+  deletedAt?: string | null;
+  deletedBy?: string | null;
 };
 
 type CommentedBy = {
@@ -265,7 +266,8 @@ export type CommentType = {
   reply: boolean;
   blog: {
     blogId: number;
-    title: string;
+    content?: string;
+    contentPreview?: string;
   };
   parent?: {
     commentId: string;
@@ -281,8 +283,9 @@ export type NotificationType = {
   type: NotificationTypeEnum;
   seen: boolean;
   blog: {
-    blogId: string;
-    title: string;
+    blogId: string | number;
+    content?: string;
+    contentPreview?: string;
   };
   lastActor: {
     userId: string;

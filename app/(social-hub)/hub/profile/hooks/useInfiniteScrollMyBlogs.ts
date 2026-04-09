@@ -1,12 +1,11 @@
 import { useState, useCallback, useEffect, useMemo } from 'react';
-import { useFetchBlogsByCurrentRecruiterQuery } from '@/services/blog/blogApi';
+import { useFetchBlogsByCurrentUserQuery } from '@/services/blog/blogApi';
 import { Blog } from '@/types/model';
 import { useInfiniteScroll } from '@/hooks/useInfiniteScroll';
 import { useCheckSavedBlogsQuery } from '@/services/user/savedBlogsApi';
 import { useCheckReactBlogQuery } from '@/services/reaction/reactionApi';
 import { useUser } from '@/hooks/useUser';
-
-const PAGE_SIZE = 15;
+import { DEFAULT_BLOG_PAGE_SIZE } from '@/constants/constant';
 
 export function useInfiniteScrollMyBlogs() {
   const { isSignedIn } = useUser();
@@ -14,9 +13,9 @@ export function useInfiniteScrollMyBlogs() {
   const [allBlogs, setAllBlogs] = useState<Blog[]>([]);
   const [hasMore, setHasMore] = useState(true);
 
-  const { data, isLoading, isError, isFetching, isSuccess } = useFetchBlogsByCurrentRecruiterQuery({
+  const { data, isLoading, isError, isFetching, isSuccess } = useFetchBlogsByCurrentUserQuery({
     page,
-    size: PAGE_SIZE,
+    size: DEFAULT_BLOG_PAGE_SIZE,
   });
 
   useEffect(() => {

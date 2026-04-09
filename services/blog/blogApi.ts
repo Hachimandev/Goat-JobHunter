@@ -54,8 +54,8 @@ export const blogApi = api.injectEndpoints({
       query: (params) => {
         const { params: queryParams } = buildSpringQuery({
           params,
-          filterFields: ['title', 'draft'],
-          textSearchFields: ['title'],
+          filterFields: ['content', 'enabled'],
+          textSearchFields: ['content'],
           defaultSort: 'createdAt,desc',
         });
 
@@ -78,8 +78,8 @@ export const blogApi = api.injectEndpoints({
       query: (params) => {
         const { params: queryParams } = buildSpringQuery({
           params,
-          filterFields: ['title', 'content'],
-          textSearchFields: ['title', 'content'],
+          filterFields: ['content'],
+          textSearchFields: ['content'],
           arrayFields: ['tags'],
           defaultSort: 'createdAt,desc',
         });
@@ -101,19 +101,16 @@ export const blogApi = api.injectEndpoints({
 
     fetchPopularBlogs: builder.query<FetchBlogsResponse, FetchBlogsRequest>({
       query: (params) => {
-        const modifiedParams = {
-          ...params,
-          sort: 'activity.totalReads,desc',
-        };
-
         const { params: queryParams } = buildSpringQuery({
-          params: modifiedParams,
-          filterFields: ['title', 'content', 'authorId'],
-          textSearchFields: ['title', 'content'],
+          params,
+          filterFields: ['content'],
+          textSearchFields: ['content'],
+          nestedFields: {
+            authorId: 'author.accountId',
+          },
           arrayFields: ['tags'],
           defaultSort: 'activity.totalReads,desc',
           sortableFields: [
-            'title',
             'createdAt',
             'updatedAt',
             'activity.totalReads',
@@ -156,18 +153,40 @@ export const blogApi = api.injectEndpoints({
       }),
     }),
 
-    fetchBlogsByCurrentRecruiter: builder.query<FetchBlogsResponse, FetchBlogsRequest>({
+    fetchBlogsByCurrentUser: builder.query<FetchBlogsResponse, FetchBlogsRequest>({
       query: (params) => {
         const { params: queryParams } = buildSpringQuery({
           params,
-          filterFields: ['title', 'draft'],
-          textSearchFields: ['title'],
+          filterFields: ['content', 'enabled'],
+          textSearchFields: ['content'],
           arrayFields: ['tags'],
           defaultSort: 'createdAt,updatedAt,desc',
         });
 
         return {
           url: '/blogs/me',
+          method: 'GET',
+          params: queryParams,
+        };
+      },
+      providesTags: ['Blog'],
+    }),
+
+    fetchBlogsByAuthor: builder.query<FetchBlogsResponse, FetchBlogsRequest>({
+      query: (params) => {
+        const { params: queryParams } = buildSpringQuery({
+          params,
+          filterFields: ['content', 'enabled'],
+          textSearchFields: ['content'],
+          nestedFields: {
+            authorId: 'author.accountId',
+          },
+          arrayFields: ['tags'],
+          defaultSort: 'createdAt,desc',
+        });
+
+        return {
+          url: '/blogs/available',
           method: 'GET',
           params: queryParams,
         };
@@ -256,7 +275,8 @@ export const {
   useFetchBlogByIdReadQuery,
 
   useFetchTagsQuery,
-  useFetchBlogsByCurrentRecruiterQuery,
+  useFetchBlogsByCurrentUserQuery,
+  useFetchBlogsByAuthorQuery,
 
   useEnableBlogsMutation,
   useDisableBlogsMutation,

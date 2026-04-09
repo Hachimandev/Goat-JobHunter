@@ -6,12 +6,20 @@ import { Separator } from '@/components/ui/separator';
 import { isApplicantResponse, isCompanyResponse, isRecruiterResponse, normalizeWebsiteUrl } from '@/utils/slug';
 import { formatDate } from '@/utils/formatDate';
 
-export function ProfileInfo() {
+type ProfileInfoUser = MeResponse | UserResponse;
+
+type ProfileInfoProps = {
+  user?: ProfileInfoUser | null;
+  hideSensitiveContact?: boolean;
+};
+
+export function ProfileInfo({ user: profileUserProp, hideSensitiveContact = false }: Readonly<ProfileInfoProps>) {
   const { user } = useUser();
+  const profileUser = profileUserProp ?? user;
 
-  if (!user) return null;
+  if (!profileUser) return null;
 
-  const me = user as MeResponse;
+  const me = profileUser as MeResponse;
   const isCompany = isCompanyResponse(me);
   const displayName = isCompany ? me.name : (me as UserResponse).fullName || me.email;
   const username = isCompany ? undefined : (me as UserResponse).username;
@@ -54,7 +62,7 @@ export function ProfileInfo() {
       {
         title: 'Thông tin liên hệ',
         items: [
-          { label: 'Số điện thoại', value: recruiter.phone || 'Chưa cập nhật' },
+          { label: 'Số điện thoại', value: hideSensitiveContact ? 'Đã ẩn' : recruiter.phone || 'Chưa cập nhật' },
           { label: 'Địa chỉ', value: recruiterAddresses },
         ],
       },
@@ -73,7 +81,7 @@ export function ProfileInfo() {
       {
         title: 'Thông tin ứng viên cơ bản',
         items: [
-          { label: 'Số điện thoại', value: applicant.phone || 'Chưa cập nhật' },
+          { label: 'Số điện thoại', value: hideSensitiveContact ? 'Đã ẩn' : applicant.phone || 'Chưa cập nhật' },
           { label: 'Giới tính', value: applicant.gender || 'Chưa cập nhật' },
           { label: 'Ngày sinh', value: applicant.dob ? formatDate(applicant.dob) : 'Chưa cập nhật' },
           { label: 'Vai trò', value: applicant.role?.name || 'Chưa cập nhật' },
@@ -106,7 +114,7 @@ export function ProfileInfo() {
       {
         title: 'Liên hệ và vận hành',
         items: [
-          { label: 'Số điện thoại', value: me.phone || 'Chưa cập nhật' },
+          { label: 'Số điện thoại', value: hideSensitiveContact ? 'Đã ẩn' : me.phone || 'Chưa cập nhật' },
           { label: 'Quy mô', value: me.size || 'Chưa cập nhật' },
           { label: 'Đã xác minh', value: me.verified ? 'Đã xác minh' : 'Chưa xác minh' },
           { label: 'Quốc gia', value: me.country || 'Chưa cập nhật' },
@@ -134,7 +142,7 @@ export function ProfileInfo() {
 
           <div className="text-sm space-y-1">
             {username && <p className="text-sm text-muted-foreground">@{username}</p>}
-            {email && (
+            {!hideSensitiveContact && email && (
               <div className="flex items-center gap-1 text-muted-foreground">
                 <Mail className="h-4 w-4 shrink-0" />
                 <span className="truncate">{email}</span>
