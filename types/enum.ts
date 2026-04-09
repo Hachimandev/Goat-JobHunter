@@ -33,6 +33,11 @@ export enum CompanySize {
   ENTERPRISE = 'Tập đoàn',
 }
 
+export enum Visibility {
+  PUBLIC = 'PUBLIC',
+  PRIVATE = 'PRIVATE',
+}
+
 export enum ApplicationStatus {
   PENDING = 'PENDING',
   ACCEPTED = 'ACCEPTED',

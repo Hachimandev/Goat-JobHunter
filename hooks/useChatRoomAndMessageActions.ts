@@ -12,6 +12,11 @@ import { useRouter } from 'next/navigation';
 import { usePendingMessages } from '@/contexts/PendingMessagesContext';
 import { useCallback, useState } from 'react';
 import { IBackendRes } from '@/types/api';
+import { Visibility } from '@/types/enum';
+import { extractApiErrorMessage, isAccountPrivateError } from '@/utils/apiError';
+
+export const ACCOUNT_PRIVATE_MESSAGE =
+  'Tài khoản này đang ở chế độ riêng tư. Bạn không thể bắt đầu cuộc trò chuyện mới.';
 
 type ApiMutationError = {
   status?: number;
@@ -138,7 +143,12 @@ const useChatRoomAndMessageActions = () => {
     }
   };
 
-  const handleSendMessageToNewChat = async (recipientId: string | null, content?: string, files?: File[]) => {
+  const handleSendMessageToNewChat = async (
+    recipientId: string | null,
+    content?: string,
+    files?: File[],
+    recipientVisibility?: Visibility | string | null,
+  ) => {
     let pendingId: string | null = null;
 
     try {
@@ -149,6 +159,11 @@ const useChatRoomAndMessageActions = () => {
 
       if (!recipientId || isNaN(Number(recipientId))) {
         console.log('Invalid recipient ID');
+        return;
+      }
+
+      if (recipientVisibility === Visibility.PRIVATE) {
+        toast.error(ACCOUNT_PRIVATE_MESSAGE);
         return;
       }
 
@@ -169,7 +184,13 @@ const useChatRoomAndMessageActions = () => {
       }
     } catch (error) {
       console.error('Error sending message to new chat:', error);
-      toast.error('Gửi tin nhắn thất bại.');
+
+      if (isAccountPrivateError(error)) {
+        toast.error(ACCOUNT_PRIVATE_MESSAGE);
+        return;
+      }
+
+      toast.error(extractApiErrorMessage(error, 'Gửi tin nhắn thất bại.'));
     } finally {
       if (pendingId) {
         removePendingMessage(pendingId);
