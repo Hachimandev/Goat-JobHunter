@@ -24,27 +24,21 @@ export const useCompanyFilter = (options?: UseCompanyFilterOptions) => {
     setNameInputValue(value);
   };
 
-  const { data: companiesData, isFetching: isFetchingCompanies } = useFetchAvailableCompaniesQuery({
-    page: 1,
-    size: 50,
-    name: nameInputValue,
-  });
-
   const queryParams = useMemo(() => {
     const params: Record<string, string | number | boolean | string[]> = {
       page: currentPage,
       size: itemsPerPage,
     };
 
-    if (filters.name) {
-      params.name = filters.name;
+    if (filters.name && filters.name.trim()) {
+      params.name = filters.name.trim();
     }
 
     if (filters.addresses && filters.addresses.length > 0) {
       params.addresses = filters.addresses;
     }
 
-    if (filters.verified !== undefined) {
+    if (filters.verified !== undefined && filters.verified !== null) {
       params.verified = filters.verified;
     }
 
@@ -76,7 +70,11 @@ export const useCompanyFilter = (options?: UseCompanyFilterOptions) => {
   };
 
   const resetFilters = () => {
-    setFilters(initialFilters);
+    setFilters({
+      name: undefined,
+      addresses: [],
+      verified: undefined,
+    });
     setNameInputValue('');
     setCurrentPage(1);
   };
@@ -103,6 +101,9 @@ export const useCompanyFilter = (options?: UseCompanyFilterOptions) => {
   const hasPreviousPage = currentPage > 1;
 
   const activeFiltersCount = Object.entries(filters).filter(([_, value]) => {
+    if (typeof value === 'boolean') {
+      return value === true;
+    }
     return value !== undefined && value !== null && value !== '' && (!Array.isArray(value) || value.length > 0);
   }).length;
 
@@ -121,8 +122,6 @@ export const useCompanyFilter = (options?: UseCompanyFilterOptions) => {
     handleFilterChange,
     resetFilters,
     activeFiltersCount,
-    companiesData: companiesData?.data?.result || [],
-    isFetchingCompanies,
     nameInputValue,
     handleNameInputChange,
     goToPage,
