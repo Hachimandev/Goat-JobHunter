@@ -1,4 +1,5 @@
 import { api } from '../api';
+import { buildSpringQuery } from '../../utils/buildSpringQuery';
 import type {
   CompanyIdRequest,
   FetchAllCompanyNames,
@@ -15,22 +16,16 @@ export const companyApi = api.injectEndpoints({
   endpoints: (builder) => ({
     fetchCompanies: builder.query<FetchCompaniesResponse, FetchCompaniesRequest>({
       query: (params) => {
-        const queryParams: any = {
-          page: params.page || 1,
-          size: params.size || 10,
-        };
-
-        if (params.name) {
-          queryParams.name = params.name;
-        }
-
-        if (params.addresses && params.addresses.length > 0) {
-          queryParams.addresses = params.addresses.join(',');
-        }
-
-        if (params.verified !== undefined) {
-          queryParams.verified = params.verified;
-        }
+        const { params: queryParams } = buildSpringQuery({
+          params,
+          filterFields: ['name', 'verified'],
+          textSearchFields: ['name'],
+          nestedArrayFields: {
+            addresses: 'addresses.province',
+          },
+          defaultSort: 'createdAt,desc',
+          sortableFields: ['name', 'createdAt', 'updatedAt'],
+        });
 
         return {
           url: '/companies',
@@ -43,22 +38,16 @@ export const companyApi = api.injectEndpoints({
 
     fetchAvailableCompanies: builder.query<FetchCompaniesResponse, FetchCompaniesRequest>({
       query: (params) => {
-        const queryParams: any = {
-          page: params.page || 1,
-          size: params.size || 10,
-        };
-
-        if (params.name) {
-          queryParams.name = params.name;
-        }
-
-        if (params.addresses && params.addresses.length > 0) {
-          queryParams.addresses = params.addresses.join(',');
-        }
-
-        if (params.verified !== undefined) {
-          queryParams.verified = params.verified;
-        }
+        const { params: queryParams } = buildSpringQuery({
+          params,
+          filterFields: ['name', 'verified'],
+          textSearchFields: ['name'],
+          nestedArrayFields: {
+            addresses: 'addresses.province',
+          },
+          defaultSort: 'createdAt,desc',
+          sortableFields: ['name', 'createdAt', 'updatedAt'],
+        });
 
         return {
           url: '/companies/available',

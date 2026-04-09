@@ -32,9 +32,17 @@ export const buildSpringQuery = ({
       const value = params[field];
       
       if (Array.isArray(value)) {
-        // Convert array to Spring Filter format: skills in [1,2,3]
-        const ids = value.join(',');
-        filterConditions.push(`${field} in [${ids}]`);
+        // Check if array contains strings (need quotes) or numbers (no quotes)
+        const isStringArray = value.some((v) => typeof v === 'string');
+        if (isStringArray) {
+          // String array: level in ['JUNIOR','SENIOR']
+          const quotedIds = value.map((v) => `'${v}'`).join(',');
+          filterConditions.push(`${field} in [${quotedIds}]`);
+        } else {
+          // Number array: skills in [1,2,3]
+          const ids = value.join(',');
+          filterConditions.push(`${field} in [${ids}]`);
+        }
       } else if (textSearchFields.includes(field)) {
         // For text search: title =like '%value%'
         filterConditions.push(`${field} =like '%${value}%'`);
@@ -57,8 +65,17 @@ export const buildSpringQuery = ({
       const value = params[paramKey];
       
       if (Array.isArray(value)) {
-        const ids = value.join(',');
-        filterConditions.push(`${queryKey} in [${ids}]`);
+        // Check if array contains strings (need quotes) or numbers (no quotes)
+        const isStringArray = value.some((v) => typeof v === 'string');
+        if (isStringArray) {
+          // String array: address.province in ['Ha Noi','Sai Gon']
+          const quotedIds = value.map((v) => `'${v}'`).join(',');
+          filterConditions.push(`${queryKey} in [${quotedIds}]`);
+        } else {
+          // Number array: company.accountId in [1,2,3]
+          const ids = value.join(',');
+          filterConditions.push(`${queryKey} in [${ids}]`);
+        }
       } else if (textSearchFields.includes(paramKey)) {
         filterConditions.push(`${queryKey} =like '%${value}%'`);
       } else if (typeof value === 'boolean') {
@@ -74,8 +91,17 @@ export const buildSpringQuery = ({
   // Nested array fields (如skills)
   Object.entries(nestedArrayFields).forEach(([paramKey, queryKey]) => {
     if (params[paramKey] && Array.isArray(params[paramKey])) {
-      const ids = params[paramKey].join(',');
-      filterConditions.push(`${queryKey} in [${ids}]`);
+      // Check if array contains strings (need quotes) or numbers (no quotes)
+      const isStringArray = params[paramKey].some((v: any) => typeof v === 'string');
+      if (isStringArray) {
+        // String array
+        const quotedIds = params[paramKey].map((v: any) => `'${v}'`).join(',');
+        filterConditions.push(`${queryKey} in [${quotedIds}]`);
+      } else {
+        // Number array
+        const ids = params[paramKey].join(',');
+        filterConditions.push(`${queryKey} in [${ids}]`);
+      }
     }
   });
 

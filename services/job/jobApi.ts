@@ -20,9 +20,9 @@ export const jobApi = api.injectEndpoints({
           textSearchFields: ['title'],
           nestedArrayFields: {
             skills: 'skills.skillId',
+            provinces: 'address.province',
           },
           nestedFields: {
-            provinces: 'address.province',
             companyId: 'company.accountId',
           },
           defaultSort: 'createdAt,desc',
@@ -97,10 +97,9 @@ export const jobApi = api.injectEndpoints({
           textSearchFields: ['title'],
           nestedArrayFields: {
             skills: 'skills.skillId',
-          },
-          nestedFields: {
             provinces: 'address.province',
           },
+          nestedFields: {},
           defaultSort: 'createdAt,desc',
           sortableFields: ['title', 'salary', 'createdAt', 'updatedAt'],
         });

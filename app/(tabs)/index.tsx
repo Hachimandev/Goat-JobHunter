@@ -6,7 +6,6 @@ import {
   FlatList,
   ActivityIndicator,
   RefreshControl,
-  TextInput,
   TouchableOpacity,
   ScrollView,
 } from 'react-native';
@@ -18,6 +17,7 @@ import { Job } from '../../types/model';
 import { useUser } from '../../hooks/useUser';
 import { ChevronDown, MailOpen, RotateCw, X } from 'lucide-react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+
 export default function Index() {
   const router = useRouter();
   const { isSignedIn } = useUser();
@@ -176,13 +176,13 @@ export default function Index() {
       {/* Filter Component */}
       {showFilter && (
         <JobFilter
-          levels={['INTERN', 'FRESHER', 'JUNIOR', 'MIDDLE', 'SENIOR']}
-          workingTypes={['FULLTIME', 'PARTTIME', 'ONLINE', 'OFFLINE']}
           selectedLevels={filters.level || []}
           selectedWorkingTypes={filters.workingType || []}
+          selectedProvinces={filters.provinces || []}
           selectedSkills={filters.skills || []}
           onLevelChange={handleLevelToggle}
           onWorkingTypeChange={handleWorkingTypeToggle}
+          onProvinceChange={handleProvinceToggle}
           onSkillChange={handleSkillToggle}
           onReset={resetFilters}
           skills={skillsData}
@@ -251,28 +251,28 @@ export default function Index() {
 
   return (
     <SafeAreaView style={{ flex: 1 }}>
-    <View style={styles.container}>
-      <FlatList
-        data={jobs}
-        renderItem={renderJobItem}
-        keyExtractor={(item) => item.jobId.toString()}
-        ListHeaderComponent={renderHeader}
-        ListFooterComponent={renderFooter}
-        ListEmptyComponent={renderEmpty}
-        onEndReached={hasNextPage ? () => nextPage() : undefined}
-        onEndReachedThreshold={0.5}
-        refreshControl={
-          <RefreshControl
-            refreshing={isFetching && ((meta as any)?.current ?? (meta as any)?.page ?? 0) === 0}
-            onRefresh={() => resetFilters()}
-            colors={['#1976d2']}
-            tintColor="#1976d2"
-          />
-        }
-        contentContainerStyle={styles.listContent}
-        showsVerticalScrollIndicator={false}
-      />
-    </View>
+      <View style={styles.container}>
+        <FlatList
+          data={jobs}
+          renderItem={renderJobItem}
+          keyExtractor={(item) => item.jobId.toString()}
+          ListHeaderComponent={renderHeader}
+          ListFooterComponent={renderFooter}
+          ListEmptyComponent={renderEmpty}
+          onEndReached={hasNextPage ? () => nextPage() : undefined}
+          onEndReachedThreshold={0.5}
+          refreshControl={
+            <RefreshControl
+              refreshing={isFetching && ((meta as any)?.current ?? (meta as any)?.page ?? 0) === 0}
+              onRefresh={() => resetFilters()}
+              colors={['#1976d2']}
+              tintColor="#1976d2"
+            />
+          }
+          contentContainerStyle={styles.listContent}
+          showsVerticalScrollIndicator={false}
+        />
+      </View>
     </SafeAreaView>
   );
 }

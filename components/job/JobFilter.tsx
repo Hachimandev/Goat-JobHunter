@@ -10,12 +10,16 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { Level, WorkingType } from '@/types/enum';
+import { LEVEL_OPTIONS, WORKING_TYPE_OPTIONS, LOCATION_OPTIONS } from '@/constants/constant';
 import { ChevronDown, ChevronRight, Check } from 'lucide-react-native';
 
+// Helper function to get label from value
+const getLabelFromValue = (value: string, options: { value: string; label: string }[]): string => {
+  const option = options.find((opt) => opt.value === value);
+  return option?.label || value;
+};
+
 interface JobFilterProps {
-  levels: string[];
-  workingTypes: string[];
-  provinces?: string[];
   selectedLevels: string[];
   selectedWorkingTypes: string[];
   selectedProvinces?: string[];
@@ -32,9 +36,6 @@ interface JobFilterProps {
 }
 
 export const JobFilter: React.FC<JobFilterProps> = ({
-  levels,
-  workingTypes,
-  provinces,
   selectedLevels,
   selectedWorkingTypes,
   selectedProvinces,
@@ -54,16 +55,16 @@ export const JobFilter: React.FC<JobFilterProps> = ({
   const [showSkillFilter, setShowSkillFilter] = useState(false);
   const [showProvinceFilter, setShowProvinceFilter] = useState(false);
 
-  const levelOptions = Object.values(Level);
-  const typeOptions = Object.values(WorkingType);
-  const provinceOptions = provinces || [];
+  const levelOptions = LEVEL_OPTIONS;
+  const typeOptions = WORKING_TYPE_OPTIONS;
+  const provinceOptions = LOCATION_OPTIONS;
 
   const activeFiltersCount =
     selectedLevels.length + selectedWorkingTypes.length + selectedSkills.length + (selectedProvinces?.length || 0);
 
   const renderMultiSelect = (
     title: string,
-    options: string[],
+    options: { value: string; label: string }[],
     selectedItems: string[],
     onItemToggle: (item: string) => void,
     isOpen: boolean,
@@ -91,21 +92,21 @@ export const JobFilter: React.FC<JobFilterProps> = ({
         <View style={styles.filterOptions}>
           {options.map((option) => (
             <TouchableOpacity
-              key={option}
+              key={option.value}
               style={styles.optionButton}
-              onPress={() => onItemToggle(option)}
+              onPress={() => onItemToggle(option.value)}
             >
               <View
                 style={[
                   styles.checkbox,
-                  selectedItems.includes(option) && styles.checkboxSelected,
+                  selectedItems.includes(option.value) && styles.checkboxSelected,
                 ]}
               >
-                {selectedItems.includes(option) && (
+                {selectedItems.includes(option.value) && (
                   <Check size={14} color="#fff" />
                 )}
               </View>
-              <Text style={styles.optionText}>{option}</Text>
+              <Text style={styles.optionText}>{option.label}</Text>
             </TouchableOpacity>
           ))}
         </View>
@@ -276,10 +277,6 @@ const styles = StyleSheet.create({
     color: '#1976d2',
     fontWeight: '600',
   },
-  toggleIcon: {
-    fontSize: 12,
-    color: '#6b7280',
-  },
   filterOptions: {
     paddingHorizontal: 12,
     paddingBottom: 12,
@@ -308,11 +305,6 @@ const styles = StyleSheet.create({
   checkboxSelected: {
     backgroundColor: '#1976d2',
     borderColor: '#1976d2',
-  },
-  checkboxText: {
-    color: '#fff',
-    fontSize: 12,
-    fontWeight: 'bold',
   },
   optionText: {
     fontSize: 14,
