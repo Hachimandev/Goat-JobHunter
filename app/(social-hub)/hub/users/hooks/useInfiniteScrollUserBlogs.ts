@@ -25,7 +25,6 @@ export function useInfiniteScrollUserBlogs(accountId: number, options?: UseInfin
       page,
       size: DEFAULT_BLOG_PAGE_SIZE,
       authorId: accountId,
-      draft: false,
       enabled: true,
     },
     {

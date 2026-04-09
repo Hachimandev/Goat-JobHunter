@@ -20,9 +20,8 @@ export type FetchBlogsRequest = {
   size?: number;
   sortBy?: string;
   tags?: string[];
-  title?: string;
+  content?: string;
   authorId?: number;
-  draft?: boolean;
   enabled?: boolean;
 };
 

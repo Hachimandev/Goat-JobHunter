@@ -1,18 +1,12 @@
-"use client";
+'use client';
 
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue
-} from "@/components/ui/select";
-import { debounce } from "lodash";
-import { Search, X } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
-import { AdminBlogFilters } from "@/app/(admin)/admin/blog/hooks/useBlogAdminManagement";
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { debounce } from 'lodash';
+import { Search, X } from 'lucide-react';
+import { useCallback, useEffect, useState } from 'react';
+import { AdminBlogFilters } from '@/app/(admin)/admin/blog/hooks/useBlogAdminManagement';
 
 interface AdminBlogFilterProps {
   filters: AdminBlogFilters;
@@ -20,19 +14,15 @@ interface AdminBlogFilterProps {
   onResetFilters: () => void;
 }
 
-export default function AdminBlogFilter({
-                                          filters,
-                                          onFilterChange,
-                                          onResetFilters
-                                        }: Readonly<AdminBlogFilterProps>) {
-  const [searchTerm, setSearchTerm] = useState(filters.title || "");
+export default function AdminBlogFilter({ filters, onFilterChange, onResetFilters }: Readonly<AdminBlogFilterProps>) {
+  const [searchTerm, setSearchTerm] = useState(filters.content || '');
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const debouncedSearch = useCallback(
     debounce((value: string) => {
-      onFilterChange({ title: value });
+      onFilterChange({ content: value });
     }, 700),
-    []
+    [],
   );
 
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -42,19 +32,19 @@ export default function AdminBlogFilter({
   };
 
   useEffect(() => {
-    if (filters.title !== searchTerm) {
-      setSearchTerm(filters.title || "");
+    if (filters.content !== searchTerm) {
+      setSearchTerm(filters.content || '');
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filters.title]);
+  }, [filters.content]);
 
   return (
     <div className="space-y-4 mb-6">
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="relative">
           <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Tìm theo tiêu đề..."
+            placeholder="Tìm theo nội dung..."
             className="pl-9 rounded-xl"
             value={searchTerm}
             onChange={handleSearchChange}
@@ -63,28 +53,9 @@ export default function AdminBlogFilter({
 
         <div className="">
           <Select
-            value={filters.draft ? (filters.draft ? "draft" : "published") : "all"}
+            value={filters.enabled === true ? 'enabled' : filters.enabled === false ? 'disabled' : 'all'}
             onValueChange={(value) => {
-              const draft = value === "draft" ? true : value === "published" ? false : null;
-              onFilterChange({ draft });
-            }}
-          >
-            <SelectTrigger className="rounded-xl w-full">
-              <SelectValue placeholder="Trạng thái" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Tất cả trạng thái</SelectItem>
-              <SelectItem value="published">Đã xuất bản</SelectItem>
-              <SelectItem value="draft">Bản nháp</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-
-        <div className="">
-          <Select
-            value={filters.enabled ? (filters.enabled ? "enabled" : "disabled") : "all"}
-            onValueChange={(value) => {
-              const enabled = value === "enabled" ? true : value === "disabled" ? false : null;
+              const enabled = value === 'enabled' ? true : value === 'disabled' ? false : null;
               onFilterChange({ enabled });
             }}
           >
@@ -102,10 +73,10 @@ export default function AdminBlogFilter({
 
       <div className="flex justify-end">
         <Button
-          variant={"destructive"}
+          variant={'destructive'}
           className="rounded-xl"
           onClick={() => {
-            setSearchTerm("");
+            setSearchTerm('');
             onResetFilters();
           }}
         >
