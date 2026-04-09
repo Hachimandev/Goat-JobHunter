@@ -4,17 +4,13 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
 import { Search, Loader2 } from 'lucide-react';
 import { useState } from 'react';
-import {
-  useLazyCheckExistingChatRoomQuery,
-  useSendMessageToNewChatRoomMutation,
-} from '@/services/chatRoom/chatRoomApi';
-import { useRouter } from 'next/navigation';
-import { toast } from 'sonner';
 import { User } from '@/types/model';
 import { UserSearchItem } from './UserSearchItem';
 import { SelectedUsersList } from './SelectedUsersList';
 import { GroupInfoModal } from './GroupInfoModal';
 import { useSearchUsers } from '@/app/(chat)/messages/hooks/useSearchUsers';
+import { useDirectMessageNavigation } from '@/hooks/useDirectMessageNavigation';
+import { toast } from 'sonner';
 
 interface UserSearchModalProps {
   open: boolean;
@@ -31,14 +27,12 @@ export function SearchUsersModal({
   onUserSelect,
   existingMemberIds = [],
 }: UserSearchModalProps) {
-  const router = useRouter();
   const [selectedUsers, setSelectedUsers] = useState<User[]>([]);
   const [groupInfoModalOpen, setGroupInfoModalOpen] = useState(false);
 
   const { keyword, setKeyword, users, isLoading, isError, isEmpty, shouldShowResults } = useSearchUsers();
 
-  const [checkExistingChatRoom] = useLazyCheckExistingChatRoomQuery();
-  const [sendMessageToNewChatRoom, { isLoading: isCreatingChat }] = useSendMessageToNewChatRoomMutation();
+  const { navigateToDirectChat, isLoading: isCreatingChat } = useDirectMessageNavigation();
 
   const isAddToGroupMode = mode === 'add-to-group';
 
@@ -76,22 +70,10 @@ export function SearchUsersModal({
 
     // Default single mode behavior
     if (mode === 'single') {
-      try {
-        const { data: existingChatRoom } = await checkExistingChatRoom(user.accountId).unwrap();
+      const isNavigated = await navigateToDirectChat(user.accountId);
 
-        if (existingChatRoom?.roomId) {
-          onOpenChange(false);
-          router.push(`/messages/${existingChatRoom.roomId}`);
-        } else {
-          const result = await sendMessageToNewChatRoom({ accountId: user.accountId }).unwrap();
-          if (result.data) {
-            onOpenChange(false);
-            router.push(`/messages/${result.data.roomId}`);
-          }
-        }
-      } catch (error) {
-        toast.error('Không thể tạo cuộc trò chuyện');
-        console.error(error);
+      if (isNavigated) {
+        onOpenChange(false);
       }
     } else {
       // Multi mode for group creation
