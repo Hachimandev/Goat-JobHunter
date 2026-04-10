@@ -1,4 +1,4 @@
-import type { IBackendRes } from "@/types/api";
+import type { IBackendRes } from '@/types/api';
 
 // Base Request Types
 export type DateRangeRequest = {
@@ -44,7 +44,8 @@ export type ApplicationsByStatus = {
 
 export type TopBlog = {
   id: number;
-  title: string;
+  content?: string;
+  contentPreview?: string;
   totalLikes: number;
   totalComments: number;
   totalReads: number;

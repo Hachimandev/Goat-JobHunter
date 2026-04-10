@@ -2,25 +2,31 @@
 
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { getRevertGenderKeyValue } from '@/utils/getRevertEnumKeyValue';
-import { capitalize } from 'lodash';
 import { Edit2 } from 'lucide-react';
 import { useState } from 'react';
-import UserForm from '@/app/(main)/profile/components/ProfileInfo/UserForm';
 import CompanyUserForm from '@/app/(main)/profile/components/ProfileInfo/CompanyUserForm';
+import RecruiterUserForm from '@/app/(main)/profile/components/ProfileInfo/RecruiterUserForm';
+import ApplicantUserForm from '@/app/(main)/profile/components/ProfileInfo/ApplicantUserForm';
 import CompanyProfileInfo from '@/app/(main)/profile/components/ProfileInfo/CompanyProfileInfo';
+import RecruiterProfileInfo from '@/app/(main)/profile/components/ProfileInfo/RecruiterProfileInfo';
+import ApplicantProfileInfo from '@/app/(main)/profile/components/ProfileInfo/ApplicantProfileInfo';
 import ErrorMessage from '@/components/common/ErrorMessage';
-import { formatDate } from '@/utils/formatDate';
 import { useUser } from '@/hooks/useUser';
 import { ApplicantResponse, RecruiterResponse, CompanyResponse, MeResponse } from '@/types/dto';
 import { isApplicantResponse, isRecruiterResponse, isCompanyResponse } from '@/utils/slug';
+import { Switch } from '@/components/ui/switch';
+import { Visibility } from '@/types/enum';
+import { useUpdateMyVisibilityMutation } from '@/services/user/userApi';
+import { toast } from 'sonner';
+import { extractApiErrorMessage } from '@/utils/apiError';
 
 export default function ProfileInfo() {
   const [showModal, setShowModal] = useState(false);
   const [showCompanyModal, setShowCompanyModal] = useState(false);
+  const [showRecruiterModal, setShowRecruiterModal] = useState(false);
+  const [optimisticVisibility, setOptimisticVisibility] = useState<Visibility | null>(null);
   const { user } = useUser();
+  const [updateMyVisibility, { isLoading: isUpdatingVisibility }] = useUpdateMyVisibilityMutation();
 
   if (!user) {
     return <ErrorMessage message={'Không tìm thấy thông tin người dùng.'} />;
@@ -30,8 +36,32 @@ export default function ProfileInfo() {
   const isApplicant = isApplicantResponse(me);
   const isRecruiter = isRecruiterResponse(me);
   const isCompany = isCompanyResponse(me);
+  const currentVisibility = (me.visibility as Visibility | undefined) ?? Visibility.PUBLIC;
+  const effectiveVisibility = optimisticVisibility ?? currentVisibility;
+  const isPublicVisibility = effectiveVisibility === Visibility.PUBLIC;
 
-  const userPersonal = !isCompany ? (me as ApplicantResponse | RecruiterResponse) : null;
+  const handleToggleVisibility = async (checked: boolean) => {
+    const nextVisibility = checked ? Visibility.PUBLIC : Visibility.PRIVATE;
+
+    if (nextVisibility === currentVisibility || isUpdatingVisibility) {
+      return;
+    }
+
+    setOptimisticVisibility(nextVisibility);
+
+    try {
+      await updateMyVisibility({ visibility: nextVisibility }).unwrap();
+      toast.success(
+        nextVisibility === Visibility.PUBLIC
+          ? 'Tài khoản đã chuyển sang chế độ Public.'
+          : 'Tài khoản đã chuyển sang chế độ Private.',
+      );
+      setOptimisticVisibility(null);
+    } catch (error) {
+      setOptimisticVisibility(null);
+      toast.error(extractApiErrorMessage(error, 'Không thể cập nhật quyền riêng tư tài khoản.'));
+    }
+  };
 
   return (
     <>
@@ -42,6 +72,8 @@ export default function ProfileInfo() {
             onClick={() => {
               if (isCompany) {
                 setShowCompanyModal(true);
+              } else if (isRecruiter) {
+                setShowRecruiterModal(true);
               } else {
                 setShowModal(true);
               }
@@ -53,174 +85,46 @@ export default function ProfileInfo() {
           </Button>
         </div>
 
+        <div className="mb-6 rounded-xl border border-border bg-muted/30 p-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="space-y-1">
+              <h3 className="text-sm font-semibold">Quyền riêng tư tin nhắn</h3>
+              <p className="text-sm text-muted-foreground">
+                {isPublicVisibility
+                  ? 'Public: Người khác có thể chủ động bắt đầu cuộc trò chuyện với bạn.'
+                  : 'Private: Người khác không thể chủ động bắt đầu cuộc trò chuyện với bạn.'}
+              </p>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <span className="text-sm font-medium">{isPublicVisibility ? 'Public' : 'Private'}</span>
+              <Switch
+                checked={isPublicVisibility}
+                onCheckedChange={handleToggleVisibility}
+                disabled={isUpdatingVisibility}
+              />
+            </div>
+          </div>
+        </div>
+
         <div className="space-y-4">
-          {!isCompany && (
-            <>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label className="capitalize" htmlFor="fullName">
-                    Họ Tên
-                  </Label>
-                  <Input
-                    id="fullName"
-                    value={userPersonal?.fullName || 'Chưa cập nhật'}
-                    disabled
-                    className="rounded-xl text-gray-800"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label className="capitalize" htmlFor="username">
-                    Tên hiển thị
-                  </Label>
-                  <Input
-                    id="username"
-                    value={userPersonal?.username || 'Chưa cập nhật'}
-                    disabled
-                    className="rounded-xl text-gray-800"
-                  />
-                </div>
-              </div>
+          {isApplicant && <ApplicantProfileInfo applicant={me as ApplicantResponse} />}
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label className="capitalize" htmlFor="email">
-                    Email
-                  </Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    value={userPersonal?.email || 'Chưa cập nhật'}
-                    disabled
-                    className="rounded-xl text-gray-800"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label className="capitalize" htmlFor="phone">
-                    Số Điện Thoại
-                  </Label>
-                  <Input
-                    id="phone"
-                    value={userPersonal?.phone || 'Chưa cập nhật'}
-                    disabled
-                    className="rounded-xl text-gray-800"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label className="capitalize" htmlFor="gender">
-                    Giới tính
-                  </Label>
-                  <Input
-                    id="gender"
-                    type="text"
-                    value={
-                      userPersonal?.gender ? capitalize(getRevertGenderKeyValue(userPersonal.gender)) : 'Chưa cập nhật'
-                    }
-                    disabled
-                    className="rounded-xl text-gray-800"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label className="capitalize" htmlFor="dob">
-                    Ngày sinh
-                  </Label>
-                  <Input
-                    id="dob"
-                    value={userPersonal?.dob ? formatDate(userPersonal.dob) : 'Chưa cập nhật'}
-                    disabled
-                    className="rounded-xl text-gray-800"
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label className="capitalize">Địa chỉ</Label>
-                {userPersonal?.addresses && userPersonal.addresses.length > 0 ? (
-                  <div className="space-y-2">
-                    {userPersonal.addresses.map((addr, index) => (
-                      <Input
-                        key={addr.addressId || index}
-                        value={`${addr.province} - ${addr.fullAddress}`}
-                        disabled
-                        className="rounded-xl text-gray-800"
-                      />
-                    ))}
-                  </div>
-                ) : (
-                  <Input value="Chưa cập nhật" disabled className="rounded-xl text-gray-800" />
-                )}
-              </div>
-            </>
-          )}
+          {isRecruiter && <RecruiterProfileInfo recruiter={me as RecruiterResponse} />}
 
           {isCompany && <CompanyProfileInfo company={me as CompanyResponse} />}
-
-          {isApplicant && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label className="capitalize" htmlFor="level">
-                  Trình độ
-                </Label>
-                <Input
-                  id="level"
-                  value={capitalize(me.level) || 'Chưa cập nhật'}
-                  disabled
-                  className="rounded-xl text-gray-800"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label className="capitalize" htmlFor="education">
-                  Học Vấn
-                </Label>
-                <Input
-                  id="education"
-                  type="text"
-                  value={capitalize(me.education) || 'Chưa cập nhật'}
-                  disabled
-                  className="rounded-xl text-gray-800"
-                />
-              </div>
-            </div>
-          )}
-
-          {isRecruiter && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label className="capitalize" htmlFor="position">
-                  Vị trí
-                </Label>
-                <Input
-                  id="position"
-                  value={me.position || 'Chưa cập nhật'}
-                  disabled
-                  className="rounded-xl text-gray-800"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label className="capitalize" htmlFor="company">
-                  Công ty
-                </Label>
-                <Input
-                  id="company"
-                  value={me.company?.name || 'Chưa cập nhật'}
-                  disabled
-                  className="rounded-xl text-gray-800"
-                />
-              </div>
-            </div>
-          )}
         </div>
       </Card>
       {isCompany ? (
         <CompanyUserForm open={showCompanyModal} onOpenChange={setShowCompanyModal} profile={me as CompanyResponse} />
-      ) : (
-        <UserForm
-          open={showModal}
-          onOpenChange={setShowModal}
-          profile={userPersonal as ApplicantResponse | RecruiterResponse}
+      ) : isRecruiter ? (
+        <RecruiterUserForm
+          open={showRecruiterModal}
+          onOpenChange={setShowRecruiterModal}
+          profile={me as RecruiterResponse}
         />
+      ) : (
+        <ApplicantUserForm open={showModal} onOpenChange={setShowModal} profile={me as ApplicantResponse} />
       )}
     </>
   );

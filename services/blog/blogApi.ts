@@ -1,5 +1,5 @@
-import { api } from "@/services/api";
-import { buildSpringQuery } from "@/utils/buildSpringQuery";
+import { api } from '@/services/api';
+import { buildSpringQuery } from '@/utils/buildSpringQuery';
 import {
   BlogIdsRequest,
   BlogMutationResponse,
@@ -11,192 +11,211 @@ import {
   FetchTagsRequest,
   FetchTagsResponse,
   GetCommentsResponse,
-  UpdateBlogRequest
-} from "./blogType";
+  UpdateBlogRequest,
+} from './blogType';
 
 export const blogApi = api.injectEndpoints({
   overrideExisting: true,
   endpoints: (builder) => ({
     createBlog: builder.mutation<BlogMutationResponse, FormData>({
       query: (data) => ({
-        url: "/blogs",
-        method: "POST",
-        data
+        url: '/blogs',
+        method: 'POST',
+        data,
       }),
-      invalidatesTags: ["Blog"]
+      invalidatesTags: ['Blog'],
     }),
 
     updateBlog: builder.mutation<BlogMutationResponse, UpdateBlogRequest>({
       query: (data) => ({
-        url: "/blogs",
-        method: "PUT",
-        data
+        url: '/blogs',
+        method: 'PUT',
+        data,
       }),
       invalidatesTags: (_, __, arg) => [
-        { type: "Blog", id: arg.blogId },
-        { type: "Blog", id: "LIST" }
-      ]
+        { type: 'Blog', id: arg.blogId },
+        { type: 'Blog', id: 'LIST' },
+      ],
     }),
 
     deleteBlog: builder.mutation<BlogMutationResponse, BlogIdsRequest>({
       query: (data) => ({
         url: `/blogs`,
-        method: "DELETE",
-        data
+        method: 'DELETE',
+        data,
       }),
       invalidatesTags: (_, __, arg) => [
-        ...arg.blogIds.map((id) => ({ type: "Blog" as const, id })),
-        { type: "Blog", id: "LIST" }
-      ]
+        ...arg.blogIds.map((id) => ({ type: 'Blog' as const, id })),
+        { type: 'Blog', id: 'LIST' },
+      ],
     }),
 
     fetchBlogs: builder.query<FetchBlogsResponse, FetchBlogsRequest>({
       query: (params) => {
         const { params: queryParams } = buildSpringQuery({
           params,
-          filterFields: ["title", "draft"],
-          textSearchFields: ["title"],
-          defaultSort: "createdAt,desc"
+          filterFields: ['content', 'enabled'],
+          textSearchFields: ['content'],
+          defaultSort: 'createdAt,desc',
         });
 
         return {
-          url: "/blogs",
-          method: "GET",
-          params: queryParams
+          url: '/blogs',
+          method: 'GET',
+          params: queryParams,
         };
       },
       providesTags: (result) =>
         result?.data
           ? [
-            ...result.data.result.map((blog) => ({ type: "Blog" as const, id: blog.blogId })),
-            { type: "Blog", id: "LIST" }
-          ]
-          : [{ type: "Blog", id: "LIST" }]
+              ...result.data.result.map((blog) => ({ type: 'Blog' as const, id: blog.blogId })),
+              { type: 'Blog', id: 'LIST' },
+            ]
+          : [{ type: 'Blog', id: 'LIST' }],
     }),
 
     fetchAvailableBlogs: builder.query<FetchBlogsResponse, FetchBlogsRequest>({
       query: (params) => {
         const { params: queryParams } = buildSpringQuery({
           params,
-          filterFields: ["title", "content"],
-          textSearchFields: ["title", "content"],
-          arrayFields: ["tags"],
-          defaultSort: "createdAt,desc"
+          filterFields: ['content'],
+          textSearchFields: ['content'],
+          arrayFields: ['tags'],
+          defaultSort: 'createdAt,desc',
         });
 
         return {
-          url: "/blogs/available",
-          method: "GET",
-          params: queryParams
+          url: '/blogs/available',
+          method: 'GET',
+          params: queryParams,
         };
       },
       providesTags: (result) =>
         result?.data
           ? [
-            ...result.data.result.map((blog) => ({ type: "Blog" as const, id: blog.blogId })),
-            { type: "Blog", id: "LIST" }
-          ]
-          : [{ type: "Blog", id: "LIST" }]
+              ...result.data.result.map((blog) => ({ type: 'Blog' as const, id: blog.blogId })),
+              { type: 'Blog', id: 'LIST' },
+            ]
+          : [{ type: 'Blog', id: 'LIST' }],
     }),
 
     fetchPopularBlogs: builder.query<FetchBlogsResponse, FetchBlogsRequest>({
       query: (params) => {
-        const modifiedParams = {
-          ...params,
-          sort: "activity.totalReads,desc"
-        };
-
         const { params: queryParams } = buildSpringQuery({
-          params: modifiedParams,
-          filterFields: ["title", "content", "authorId"],
-          textSearchFields: ["title", "content"],
-          arrayFields: ["tags"],
-          defaultSort: "activity.totalReads,desc",
+          params,
+          filterFields: ['content'],
+          textSearchFields: ['content'],
+          nestedFields: {
+            authorId: 'author.accountId',
+          },
+          arrayFields: ['tags'],
+          defaultSort: 'activity.totalReads,desc',
           sortableFields: [
-            "title",
-            "createdAt",
-            "updatedAt",
-            "activity.totalReads",
-            "activity.totalLikes",
-            "activity.totalComments"
-          ]
+            'createdAt',
+            'updatedAt',
+            'activity.totalReads',
+            'activity.totalLikes',
+            'activity.totalComments',
+          ],
         });
 
         return {
-          url: "/blogs",
-          method: "GET",
-          params: queryParams
+          url: '/blogs',
+          method: 'GET',
+          params: queryParams,
         };
       },
-      providesTags: ["Blog"]
+      providesTags: ['Blog'],
     }),
 
     fetchBlogById: builder.query<FetchBlogByIdResponse, number>({
       query: (blogId) => ({
         url: `/blogs/${blogId}`,
-        method: "GET"
+        method: 'GET',
       }),
-      providesTags: ["Blog"]
+      providesTags: ['Blog'],
     }),
 
     fetchBlogByIdRead: builder.query<FetchBlogByIdResponse, number>({
       query: (blogId) => ({
         url: `/blogs/${blogId}`,
-        method: "GET",
-        params: { read: true }
+        method: 'GET',
+        params: { read: true },
       }),
-      providesTags: ["Blog"]
+      providesTags: ['Blog'],
     }),
 
     fetchTags: builder.query<FetchTagsResponse, FetchTagsRequest>({
       query: (params) => ({
-        url: "/blogs/tags",
-        method: "GET",
-        params
-      })
+        url: '/blogs/tags',
+        method: 'GET',
+        params,
+      }),
     }),
 
-    fetchBlogsByCurrentRecruiter: builder.query<FetchBlogsResponse, FetchBlogsRequest>({
+    fetchBlogsByCurrentUser: builder.query<FetchBlogsResponse, FetchBlogsRequest>({
       query: (params) => {
         const { params: queryParams } = buildSpringQuery({
           params,
-          filterFields: ["title", "draft"],
-          textSearchFields: ["title"],
-          arrayFields: ["tags"],
-          defaultSort: "createdAt,updatedAt,desc"
+          filterFields: ['content', 'enabled'],
+          textSearchFields: ['content'],
+          arrayFields: ['tags'],
+          defaultSort: 'createdAt,updatedAt,desc',
         });
 
         return {
-          url: "/blogs/me",
-          method: "GET",
-          params: queryParams
+          url: '/blogs/me',
+          method: 'GET',
+          params: queryParams,
         };
       },
-      providesTags: ["Blog"]
+      providesTags: ['Blog'],
+    }),
+
+    fetchBlogsByAuthor: builder.query<FetchBlogsResponse, FetchBlogsRequest>({
+      query: (params) => {
+        const { params: queryParams } = buildSpringQuery({
+          params,
+          filterFields: ['content', 'enabled'],
+          textSearchFields: ['content'],
+          nestedFields: {
+            authorId: 'author.accountId',
+          },
+          arrayFields: ['tags'],
+          defaultSort: 'createdAt,desc',
+        });
+
+        return {
+          url: '/blogs/available',
+          method: 'GET',
+          params: queryParams,
+        };
+      },
+      providesTags: ['Blog'],
     }),
 
     enableBlogs: builder.mutation<BlogStatusResponse, BlogIdsRequest>({
       query: (blogIds) => ({
-        url: "/blogs/enabled",
-        method: "PUT",
-        data: blogIds
+        url: '/blogs/enabled',
+        method: 'PUT',
+        data: blogIds,
       }),
       invalidatesTags: (_, __, arg) => [
-        ...arg.blogIds.map((id) => ({ type: "Blog" as const, id })),
-        { type: "Blog", id: "LIST" }
-      ]
+        ...arg.blogIds.map((id) => ({ type: 'Blog' as const, id })),
+        { type: 'Blog', id: 'LIST' },
+      ],
     }),
 
     disableBlogs: builder.mutation<BlogStatusResponse, BlogIdsRequest>({
       query: (blogIds) => ({
-        url: "/blogs/disabled",
-        method: "PUT",
-        data: blogIds
+        url: '/blogs/disabled',
+        method: 'PUT',
+        data: blogIds,
       }),
       invalidatesTags: (_, __, arg) => [
-        ...arg.blogIds.map((id) => ({ type: "Blog" as const, id })),
-        { type: "Blog", id: "LIST" }
-      ]
+        ...arg.blogIds.map((id) => ({ type: 'Blog' as const, id })),
+        { type: 'Blog', id: 'LIST' },
+      ],
     }),
 
     // comments endpoints
@@ -205,39 +224,43 @@ export const blogApi = api.injectEndpoints({
         const { params } = buildSpringQuery({
           params: {},
           filterFields: [],
-          sortableFields: ["createdAt"],
-          defaultSort: "createdAt,desc"
+          sortableFields: ['createdAt'],
+          defaultSort: 'createdAt,desc',
         });
 
         return {
           url: `/comments/blog/${blogId}`,
-          method: "GET",
-          params
+          method: 'GET',
+          params,
         };
       },
-      providesTags: (_, __, blogId) => [{ type: "Comment", id: blogId }]
+      providesTags: (_, __, blogId) => [{ type: 'Comment', id: blogId }],
     }),
 
     createComment: builder.mutation<unknown, CreateCommentRequest>({
       query: (data) => ({
         url: `/comments`,
-        method: "POST",
-        data
+        method: 'POST',
+        data,
       }),
       invalidatesTags: (_, __, arg) => [
-        { type: "Comment", id: arg.blogId },
-        { type: "Blog", id: arg.blogId } // Chỉ update blog cụ thể
-      ]
+        { type: 'Comment', id: arg.blogId },
+        { type: 'Blog', id: arg.blogId }, // Chỉ update blog cụ thể
+      ],
     }),
 
-    deleteComment: builder.mutation<unknown, number>({
-      query: (commentId: number) => ({
+    deleteComment: builder.mutation<unknown, { commentId: number; blogId: number }>({
+      query: ({ commentId }) => ({
         url: `/comments/${commentId}`,
-        method: "DELETE"
+        method: 'DELETE',
       }),
-      invalidatesTags: (_, __, arg) => [{ type: "Comment", id: arg }]
-    })
-  })
+      invalidatesTags: (_, __, arg) => [
+        { type: 'Comment', id: arg.commentId },
+        { type: 'Blog', id: arg.blogId },
+        { type: 'Comment', id: arg.blogId },
+      ],
+    }),
+  }),
 });
 
 export const {
@@ -252,7 +275,8 @@ export const {
   useFetchBlogByIdReadQuery,
 
   useFetchTagsQuery,
-  useFetchBlogsByCurrentRecruiterQuery,
+  useFetchBlogsByCurrentUserQuery,
+  useFetchBlogsByAuthorQuery,
 
   useEnableBlogsMutation,
   useDisableBlogsMutation,
@@ -260,5 +284,5 @@ export const {
   // comments hooks
   useGetCommentsByBlogIdQuery,
   useCreateCommentMutation,
-  useDeleteCommentMutation
+  useDeleteCommentMutation,
 } = blogApi;

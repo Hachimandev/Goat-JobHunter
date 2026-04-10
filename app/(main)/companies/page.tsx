@@ -1,21 +1,21 @@
-"use client";
+'use client';
 
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
-import CustomPagination from "@/components/common/CustomPagination";
-import { TrendingUp } from "lucide-react";
-import { useCompanyFilter } from "./hooks/useCompaniesFilter";
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from '@/components/ui/empty';
+import CustomPagination from '@/components/common/CustomPagination';
+import { TrendingUp } from 'lucide-react';
+import { useCompanyFilter } from './hooks/useCompaniesFilter';
 import {
   useAverageRatingsByCompanyQuery,
   useCountAllReviewsQuery,
   useCountReviewsByCompanyQuery,
-  useLatestReviewsQuery
-} from "@/services/review/reviewApi";
-import { useMemo } from "react";
-import { CompanyCard, CompanyFilter, LatestReviewCard } from "./components";
-import { formatNumberWithComma } from "@/utils/formatCurrency";
-import { useCountAvailableJobsByCompanyQuery } from "@/services/job/jobApi";
+  useLatestReviewsQuery,
+} from '@/services/review/reviewApi';
+import { useMemo } from 'react';
+import { CompanyCard, CompanyFilter, LatestReviewCard } from './components';
+import { formatNumberWithComma } from '@/utils/formatCurrency';
+import { useCountAvailableJobsByCompanyQuery } from '@/services/job/jobApi';
 
 export default function CompaniesPage() {
   const {
@@ -36,15 +36,15 @@ export default function CompaniesPage() {
     companiesData,
     isFetchingCompanies,
     nameInputValue,
-    handleNameInputChange
+    handleNameInputChange,
   } = useCompanyFilter({
     initialPage: 1,
     itemsPerPage: 6,
     initialFilters: {
-      name: "",
+      name: '',
       addresses: [],
-      verified: undefined
-    }
+      verified: undefined,
+    },
   });
 
   const { data: countJobs } = useCountAvailableJobsByCompanyQuery();
@@ -99,9 +99,7 @@ export default function CompaniesPage() {
                 <Empty>
                   <EmptyHeader>
                     <EmptyTitle>Có lỗi xảy ra</EmptyTitle>
-                    <EmptyDescription>
-                      Không thể tải danh sách công ty. Vui lòng thử lại sau.
-                    </EmptyDescription>
+                    <EmptyDescription>Không thể tải danh sách công ty. Vui lòng thử lại sau.</EmptyDescription>
                   </EmptyHeader>
                 </Empty>
               )}
@@ -110,9 +108,7 @@ export default function CompaniesPage() {
                 <Empty>
                   <EmptyHeader>
                     <EmptyTitle>Không tìm thấy công ty</EmptyTitle>
-                    <EmptyDescription>
-                      Không tìm thấy công ty nào khớp với yêu cầu của bạn
-                    </EmptyDescription>
+                    <EmptyDescription>Không tìm thấy công ty nào khớp với yêu cầu của bạn</EmptyDescription>
                   </EmptyHeader>
                 </Empty>
               )}

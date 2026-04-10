@@ -28,7 +28,7 @@ interface JobDetailViewProps {
 export default function JobDetailView({ jobId }: JobDetailViewProps) {
   const router = useRouter();
 
-  const { user } = useUser();
+  const { isSignedIn, user } = useUser();
   const { handleToggleSaveJob } = useJobActions();
   const {
     isDialogOpen,
@@ -54,7 +54,7 @@ export default function JobDetailView({ jobId }: JobDetailViewProps) {
       jobId: job?.jobId || -1,
     },
     {
-      skip: !user || !job,
+      skip: !user || !job || !isSignedIn,
     },
   );
 

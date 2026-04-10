@@ -5,8 +5,7 @@ import { useInfiniteScroll } from '@/hooks/useInfiniteScroll';
 import { useCheckSavedBlogsQuery } from '@/services/user/savedBlogsApi';
 import { useCheckReactBlogQuery } from '@/services/reaction/reactionApi';
 import { useUser } from '@/hooks/useUser';
-
-const PAGE_SIZE = 15;
+import { DEFAULT_BLOG_PAGE_SIZE } from '@/constants/constant';
 
 export function useInfiniteScrollBlogs() {
   const { isSignedIn } = useUser();
@@ -16,7 +15,7 @@ export function useInfiniteScrollBlogs() {
 
   const { data, isLoading, isError, isFetching, isSuccess } = useFetchAvailableBlogsQuery({
     page,
-    size: PAGE_SIZE,
+    size: DEFAULT_BLOG_PAGE_SIZE,
   });
 
   // Update blogs when new data arrives

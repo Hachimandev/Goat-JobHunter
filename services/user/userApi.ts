@@ -16,6 +16,8 @@ import {
   RecruiterIdsRequest,
   ResetPasswordRequest,
   ResetPasswordResponse,
+  UpdateMyVisibilityMutationResponse,
+  UpdateMyVisibilityRequest,
   UpdatePasswordRequest,
   UpdatePasswordResponse,
   UserIdsRequest,
@@ -24,6 +26,8 @@ import {
 } from './userType';
 import { FetchJobsRequest, FetchJobsResponse } from '../job/jobType';
 import { FetchResumesRequest, FetchResumesResponse } from '../resume/resumeType';
+import { mergeUserProfileIfNewer } from '@/lib/features/authSlice';
+import { AuthUser } from '@/lib/features/authSyncTypes';
 
 export const userApi = api.injectEndpoints({
   overrideExisting: true,
@@ -192,6 +196,33 @@ export const userApi = api.injectEndpoints({
       invalidatesTags: ['User', 'Recruiter', 'Applicant'],
     }),
 
+    updateMyVisibility: builder.mutation<UpdateMyVisibilityMutationResponse, UpdateMyVisibilityRequest>({
+      query: (data) => ({
+        url: '/users/me/visibility',
+        method: 'PUT',
+        data,
+      }),
+      invalidatesTags: ['User', 'Recruiter', 'Applicant', 'Company', 'Account'],
+      async onQueryStarted(_, { dispatch, queryFulfilled }) {
+        try {
+          const { data } = await queryFulfilled;
+          const visibilityPayload = data?.data;
+
+          if (visibilityPayload?.accountId) {
+            dispatch(
+              mergeUserProfileIfNewer({
+                userId: visibilityPayload.accountId,
+                profile: visibilityPayload as Partial<AuthUser>,
+                emittedAt: new Date().toISOString(),
+              }),
+            );
+          }
+        } catch (error) {
+          console.error('Failed to update account visibility:', error);
+        }
+      },
+    }),
+
     // Current jobs
     fetchJobSubscribersByCurrentUser: builder.query<FetchJobsResponse, Omit<FetchJobsRequest, 'active'>>({
       query: (params) => {
@@ -294,6 +325,7 @@ export const {
 
   useActivateUsersMutation,
   useDeactivateUsersMutation,
+  useUpdateMyVisibilityMutation,
 
   useFetchJobSubscribersByCurrentUserQuery,
   useFetchRelatedJobsByCurrentUserQuery,

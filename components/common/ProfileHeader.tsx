@@ -8,7 +8,7 @@ import { Camera, Eye, EyeOff, Mail, User as UserIcon } from 'lucide-react';
 import { useState } from 'react';
 import { cn } from '@/lib/utils';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { ApplicantResponse, MeResponse } from '@/types/dto';
+import { ApplicantResponse, MeResponse, RecruiterResponse } from '@/types/dto';
 import { isApplicantResponse, isCompanyResponse } from '@/utils/slug';
 
 interface ProfileHeaderProps {
@@ -25,10 +25,11 @@ export default function ProfileHeader({ fullPage = false, type }: Readonly<Profi
   const me = user as MeResponse;
   const isApplicant = isApplicantResponse(me);
   const isCompany = isCompanyResponse(me);
+  const profile = !isCompany ? (me as ApplicantResponse | RecruiterResponse) : null;
 
-  const displayName = isCompany ? me.name : (me as ApplicantResponse)?.fullName || me.email;
-  const displayImage = isCompany ? me.logo : (me as ApplicantResponse)?.avatar;
-  const coverPhoto = me?.coverPhoto || '/placeholder.svg?height=300&width=1200&query=cover-photo';
+  const displayName = isCompany ? me.name : profile?.fullName || profile?.email || '';
+  const displayImage = isCompany ? me.logo : profile?.avatar;
+  const coverPhoto = me?.coverPhoto || '/default-cover.svg';
   const hasAvatar = displayImage && !imageError;
 
   return (
@@ -44,7 +45,7 @@ export default function ProfileHeader({ fullPage = false, type }: Readonly<Profi
           onClick={() => setIsCoverPhotoDialogOpen(true)}
           size="icon"
           variant="secondary"
-          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 shadow-lg opacity-0 group-hover:opacity-100 transition-opacity"
+          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 shadow-lg opacity-0 group-hover:opacity-100 transition-opacity rounded-full"
         >
           <Camera className="h-4 w-4" />
         </Button>
@@ -65,7 +66,7 @@ export default function ProfileHeader({ fullPage = false, type }: Readonly<Profi
                   <AvatarFallback className="text-2xl font-semibold">
                     {displayName
                       .split(' ')
-                      .map((n) => n[0])
+                      .map((n: string) => n[0])
                       .join('')
                       .toUpperCase()}
                   </AvatarFallback>
@@ -92,7 +93,7 @@ export default function ProfileHeader({ fullPage = false, type }: Readonly<Profi
               {isApplicant && user && (
                 <TooltipProvider>
                   <Tooltip>
-                    <TooltipTrigger asChild>
+                    <TooltipTrigger asChild className="cursor-pointer">
                       <div className="flex items-center gap-2 py-1 rounded-full">
                         {(me as ApplicantResponse).availableStatus ? (
                           <Eye className="h-5 w-5 text-green-600" />
@@ -114,9 +115,7 @@ export default function ProfileHeader({ fullPage = false, type }: Readonly<Profi
             </div>
 
             <div className="text-sm space-y-1">
-              {!isCompany && (me as ApplicantResponse)?.username && (
-                <p className="text-sm text-muted-foreground">@ {(me as ApplicantResponse)?.username}</p>
-              )}
+              {me?.username && <p className="text-sm text-muted-foreground">@{me.username}</p>}
 
               {me?.email && (
                 <div className="flex items-center gap-2 text-muted-foreground">

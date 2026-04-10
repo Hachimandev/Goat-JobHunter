@@ -1,5 +1,5 @@
 import { Address, Contact, Role } from '@/types/model';
-import { Education, Gender, Level } from '@/types/enum';
+import { Education, Gender, Level, Visibility } from '@/types/enum';
 
 export type FetchCurrentRecruiterDto = {
   userId: number;
@@ -11,6 +11,7 @@ export type FetchCurrentRecruiterDto = {
   gender: Gender;
   dob: Date;
   enabled: boolean;
+  visibility?: Visibility;
   role: { roleId: number; name: string };
   createdAt: Date;
   updatedAt: Date;
@@ -28,6 +29,7 @@ export type FetchCurrentApplicantDto = {
   gender: Gender;
   dob: string;
   enabled: boolean;
+  visibility?: Visibility;
   role: { roleId: number; name: string };
   createdAt: string;
   updatedAt: string;
@@ -48,6 +50,7 @@ export type LoginResponseDto = {
   avatar: string;
   type: string;
   enabled: boolean;
+  visibility?: Visibility;
   role: Role;
 
   company?: {
@@ -67,6 +70,7 @@ export type UserResponse = {
   gender: Gender;
   dob: string;
   enabled: boolean;
+  visibility?: Visibility;
   coverPhoto: string;
   headline: string;
   bio: string;
@@ -95,7 +99,9 @@ export type RecruiterResponse = UserResponse & {
 export type CompanyResponse = {
   accountId: number;
   email: string;
+  visibility?: Visibility;
   name: string;
+  username: string;
   description: string;
   logo: string;
   coverPhoto: string;

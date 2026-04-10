@@ -45,7 +45,7 @@ export function LoginForm({ className, ...props }: React.ComponentProps<'div'>) 
           router.push('/dashboard');
           return;
         }
-        router.push('/');
+        router.push('/messages');
         return;
       }
 

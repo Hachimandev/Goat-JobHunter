@@ -1,15 +1,12 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import { MAX_IMAGE_UPLOAD } from "@/constants/constant";
-import formatImageUrlsForPhotoView from "@/utils/formatImageUrlsForPhotoView";
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { MAX_IMAGE_UPLOAD } from '@/constants/constant';
+import formatImageUrlsForPhotoView from '@/utils/formatImageUrlsForPhotoView';
 
 interface UseBlogImagesInputOptions {
   maxSizeMb?: number;
 }
 
-export function useBlogImagesInput(
-  open: boolean,
-  { maxSizeMb = 2 }: UseBlogImagesInputOptions = {}
-) {
+export function useBlogImagesInput(open: boolean, { maxSizeMb = 2 }: UseBlogImagesInputOptions = {}) {
   const [imageFiles, setImageFiles] = useState<File[]>([]);
   const [imagePreviews, setImagePreviews] = useState<string[]>([]);
   const [isDragging, setIsDragging] = useState(false);
@@ -21,7 +18,7 @@ export function useBlogImagesInput(
     const handleDragEnter = (e: DragEvent) => {
       e.preventDefault();
       e.stopPropagation();
-      if (e.dataTransfer?.types.includes("Files")) {
+      if (e.dataTransfer?.types.includes('Files')) {
         dragCounter.current++;
         if (dragCounter.current === 1) setIsDragging(true);
       }
@@ -46,16 +43,16 @@ export function useBlogImagesInput(
       dragCounter.current = 0;
     };
 
-    document.addEventListener("dragenter", handleDragEnter);
-    document.addEventListener("dragleave", handleDragLeave);
-    document.addEventListener("dragover", handleDragOver);
-    document.addEventListener("drop", handleDrop);
+    document.addEventListener('dragenter', handleDragEnter);
+    document.addEventListener('dragleave', handleDragLeave);
+    document.addEventListener('dragover', handleDragOver);
+    document.addEventListener('drop', handleDrop);
 
     return () => {
-      document.removeEventListener("dragenter", handleDragEnter);
-      document.removeEventListener("dragleave", handleDragLeave);
-      document.removeEventListener("dragover", handleDragOver);
-      document.removeEventListener("drop", handleDrop);
+      document.removeEventListener('dragenter', handleDragEnter);
+      document.removeEventListener('dragleave', handleDragLeave);
+      document.removeEventListener('dragover', handleDragOver);
+      document.removeEventListener('drop', handleDrop);
       dragCounter.current = 0;
       setIsDragging(false);
     };
@@ -64,9 +61,7 @@ export function useBlogImagesInput(
   const handleFilesAdded = (files: File[]) => {
     if (!files?.length) return;
 
-    const accepted = files.filter(
-      (file) => file.size <= maxSizeMb * 1024 * 1024
-    );
+    const accepted = files.filter((file) => file.size <= maxSizeMb * 1024 * 1024);
 
     const remainingSlots = MAX_IMAGE_UPLOAD - imageFiles.length;
     const limited = accepted.slice(0, Math.max(remainingSlots, 0));
@@ -88,6 +83,12 @@ export function useBlogImagesInput(
     dragCounter.current = 0;
   };
 
+  const removeImageAt = (index: number) => {
+    if (index < 0) return;
+    setImageFiles((prev) => prev.filter((_, i) => i !== index));
+    setImagePreviews((prev) => prev.filter((_, i) => i !== index));
+  };
+
   const resetImages = () => {
     setImageFiles([]);
     setImagePreviews([]);
@@ -95,10 +96,7 @@ export function useBlogImagesInput(
     dragCounter.current = 0;
   };
 
-  const formattedImageUrls = useMemo(
-    () => formatImageUrlsForPhotoView(imagePreviews),
-    [imagePreviews]
-  );
+  const formattedImageUrls = useMemo(() => formatImageUrlsForPhotoView(imagePreviews), [imagePreviews]);
 
   return {
     imageFiles,
@@ -106,6 +104,7 @@ export function useBlogImagesInput(
     isDragging,
     formattedImageUrls,
     handleFilesAdded,
-    resetImages
+    removeImageAt,
+    resetImages,
   };
 }

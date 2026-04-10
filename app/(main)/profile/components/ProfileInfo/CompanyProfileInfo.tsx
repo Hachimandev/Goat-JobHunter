@@ -10,6 +10,7 @@ interface CompanyProfileInfoProps {
 }
 
 export default function CompanyProfileInfo({ company }: Readonly<CompanyProfileInfoProps>) {
+  console.log('Company data in CompanyProfileInfo:', company);
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

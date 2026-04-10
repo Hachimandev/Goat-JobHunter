@@ -1,6 +1,6 @@
-import type { IBackendRes, IModelPaginate } from "@/types/api";
-import { Blog, CommentType } from "@/types/model";
-import { BlogActionType } from "@/types/enum";
+import type { IBackendRes, IModelPaginate } from '@/types/api';
+import { Blog, CommentType } from '@/types/model';
+import { BlogActionType } from '@/types/enum';
 
 export type BlogIdsRequest = {
   blogIds: number[];
@@ -12,7 +12,7 @@ export type BlogIdsRequest = {
 export type UpdateBlogRequest = {
   blogId: number;
   formData: FormData;
-}
+};
 
 // Fetch with Pagination
 export type FetchBlogsRequest = {
@@ -20,8 +20,8 @@ export type FetchBlogsRequest = {
   size?: number;
   sortBy?: string;
   tags?: string[];
-  title?: string;
-  draft?: boolean;
+  content?: string;
+  authorId?: number;
   enabled?: boolean;
 };
 
@@ -38,15 +38,17 @@ export type FetchBlogByIdResponse = IBackendRes<Blog>;
 
 export type FetchTagsResponse = IBackendRes<[[string, number]]>;
 
-export type BlogStatusResponse = IBackendRes<{
-  blogId: number;
-  enabled: boolean;
-}[]>;
+export type BlogStatusResponse = IBackendRes<
+  {
+    blogId: number;
+    enabled: boolean;
+  }[]
+>;
 
-export type GetCommentsResponse = IBackendRes<CommentType[]>
+export type GetCommentsResponse = IBackendRes<CommentType[]>;
 
 export type CreateCommentRequest = {
   blogId: number;
   comment: string;
   replyTo?: number;
-}
+};

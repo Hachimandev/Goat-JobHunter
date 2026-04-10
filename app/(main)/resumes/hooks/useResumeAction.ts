@@ -57,7 +57,7 @@ export const useResumeAction = ({
       size: itemsPerPage,
     },
     {
-      skip: !isSignedIn || hasSelectedJob,
+      skip: !isSignedIn || hasSelectedJob || !user,
     },
   );
 

@@ -402,3 +402,5 @@ export const COUNTRY_OPTIONS = [
   { value: 'VIETNAM', label: 'Việt Nam' },
   { value: 'ZIMBABWE', label: 'Zimbabwe' },
 ];
+
+export const DEFAULT_BLOG_PAGE_SIZE = 15;

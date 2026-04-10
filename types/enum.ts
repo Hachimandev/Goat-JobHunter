@@ -16,7 +16,6 @@ export enum WorkingType {
 export enum Gender {
   NAM = 'MALE',
   NỮ = 'FEMALE',
-  KHÁC = 'OTHER',
 }
 
 export enum Education {
@@ -32,6 +31,11 @@ export enum CompanySize {
   MEDIUM = 'Vừa',
   LARGE = 'Lớn',
   ENTERPRISE = 'Tập đoàn',
+}
+
+export enum Visibility {
+  PUBLIC = 'PUBLIC',
+  PRIVATE = 'PRIVATE',
 }
 
 export enum ApplicationStatus {

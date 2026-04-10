@@ -1,13 +1,33 @@
 import { MessageType } from '@/types/model';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Button } from '@/components/ui/button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
 import { formatDistanceToNow } from 'date-fns';
 import { vi } from 'date-fns/locale';
-import { FileIcon, UserPlus, UserMinus, Crown, ImageIcon, Users } from 'lucide-react';
+import {
+  FileIcon,
+  UserPlus,
+  UserMinus,
+  Crown,
+  ImageIcon,
+  Users,
+  MoreVertical,
+  Forward,
+  Undo2,
+  Loader2,
+  Trash2,
+} from 'lucide-react';
 import Image from 'next/image';
 import { MessageEvent, MessageTypeEnum } from '@/types/enum';
-import { JSX, useMemo } from 'react';
+import { JSX, useMemo, useState } from 'react';
 import MarkdownDisplay from '@/components/common/MarkdownDisplay';
+import ConfirmDialog from '@/components/common/ConfirmDialog';
 
 interface MessageBubbleProps {
   message: MessageType;
@@ -15,6 +35,12 @@ interface MessageBubbleProps {
   showAvatar?: boolean;
   senderName?: string;
   senderAvatar?: string;
+  onForward?: (message: MessageType) => void;
+  onRecall?: (messageId: string) => void | Promise<void>;
+  onDelete?: (messageId: string) => void | Promise<void>;
+  isForwarding?: boolean;
+  isRecalling?: boolean;
+  isDeleting?: boolean;
 }
 
 export function MessageBubble({
@@ -23,21 +49,41 @@ export function MessageBubble({
   showAvatar = false,
   senderName,
   senderAvatar,
+  onForward,
+  onRecall,
+  onDelete,
+  isForwarding = false,
+  isRecalling = false,
+  isDeleting = false,
 }: Readonly<MessageBubbleProps>) {
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+
   const timeAgo = formatDistanceToNow(new Date(message.createdAt), {
     addSuffix: true,
     locale: vi,
   });
   const type = useMemo(() => message.messageType, [message.messageType]);
+  const isForwarded = useMemo(() => Boolean(message.isForwarded), [message.isForwarded]);
+  const isRecalled = useMemo(() => message.isHidden, [message.isHidden]);
 
   const isMedia = useMemo(
-    () => type === MessageTypeEnum.IMAGE || type === MessageTypeEnum.VIDEO || type === MessageTypeEnum.AUDIO,
-    [type],
+    () =>
+      !isRecalled &&
+      (type === MessageTypeEnum.IMAGE || type === MessageTypeEnum.VIDEO || type === MessageTypeEnum.AUDIO),
+    [isRecalled, type],
   );
 
   const isSystem = useMemo(() => type === MessageTypeEnum.SYSTEM, [type]);
+  const disableForwardAction = isForwarding || isRecalled || !onForward;
+  const disableRecallAction = isRecalled || isRecalling || !onRecall;
+  const disableDeleteAction = isDeleting || isRecalling || !onDelete;
+  const canShowForwardAction = !isSystem && !isRecalled && !!onForward;
+  const canShowRecallAction = isOwn && !isRecalled && !!onRecall;
+  const canShowDeleteAction = isOwn && !!onDelete;
+  const canShowOwnerActions = isOwn && !isSystem && (canShowRecallAction || canShowDeleteAction);
+  const canShowActionMenu = canShowForwardAction || canShowOwnerActions;
 
-  if (!message.content) return null;
+  if (!message.content && !isRecalled) return null;
 
   const getSystemMessageContent = () => {
     try {
@@ -79,6 +125,10 @@ export function MessageBubble({
   };
 
   const renderContent = () => {
+    if (isRecalled) {
+      return <span className="text-sm leading-relaxed italic text-muted-foreground">Tin nhắn đã được thu hồi</span>;
+    }
+
     if (type === MessageTypeEnum.IMAGE) {
       return (
         <Image
@@ -130,33 +180,131 @@ export function MessageBubble({
     );
   }
 
+  const handleRecall = async () => {
+    if (!onRecall || disableRecallAction) return;
+    await onRecall(message.messageId);
+  };
+
+  const handleForward = () => {
+    if (!onForward || disableForwardAction) return;
+    onForward(message);
+  };
+
+  const handleDelete = async () => {
+    if (!onDelete || disableDeleteAction) return;
+    await onDelete(message.messageId);
+    setIsDeleteDialogOpen(false);
+  };
+
   return (
-    <div className={cn('flex w-full mb-2', isOwn ? 'justify-end' : 'justify-start')}>
-      {!isOwn && showAvatar && (
-        <Avatar className="h-10 w-10 mr-2 shrink-0 border">
-          <AvatarImage src={senderAvatar || '/placeholder.svg'} alt={senderName} />
-          <AvatarFallback>{senderName?.charAt(0) || 'U'}</AvatarFallback>
-        </Avatar>
-      )}
-      <div className={cn('flex flex-col max-w-[70%]', isOwn ? 'items-end' : 'items-start')}>
-        {!isOwn && showAvatar && senderName && (
-          <span className="text-xs font-medium text-muted-foreground mb-1 px-1">{senderName}</span>
+    <>
+      <div className={cn('flex w-full mb-2', isOwn ? 'justify-end' : 'justify-start')}>
+        {!isOwn && showAvatar && (
+          <Avatar className="h-10 w-10 mr-2 shrink-0 border">
+            <AvatarImage src={senderAvatar || '/placeholder.svg'} alt={senderName} />
+            <AvatarFallback>{senderName?.charAt(0) || 'U'}</AvatarFallback>
+          </Avatar>
         )}
-        {isMedia ? (
-          renderContent()
-        ) : (
-          <div
-            className={cn(
-              'rounded-2xl px-4 py-2',
-              isOwn ? 'bg-primary text-primary-foreground' : 'bg-secondary text-secondary-foreground',
+        <div className={cn('flex items-start gap-1', isOwn ? 'flex-row-reverse' : 'flex-row')}>
+          <div className={cn('flex flex-col w-full', isOwn ? 'items-end' : 'items-start')}>
+            <p className="flex">
+              {!isOwn && showAvatar && senderName && (
+                <>
+                  {isForwarded && <Forward className="h-3 w-3" />}
+                  <span className="text-xs font-medium text-muted-foreground mb-1 px-1">{senderName}</span>
+                </>
+              )}
+              {isForwarded && (
+                <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground mb-1 px-1">
+                  {isOwn && <Forward className="h-3 w-3" />}
+                  {isOwn ? 'Bạn đã chuyển tiếp tin nhắn' : 'đã chuyển tiếp tin nhắn'}
+                </span>
+              )}
+            </p>
+            {isMedia ? (
+              renderContent()
+            ) : (
+              <div
+                className={cn(
+                  'rounded-2xl px-4 py-2',
+                  isRecalled
+                    ? 'bg-muted text-muted-foreground border border-border/50'
+                    : isOwn
+                      ? 'bg-primary text-primary-foreground'
+                      : 'bg-secondary text-secondary-foreground',
+                )}
+              >
+                {renderContent()}
+              </div>
             )}
-          >
-            {renderContent()}
+            <span className="text-xs text-muted-foreground mt-1 px-1">{timeAgo}</span>
           </div>
-        )}
-        <span className="text-xs text-muted-foreground mt-1 px-1">{timeAgo}</span>
+
+          {canShowActionMenu && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7 rounded-full mt-0.5"
+                  disabled={isDeleting || isRecalling || isForwarding}
+                >
+                  {isRecalling || isDeleting || isForwarding ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <MoreVertical className="h-4 w-4" />
+                  )}
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="rounded-xl">
+                {canShowForwardAction && (
+                  <DropdownMenuItem onClick={handleForward} disabled={disableForwardAction} className="rounded-xl">
+                    <Forward className="h-4 w-4" />
+                    Chuyển tiếp
+                  </DropdownMenuItem>
+                )}
+
+                {canShowRecallAction && (
+                  <DropdownMenuItem
+                    onClick={handleRecall}
+                    disabled={disableRecallAction}
+                    className="rounded-xl text-destructive focus:text-destructive"
+                  >
+                    <Undo2 className="h-4 w-4 text-destructive" />
+                    Thu hồi tin nhắn
+                  </DropdownMenuItem>
+                )}
+
+                {canShowDeleteAction && (
+                  <DropdownMenuItem
+                    onClick={() => setIsDeleteDialogOpen(true)}
+                    disabled={disableDeleteAction}
+                    className="rounded-xl text-destructive focus:text-destructive"
+                  >
+                    <Trash2 className="h-4 w-4 text-destructive" />
+                    Xóa tin nhắn
+                  </DropdownMenuItem>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
+        </div>
       </div>
-    </div>
+
+      <ConfirmDialog
+        open={isDeleteDialogOpen}
+        onOpenChange={setIsDeleteDialogOpen}
+        title="Xóa tin nhắn"
+        description="Tin nhắn sẽ bị xóa vĩnh viễn và không thể khôi phục."
+        confirmText="Xóa"
+        cancelText="Hủy"
+        confirmBtnClass="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+        disableCancel={isDeleting}
+        disableConfirm={disableDeleteAction}
+        isLoading={isDeleting}
+        onConfirm={handleDelete}
+      />
+    </>
   );
 }
 

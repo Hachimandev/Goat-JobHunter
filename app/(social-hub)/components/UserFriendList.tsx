@@ -1,65 +1,70 @@
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { useMemo } from 'react';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Skeleton } from '@/components/ui/skeleton';
+import { useChatRooms } from '@/app/(chat)/messages/hooks/useChatRooms';
+import ErrorMessage from '@/components/common/ErrorMessage';
+import Link from 'next/link';
+import { truncate } from 'lodash';
+import { useUser } from '@/hooks/useUser';
 
-const friends = [
-  {
-    id: 1,
-    name: "Nguyễn Trường Nguyên",
-    avatar: "/avatar-man.png",
-    isOnline: true,
-  },
-  {
-    id: 2,
-    name: "Chính Nguyễn",
-    avatar: "/avatar-woman.png",
-    isOnline: true,
-  },
-  {
-    id: 3,
-    name: "Van Nguyen",
-    avatar: "/avatar-person.jpg",
-    isOnline: false,
-  },
-  {
-    id: 4,
-    name: "Minh Hoàng",
-    avatar: "/placeholder.svg?height=40&width=40",
-    isOnline: true,
-  },
-  {
-    id: 5,
-    name: "Thu Phương",
-    avatar: "/placeholder.svg?height=40&width=40",
-    isOnline: false,
-  },
-]
+const LATEST_ROOMS_LIMIT = 10;
 
 export function UserFriendList() {
+  const { user, isSignedIn } = useUser();
+  const { chatRooms, isLoading, isError } = useChatRooms({ isSignedIn: !!user && isSignedIn });
+  const latestRooms = useMemo(() => chatRooms.slice(0, LATEST_ROOMS_LIMIT), [chatRooms]);
+
+  if (!chatRooms.length) {
+    return null;
+  }
+
   return (
     <Card>
       <CardHeader>
         <CardTitle className="text-lg font-semibold">Liên hệ</CardTitle>
       </CardHeader>
-      <CardContent className="space-y-3">
-        {friends.map((friend) => (
-          <div key={friend.id} className="flex items-center gap-3 group">
-            <div className="relative">
-              <Avatar className="h-10 w-10">
-                <AvatarImage src={friend.avatar || "/placeholder.svg"} alt={friend.name} />
-                <AvatarFallback>{friend.name[0]}</AvatarFallback>
-              </Avatar>
-              {friend.isOnline && (
-                <div className="absolute bottom-0 right-0 h-3 w-3 rounded-full bg-green-500 border-2 border-background" />
-              )}
+
+      <CardContent className="mt-0!">
+        {isLoading &&
+          Array.from({ length: 4 }, (_, index) => (
+            <div key={`user-friend-list-loading-${index}`} className="flex items-center gap-3">
+              <Skeleton className="h-12 w-12 rounded-full" />
+              <Skeleton className="h-4 w-2/3" />
             </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-foreground truncate group-hover:text-pink-600 transition-colors cursor-pointer">
-                {friend.name}
-              </p>
-            </div>
-          </div>
-        ))}
+          ))}
+
+        {isError && <ErrorMessage message="Không thể tải danh sách liên hệ." />}
+
+        {!isLoading && !isError && latestRooms.length === 0 && (
+          <p className="text-sm text-muted-foreground">Chưa có cuộc trò chuyện nào.</p>
+        )}
+
+        {!isLoading &&
+          !isError &&
+          latestRooms.map((room) => {
+            const displayName = room.name?.trim() || 'Không tên';
+
+            return (
+              <Link
+                key={room.roomId}
+                href={`/messages/${room.roomId}`}
+                className="w-full flex items-center gap-3 group text-left rounded-lg p-2 -m-2 transition-colors hover:bg-accent/40 mb-3"
+              >
+                <Avatar className="h-12 w-12">
+                  <AvatarImage src={room.avatar || '/placeholder.svg'} alt={displayName} />
+                  <AvatarFallback>{displayName.charAt(0).toUpperCase()}</AvatarFallback>
+                </Avatar>
+
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-foreground truncate group-hover:text-primary transition-colors">
+                    {truncate(displayName, { length: 30 })}
+                  </p>
+                </div>
+              </Link>
+            );
+          })}
       </CardContent>
     </Card>
-  )
+  );
 }

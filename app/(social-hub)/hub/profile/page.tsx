@@ -43,6 +43,7 @@ export default function ProfilePage() {
                 key={blog.blogId} blog={blog}
                 isSaved={savedBlogIds.find(b => b.blogId === blog.blogId)?.result || false}
                 initialReaction={reactedBlogIds.find(b => b.blogId === blog.blogId)?.reactionType || null}
+                owned={true}
               />
             ))}
           </div>

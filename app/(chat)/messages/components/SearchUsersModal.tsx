@@ -1,25 +1,22 @@
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Button } from "@/components/ui/button";
-import { Search, Loader2 } from "lucide-react";
-import { useState } from "react";
-import {
-  useLazyCheckExistingChatRoomQuery,
-  useSendMessageToNewChatRoomMutation
-} from "@/services/chatRoom/chatRoomApi";
-import { useRouter } from "next/navigation";
-import { toast } from "sonner";
-import { User } from "@/types/model";
-import { UserSearchItem } from "./UserSearchItem";
-import { SelectedUsersList } from "./SelectedUsersList";
-import { GroupInfoModal } from "./GroupInfoModal";
-import { useSearchUsers } from "@/app/(chat)/messages/hooks/useSearchUsers";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Button } from '@/components/ui/button';
+import { Search, Loader2 } from 'lucide-react';
+import { useState } from 'react';
+import { User } from '@/types/model';
+import { UserSearchItem } from './UserSearchItem';
+import { SelectedUsersList } from './SelectedUsersList';
+import { GroupInfoModal } from './GroupInfoModal';
+import { useSearchUsers } from '@/app/(chat)/messages/hooks/useSearchUsers';
+import { useDirectMessageNavigation } from '@/hooks/useDirectMessageNavigation';
+import { toast } from 'sonner';
+import { Visibility } from '@/types/enum';
 
 interface UserSearchModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  mode?: "single" | "multi" | "add-to-group";
+  mode?: 'single' | 'multi' | 'add-to-group';
   onUserSelect?: (user: User) => void;
   existingMemberIds?: number[];
 }
@@ -27,45 +24,31 @@ interface UserSearchModalProps {
 export function SearchUsersModal({
   open,
   onOpenChange,
-  mode = "single",
+  mode = 'single',
   onUserSelect,
-  existingMemberIds = []
+  existingMemberIds = [],
 }: UserSearchModalProps) {
-  const router = useRouter();
   const [selectedUsers, setSelectedUsers] = useState<User[]>([]);
   const [groupInfoModalOpen, setGroupInfoModalOpen] = useState(false);
 
-  const {
-    keyword,
-    setKeyword,
-    users,
-    isLoading,
-    isError,
-    isEmpty,
-    shouldShowResults
-  } = useSearchUsers();
+  const { keyword, setKeyword, users, isLoading, isError, isEmpty, shouldShowResults } = useSearchUsers();
 
-  const [checkExistingChatRoom] = useLazyCheckExistingChatRoomQuery();
-  const [sendMessageToNewChatRoom, { isLoading: isCreatingChat }] = useSendMessageToNewChatRoomMutation();
+  const { navigateToDirectChat, isLoading: isCreatingChat } = useDirectMessageNavigation();
 
-  const isAddToGroupMode = mode === "add-to-group";
+  const isAddToGroupMode = mode === 'add-to-group';
 
   // Filter out existing members when in add-to-group mode
-  const filteredUsers = isAddToGroupMode
-    ? users.filter(user => !existingMemberIds.includes(user.accountId))
-    : users;
+  const filteredUsers = isAddToGroupMode ? users.filter((user) => !existingMemberIds.includes(user.accountId)) : users;
 
   const getDialogTitle = () => {
-    if (isAddToGroupMode) return "Thêm thành viên vào nhóm";
-    if (mode === "multi") return "Chọn thành viên";
-    return "Tìm người dùng";
+    if (isAddToGroupMode) return 'Thêm thành viên vào nhóm';
+    if (mode === 'multi') return 'Chọn thành viên';
+    return 'Tìm người dùng';
   };
 
   const getButtonText = () => {
     if (isAddToGroupMode) {
-      return selectedUsers.length > 0
-        ? `Thêm (${selectedUsers.length})`
-        : "Chọn người để thêm";
+      return selectedUsers.length > 0 ? `Thêm (${selectedUsers.length})` : 'Chọn người để thêm';
     }
     return `Tiếp theo (${selectedUsers.length})`;
   };
@@ -75,9 +58,7 @@ export function SearchUsersModal({
     if (isAddToGroupMode) {
       setSelectedUsers((prev) => {
         const isSelected = prev.some((u) => u.accountId === user.accountId);
-        return isSelected
-          ? prev.filter((u) => u.accountId !== user.accountId)
-          : [...prev, user];
+        return isSelected ? prev.filter((u) => u.accountId !== user.accountId) : [...prev, user];
       });
       return;
     }
@@ -89,31 +70,22 @@ export function SearchUsersModal({
     }
 
     // Default single mode behavior
-    if (mode === "single") {
-      try {
-        const { data: existingChatRoom } = await checkExistingChatRoom(user.accountId).unwrap();
+    if (mode === 'single') {
+      if (user.visibility === Visibility.PRIVATE) {
+        toast.error('Tài khoản này đang ở chế độ riêng tư. Bạn không thể bắt đầu cuộc trò chuyện mới.');
+        return;
+      }
 
-        if (existingChatRoom?.roomId) {
-          onOpenChange(false);
-          router.push(`/messages/${existingChatRoom.roomId}`);
-        } else {
-          const result = await sendMessageToNewChatRoom({ accountId: user.accountId }).unwrap();
-          if (result.data) {
-            onOpenChange(false);
-            router.push(`/messages/${result.data.roomId}`);
-          }
-        }
-      } catch (error) {
-        toast.error("Không thể tạo cuộc trò chuyện");
-        console.error(error);
+      const isNavigated = await navigateToDirectChat(user.accountId, { visibility: user.visibility });
+
+      if (isNavigated) {
+        onOpenChange(false);
       }
     } else {
       // Multi mode for group creation
       setSelectedUsers((prev) => {
         const isSelected = prev.some((u) => u.accountId === user.accountId);
-        return isSelected
-          ? prev.filter((u) => u.accountId !== user.accountId)
-          : [...prev, user];
+        return isSelected ? prev.filter((u) => u.accountId !== user.accountId) : [...prev, user];
       });
     }
   };
@@ -125,7 +97,7 @@ export function SearchUsersModal({
   const handleNext = async () => {
     if (isAddToGroupMode) {
       if (selectedUsers.length === 0) {
-        toast.error("Vui lòng chọn ít nhất 1 người");
+        toast.error('Vui lòng chọn ít nhất 1 người');
         return;
       }
 
@@ -136,11 +108,11 @@ export function SearchUsersModal({
         }
         onOpenChange(false);
         setSelectedUsers([]);
-        setKeyword("");
+        setKeyword('');
       }
     } else {
       if (selectedUsers.length < 2) {
-        toast.error("Vui lòng chọn ít nhất 2 người");
+        toast.error('Vui lòng chọn ít nhất 2 người');
         return;
       }
       setGroupInfoModalOpen(true);
@@ -152,7 +124,7 @@ export function SearchUsersModal({
     if (!open) {
       onOpenChange(false);
       setSelectedUsers([]);
-      setKeyword("");
+      setKeyword('');
     }
   };
 
@@ -160,11 +132,11 @@ export function SearchUsersModal({
     onOpenChange(open);
     if (!open) {
       setSelectedUsers([]);
-      setKeyword("");
+      setKeyword('');
     }
   };
 
-  const showMultiSelectUI = mode === "multi" || isAddToGroupMode;
+  const showMultiSelectUI = mode === 'multi' || isAddToGroupMode;
 
   return (
     <>
@@ -195,18 +167,12 @@ export function SearchUsersModal({
                   <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
                 </div>
               ) : isError ? (
-                <div className="text-center py-8 text-destructive">
-                  Có lỗi xảy ra khi tìm kiếm
-                </div>
+                <div className="text-center py-8 text-destructive">Có lỗi xảy ra khi tìm kiếm</div>
               ) : !shouldShowResults ? (
-                <div className="text-center py-8 text-muted-foreground">
-                  Nhập ít nhất 2 ký tự để tìm kiếm
-                </div>
+                <div className="text-center py-8 text-muted-foreground">Nhập ít nhất 2 ký tự để tìm kiếm</div>
               ) : isEmpty || (isAddToGroupMode && filteredUsers.length === 0) ? (
                 <div className="text-center py-8 text-muted-foreground">
-                  {isAddToGroupMode
-                    ? "Không tìm thấy người dùng mới"
-                    : "Không tìm thấy người dùng"}
+                  {isAddToGroupMode ? 'Không tìm thấy người dùng mới' : 'Không tìm thấy người dùng'}
                 </div>
               ) : (
                 <div className="space-y-1">
@@ -214,8 +180,9 @@ export function SearchUsersModal({
                     <UserSearchItem
                       key={user.accountId}
                       user={user}
-                      mode={showMultiSelectUI ? "multi" : "single"}
+                      mode={showMultiSelectUI ? 'multi' : 'single'}
                       isSelected={selectedUsers.some((u) => u.accountId === user.accountId)}
+                      loading={isCreatingChat}
                       onAction={handleSelectUser}
                     />
                   ))}
@@ -240,7 +207,7 @@ export function SearchUsersModal({
         </DialogContent>
       </Dialog>
 
-      {mode === "multi" && (
+      {mode === 'multi' && (
         <GroupInfoModal
           open={groupInfoModalOpen}
           onOpenChange={handleCloseGroupInfoModal}

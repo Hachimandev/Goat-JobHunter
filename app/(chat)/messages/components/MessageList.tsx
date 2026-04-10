@@ -3,16 +3,32 @@
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { MessageType } from '@/types/model';
 import { useEffect, useRef } from 'react';
-import { MessageBubble, MessageBubbleLoading } from "./MessageBubble";
-import { usePendingMessages } from "@/contexts/PendingMessagesContext";
+import { MessageBubble, MessageBubbleLoading } from './MessageBubble';
+import { usePendingMessages } from '@/contexts/PendingMessagesContext';
 
 interface MessageListProps {
   messages: MessageType[];
   currentUserId?: string;
   isGroup?: boolean;
+  onForwardMessage?: (message: MessageType) => void;
+  isForwardingMessage?: boolean;
+  onDeleteMessage?: (messageId: string) => Promise<void> | void;
+  isDeletingMessage?: (messageId: string) => boolean;
+  onRecallMessage?: (messageId: string) => Promise<void> | void;
+  isRecallingMessage?: (messageId: string) => boolean;
 }
 
-export function MessageList({ messages, currentUserId, isGroup = false }: Readonly<MessageListProps>) {
+export function MessageList({
+  messages,
+  currentUserId,
+  isGroup = false,
+  onForwardMessage,
+  isForwardingMessage = false,
+  onDeleteMessage,
+  isDeletingMessage,
+  onRecallMessage,
+  isRecallingMessage,
+}: Readonly<MessageListProps>) {
   const bottomRef = useRef<HTMLDivElement>(null);
   const { pendingMessages } = usePendingMessages();
 
@@ -32,6 +48,12 @@ export function MessageList({ messages, currentUserId, isGroup = false }: Readon
               showAvatar={isGroup}
               senderName={message.sender.fullName || message.sender.username}
               senderAvatar={message.sender.avatar || undefined}
+              onForward={onForwardMessage}
+              isForwarding={isForwardingMessage}
+              onDelete={onDeleteMessage}
+              isDeleting={isDeletingMessage?.(message.messageId) ?? false}
+              onRecall={onRecallMessage}
+              isRecalling={isRecallingMessage?.(message.messageId) ?? false}
             />
           ))}
           {pendingMessages.map((pending) => (

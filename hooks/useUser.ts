@@ -318,7 +318,6 @@ export function useUser() {
   const handleUpdateApplicant = useCallback(
     async (formData: FormData) => {
       try {
-        // @ts-expect-error FormData is compatible with update mutation
         const response = await updateApplicant(formData);
 
         if (response.error) {
@@ -341,7 +340,6 @@ export function useUser() {
   const handleUpdateRecruiter = useCallback(
     async (formData: FormData) => {
       try {
-        // @ts-expect-error FormData is compatible with update mutation
         const response = await updateRecruiter(formData);
 
         if (response.error) {

@@ -10,6 +10,7 @@ import {
   MessageTypeEnum,
   MessageTypeRole,
   NotificationTypeEnum,
+  Visibility,
   WorkingType,
 } from '@/types/enum';
 import { LucideIcon } from 'lucide-react';
@@ -31,6 +32,7 @@ export type Account = {
   password: string;
   avatar?: string;
   enabled: boolean;
+  visibility?: Visibility;
   addresses: Address[];
   createdAt: string;
   createdBy: string;
@@ -229,7 +231,6 @@ export type Blog = {
   images: string[];
   content: string;
   tags: string[];
-  draft: boolean;
   enabled: boolean;
   activity?: {
     totalLikes: number;
@@ -242,6 +243,7 @@ export type Blog = {
     fullName: string;
     username: string;
     avatar: string;
+    visibility?: Visibility;
     bio: string;
     headline: string;
     coverPhoto: string;
@@ -250,6 +252,8 @@ export type Blog = {
   createdBy: string;
   updatedAt: string;
   updatedBy: string;
+  deletedAt?: string | null;
+  deletedBy?: string | null;
 };
 
 type CommentedBy = {
@@ -265,7 +269,8 @@ export type CommentType = {
   reply: boolean;
   blog: {
     blogId: number;
-    title: string;
+    content?: string;
+    contentPreview?: string;
   };
   parent?: {
     commentId: string;
@@ -281,8 +286,9 @@ export type NotificationType = {
   type: NotificationTypeEnum;
   seen: boolean;
   blog: {
-    blogId: string;
-    title: string;
+    blogId: string | number;
+    content?: string;
+    contentPreview?: string;
   };
   lastActor: {
     userId: string;
@@ -323,8 +329,6 @@ export type Conversation = {
 };
 
 export type MessageType = {
-  chatRoomBucket: string;
-  messageSk: string;
   chatRoomId: string;
   messageId: string;
   sender: {
@@ -338,6 +342,8 @@ export type MessageType = {
   messageType: MessageTypeEnum;
   replyTo?: string;
   isHidden: boolean;
+  isForwarded?: boolean;
+  originalMessageId?: string;
   createdAt: string;
   updatedAt: string;
   role?: MessageTypeRole; // temporary field to avoid error for build in chat container

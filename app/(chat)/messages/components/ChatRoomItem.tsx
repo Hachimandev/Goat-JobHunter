@@ -4,7 +4,8 @@ import { Users } from 'lucide-react';
 import { ChatRoomType } from '@/types/enum';
 import { formatLastMessageTime } from '@/utils/formatDate';
 import { cn } from '@/lib/utils';
-import { useMemo } from "react";
+import { useMemo } from 'react';
+import { truncate } from 'lodash';
 
 interface ConversationItemProps {
   chatRoom: ChatRoom;
@@ -19,10 +20,9 @@ export function ChatRoomItem({ chatRoom, active, onClick }: Readonly<Conversatio
   const formattedTime = formatLastMessageTime(chatRoom.lastMessageTime);
 
   const chatRoomPreview = useMemo(() => {
-
     // Nếu không có lastMessagePreview
     if (!chatRoom.lastMessagePreview) {
-      return "Chưa có tin nhắn nào";
+      return 'Chưa có tin nhắn nào';
     }
 
     // Nhóm chat thì hiện tên nhóm
@@ -42,13 +42,14 @@ export function ChatRoomItem({ chatRoom, active, onClick }: Readonly<Conversatio
   return (
     <button
       onClick={onClick}
-      className={cn('flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-colors w-full',
+      className={cn(
+        'flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-colors w-full',
         active && 'bg-accent/50',
         !active && 'hover:bg-accent/50',
       )}
     >
       <div className="relative">
-        <Avatar className={cn("h-12 w-12 border", active && "border-gray-300")}>
+        <Avatar className={cn('h-12 w-12 border', active && 'border-gray-300')}>
           <AvatarImage src={chatRoom.avatar || undefined} alt={chatRoomTitle} />
           <AvatarFallback>{avatarFallback}</AvatarFallback>
         </Avatar>
@@ -62,15 +63,9 @@ export function ChatRoomItem({ chatRoom, active, onClick }: Readonly<Conversatio
       <div className="flex-1 min-w-0">
         <div className="flex items-center justify-between gap-2 mb-1">
           <span className="font-medium truncate">{chatRoomTitle}</span>
-          {formattedTime && (
-            <span className="text-xs text-muted-foreground shrink-0">
-              {formattedTime}
-            </span>
-          )}
+          {formattedTime && <span className="text-xs text-muted-foreground shrink-0">{formattedTime}</span>}
         </div>
-        <p className="text-sm text-muted-foreground truncate text-start">
-          {chatRoomPreview}
-        </p>
+        <p className="text-sm text-muted-foreground truncate text-start">{truncate(chatRoomPreview, { length: 30 })}</p>
       </div>
     </button>
   );
