@@ -318,6 +318,12 @@ export type NotificationType = {
   createdAt: string;
 };
 
+export type DeviceNotificationType = {
+  message: string;
+  deviceName: string;
+  time: string;
+};
+
 export type Conversation = {
   conversationId: number;
   title: string;
