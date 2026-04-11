@@ -8,6 +8,7 @@ import { useGetMyAccountQuery } from '@/services/auth/authApi';
 import { useFetchUserByIdQuery } from '@/services/user/userApi';
 import { ProfileHeader } from '@/app/(social-hub)/hub/profile/components/ProfileHeader';
 import { ProfileInfo } from '@/app/(social-hub)/hub/profile/components/ProfileInfo';
+import FriendActionButtons from '@/components/common/FriendActionButtons';
 import { SocialBlogCard } from '@/app/(social-hub)/hub/fyp/component/SocialBlogCard';
 import { useInfiniteScrollUserBlogs } from '@/app/(social-hub)/hub/users/hooks/useInfiniteScrollUserBlogs';
 import { useUser } from '@/hooks/useUser';
@@ -66,6 +67,11 @@ export default function UserProfilePage() {
     <div className="mx-auto max-w-4xl">
       <div className="bg-card rounded-xl border shadow-sm overflow-hidden p-4 mb-4">
         <ProfileHeader user={viewedUser} />
+        {!isOwnProfile && (
+          <div className="mt-20 mb-4 flex justify-end">
+            <FriendActionButtons targetUserId={viewedUser.accountId} />
+          </div>
+        )}
         <ProfileInfo user={viewedUser} hideSensitiveContact={!isOwnProfile} />
       </div>
 

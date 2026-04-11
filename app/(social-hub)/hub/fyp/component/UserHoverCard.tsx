@@ -7,6 +7,8 @@ import { useRouter } from 'next/navigation';
 import { useUser } from '@/hooks/useUser';
 import { useDirectMessageNavigation } from '@/hooks/useDirectMessageNavigation';
 import { Visibility } from '@/types/enum';
+import FriendActionButtons from '@/components/common/FriendActionButtons';
+import { useFriendshipStatus } from '@/hooks/useFriendshipStatus';
 
 interface UserHoverCardProps {
   userId: number;
@@ -30,10 +32,13 @@ export function UserHoverCard({
   const router = useRouter();
   const { isSignedIn, user } = useUser();
   const { navigateToDirectChat, isLoading } = useDirectMessageNavigation();
+  const { isBlockedAnyDirection } = useFriendshipStatus(userId);
   const isSelf = user?.accountId === userId;
   const isPrivateAccount = visibility === Visibility.PRIVATE;
-  const showMessageButton = !isSelf && !isPrivateAccount;
+  const showMessageButton = !isSelf && !isPrivateAccount && !isBlockedAnyDirection;
+  const showAddFriendButton = !isSelf && !isPrivateAccount && !isBlockedAnyDirection; // only show add friend button when not self, not blocked, and can't message (likely not friend yet)
   const showPrivateMessage = !isSelf && isPrivateAccount;
+  const showBlockedMessage = !isSelf && isBlockedAnyDirection;
 
   const handleMessageClick = async (event: React.MouseEvent<HTMLButtonElement>) => {
     event.preventDefault();
@@ -75,15 +80,19 @@ export function UserHoverCard({
 
           {bio && <p className="text-sm text-muted-foreground line-clamp-3">{bio}</p>}
 
-          <div className="flex">
+          <div className="flex items-center justify-between gap-2">
             {showMessageButton && (
-              <Button className="w-full rounded-xl" size="sm" onClick={handleMessageClick} disabled={isLoading}>
+              <Button className="flex-1 rounded-xl" size="sm" onClick={handleMessageClick} disabled={isLoading}>
                 <MessageCircle className="h-4 w-4 mr-2" />
                 {isLoading ? 'Đang mở chat...' : 'Nhắn tin'}
               </Button>
             )}
 
+            {showAddFriendButton && <FriendActionButtons className="flex-1" targetUserId={userId} compact />}
+
             {showPrivateMessage && <p>Tài khoản đang ở chế độ riêng tư.</p>}
+
+            {showBlockedMessage && <p>Không thể nhắn tin khi đang ở trạng thái chặn.</p>}
           </div>
         </div>
       </HoverCardContent>
