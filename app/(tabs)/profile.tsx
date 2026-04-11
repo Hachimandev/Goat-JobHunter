@@ -1,6 +1,17 @@
 import { useRouter } from "expo-router";
+import {
+  Bell,
+  Bookmark,
+  Building,
+  Clipboard,
+  FileText,
+  HardDrive,
+  Settings,
+  User,
+} from "lucide-react-native";
 import React from "react";
 import {
+  Image,
   ScrollView,
   StyleSheet,
   Text,
@@ -60,7 +71,7 @@ export default function ProfileScreen() {
 
           {/* Not logged in state */}
           <View style={styles.notLoggedInContainer}>
-            <Text style={styles.icon}>👤</Text>
+            <User size={80} color="#1976d2" />
             <Text style={styles.title}>Chưa đăng nhập</Text>
             <Text style={styles.subtitle}>
               Đăng nhập để truy cập đầy đủ tính năng
@@ -83,19 +94,19 @@ export default function ProfileScreen() {
             <Text style={styles.sectionTitle}>Dành cho khách</Text>
 
             <TouchableOpacity style={styles.menuItem}>
-              <Text style={styles.menuIcon}>📋</Text>
+              <Clipboard size={20} color="#6b7280" style={styles.menuIcon} />
               <Text style={styles.menuText}>Xem việc làm</Text>
               <Text style={styles.menuArrow}>›</Text>
             </TouchableOpacity>
 
             <TouchableOpacity style={styles.menuItem}>
-              <Text style={styles.menuIcon}>🏢</Text>
+              <Building size={20} color="#6b7280" style={styles.menuIcon} />
               <Text style={styles.menuText}>Xem công ty</Text>
               <Text style={styles.menuArrow}>›</Text>
             </TouchableOpacity>
 
             <TouchableOpacity style={styles.menuItem}>
-              <Text style={styles.menuIcon}>⚙️</Text>
+              <Settings size={20} color="#6b7280" style={styles.menuIcon} />
               <Text style={styles.menuText}>Cài đặt</Text>
               <Text style={styles.menuArrow}>›</Text>
             </TouchableOpacity>
@@ -114,9 +125,13 @@ export default function ProfileScreen() {
           onPress={handleGoToInfo}
         >
           <View style={styles.avatar}>
-            <Text style={styles.avatarText}>
-              {user.fullName?.charAt(0) || "U"}
-            </Text>
+            {user.avatar ? (
+              <Image source={{ uri: user.avatar }} style={styles.avatarImage} />
+            ) : (
+              <Text style={styles.avatarText}>
+                {user.fullName?.charAt(0) || "U"}
+              </Text>
+            )}
           </View>
           <Text style={styles.userName}>{user.fullName || "User"}</Text>
           <Text style={styles.userEmail}>{user.email}</Text>
@@ -128,36 +143,39 @@ export default function ProfileScreen() {
             style={styles.menuItem}
             onPress={() => router.push("/profile/saved-blogs")}
           >
-            <Text style={styles.menuIcon}>🔖</Text>
+            <Bookmark size={20} color="#6b7280" style={styles.menuIcon} />
             <Text style={styles.menuText}>Bài viết đã lưu</Text>
             <Text style={styles.menuArrow}>›</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.menuItem}>
-            <Text style={styles.menuIcon}>📝</Text>
+            <FileText size={20} color="#6b7280" style={styles.menuIcon} />
             <Text style={styles.menuText}>Đơn ứng tuyển</Text>
             <Text style={styles.menuArrow}>›</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.menuItem} onPress={() => router.push('/jobs/saved')}>
-            <Text style={styles.menuIcon}>💾</Text>
+          <TouchableOpacity
+            style={styles.menuItem}
+            onPress={() => router.push("/jobs/saved")}
+          >
+            <HardDrive size={20} color="#6b7280" style={styles.menuIcon} />
             <Text style={styles.menuText}>Việc đã lưu</Text>
             <Text style={styles.menuArrow}>›</Text>
           </TouchableOpacity>
 
           <TouchableOpacity style={styles.menuItem}>
-            <Text style={styles.menuIcon}>📄</Text>
+            <FileText size={20} color="#6b7280" style={styles.menuIcon} />
             <Text style={styles.menuText}>Quản lý CV</Text>
             <Text style={styles.menuArrow}>›</Text>
           </TouchableOpacity>
 
           <TouchableOpacity style={styles.menuItem}>
-            <Text style={styles.menuIcon}>🔔</Text>
+            <Bell size={20} color="#6b7280" style={styles.menuIcon} />
             <Text style={styles.menuText}>Thông báo</Text>
             <Text style={styles.menuArrow}>›</Text>
           </TouchableOpacity>
 
           <TouchableOpacity style={styles.menuItem}>
-            <Text style={styles.menuIcon}>⚙️</Text>
+            <Settings size={20} color="#6b7280" style={styles.menuIcon} />
             <Text style={styles.menuText}>Cài đặt</Text>
             <Text style={styles.menuArrow}>›</Text>
           </TouchableOpacity>
@@ -293,15 +311,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     backgroundColor: "#fff",
   },
-  avatar: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: "#1976d2",
-    justifyContent: "center",
-    alignItems: "center",
-    marginBottom: 16,
-  },
   avatarText: {
     fontSize: 32,
     fontWeight: "bold",
@@ -332,5 +341,20 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "600",
     textAlign: "center",
+  },
+  avatar: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: "#1976d2",
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 16,
+    overflow: "hidden", // Quan trọng: để ảnh không tràn ra ngoài border radius
+  },
+  avatarImage: {
+    width: "100%",
+    height: "100%",
+    resizeMode: "cover",
   },
 });

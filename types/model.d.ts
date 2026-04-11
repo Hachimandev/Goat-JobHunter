@@ -1,4 +1,4 @@
-import { CompanySize, Level, WorkingType, ApplicationStatus } from "./enum";
+import { ApplicationStatus, CompanySize, Level, WorkingType } from "./enum";
 
 export type Address = {
   addressId: number;
@@ -11,6 +11,25 @@ export type Address = {
   updatedAt?: string;
   updatedBy?: string;
 };
+
+export interface User {
+  accountId: number;
+  fullName: string;
+  username: string;
+  email: string;
+  phone?: string;
+  dob?: string;
+  gender?: string;
+  role?: { name: string };
+  addresses?: { addressId?: number; province: string; fullAddress: string }[];
+  availableStatus?: boolean;
+  headline?: string;
+  bio?: string;
+  education?: string;
+  level?: string;
+  position?: string;
+  avatar?: string;
+}
 
 export type Account = {
   accountId: number;
@@ -121,6 +140,7 @@ export type Blog = {
   tags: string[];
   draft: boolean;
   enabled: boolean;
+  userReaction?: string | null;
   activity?: {
     totalLikes: number;
     totalComments: number;
@@ -215,4 +235,20 @@ export type Application = {
   createdBy: string;
   updatedAt: string;
   updatedBy: string;
+};
+
+export type Contact = {
+  phone?: string;
+  email?: string;
+};
+
+export type Recruiter = User & {
+  position: string;
+  company: Company;
+};
+
+export type Applicant = User & {
+  availableStatus: boolean;
+  education: Education;
+  level: Level;
 };

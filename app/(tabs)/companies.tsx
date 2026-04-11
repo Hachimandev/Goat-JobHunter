@@ -4,7 +4,6 @@ import {
   Text,
   StyleSheet,
   ScrollView,
-  SafeAreaView,
   ActivityIndicator,
   RefreshControl,
 } from 'react-native';
@@ -19,6 +18,7 @@ import { useCountAvailableJobsByCompanyQuery } from '@/services/job/jobApi';
 import CompanyCard from '@/components/company/CompanyCard';
 import CompanyFilter from '@/components/company/CompanyFilter';
 import LatestReviewCard from '@/components/company/LatestReviewCard';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function CompaniesScreen() {
   const {
@@ -68,10 +68,12 @@ export default function CompaniesScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={{ flex: 1 }}>
+    <View style={[styles.container]}>
       <ScrollView
         style={styles.scrollView}
         refreshControl={<RefreshControl refreshing={isFetching} onRefresh={onRefresh} />}
+        contentInsetAdjustmentBehavior="scrollableAxes"
       >
         {/* Header Section */}
         <View style={styles.header}>
@@ -169,6 +171,7 @@ export default function CompaniesScreen() {
           </View>
         </View>
       </ScrollView>
+    </View>
     </SafeAreaView>
   );
 }

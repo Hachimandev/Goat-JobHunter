@@ -1,13 +1,12 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
-import type { AxiosError, InternalAxiosRequestConfig } from 'axios';
-import axios from 'axios';
-import { tokenStorage } from './tokenStorage';
+import type { AxiosError, InternalAxiosRequestConfig } from "axios";
+import axios from "axios";
+import { tokenStorage } from "./tokenStorage";
 
 // ============================================================
 // Cấu hình mặc định cho các request
 // ============================================================
 const axiosClient = axios.create({
-  baseURL: process.env.EXPO_PUBLIC_API_URL || 'http://localhost:5000/api/v1',
+  baseURL: process.env.EXPO_PUBLIC_API_URL || "http://localhost:5000/api/v1",
   timeout: 1000 * 60 * 10,
   withCredentials: true, // Enable cookie support for auth tokens
 });
@@ -17,10 +16,10 @@ const axiosClient = axios.create({
 // ============================================================
 let isRefreshing = false;
 let isLoggingOut = false;
-let failedQueue: Array<{
+let failedQueue: {
   resolve: (value?: any) => void;
   reject: (reason?: any) => void;
-}> = [];
+}[] = [];
 
 // ============================================================
 // Hàm xử lý queue khi refresh token hoàn thành
@@ -45,12 +44,12 @@ const refreshToken = async (): Promise<boolean> => {
     // Cookies are automatically sent with withCredentials: true
     const response = await axiosClient.get(`/auth/refresh`);
 
-    console.log('Refresh token success');
-    
+    console.log("Refresh token success");
+
     // New tokens are automatically saved via Set-Cookie headers
     return response.status === 200;
   } catch (error) {
-    console.error('Refresh token failed:', error);
+    console.error("Refresh token failed:", error);
     return false;
   }
 };
@@ -61,30 +60,30 @@ const refreshToken = async (): Promise<boolean> => {
 const performLogout = async () => {
   // Tránh logout nhiều lần
   if (isLoggingOut) {
-    console.log('Already logging out...');
+    console.log("Already logging out...");
     return;
   }
 
   isLoggingOut = true;
-  console.log('Performing logout...');
+  console.log("Performing logout...");
 
   try {
     // Dynamic import để tránh circular dependency
-    const { store } = await import('../lib/store');
-    const { clearUser } = await import('../lib/authSlice');
-    
+    const { store } = await import("../lib/store");
+    const { clearUser } = await import("../lib/authSlice");
+
     // Clear tokens từ storage
     await tokenStorage.clearTokens();
-    
+
     // Clear Redux state
     store.dispatch(clearUser());
-    
+
     // Clear refresh flag
     isRefreshing = false;
-    
+
     // Note: Navigation sẽ được handle bởi component khi detect isAuthenticated = false
   } catch (error) {
-    console.error('Logout error:', error);
+    console.error("Logout error:", error);
   } finally {
     // Reset flag sau một khoảng thời gian
     setTimeout(() => {
@@ -104,7 +103,7 @@ axiosClient.interceptors.request.use(
   },
   (error) => {
     return Promise.reject(error);
-  }
+  },
 );
 
 // ============================================================
@@ -123,8 +122,8 @@ axiosClient.interceptors.response.use(
     }
 
     const isUnauthorized = error.response?.status === 401;
-    const isRefreshEndpoint = originalRequest.url?.includes('/auth/refresh');
-    const isLogoutEndpoint = originalRequest.url?.includes('/auth/logout');
+    const isRefreshEndpoint = originalRequest.url?.includes("/auth/refresh");
+    const isLogoutEndpoint = originalRequest.url?.includes("/auth/logout");
 
     // Skip refresh token cho logout endpoint
     if (isLogoutEndpoint) {
@@ -133,22 +132,22 @@ axiosClient.interceptors.response.use(
 
     // Nếu refresh token endpoint bị 401, logout ngay
     if (isUnauthorized && isRefreshEndpoint) {
-      console.log('Refresh token endpoint returned 401, logging out...');
+      console.log("Refresh token endpoint returned 401, logging out...");
       await performLogout();
       return Promise.reject(error);
     }
 
     const isRefreshTokenExpired =
-      typeof error.response?.data === 'object' &&
+      typeof error.response?.data === "object" &&
       error.response?.data !== null &&
-      'message' in error.response.data &&
+      "message" in error.response.data &&
       (error.response.data as { message?: string }).message ===
-        'Refresh token is invalid or expired';
+        "Refresh token is invalid or expired";
 
     if (isUnauthorized && !originalRequest._retry && !isRefreshEndpoint) {
       // Nếu refresh token đã hết hạn, logout ngay
       if (isRefreshTokenExpired) {
-        console.log('Refresh token expired, logging out...');
+        console.log("Refresh token expired, logging out...");
         await performLogout();
         return Promise.reject(error);
       }
@@ -158,7 +157,7 @@ axiosClient.interceptors.response.use(
 
       if (isRefreshing) {
         // Nếu đang refresh, đưa request vào queue
-        console.log('Adding request to queue...');
+        console.log("Adding request to queue...");
         return new Promise((resolve, reject) => {
           failedQueue.push({ resolve, reject });
         })
@@ -171,7 +170,7 @@ axiosClient.interceptors.response.use(
           });
       }
 
-      console.log('Access token expired, refreshing...');
+      console.log("Access token expired, refreshing...");
       isRefreshing = true;
 
       try {
@@ -179,17 +178,17 @@ axiosClient.interceptors.response.use(
         const refreshSuccess = await refreshToken();
 
         if (refreshSuccess) {
-          console.log('Token refreshed successfully, retrying failed requests');
+          console.log("Token refreshed successfully, retrying failed requests");
           // Xử lý tất cả requests trong queue
           processQueue(null, true);
 
           // Retry request gốc
           return axiosClient(originalRequest);
         } else {
-          throw new Error('Token refresh failed');
+          throw new Error("Token refresh failed");
         }
       } catch (refreshError) {
-        console.error('Token refresh failed:', refreshError);
+        console.error("Token refresh failed:", refreshError);
 
         // Xử lý queue với error
         processQueue(refreshError, false);
@@ -204,7 +203,7 @@ axiosClient.interceptors.response.use(
     }
 
     return Promise.reject(error);
-  }
+  },
 );
 
 export default axiosClient;

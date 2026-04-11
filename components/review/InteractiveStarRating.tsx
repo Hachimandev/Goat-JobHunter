@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, TouchableOpacity, StyleSheet } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { Star } from 'lucide-react-native';
 
 interface InteractiveStarRatingProps {
   value: number;
@@ -21,10 +21,10 @@ export default function InteractiveStarRating({
     <View style={styles.container}>
       {[1, 2, 3, 4, 5].map((star) => (
         <TouchableOpacity key={star} onPress={() => handlePress(star)} style={styles.star}>
-          <Ionicons
-            name={star <= value ? 'star' : 'star-outline'}
+          <Star
             size={size}
             color={star <= value ? '#fbbf24' : '#d1d5db'}
+            fill={star <= value ? '#fbbf24' : 'none'}
           />
         </TouchableOpacity>
       ))}

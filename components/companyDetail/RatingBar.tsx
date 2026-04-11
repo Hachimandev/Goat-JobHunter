@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { Star } from 'lucide-react-native';
 
 interface RatingBarProps {
   star: number;
@@ -12,7 +12,7 @@ export default function RatingBar({ star, percentage }: RatingBarProps) {
     <View style={styles.container}>
       <View style={styles.starContainer}>
         <Text style={styles.starText}>{star}</Text>
-        <Ionicons name="star" size={16} color="#ff9119" />
+        <Star size={16} color="#ff9119" fill="#ff9119" />
       </View>
       <View style={styles.barBackground}>
         <View style={[styles.barFill, { width: `${percentage}%` }]} />

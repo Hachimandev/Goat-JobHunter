@@ -11,7 +11,7 @@ import {
   Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
+import { CheckCircle, X } from 'lucide-react-native';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { reviewSchema, ReviewFormData } from '@/schemas/reviewSchema';
@@ -109,7 +109,7 @@ export default function ReviewFormModal({
         <View style={styles.successOverlay}>
           <View style={styles.successContainer}>
             <View style={styles.successIcon}>
-              <Ionicons name="checkmark-circle" size={64} color="#10b981" />
+              <CheckCircle size={64} color="#10b981" fill="#10b981" />
             </View>
             <Text style={styles.successTitle}>Đánh giá thành công!</Text>
             <Text style={styles.successText}>
@@ -135,7 +135,7 @@ export default function ReviewFormModal({
               </Text>
             </View>
             <TouchableOpacity onPress={handleClose} style={styles.closeButton}>
-              <Ionicons name="close" size={24} color="#6b7280" />
+              <X size={24} color="#6b7280" />
             </TouchableOpacity>
           </View>
 

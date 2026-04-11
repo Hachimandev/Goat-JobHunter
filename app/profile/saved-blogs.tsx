@@ -11,7 +11,7 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import Icon from "react-native-vector-icons/Feather";
+import { ArrowLeft } from 'lucide-react-native';
 export default function SavedBlogsScreen() {
   const router = useRouter();
   const { data, isLoading, refetch } = useGetSavedBlogsQuery();
@@ -32,7 +32,7 @@ export default function SavedBlogsScreen() {
           style={styles.backButton}
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
         >
-          <Icon name="arrow-left" size={24} color="#000" />
+          <ArrowLeft size={24} color="#000" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Bài viết đã lưu</Text>
         <View style={{ width: 24 }} />{" "}

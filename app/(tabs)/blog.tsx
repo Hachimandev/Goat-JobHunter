@@ -1,13 +1,12 @@
 import BlogCard from "@/components/blog/BlogCard";
 import CreateBlogModal from "@/components/blog/CreateBlogModal";
-import { useFetchBlogsQuery } from "@/services/blog/blogApi";
+import { useFetchAvailableBlogsQuery } from "@/services/blog/blogApi";
 import { useFocusEffect } from "expo-router";
 import { useCallback, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
   RefreshControl,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
@@ -15,8 +14,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { SafeAreaProvider } from "react-native-safe-area-context";
-
+import { SafeAreaView } from 'react-native-safe-area-context';
 // Categories list
 const categories = [
   { key: "all", label: "Tất cả" },
@@ -35,26 +33,27 @@ export default function BlogPage() {
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [createVisible, setCreateVisible] = useState(false);
 
-  const { data, isLoading, isFetching, refetch } = useFetchBlogsQuery(
+  const { data, isLoading, isFetching, refetch } = useFetchAvailableBlogsQuery(
     {
       page: page,
       size: size,
-      title: searchText || undefined,
+      title: searchText.trim() || undefined,
       tags:
         selectedCategory === "all"
           ? undefined
           : [categories.find((c) => c.key === selectedCategory)?.label || ""],
     },
-    { skip: false },
+    { refetchOnMountOrArgChange: true },
   );
 
   useFocusEffect(
     useCallback(() => {
-      if (data?.data?.result) {
+      const result = data?.data?.result;
+      if (result && Array.isArray(result)) {
         if (page === 0) {
-          setBlogs(data.data.result);
+          setBlogs(result);
         } else {
-          setBlogs((prev) => [...prev, ...data.data.result]);
+          setBlogs((prev) => [...prev, ...result]);
         }
       }
     }, [data, page]),
@@ -63,7 +62,7 @@ export default function BlogPage() {
   // Handle infinite scroll
   const handleLoadMore = () => {
     if (!isFetching && data?.data?.meta) {
-      const { currentPage, totalPages } = data.data.meta;
+      const { page: currentPage, pages: totalPages } = data.data.meta;
       if (currentPage < totalPages) {
         setPage((prev) => prev + 1);
       }
@@ -93,10 +92,10 @@ export default function BlogPage() {
   };
 
   return (
-    <SafeAreaProvider>
-      <SafeAreaView style={{ flex: 1 }}>
-        {/* Header / Search */}
-        <View style={styles.fixedHeader}>
+    <SafeAreaView style={{ flex: 1 }}>
+    <View style={{ flex: 1 }}>
+      {/* Header / Search */}
+      <View style={styles.fixedHeader}>
           <View style={styles.header}>
             <TextInput
               placeholder="Tìm kiếm bài viết..."
@@ -135,21 +134,20 @@ export default function BlogPage() {
               </TouchableOpacity>
             ))}
           </ScrollView>
-        </View>
-        <View style={{ flex: 1 }}>
-          {/* Blog List */}
-          <FlatList
+      </View>
+      <View style={{ flex: 1 }}>
+        {/* Blog List */}
+        <FlatList
             data={blogs}
             keyExtractor={(item) => item.blogId.toString()}
+            contentInsetAdjustmentBehavior="scrollableAxes"
             renderItem={({ item }) => (
               <BlogCard
                 blog={item}
                 onLike={() => {
                   // TODO: handle like/unlike
                 }}
-                onSave={() => {
-                  // TODO: handle save/unsave
-                }}
+                isSaved={item.isSaved}
               />
             )}
             ListEmptyComponent={renderEmpty}
@@ -189,9 +187,9 @@ export default function BlogPage() {
               refetch();
             }}
           />
-        </View>
-      </SafeAreaView>
-    </SafeAreaProvider>
+      </View>
+    </View>
+    </SafeAreaView>
   );
 }
 

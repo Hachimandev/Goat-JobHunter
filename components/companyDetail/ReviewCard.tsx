@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Review } from '@/types/model';
 import { formatDate } from '@/utils/formatDate';
 import StarRating from './StarRating';
-import { Ionicons } from '@expo/vector-icons';
+import { ChevronUp, ChevronDown, ThumbsUp } from 'lucide-react-native';
 import { RATING_TYPES } from '@/constants/constant';
 
 interface ReviewCardProps {
@@ -24,16 +24,16 @@ export default function ReviewCard({ review }: ReviewCardProps) {
           style={styles.ratingButton}
         >
           <StarRating rating={review.rating.overall} size={16} />
-          <Ionicons
-            name={showDetails ? 'chevron-up' : 'chevron-down'}
-            size={20}
-            color="#111827"
-          />
+          {showDetails ? (
+            <ChevronUp size={20} color="#111827" />
+          ) : (
+            <ChevronDown size={20} color="#111827" />
+          )}
         </TouchableOpacity>
 
         {review.recommended && (
           <View style={styles.recommendedBadge}>
-            <Ionicons name="thumbs-up" size={16} color="#16a34a" />
+            <ThumbsUp size={16} color="#16a34a" fill="#16a34a" />
             <Text style={styles.recommendedText}>Khuyến khích</Text>
           </View>
         )}

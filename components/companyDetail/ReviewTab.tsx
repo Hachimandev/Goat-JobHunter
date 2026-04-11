@@ -7,18 +7,17 @@ import {
   TouchableOpacity,
   ActivityIndicator,
 } from 'react-native';
-import { RatingItem } from '@/services/review/reviewType';
 import StarRating from './StarRating';
 import RatingBar from './RatingBar';
 import CircularProgress from './CircularProgress';
-import { Ionicons } from '@expo/vector-icons';
+import { ChevronUp, ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react-native';
 import CategoryRatingItem from './CategoryRatingItem';
 import { useReviewFilter } from '@/hooks/useReviewFilter';
 import ReviewCard from './ReviewCard';
 
 interface ReviewTabProps {
   companyName: string;
-  ratingSummary: Record<string, RatingItem>;
+  ratingSummary: Record<string, any>;
   recommendedPercentage: number;
   totalReviews: number;
 }
@@ -101,7 +100,7 @@ export default function ReviewTab({
 
           <View style={styles.distributionContainer}>
             {overallStats.distribution.map((item) => (
-              <RatingBar key={item.star} star={item.star} percentage={item.percentage} />
+              <RatingBar key={item.star} star={Number(item.star)} percentage={Number(item.percentage)} />
             ))}
           </View>
 
@@ -131,7 +130,7 @@ export default function ReviewTab({
                   <Text style={styles.categoryDetailTitle}>Đánh giá chi tiết</Text>
                   <View style={styles.categoryDetailBars}>
                     {overallStats.categories[activeCategoryIndex].distribution.map((d) => (
-                      <RatingBar key={d.star} star={d.star} percentage={d.percentage} />
+                      <RatingBar key={d.star} star={Number(d.star)} percentage={Number(d.percentage)} />
                     ))}
                   </View>
                 </View>
@@ -145,11 +144,11 @@ export default function ReviewTab({
               <Text style={styles.toggleButtonText}>
                 {showDetails ? 'Thu gọn' : 'Xem thêm'}
               </Text>
-              <Ionicons
-                name={showDetails ? 'chevron-up' : 'chevron-down'}
-                size={16}
-                color="#111827"
-              />
+              {showDetails ? (
+                <ChevronUp size={16} />
+              ) : (
+                <ChevronDown size={16} />
+              )}
             </TouchableOpacity>
           </>
         )}
@@ -197,7 +196,7 @@ export default function ReviewTab({
                 disabled={!hasPreviousPage}
                 style={[styles.paginationButton, !hasPreviousPage && styles.paginationButtonDisabled]}
               >
-                <Ionicons name="chevron-back" size={20} color={hasPreviousPage ? '#1976d2' : '#9ca3af'} />
+                <ChevronLeft size={20} color={hasPreviousPage ? '#1976d2' : '#9ca3af'} />
               </TouchableOpacity>
 
               <Text style={styles.paginationText}>
@@ -209,7 +208,7 @@ export default function ReviewTab({
                 disabled={!hasNextPage}
                 style={[styles.paginationButton, !hasNextPage && styles.paginationButtonDisabled]}
               >
-                <Ionicons name="chevron-forward" size={20} color={hasNextPage ? '#1976d2' : '#9ca3af'} />
+                <ChevronRight size={20} color={hasNextPage ? '#1976d2' : '#9ca3af'} />
               </TouchableOpacity>
             </View>
           )}

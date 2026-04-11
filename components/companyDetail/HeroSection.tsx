@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, Image, TouchableOpacity, ScrollView, Alert } from 'react-native';
 import { Company } from '@/types/model';
-import { Ionicons } from '@expo/vector-icons';
+import { MapPin, Briefcase, Check, UserPlus } from 'lucide-react-native';
 import AwardBadge from './AwardBadge';
 import { useUser } from '@/hooks/useUser';
 import ReviewFormModal from '@/components/review/ReviewFormModal';
@@ -87,14 +87,14 @@ export default function HeroSection({ company, totalJobs, citiesArray, isFollowe
               <View style={styles.infoRow}>
                 {citiesArray.length > 0 && (
                   <View style={styles.infoItem}>
-                    <Ionicons name="location-outline" size={16} color="#6b7280" />
+                    <MapPin size={16} color="#6b7280" />
                     <Text style={styles.infoText} numberOfLines={1}>
                       {citiesArray.join(', ')}
                     </Text>
                   </View>
                 )}
                 <View style={styles.infoItem}>
-                  <Ionicons name="briefcase-outline" size={16} color="#6b7280" />
+                  <Briefcase size={16} color="#6b7280" />
                   <Text style={styles.infoText}>{totalJobs} việc làm</Text>
                 </View>
               </View>
@@ -117,11 +117,11 @@ export default function HeroSection({ company, totalJobs, citiesArray, isFollowe
                   onPress={handleFollowClick}
                   disabled={isFollowLoading}
                 >
-                  <Ionicons 
-                    name={localIsFollowed ? "checkmark-outline" : "person-add-outline"} 
-                    size={18} 
-                    color={localIsFollowed ? "#fff" : "#1976d2"} 
-                  />
+                  {localIsFollowed ? (
+                    <Check size={18} color="#fff" />
+                  ) : (
+                    <UserPlus size={18} color="#1976d2" />
+                  )}
                   <Text style={[
                     styles.followButtonText,
                     localIsFollowed && styles.followButtonTextActive

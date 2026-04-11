@@ -144,7 +144,7 @@ export const blogApi = api.injectEndpoints({
       query: (formData) => ({
         url: "/blogs",
         method: "POST",
-        body: formData,
+        data: formData,
       }),
       invalidatesTags: ["Blog"],
     }),
@@ -153,7 +153,7 @@ export const blogApi = api.injectEndpoints({
       query: ({ blogId, formData }) => ({
         url: `/blogs/${blogId}`,
         method: "PUT",
-        body: formData,
+        data: formData,
       }),
       invalidatesTags: ["Blog"],
     }),
@@ -162,7 +162,7 @@ export const blogApi = api.injectEndpoints({
       query: ({ blogIds, mode = "DELETE" }) => ({
         url: "/blogs",
         method: "DELETE",
-        body: {
+        data: {
           blogIds,
           mode,
         },

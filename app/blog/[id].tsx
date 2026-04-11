@@ -19,6 +19,7 @@ import {
   View,
 } from "react-native";
 import { Icon } from "react-native-paper";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function BlogDetail() {
   const { id } = useLocalSearchParams();
@@ -38,7 +39,7 @@ export default function BlogDetail() {
   );
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
       <View style={styles.headerSticky}>
         <TouchableOpacity onPress={() => router.back()}>
           <Icon source="chevron-left" size={30} color="#000" />
@@ -47,7 +48,7 @@ export default function BlogDetail() {
           {blog?.content
             .replace(/<[^>]*>/g, "")
             .split(/\s+/)
-            .slice(0, 2)
+            .slice(0, 10)
             .join(" ") + "..."}
         </Text>
         <Icon source="share-variant-outline" size={24} color="#000" />
@@ -91,7 +92,7 @@ export default function BlogDetail() {
           </TouchableOpacity>
         )}
       </KeyboardAvoidingView>
-    </View>
+    </SafeAreaView>
   );
 }
 

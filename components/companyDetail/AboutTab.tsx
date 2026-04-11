@@ -9,7 +9,7 @@ import {
   useWindowDimensions,
 } from 'react-native';
 import { Company } from '@/types/model';
-import { Ionicons } from '@expo/vector-icons';
+import { Building, Briefcase, Flag, Calendar, Clock, Globe, MapPin, ExternalLink } from 'lucide-react-native';
 import { COMPANY_SIZE_OPTIONS } from '@/constants/constant';
 import RenderHtml from 'react-native-render-html';
 import { WebView } from 'react-native-webview';
@@ -50,7 +50,7 @@ export default function AboutTab({ company, skills }: AboutTabProps) {
         <View style={styles.cardContent}>
           <View style={styles.infoGrid}>
             <View style={styles.infoItem}>
-              <Ionicons name="business-outline" size={20} color="#9ca3af" />
+              <Building size={20} color="#9ca3af" />
               <View style={styles.infoTextContainer}>
                 <Text style={styles.infoLabel}>Quy mô công ty</Text>
                 <Text style={styles.infoValue}>
@@ -61,7 +61,7 @@ export default function AboutTab({ company, skills }: AboutTabProps) {
             </View>
 
             <View style={styles.infoItem}>
-              <Ionicons name="briefcase-outline" size={20} color="#9ca3af" />
+              <Briefcase size={20} color="#9ca3af" />
               <View style={styles.infoTextContainer}>
                 <Text style={styles.infoLabel}>Lĩnh vực</Text>
                 <Text style={styles.infoValue}>{company.industry}</Text>
@@ -69,7 +69,7 @@ export default function AboutTab({ company, skills }: AboutTabProps) {
             </View>
 
             <View style={styles.infoItem}>
-              <Ionicons name="flag-outline" size={20} color="#9ca3af" />
+              <Flag size={20} color="#9ca3af" />
               <View style={styles.infoTextContainer}>
                 <Text style={styles.infoLabel}>Quốc gia</Text>
                 <Text style={styles.infoValue}>{company.country}</Text>
@@ -77,7 +77,7 @@ export default function AboutTab({ company, skills }: AboutTabProps) {
             </View>
 
             <View style={styles.infoItem}>
-              <Ionicons name="calendar-outline" size={20} color="#9ca3af" />
+              <Calendar size={20} color="#9ca3af" />
               <View style={styles.infoTextContainer}>
                 <Text style={styles.infoLabel}>Thời gian làm việc</Text>
                 <Text style={styles.infoValue}>{company.workingDays}</Text>
@@ -85,7 +85,7 @@ export default function AboutTab({ company, skills }: AboutTabProps) {
             </View>
 
             <View style={styles.infoItem}>
-              <Ionicons name="time-outline" size={20} color="#9ca3af" />
+              <Clock size={20} color="#9ca3af" />
               <View style={styles.infoTextContainer}>
                 <Text style={styles.infoLabel}>Làm việc ngoài giờ</Text>
                 <Text style={styles.infoValue}>{company.overtimePolicy}</Text>
@@ -95,7 +95,7 @@ export default function AboutTab({ company, skills }: AboutTabProps) {
 
           {company.website && (
             <TouchableOpacity onPress={handleWebsitePress} style={styles.websiteLink}>
-              <Ionicons name="globe-outline" size={16} color="#1976d2" />
+              <Globe size={16} color="#1976d2" />
               <Text style={styles.websiteText} numberOfLines={1}>
                 {company.website}
               </Text>
@@ -166,8 +166,7 @@ export default function AboutTab({ company, skills }: AboutTabProps) {
                         onPress={() => setActiveLocationIndex(globalIndex)}
                         style={[styles.addressCard, isActive && styles.addressCardActive]}
                       >
-                        <Ionicons
-                          name="location"
+                        <MapPin
                           size={20}
                           color={isActive ? '#1976d2' : '#9ca3af'}
                         />
@@ -195,7 +194,7 @@ export default function AboutTab({ company, skills }: AboutTabProps) {
                     Linking.openURL(url);
                   }}
                 >
-                  <Ionicons name="open-outline" size={16} color="#1976d2" />
+                  <ExternalLink size={16} color="#1976d2" />
                   <Text style={styles.openMapText}>Mở Google Maps</Text>
                 </TouchableOpacity>
               </View>

@@ -9,6 +9,7 @@ import {
   FlatList,
   SafeAreaView,
 } from 'react-native';
+import { Search, X } from 'lucide-react-native';
 
 type PickerOption = {
   value: string;
@@ -82,7 +83,7 @@ export default function PickerModal({
         {/* Header */}
         <View style={styles.header}>
           <TouchableOpacity onPress={handleClose} style={styles.closeButton}>
-            <Text style={styles.closeButtonText}>✕</Text>
+            <X size={24} color="#111827" />
           </TouchableOpacity>
           <Text style={styles.title}>{title}</Text>
           <View style={styles.placeholder} />
@@ -90,7 +91,7 @@ export default function PickerModal({
 
         {/* Search Bar */}
         <View style={styles.searchContainer}>
-          <Text style={styles.searchIcon}>🔍</Text>
+          <Search size={18} color="#6b7280" style={styles.searchIcon} />
           <TextInput
             style={styles.searchInput}
             placeholder={placeholder}
