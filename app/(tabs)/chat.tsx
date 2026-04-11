@@ -1,5 +1,6 @@
 import { useDebounce } from "@/hooks/useDebounce";
 import { useUser } from "@/hooks/useUser";
+import { useAppSelector } from "@/lib/hooks";
 import {
   useFetchChatRoomsQuery,
   useLazyCheckExistingChatRoomQuery,
@@ -33,15 +34,21 @@ export default function ChatListScreen() {
   const [keyword, setKeyword] = useState("");
   const debouncedKeyword = useDebounce(keyword, 500);
 
+  // Get unread counts from Redux
+  const { unreadCounts } = useAppSelector((state) => state.chatNotification);
+
   // Lấy danh sách phòng chat hiện tại
   const {
     data: chatRoomsRes,
     isLoading: isLoadingRooms,
     refetch,
-  } = useFetchChatRoomsQuery({
-    page: 1,
-    size: 50,
-  });
+  } = useFetchChatRoomsQuery(
+    {
+      page: 1,
+      size: 50,
+    },
+    { pollingInterval: 3000 }, // Poll every 3 seconds for faster updates
+  );
 
   const [triggerSearch, { data: searchData, isFetching: isSearching }] =
     useLazySearchUsersQuery();
@@ -216,6 +223,16 @@ export default function ChatListScreen() {
                   </Text>
                 </View>
                 <View style={styles.chatBottomRow}>
+                  {/* Unread Badge */}
+                  {unreadCounts[item.roomId] > 0 && (
+                    <View style={styles.unreadBadge}>
+                      <Text style={styles.unreadBadgeText}>
+                        {unreadCounts[item.roomId] > 99
+                          ? "99+"
+                          : unreadCounts[item.roomId]}
+                      </Text>
+                    </View>
+                  )}
                   <Text numberOfLines={1} style={styles.chatMessage}>
                     {item.lastMessagePreview || "Bắt đầu trò chuyện"}
                   </Text>
@@ -284,6 +301,20 @@ const styles = StyleSheet.create({
     color: "#666",
     backgroundColor: "#F0F2F5",
     textTransform: "uppercase",
+  },
+  unreadBadge: {
+    minWidth: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: "#FF3B30",
+    justifyContent: "center",
+    alignItems: "center",
+    marginLeft: 8,
+  },
+  unreadBadgeText: {
+    color: "#fff",
+    fontSize: 12,
+    fontWeight: "bold",
   },
   searchResultArea: { flex: 1 },
   emptyText: { textAlign: "center", marginTop: 40, color: "#999" },

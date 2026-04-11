@@ -1,3 +1,5 @@
+import { NotificationProvider } from "@/components/notification/NotificationProvider";
+import { useNotificationManager } from "@/hooks/useNotificationManager";
 import { Stack } from "expo-router";
 import React, { useEffect, useState } from "react";
 import { ActivityIndicator, View } from "react-native";
@@ -15,6 +17,9 @@ function AuthChecker() {
   const dispatch = useAppDispatch();
   const [hasToken, setHasToken] = useState(false);
   const [checkingToken, setCheckingToken] = useState(true);
+
+  // Initialize notification manager globally
+  useNotificationManager({ enabled: true, checkInterval: 3000 });
 
   // Check if token exists
   useEffect(() => {
@@ -77,6 +82,7 @@ export default function RootLayout() {
             />
             <Stack.Screen name="(auth)" options={{ headerShown: false }} />
           </Stack>
+          <NotificationProvider />
         </PersistGate>
       </Provider>
     </GestureHandlerRootView>

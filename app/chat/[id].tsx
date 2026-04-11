@@ -1,28 +1,29 @@
 import useChatActionsMobile from "@/hooks/useChatActionsMobile";
+import { useNotificationManager } from "@/hooks/useNotificationManager";
 import { useUser } from "@/hooks/useUser";
 import {
-  useDeleteMessagePermanentMutation,
-  useFetchMessagesInChatRoomQuery,
-  useRevokeMessageMutation,
+    useDeleteMessagePermanentMutation,
+    useFetchMessagesInChatRoomQuery,
+    useRevokeMessageMutation,
 } from "@/services/chatRoom/chatRoomApi";
 import { MessageType } from "@/types/model";
 import { Ionicons } from "@expo/vector-icons";
 import BottomSheet, { BottomSheetView } from "@gorhom/bottom-sheet";
 import * as ImagePicker from "expo-image-picker";
 import { router, useLocalSearchParams } from "expo-router";
-import React, { useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
-  ActivityIndicator,
-  FlatList,
-  Image,
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
+    ActivityIndicator,
+    FlatList,
+    Image,
+    KeyboardAvoidingView,
+    Platform,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import EmojiPicker from "rn-emoji-keyboard";
@@ -40,6 +41,18 @@ export default function ChatDetail() {
   const { handleSendMessage, pickImage, isSending } = useChatActionsMobile();
   const [revokeMessage] = useRevokeMessageMutation();
   const [deleteMessagePermanent] = useDeleteMessagePermanentMutation();
+
+  // Notification manager
+  const { setActiveChatRoom } = useNotificationManager();
+
+  // Set active chat room khi component mount/unmount
+  useEffect(() => {
+    setActiveChatRoom(chatRoomId);
+
+    return () => {
+      setActiveChatRoom(null);
+    };
+  }, [chatRoomId, setActiveChatRoom]);
 
   const [isEmojiOpen, setIsEmojiOpen] = useState(false);
 
