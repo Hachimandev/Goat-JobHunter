@@ -324,6 +324,13 @@ export type DeviceNotificationType = {
   time: string;
 };
 
+export type Device = {
+  deviceId: number;
+  name: string;
+  createdAt: string;
+  account: Account;
+};
+
 export type Conversation = {
   conversationId: number;
   title: string;
