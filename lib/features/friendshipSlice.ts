@@ -8,7 +8,7 @@ import {
   RelationshipState,
 } from '@/services/friendship/friendshipType';
 import type { RootState } from '@/lib/store';
-import { createSlice, PayloadAction } from '@reduxjs/toolkit';
+import { createSelector, createSlice, PayloadAction } from '@reduxjs/toolkit';
 
 export type PairFriendshipState = PairFriendshipSnapshot & {
   updatedAt: string | null;
@@ -18,6 +18,7 @@ type FriendshipState = {
   pairs: Record<string, PairFriendshipState>;
   requestsById: Record<string, FriendRequest>;
   lastSyncedAt: string | null;
+  lastRealtimeEventAt: string | null;
 };
 
 type PendingRequestsHydrationPayload = {
@@ -47,6 +48,7 @@ const initialState: FriendshipState = {
   pairs: {},
   requestsById: {},
   lastSyncedAt: null,
+  lastRealtimeEventAt: null,
 };
 
 const toPairKey = (targetAccountId: number): string => String(targetAccountId);
@@ -220,6 +222,14 @@ const setPairTargetUser = (pair: PairFriendshipState, targetUser?: FriendUserSum
   pair.targetUser = mergeTargetUserSummary(pair.targetUser, targetUser);
 };
 
+const resolveEventTimestamp = (emittedAt?: string | null): string => {
+  if (typeof emittedAt === 'string' && emittedAt.trim().length > 0) {
+    return emittedAt;
+  }
+
+  return new Date().toISOString();
+};
+
 const applyPairSnapshot = (state: FriendshipState, snapshot: PairFriendshipSnapshot): void => {
   const pair = ensurePairState(state, snapshot.targetAccountId);
 
@@ -296,6 +306,9 @@ const friendshipSlice = createSlice({
   name: 'friendship',
   initialState,
   reducers: {
+    markFriendshipRealtimeEvent: (state, action: PayloadAction<string | undefined>) => {
+      state.lastRealtimeEventAt = resolveEventTimestamp(action.payload);
+    },
     upsertPairSnapshot: (state, action: PayloadAction<PairFriendshipSnapshot>) => {
       applyPairSnapshot(state, action.payload);
     },
@@ -524,6 +537,7 @@ const friendshipSlice = createSlice({
 });
 
 export const {
+  markFriendshipRealtimeEvent,
   upsertPairSnapshot,
   upsertPairSnapshots,
   hydratePendingRequests,
@@ -564,11 +578,7 @@ const sortFriendPairsByRecent = (a: PairFriendshipState, b: PairFriendshipState)
   return right - left;
 };
 
-export const selectFriendPairs = (state: RootState): PairFriendshipState[] => {
-  return Object.values(state.friendship.pairs)
-    .filter((pair) => pair.relationshipState === RelationshipState.FRIEND)
-    .sort(sortFriendPairsByRecent);
-};
+const selectPairsMap = (state: RootState) => state.friendship.pairs;
 
 const sortByNewest = (a: FriendRequest, b: FriendRequest): number => {
   const left = Date.parse(a.respondedAt ?? a.requestedAt ?? '');
@@ -589,16 +599,35 @@ const sortByNewest = (a: FriendRequest, b: FriendRequest): number => {
   return right - left;
 };
 
-export const selectPendingIncomingRequests = (state: RootState, currentUserId: number): FriendRequest[] => {
-  return Object.values(state.friendship.requestsById)
-    .filter((request) => request.status === FriendRequestStatus.PENDING && request.receiverId === currentUserId)
-    .sort(sortByNewest);
+const selectRequestsById = (state: RootState) => state.friendship.requestsById;
+const selectCurrentUserId = (_state: RootState, currentUserId: number) => currentUserId;
+
+export const selectLastFriendshipRealtimeEventAt = (state: RootState): string | null => {
+  return state.friendship.lastRealtimeEventAt;
 };
 
-export const selectPendingOutgoingRequests = (state: RootState, currentUserId: number): FriendRequest[] => {
-  return Object.values(state.friendship.requestsById)
-    .filter((request) => request.status === FriendRequestStatus.PENDING && request.senderId === currentUserId)
-    .sort(sortByNewest);
-};
+export const selectFriendPairs = createSelector([selectPairsMap], (pairs): PairFriendshipState[] => {
+  return Object.values(pairs)
+    .filter((pair) => pair.relationshipState === RelationshipState.FRIEND)
+    .sort(sortFriendPairsByRecent);
+});
+
+export const selectPendingIncomingRequests = createSelector(
+  [selectRequestsById, selectCurrentUserId],
+  (requestsById, currentUserId): FriendRequest[] => {
+    return Object.values(requestsById)
+      .filter((request) => request.status === FriendRequestStatus.PENDING && request.receiverId === currentUserId)
+      .sort(sortByNewest);
+  },
+);
+
+export const selectPendingOutgoingRequests = createSelector(
+  [selectRequestsById, selectCurrentUserId],
+  (requestsById, currentUserId): FriendRequest[] => {
+    return Object.values(requestsById)
+      .filter((request) => request.status === FriendRequestStatus.PENDING && request.senderId === currentUserId)
+      .sort(sortByNewest);
+  },
+);
 
 export default friendshipSlice.reducer;

@@ -7,6 +7,7 @@ import {
   friendRequestCanceled,
   friendRequestCreated,
   friendRequestRejected,
+  markFriendshipRealtimeEvent,
 } from '@/lib/features/friendshipSlice';
 import { store } from '@/lib/store';
 import { FriendRequestStatus } from '@/services/friendship/friendshipType';
@@ -105,6 +106,7 @@ export class WebSocketFriendshipService {
           return;
         }
 
+        this.dispatch(markFriendshipRealtimeEvent(envelope.emittedAt));
         this.dispatch(
           friendRequestCreated({
             currentUserId,
@@ -120,6 +122,7 @@ export class WebSocketFriendshipService {
           return;
         }
 
+        this.dispatch(markFriendshipRealtimeEvent(envelope.emittedAt));
         this.dispatch(
           friendRequestAccepted({
             currentUserId,
@@ -136,6 +139,7 @@ export class WebSocketFriendshipService {
           return;
         }
 
+        this.dispatch(markFriendshipRealtimeEvent(envelope.emittedAt));
         this.dispatch(
           friendRequestRejected({
             currentUserId,
@@ -151,6 +155,7 @@ export class WebSocketFriendshipService {
           return;
         }
 
+        this.dispatch(markFriendshipRealtimeEvent(envelope.emittedAt));
         this.dispatch(
           friendRequestCanceled({
             currentUserId,

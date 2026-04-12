@@ -9,7 +9,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import useFriendActions from '@/hooks/useFriendActions';
 import { useUser } from '@/hooks/useUser';
 import {
+  PairFriendshipState,
   selectFriendPairs,
+  selectLastFriendshipRealtimeEventAt,
   selectPendingIncomingRequests,
   selectPendingOutgoingRequests,
 } from '@/lib/features/friendshipSlice';
@@ -29,13 +31,15 @@ import {
 } from '@/utils/friendshipUtils';
 import { Check, UserRound, X } from 'lucide-react';
 import Link from 'next/link';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 const DEFAULT_AVATAR = '/placeholder.svg';
 const DEFAULT_USER_NAME = 'Người dùng';
 const FRIENDSHIP_PAGE_SIZE = 10;
 const FRIENDS_SORT = ['friendsSince,desc', 'relationshipId,desc'] as const;
 const FRIEND_REQUEST_SORT = ['requestedAt,desc', 'requestId,desc'] as const;
+const EMPTY_REQUESTS: FriendRequest[] = [];
+const EMPTY_PAIRS: PairFriendshipState[] = [];
 
 type RequestCardViewModel = {
   requestId: number;
@@ -128,6 +132,9 @@ export default function FriendRequestsInboxPage() {
     skip: skipReadQuery,
   });
 
+  const lastRealtimeEventAt = useAppSelector(selectLastFriendshipRealtimeEventAt);
+  const lastHandledRealtimeEventAtRef = useRef<string | null>(null);
+
   const friendshipsMeta = useMemo(
     () =>
       extractFriendshipPaginationMeta(friendshipsResponse, {
@@ -197,32 +204,28 @@ export default function FriendRequestsInboxPage() {
     [isErrorFriendships, isErrorReceived, isErrorSent],
   );
 
-  const incomingRequests = useAppSelector((state) => {
-    if (currentUserId <= 0) {
-      return [];
-    }
+  const allIncomingRequests = useAppSelector((state) =>
+    currentUserId > 0 ? selectPendingIncomingRequests(state, currentUserId) : EMPTY_REQUESTS,
+  );
+  const allOutgoingRequests = useAppSelector((state) =>
+    currentUserId > 0 ? selectPendingOutgoingRequests(state, currentUserId) : EMPTY_REQUESTS,
+  );
+  const allFriendPairs = useAppSelector((state) => (currentUserId > 0 ? selectFriendPairs(state) : EMPTY_PAIRS));
 
-    const requests = selectPendingIncomingRequests(state, currentUserId);
-    return requests.filter((request) => incomingPageRequestIds.has(request.requestId));
-  });
+  const incomingRequests = useMemo(
+    () => allIncomingRequests.filter((request) => incomingPageRequestIds.has(request.requestId)),
+    [allIncomingRequests, incomingPageRequestIds],
+  );
 
-  const outgoingRequests = useAppSelector((state) => {
-    if (currentUserId <= 0) {
-      return [];
-    }
+  const outgoingRequests = useMemo(
+    () => allOutgoingRequests.filter((request) => outgoingPageRequestIds.has(request.requestId)),
+    [allOutgoingRequests, outgoingPageRequestIds],
+  );
 
-    const requests = selectPendingOutgoingRequests(state, currentUserId);
-    return requests.filter((request) => outgoingPageRequestIds.has(request.requestId));
-  });
-
-  const friendPairs = useAppSelector((state) => {
-    if (currentUserId <= 0) {
-      return [];
-    }
-
-    const pairs = selectFriendPairs(state);
-    return pairs.filter((pair) => friendPageTargetIds.has(pair.targetAccountId));
-  });
+  const friendPairs = useMemo(
+    () => allFriendPairs.filter((pair) => friendPageTargetIds.has(pair.targetAccountId)),
+    [allFriendPairs, friendPageTargetIds],
+  );
 
   const { handleAcceptFriendRequest, handleRejectFriendRequest, handleCancelFriendRequest, isMutating } =
     useFriendActions();
@@ -247,6 +250,44 @@ export default function FriendRequestsInboxPage() {
     () => outgoingRequests.map((request) => toRequestCardViewModel(request, false)),
     [outgoingRequests],
   );
+
+  useEffect(() => {
+    if (skipReadQuery || !lastRealtimeEventAt) {
+      return;
+    }
+
+    if (lastHandledRealtimeEventAtRef.current === lastRealtimeEventAt) {
+      return;
+    }
+
+    lastHandledRealtimeEventAtRef.current = lastRealtimeEventAt;
+
+    const shouldResetToFirstPage =
+      friendsPage !== FRIENDSHIP_DEFAULT_PAGE ||
+      receivedPage !== FRIENDSHIP_DEFAULT_PAGE ||
+      sentPage !== FRIENDSHIP_DEFAULT_PAGE;
+
+    if (shouldResetToFirstPage) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setFriendsPage(FRIENDSHIP_DEFAULT_PAGE);
+      setReceivedPage(FRIENDSHIP_DEFAULT_PAGE);
+      setSentPage(FRIENDSHIP_DEFAULT_PAGE);
+      return;
+    }
+
+    refetchFriendships();
+    refetchReceived();
+    refetchSent();
+  }, [
+    friendsPage,
+    lastRealtimeEventAt,
+    receivedPage,
+    refetchFriendships,
+    refetchReceived,
+    refetchSent,
+    sentPage,
+    skipReadQuery,
+  ]);
 
   const handleRetry = useCallback(() => {
     refetchFriendships();
