@@ -32,7 +32,7 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
           <main className="flex-1 px-8 py-8 min-h-screen">{children}</main>
 
           <aside className="w-80 shrink-0">
-            <ScrollArea className="sticky top-16 max-h-[calc(100vh-2rem)]">
+            <ScrollArea className="sticky top-2 max-h-[calc(100vh-2rem)]">
               <div className="space-y-4 py-6 pr-4">
                 <PopularTags popularTags={popularTags} />
                 <UserFriendList />
