@@ -18,10 +18,12 @@ import {
   GetMyFriendshipsResponse,
   GetMyReceivedFriendRequestsResponse,
   GetMySentFriendRequestsResponse,
+} from '@/services/friendship/friendshipType';
+import {
   normalizeFriendRequest,
   normalizeFriendRequestsPayload,
   normalizePairSnapshotsPayload,
-} from '@/services/friendship/friendshipType';
+} from '@/utils/friendshipUtils';
 
 const FRIEND_REQUEST_LIST_TAG_ID = 'LIST';
 const FRIEND_REQUEST_RECEIVED_TAG_ID = 'RECEIVED';

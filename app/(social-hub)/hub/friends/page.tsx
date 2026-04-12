@@ -19,7 +19,8 @@ import {
   useGetMyReceivedFriendRequestsQuery,
   useGetMySentFriendRequestsQuery,
 } from '@/services/friendship/friendshipApi';
-import { FriendRequest, getFriendUserDisplayName } from '@/services/friendship/friendshipType';
+import { FriendRequest } from '@/services/friendship/friendshipType';
+import { getFriendUserDisplayName } from '@/utils/friendshipUtils';
 import { Check, UserRound, X } from 'lucide-react';
 import Link from 'next/link';
 import { useCallback, useMemo } from 'react';

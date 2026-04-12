@@ -9,61 +9,10 @@ import {
   friendRequestRejected,
 } from '@/lib/features/friendshipSlice';
 import { store } from '@/lib/store';
-import {
-  FriendRequest,
-  FriendRequestStatus,
-  FriendshipEventType,
-  isFriendshipEventType,
-  normalizeFriendRequest,
-} from '@/services/friendship/friendshipType';
+import { FriendRequestStatus } from '@/services/friendship/friendshipType';
+import { normalizeFriendRequestFromEventData, parseFriendshipEventEnvelope } from '@/utils/friendshipUtils';
 
 const FRIENDSHIP_EVENT_DESTINATIONS = ['/user/queue/friendships'] as const;
-
-type ParsedFriendshipEnvelope = {
-  eventType: FriendshipEventType;
-  emittedAt?: string;
-  data: Record<string, unknown>;
-};
-
-const toRecord = (value: unknown): Record<string, unknown> => {
-  if (value && typeof value === 'object') {
-    return value as Record<string, unknown>;
-  }
-
-  return {};
-};
-
-const parsePositiveNumber = (value: unknown): number | null => {
-  const parsed = Number(value);
-  if (!Number.isFinite(parsed) || parsed <= 0) {
-    return null;
-  }
-
-  return parsed;
-};
-
-const pickNumber = (source: Record<string, unknown>, keys: string[]): number | null => {
-  for (const key of keys) {
-    const value = parsePositiveNumber(source[key]);
-    if (value !== null) {
-      return value;
-    }
-  }
-
-  return null;
-};
-
-const pickString = (source: Record<string, unknown>, keys: string[]): string | undefined => {
-  for (const key of keys) {
-    const candidate = source[key];
-
-    if (typeof candidate === 'string' && candidate.trim().length > 0) {
-      return candidate;
-    }
-  }
-
-  return undefined;
-};
 
 export class WebSocketFriendshipService {
   private client: Client | null = null;
@@ -138,7 +87,7 @@ export class WebSocketFriendshipService {
   }
 
   private handleEvent(payload: unknown) {
-    const envelope = this.extractEnvelope(payload);
+    const envelope = parseFriendshipEventEnvelope(payload);
 
     if (!envelope) {
       return;
@@ -151,7 +100,7 @@ export class WebSocketFriendshipService {
 
     switch (envelope.eventType) {
       case 'FRIEND_REQUEST_CREATED': {
-        const request = this.normalizeRequestFromEnvelope(envelope.data, FriendRequestStatus.PENDING);
+        const request = normalizeFriendRequestFromEventData(envelope.data, FriendRequestStatus.PENDING);
         if (!request) {
           return;
         }
@@ -166,7 +115,7 @@ export class WebSocketFriendshipService {
         return;
       }
       case 'FRIEND_REQUEST_ACCEPTED': {
-        const request = this.normalizeRequestFromEnvelope(envelope.data, FriendRequestStatus.ACCEPTED);
+        const request = normalizeFriendRequestFromEventData(envelope.data, FriendRequestStatus.ACCEPTED);
         if (!request) {
           return;
         }
@@ -182,7 +131,7 @@ export class WebSocketFriendshipService {
         return;
       }
       case 'FRIEND_REQUEST_REJECTED': {
-        const request = this.normalizeRequestFromEnvelope(envelope.data, FriendRequestStatus.REJECTED);
+        const request = normalizeFriendRequestFromEventData(envelope.data, FriendRequestStatus.REJECTED);
         if (!request) {
           return;
         }
@@ -197,7 +146,7 @@ export class WebSocketFriendshipService {
         return;
       }
       case 'FRIEND_REQUEST_CANCELED': {
-        const request = this.normalizeRequestFromEnvelope(envelope.data, FriendRequestStatus.CANCELED);
+        const request = normalizeFriendRequestFromEventData(envelope.data, FriendRequestStatus.CANCELED);
         if (!request) {
           return;
         }
@@ -214,70 +163,5 @@ export class WebSocketFriendshipService {
       default:
         return;
     }
-  }
-
-  private normalizeRequestFromEnvelope(
-    data: Record<string, unknown>,
-    status: FriendRequestStatus,
-  ): FriendRequest | null {
-    const normalized = normalizeFriendRequest(data);
-
-    if (normalized) {
-      return {
-        ...normalized,
-        status,
-      };
-    }
-
-    const requestId = pickNumber(data, ['requestId', 'friendRequestId', 'id']);
-    const requesterId = pickNumber(data, ['requesterId', 'senderId', 'actorUserId', 'fromAccountId', 'actorId']);
-    const recipientId = pickNumber(data, ['recipientId', 'receiverId', 'targetUserId', 'targetId', 'toAccountId']);
-
-    if (!requestId || !requesterId || !recipientId) {
-      return null;
-    }
-
-    return {
-      requestId,
-      requesterId,
-      recipientId,
-      status,
-      createdAt: pickString(data, ['createdAt', 'requestedAt']),
-      updatedAt: pickString(data, ['updatedAt', 'respondedAt', 'processedAt', 'emittedAt']) ?? new Date().toISOString(),
-      expiresAt: pickString(data, ['expiresAt']),
-    };
-  }
-
-  private extractEnvelope(payload: unknown): ParsedFriendshipEnvelope | null {
-    const source = toRecord(payload);
-    const nestedData = toRecord(source.data);
-
-    const eventCandidate = source.eventType ?? source.event ?? source.type ?? source.action;
-    const nestedEventCandidate = nestedData.eventType ?? nestedData.event ?? nestedData.type ?? nestedData.action;
-
-    const eventType = isFriendshipEventType(eventCandidate)
-      ? eventCandidate
-      : isFriendshipEventType(nestedEventCandidate)
-        ? nestedEventCandidate
-        : null;
-
-    if (!eventType) {
-      return null;
-    }
-
-    const emittedAt =
-      pickString(source, ['emittedAt', 'timestamp', 'createdAt', 'updatedAt']) ??
-      pickString(nestedData, ['emittedAt', 'timestamp', 'createdAt', 'updatedAt']);
-
-    const mergedData = {
-      ...source,
-      ...nestedData,
-    };
-
-    return {
-      eventType,
-      emittedAt,
-      data: mergedData,
-    };
   }
 }

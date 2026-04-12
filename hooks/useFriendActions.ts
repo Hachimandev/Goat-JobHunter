@@ -6,11 +6,8 @@ import {
   useCreateFriendRequestMutation,
   useRejectFriendRequestMutation,
 } from '@/services/friendship/friendshipApi';
-import {
-  FriendshipUiState,
-  UserRelationshipStatus,
-  deriveFriendshipUiState,
-} from '@/services/friendship/friendshipType';
+import { FriendshipUiState, UserRelationshipStatus } from '@/services/friendship/friendshipType';
+import { deriveFriendshipUiState } from '@/utils/friendshipUtils';
 import { extractApiErrorMessage } from '@/utils/apiError';
 import { useCallback } from 'react';
 import { toast } from 'sonner';

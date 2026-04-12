@@ -5,7 +5,8 @@ import {
   useGetMyReceivedFriendRequestsQuery,
   useGetMySentFriendRequestsQuery,
 } from '@/services/friendship/friendshipApi';
-import { deriveFriendshipUiState, FriendshipUiState } from '@/services/friendship/friendshipType';
+import { FriendshipUiState } from '@/services/friendship/friendshipType';
+import { deriveFriendshipUiState } from '@/utils/friendshipUtils';
 
 export function useFriendshipStatus(targetAccountId?: number | null) {
   const { user, isSignedIn } = useUser();
