@@ -1,20 +1,22 @@
 import { NotificationProvider } from "@/components/notification/NotificationProvider";
 import { useNotificationManager } from "@/hooks/useNotificationManager";
-import { Stack } from "expo-router";
+import { Stack, useRouter } from "expo-router";
 import React, { useEffect, useState } from "react";
 import { ActivityIndicator, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { Provider } from "react-redux";
 import { PersistGate } from "redux-persist/integration/react";
-import { setUser } from "../lib/authSlice";
+import { setUser, clearUser } from "../lib/authSlice";
 import { useAppDispatch } from "../lib/hooks";
 import { persistor, store } from "../lib/store";
 import { useGetMyAccountQuery } from "../services/auth/authApi";
-import { tokenStorage } from "../services/tokenStorage";
+import { tokenManager } from "../lib/tokenManager";
+import { connectWebSocketLogout, disconnectWebSocketLogout } from "../services/WebSocketLogoutService";
 
 // Component to check auth on app start
 function AuthChecker() {
   const dispatch = useAppDispatch();
+  const router = useRouter();
   const [hasToken, setHasToken] = useState(false);
   const [checkingToken, setCheckingToken] = useState(true);
 
@@ -24,9 +26,19 @@ function AuthChecker() {
   // Check if token exists
   useEffect(() => {
     const checkToken = async () => {
-      const exists = await tokenStorage.hasToken();
+      // Initialize tokenManager (load token state from AsyncStorage)
+      await tokenManager.initialize();
+
+      const exists = await tokenManager.hasValidToken();
       setHasToken(exists);
       setCheckingToken(false);
+
+      // Log tokenManager state for debugging
+      const state = tokenManager.getState();
+      console.log('[TokenManager] Initialized at app start:', {
+        isLoading: state.isLoading,
+        listenerCount: tokenManager.getListenerCount(),
+      });
     };
     checkToken();
   }, []);
@@ -47,9 +59,41 @@ function AuthChecker() {
       );
     } else if (isError) {
       // Clear token if fetch failed
-      tokenStorage.clearTokens();
+      tokenManager.clearTokens().catch((error) => {
+        console.error("Error clearing tokens:", error);
+      });
     }
   }, [data, isError, dispatch]);
+
+  // Connect WebSocket logout listener when user is authenticated
+  // This handles force logout on app startup (auto-login scenario)
+  useEffect(() => {
+    if (data?.data && data.data.email) {
+      console.log('[AuthChecker] User authenticated, connecting WebSocket logout listener');
+
+      const handleForceLogout = async (isForceLogout: boolean) => {
+        console.log('[AuthChecker] Force logout triggered from WebSocket');
+        
+        try {
+          disconnectWebSocketLogout();
+          await tokenManager.clearTokens();
+          dispatch(clearUser());
+          router.replace('/(auth)/signin');
+        } catch (error) {
+          console.error('[AuthChecker] Error handling force logout:', error);
+        }
+      };
+
+      // Connect WebSocket with user email
+      connectWebSocketLogout(data.data.email, handleForceLogout);
+
+      // Return cleanup function to disconnect on unmount
+      return () => {
+        console.log('[AuthChecker] Disconnecting WebSocket logout listener on unmount');
+        disconnectWebSocketLogout();
+      };
+    }
+  }, [data?.data, dispatch, router]);
 
   // Show loading while checking
   if (checkingToken || (hasToken && isLoading)) {

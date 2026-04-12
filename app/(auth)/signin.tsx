@@ -13,11 +13,11 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { useSigninMutation } from '../../services/auth/authApi';
+import { useUser } from '../../hooks/useUser';
 
 export default function SignInScreen() {
   const router = useRouter();
-  const [signin, { isLoading }] = useSigninMutation();
+  const { signIn, isSigningIn } = useUser();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -44,12 +44,10 @@ export default function SignInScreen() {
     if (!validateForm()) return;
 
     try {
-      const result = await signin({ email, password }).unwrap();
+      const result = await signIn(email, password);
 
-      if (result.statusCode === 200 && result.data) {
-        // Token và user data đã được tự động lưu trong authApi.onQueryStarted
-        
-        // Navigate based on role
+      if (result.success) {
+        // Navigate to profile
         Alert.alert('Thành công', 'Đăng nhập thành công!', [
           {
             text: 'OK',
@@ -58,30 +56,20 @@ export default function SignInScreen() {
             },
           },
         ]);
+      } else {
+        // Handle specific errors
+        if (result.error === 'Bad credentials') {
+          setErrors({ root: 'Email hoặc mật khẩu không đúng' });
+        } else if (result.error === 'Account is locked') {
+          // The error handling already happens in signIn function with Alert
+          return;
+        } else {
+          setErrors({ root: 'Đăng nhập thất bại. Vui lòng thử lại.' });
+        }
       }
     } catch (error: any) {
       console.error('Login error:', error);
-      
-      // Handle account locked error
-      if (error?.status === 400 && error?.data?.message === 'Account is locked') {
-        Alert.alert(
-          'Tài khoản bị khóa',
-          'Tài khoản của bạn đã bị khóa. Vui lòng kích hoạt lại.',
-          [
-            {
-              text: 'Kích hoạt ngay',
-              onPress: () => {
-                router.push(`/(auth)/otp?email=${email}`);
-              },
-            },
-            { text: 'Hủy', style: 'cancel' },
-          ]
-        );
-        return;
-      }
-      
-      const errorMessage = error?.data?.message || 'Email hoặc mật khẩu không đúng';
-      setErrors({ root: errorMessage });
+      setErrors({ root: 'Lỗi không xác định' });
     }
   };
 
@@ -123,7 +111,7 @@ export default function SignInScreen() {
                 }}
                 autoCapitalize="none"
                 keyboardType="email-address"
-                editable={!isLoading}
+                editable={!isSigningIn}
               />
               {errors.email && <Text style={styles.errorText}>{errors.email}</Text>}
             </View>
@@ -147,7 +135,7 @@ export default function SignInScreen() {
                   if (errors.password) setErrors({ ...errors, password: undefined });
                 }}
                 secureTextEntry
-                editable={!isLoading}
+                editable={!isSigningIn}
               />
               {errors.password && <Text style={styles.errorText}>{errors.password}</Text>}
             </View>
@@ -161,11 +149,11 @@ export default function SignInScreen() {
 
             {/* Submit Button */}
             <TouchableOpacity
-              style={[styles.submitButton, isLoading && styles.submitButtonDisabled]}
+              style={[styles.submitButton, isSigningIn && styles.submitButtonDisabled]}
               onPress={handleSignIn}
-              disabled={isLoading}
+              disabled={isSigningIn}
             >
-              {isLoading ? (
+              {isSigningIn ? (
                 <ActivityIndicator color="#fff" />
               ) : (
                 <Text style={styles.submitButtonText}>Đăng nhập</Text>
@@ -176,8 +164,8 @@ export default function SignInScreen() {
             <View style={styles.signupContainer}>
               <Text style={styles.signupText}>Chưa có tài khoản? </Text>
               <TouchableOpacity
-                onPress={() => !isLoading && router.push('/(auth)/signup')}
-                disabled={isLoading}
+                onPress={() => !isSigningIn && router.push('/(auth)/signup')}
+                disabled={isSigningIn}
               >
                 <Text style={styles.signupLink}>Đăng ký</Text>
               </TouchableOpacity>
@@ -187,8 +175,8 @@ export default function SignInScreen() {
             <View style={styles.signupContainer}>
               <Text style={styles.signupText}>Bạn đại diện cho doanh nghiệp? </Text>
               <TouchableOpacity
-                onPress={() => !isLoading && router.push('/(auth)/company')}
-                disabled={isLoading}
+                onPress={() => !isSigningIn && router.push('/(auth)/company')}
+                disabled={isSigningIn}
               >
                 <Text style={styles.signupLink}>Đăng ký tài khoản công ty</Text>
               </TouchableOpacity>
