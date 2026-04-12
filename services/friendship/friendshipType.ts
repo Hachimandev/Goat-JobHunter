@@ -38,6 +38,7 @@ export enum FriendRequestDirection {
 
 export type FriendUserSummary = {
   accountId: number;
+  displayName?: string;
   fullName?: string;
   username?: string;
   avatar?: string;
@@ -184,6 +185,25 @@ const pickString = (source: Record<string, unknown>, keys: string[]): string | u
   return undefined;
 };
 
+const normalizeText = (value?: string): string | undefined => {
+  if (typeof value !== 'string') {
+    return undefined;
+  }
+
+  const normalized = value.trim();
+  return normalized.length > 0 ? normalized : undefined;
+};
+
+const joinNameParts = (...parts: Array<string | undefined>): string | undefined => {
+  const normalizedParts = parts.map((part) => normalizeText(part)).filter((part): part is string => Boolean(part));
+
+  if (normalizedParts.length === 0) {
+    return undefined;
+  }
+
+  return normalizedParts.join(' ');
+};
+
 const toOptionalNumber = (value?: number): number | null => {
   return typeof value === 'number' && Number.isFinite(value) && value > 0 ? value : null;
 };
@@ -239,18 +259,151 @@ const extractCollectionPayload = (input: unknown, preferredKeys?: string[]): unk
 const normalizeUserSummary = (input: unknown): FriendUserSummary | undefined => {
   const source = toRecord(input);
 
-  const accountId = pickNumber(source, ['accountId', 'userId', 'id']);
+  const accountId = pickNumber(source, ['accountId', 'userId', 'id', 'account_id']);
   if (accountId === null) {
     return undefined;
   }
 
+  const fullName =
+    pickString(source, ['fullName', 'full_name', 'name']) ??
+    joinNameParts(pickString(source, ['firstName', 'first_name']), pickString(source, ['lastName', 'last_name']));
+
+  const username = pickString(source, ['username', 'userName', 'handle']);
+  const displayName =
+    pickString(source, ['displayName', 'display_name', 'nickName', 'nickname']) ?? fullName ?? username;
+
   return {
     accountId,
-    fullName: pickString(source, ['fullName', 'name']),
-    username: pickString(source, ['username']),
-    avatar: pickString(source, ['avatar', 'photoUrl', 'imageUrl']),
-    visibility: pickString(source, ['visibility']) ?? null,
+    displayName,
+    fullName,
+    username,
+    avatar: pickString(source, [
+      'avatar',
+      'avatarUrl',
+      'profilePhoto',
+      'profilePicture',
+      'photoUrl',
+      'imageUrl',
+      'photo',
+    ]),
+    visibility: pickString(source, ['visibility', 'accountVisibility', 'profileVisibility']) ?? null,
   };
+};
+
+const buildFallbackRequesterSummary = (source: Record<string, unknown>, requesterId: number): FriendUserSummary => {
+  const fullName = pickString(source, ['requesterFullName', 'requesterName', 'senderName', 'actorName', 'fromName']);
+  const username = pickString(source, ['requesterUsername', 'senderUsername', 'actorUsername', 'fromUsername']);
+
+  return {
+    accountId: requesterId,
+    displayName:
+      pickString(source, ['requesterDisplayName', 'senderDisplayName', 'actorDisplayName', 'fromDisplayName']) ??
+      fullName ??
+      username,
+    fullName,
+    username,
+    avatar: pickString(source, [
+      'requesterAvatar',
+      'senderAvatar',
+      'actorAvatar',
+      'fromAvatar',
+      'requesterPhotoUrl',
+      'senderPhotoUrl',
+    ]),
+    visibility: pickString(source, ['requesterVisibility', 'senderVisibility', 'actorVisibility']) ?? null,
+  };
+};
+
+const buildFallbackRecipientSummary = (source: Record<string, unknown>, recipientId: number): FriendUserSummary => {
+  const fullName = pickString(source, [
+    'recipientFullName',
+    'recipientName',
+    'targetUserFullName',
+    'targetName',
+    'toName',
+  ]);
+  const username = pickString(source, [
+    'recipientUsername',
+    'targetUsername',
+    'targetUserUsername',
+    'receiverUsername',
+    'toUsername',
+  ]);
+
+  return {
+    accountId: recipientId,
+    displayName:
+      pickString(source, [
+        'recipientDisplayName',
+        'targetDisplayName',
+        'targetUserDisplayName',
+        'receiverDisplayName',
+      ]) ??
+      fullName ??
+      username,
+    fullName,
+    username,
+    avatar: pickString(source, [
+      'recipientAvatar',
+      'targetAvatar',
+      'targetUserAvatar',
+      'receiverAvatar',
+      'toAvatar',
+      'recipientPhotoUrl',
+      'targetPhotoUrl',
+    ]),
+    visibility: pickString(source, ['recipientVisibility', 'targetVisibility', 'receiverVisibility']) ?? null,
+  };
+};
+
+const buildFallbackCounterpartSummary = (
+  source: Record<string, unknown>,
+  targetAccountId: number,
+): FriendUserSummary => {
+  const fullName = pickString(source, [
+    'counterpartFullName',
+    'counterpartName',
+    'friendFullName',
+    'friendName',
+    'targetUserFullName',
+  ]);
+  const username = pickString(source, [
+    'counterpartUsername',
+    'friendUsername',
+    'targetUserUsername',
+    'targetUsername',
+  ]);
+
+  return {
+    accountId: targetAccountId,
+    displayName:
+      pickString(source, [
+        'counterpartDisplayName',
+        'friendDisplayName',
+        'targetUserDisplayName',
+        'targetDisplayName',
+      ]) ??
+      fullName ??
+      username,
+    fullName,
+    username,
+    avatar: pickString(source, [
+      'counterpartAvatar',
+      'friendAvatar',
+      'targetUserAvatar',
+      'targetAvatar',
+      'counterpartPhotoUrl',
+      'friendPhotoUrl',
+    ]),
+    visibility: pickString(source, ['counterpartVisibility', 'friendVisibility', 'targetVisibility']) ?? null,
+  };
+};
+
+export const getFriendUserDisplayName = (
+  user?: Pick<FriendUserSummary, 'displayName' | 'fullName' | 'username'> | null,
+  fallback = 'Người dùng',
+): string => {
+  return normalizeText(user?.displayName) ?? normalizeText(user?.fullName) ?? normalizeText(user?.username) ?? fallback;
 };
 
 export const normalizeFriendRequestStatus = (value: unknown): FriendRequestStatus => {
@@ -361,8 +514,13 @@ export const normalizeFriendRequest = (
     source.recipient ?? source.receiver ?? source.targetUser ?? source.toUser ?? source.to,
   );
 
-  const resolvedRequester = requester ?? (counterpart?.accountId === requesterId ? counterpart : undefined);
-  const resolvedRecipient = recipient ?? (counterpart?.accountId === recipientId ? counterpart : undefined);
+  const fallbackRequester = buildFallbackRequesterSummary(source, requesterId);
+  const fallbackRecipient = buildFallbackRecipientSummary(source, recipientId);
+
+  const resolvedRequester =
+    requester ?? (counterpart?.accountId === requesterId ? counterpart : undefined) ?? fallbackRequester;
+  const resolvedRecipient =
+    recipient ?? (counterpart?.accountId === recipientId ? counterpart : undefined) ?? fallbackRecipient;
 
   return {
     requestId,
@@ -501,13 +659,15 @@ export const normalizePairSnapshot = (
     source.relationshipStatus ?? source.relationshipState ?? source.status,
   );
 
+  const resolvedCounterpart = counterpart ?? buildFallbackCounterpartSummary(source, targetAccountId);
+
   if (relationshipStatus !== UserRelationshipStatus.BLOCKED && (blockedByMe || blockedByOther)) {
     relationshipStatus = UserRelationshipStatus.BLOCKED;
   }
 
   return {
     targetAccountId,
-    targetUser: counterpart,
+    targetUser: resolvedCounterpart,
     relationshipStatus,
     friendsSince: pickString(source, ['friendsSince', 'friendSince', 'since', 'acceptedAt']) ?? null,
     blockedByMe,

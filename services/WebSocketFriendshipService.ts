@@ -125,6 +125,7 @@ export class WebSocketFriendshipService {
       this.client.subscribe(destination, (message) => {
         try {
           const payload = JSON.parse(message.body) as unknown;
+          console.log('📩 Received friendship event:', payload);
           this.handleEvent(payload);
         } catch (error) {
           console.error('❌ Parse friendship event error:', error);

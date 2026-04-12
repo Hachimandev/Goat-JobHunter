@@ -111,6 +111,7 @@ const mergeTargetUserSummary = (
   incomingSummary: FriendUserSummary,
 ): FriendUserSummary => ({
   accountId: incomingSummary.accountId,
+  displayName: incomingSummary.displayName ?? currentSummary?.displayName,
   fullName: incomingSummary.fullName ?? currentSummary?.fullName,
   username: incomingSummary.username ?? currentSummary?.username,
   avatar: incomingSummary.avatar ?? currentSummary?.avatar,

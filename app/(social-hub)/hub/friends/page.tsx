@@ -19,32 +19,37 @@ import {
   useGetMyReceivedFriendRequestsQuery,
   useGetMySentFriendRequestsQuery,
 } from '@/services/friendship/friendshipApi';
-import { FriendRequest } from '@/services/friendship/friendshipType';
+import { FriendRequest, getFriendUserDisplayName } from '@/services/friendship/friendshipType';
 import { Check, UserRound, X } from 'lucide-react';
 import Link from 'next/link';
+import { useCallback, useMemo } from 'react';
 
-const formatRequesterName = (request: FriendRequest, isIncoming: boolean): string => {
-  if (isIncoming) {
-    return request.requester?.fullName || request.requester?.username || `Người dùng #${request.requesterId}`;
-  }
+const DEFAULT_AVATAR = '/placeholder.svg';
+const DEFAULT_USER_NAME = 'Người dùng';
 
-  return request.recipient?.fullName || request.recipient?.username || `Người dùng #${request.recipientId}`;
+type RequestCardViewModel = {
+  requestId: number;
+  targetId: number;
+  displayName: string;
+  avatar: string;
 };
 
-const formatRequesterAvatar = (request: FriendRequest, isIncoming: boolean): string => {
-  if (isIncoming) {
-    return request.requester?.avatar || '/placeholder.svg';
-  }
-
-  return request.recipient?.avatar || '/placeholder.svg';
+type FriendCardViewModel = {
+  targetId: number;
+  displayName: string;
+  avatar: string;
+  isConnected: boolean;
 };
 
-const formatTargetId = (request: FriendRequest, isIncoming: boolean): number => {
-  return isIncoming ? request.requesterId : request.recipientId;
-};
+const toRequestCardViewModel = (request: FriendRequest, incoming: boolean): RequestCardViewModel => {
+  const summary = incoming ? request.requester : request.recipient;
 
-const formatFriendName = (targetAccountId: number, fullName?: string, username?: string): string => {
-  return fullName || username || `Người dùng #${targetAccountId}`;
+  return {
+    requestId: request.requestId,
+    targetId: incoming ? request.requesterId : request.recipientId,
+    displayName: getFriendUserDisplayName(summary, DEFAULT_USER_NAME),
+    avatar: summary?.avatar || DEFAULT_AVATAR,
+  };
 };
 
 export default function FriendRequestsInboxPage() {
@@ -52,25 +57,48 @@ export default function FriendRequestsInboxPage() {
   const currentUserId = user?.accountId ?? 0;
   const skipReadQuery = !isSignedIn || !user;
 
-  const friendshipsQuery = useGetMyFriendshipsQuery(undefined, {
-    skip: skipReadQuery,
-  });
-  const receivedQuery = useGetMyReceivedFriendRequestsQuery(undefined, {
-    skip: skipReadQuery,
-  });
-  const sentQuery = useGetMySentFriendRequestsQuery(undefined, {
+  const {
+    isLoading: isLoadingFriendships,
+    isFetching: isFetchingFriendships,
+    isError: isErrorFriendships,
+    refetch: refetchFriendships,
+  } = useGetMyFriendshipsQuery(undefined, {
     skip: skipReadQuery,
   });
 
-  const isLoadingRequests =
-    friendshipsQuery.isLoading ||
-    friendshipsQuery.isFetching ||
-    receivedQuery.isLoading ||
-    receivedQuery.isFetching ||
-    sentQuery.isLoading ||
-    sentQuery.isFetching;
+  const {
+    isLoading: isLoadingReceived,
+    isFetching: isFetchingReceived,
+    isError: isErrorReceived,
+    refetch: refetchReceived,
+  } = useGetMyReceivedFriendRequestsQuery(undefined, {
+    skip: skipReadQuery,
+  });
 
-  const isLoadRequestsError = friendshipsQuery.isError || receivedQuery.isError || sentQuery.isError;
+  const {
+    isLoading: isLoadingSent,
+    isFetching: isFetchingSent,
+    isError: isErrorSent,
+    refetch: refetchSent,
+  } = useGetMySentFriendRequestsQuery(undefined, {
+    skip: skipReadQuery,
+  });
+
+  const isLoadingRequests = useMemo(
+    () =>
+      isLoadingFriendships ||
+      isFetchingFriendships ||
+      isLoadingReceived ||
+      isFetchingReceived ||
+      isLoadingSent ||
+      isFetchingSent,
+    [isFetchingFriendships, isFetchingReceived, isFetchingSent, isLoadingFriendships, isLoadingReceived, isLoadingSent],
+  );
+
+  const isLoadRequestsError = useMemo(
+    () => isErrorFriendships || isErrorReceived || isErrorSent,
+    [isErrorFriendships, isErrorReceived, isErrorSent],
+  );
 
   const incomingRequests = useAppSelector((state) =>
     currentUserId > 0 ? selectPendingIncomingRequests(state, currentUserId) : [],
@@ -83,11 +111,32 @@ export default function FriendRequestsInboxPage() {
   const { handleAcceptFriendRequest, handleRejectFriendRequest, handleCancelFriendRequest, isMutating } =
     useFriendActions();
 
-  const handleRetry = () => {
-    friendshipsQuery.refetch();
-    receivedQuery.refetch();
-    sentQuery.refetch();
-  };
+  const friendCards = useMemo<FriendCardViewModel[]>(
+    () =>
+      friendPairs.map((friendPair) => ({
+        targetId: friendPair.targetAccountId,
+        displayName: getFriendUserDisplayName(friendPair.targetUser, DEFAULT_USER_NAME),
+        avatar: friendPair.targetUser?.avatar || DEFAULT_AVATAR,
+        isConnected: Boolean(friendPair.friendsSince),
+      })),
+    [friendPairs],
+  );
+
+  const incomingRequestCards = useMemo<RequestCardViewModel[]>(
+    () => incomingRequests.map((request) => toRequestCardViewModel(request, true)),
+    [incomingRequests],
+  );
+
+  const outgoingRequestCards = useMemo<RequestCardViewModel[]>(
+    () => outgoingRequests.map((request) => toRequestCardViewModel(request, false)),
+    [outgoingRequests],
+  );
+
+  const handleRetry = useCallback(() => {
+    refetchFriendships();
+    refetchReceived();
+    refetchSent();
+  }, [refetchFriendships, refetchReceived, refetchSent]);
 
   if (!isSignedIn || !user) {
     return <ErrorMessage message="Vui lòng đăng nhập để xem lời mời kết bạn." />;
@@ -108,32 +157,23 @@ export default function FriendRequestsInboxPage() {
           <CardTitle className="text-xl font-semibold">Bạn bè</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
-          {friendPairs.length === 0 && <p className="text-sm text-muted-foreground">Bạn chưa có bạn bè nào.</p>}
+          {friendCards.length === 0 && <p className="text-sm text-muted-foreground">Bạn chưa có bạn bè nào.</p>}
 
-          {friendPairs.map((friendPair) => {
-            const displayName = formatFriendName(
-              friendPair.targetAccountId,
-              friendPair.targetUser?.fullName,
-              friendPair.targetUser?.username,
-            );
-
+          {friendCards.map((friendCard) => {
             return (
-              <div
-                key={friendPair.targetAccountId}
-                className="flex items-center justify-between gap-3 rounded-xl border p-3"
-              >
-                <Link href={`/hub/users/${friendPair.targetAccountId}`} className="flex items-center gap-3 min-w-0">
+              <div key={friendCard.targetId} className="flex items-center justify-between gap-3 rounded-xl border p-3">
+                <Link href={`/hub/users/${friendCard.targetId}`} className="flex items-center gap-3 min-w-0">
                   <Avatar className="h-12 w-12 border">
-                    <AvatarImage src={friendPair.targetUser?.avatar || '/placeholder.svg'} alt={displayName} />
+                    <AvatarImage src={friendCard.avatar} alt={friendCard.displayName} />
                     <AvatarFallback>
                       <UserRound className="h-5 w-5" />
                     </AvatarFallback>
                   </Avatar>
 
                   <div className="min-w-0">
-                    <p className="font-medium truncate">{displayName}</p>
+                    <p className="font-medium truncate">{friendCard.displayName}</p>
                     <p className="text-sm text-muted-foreground truncate">
-                      {friendPair.friendsSince ? 'Đã trở thành bạn bè' : 'Đang trong danh sách bạn bè'}
+                      {friendCard.isConnected ? 'Đã trở thành bạn bè' : 'Đang trong danh sách bạn bè'}
                     </p>
                   </div>
                 </Link>
@@ -152,26 +192,26 @@ export default function FriendRequestsInboxPage() {
           <CardTitle className="text-xl font-semibold">Lời mời đã nhận</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
-          {incomingRequests.length === 0 && (
+          {incomingRequestCards.length === 0 && (
             <p className="text-sm text-muted-foreground">Bạn chưa có lời mời kết bạn nào.</p>
           )}
 
-          {incomingRequests.map((request) => {
-            const displayName = formatRequesterName(request, true);
-            const targetId = formatTargetId(request, true);
-
+          {incomingRequestCards.map((requestCard) => {
             return (
-              <div key={request.requestId} className="flex items-center justify-between gap-3 rounded-xl border p-3">
-                <Link href={`/hub/users/${targetId}`} className="flex items-center gap-3 min-w-0">
+              <div
+                key={requestCard.requestId}
+                className="flex items-center justify-between gap-3 rounded-xl border p-3"
+              >
+                <Link href={`/hub/users/${requestCard.targetId}`} className="flex items-center gap-3 min-w-0">
                   <Avatar className="h-12 w-12 border">
-                    <AvatarImage src={formatRequesterAvatar(request, true)} alt={displayName} />
+                    <AvatarImage src={requestCard.avatar} alt={requestCard.displayName} />
                     <AvatarFallback>
                       <UserRound className="h-5 w-5" />
                     </AvatarFallback>
                   </Avatar>
 
                   <div className="min-w-0">
-                    <p className="font-medium truncate">{displayName}</p>
+                    <p className="font-medium truncate">{requestCard.displayName}</p>
                     <p className="text-sm text-muted-foreground truncate">Lời mời đang chờ phản hồi</p>
                   </div>
                 </Link>
@@ -180,7 +220,7 @@ export default function FriendRequestsInboxPage() {
                   <Button
                     size="sm"
                     className="rounded-xl"
-                    onClick={() => handleAcceptFriendRequest(request.requestId)}
+                    onClick={() => handleAcceptFriendRequest(requestCard.requestId)}
                     disabled={isMutating}
                   >
                     <Check className="h-4 w-4 mr-1" />
@@ -191,7 +231,7 @@ export default function FriendRequestsInboxPage() {
                     size="sm"
                     variant="outline"
                     className="rounded-xl"
-                    onClick={() => handleRejectFriendRequest(request.requestId)}
+                    onClick={() => handleRejectFriendRequest(requestCard.requestId)}
                     disabled={isMutating}
                   >
                     <X className="h-4 w-4 mr-1" />
@@ -209,26 +249,26 @@ export default function FriendRequestsInboxPage() {
           <CardTitle className="text-xl font-semibold">Lời mời đã gửi</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
-          {outgoingRequests.length === 0 && (
+          {outgoingRequestCards.length === 0 && (
             <p className="text-sm text-muted-foreground">Bạn chưa gửi lời mời kết bạn nào.</p>
           )}
 
-          {outgoingRequests.map((request) => {
-            const displayName = formatRequesterName(request, false);
-            const targetId = formatTargetId(request, false);
-
+          {outgoingRequestCards.map((requestCard) => {
             return (
-              <div key={request.requestId} className="flex items-center justify-between gap-3 rounded-xl border p-3">
-                <Link href={`/hub/users/${targetId}`} className="flex items-center gap-3 min-w-0">
+              <div
+                key={requestCard.requestId}
+                className="flex items-center justify-between gap-3 rounded-xl border p-3"
+              >
+                <Link href={`/hub/users/${requestCard.targetId}`} className="flex items-center gap-3 min-w-0">
                   <Avatar className="h-12 w-12 border">
-                    <AvatarImage src={formatRequesterAvatar(request, false)} alt={displayName} />
+                    <AvatarImage src={requestCard.avatar} alt={requestCard.displayName} />
                     <AvatarFallback>
                       <UserRound className="h-5 w-5" />
                     </AvatarFallback>
                   </Avatar>
 
                   <div className="min-w-0">
-                    <p className="font-medium truncate">{displayName}</p>
+                    <p className="font-medium truncate">{requestCard.displayName}</p>
                     <p className="text-sm text-muted-foreground truncate">Đang chờ người kia phản hồi</p>
                   </div>
                 </Link>
@@ -241,7 +281,7 @@ export default function FriendRequestsInboxPage() {
                     size="sm"
                     variant="outline"
                     className="rounded-xl"
-                    onClick={() => handleCancelFriendRequest(request.requestId)}
+                    onClick={() => handleCancelFriendRequest(requestCard.requestId)}
                     disabled={isMutating}
                   >
                     Hủy lời mời
