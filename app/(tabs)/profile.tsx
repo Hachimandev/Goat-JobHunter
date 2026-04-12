@@ -22,7 +22,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { clearUser } from "../../lib/authSlice";
 import { useAppDispatch, useAppSelector } from "../../lib/hooks";
 import { useLogoutMutation } from "../../services/auth/authApi";
-import { tokenStorage } from "../../services/tokenStorage";
+import { tokenManager } from "../../lib/tokenManager";
 
 export default function ProfileScreen() {
   const router = useRouter();
@@ -40,7 +40,7 @@ export default function ProfileScreen() {
 
   const handleLogout = async () => {
     try {
-      await tokenStorage.clearTokens();
+      await tokenManager.clearTokens();
 
       dispatch(clearUser());
 
@@ -54,7 +54,7 @@ export default function ProfileScreen() {
     } catch (error) {
       console.error("Logout error:", error);
 
-      await tokenStorage.clearTokens();
+      await tokenManager.clearTokens();
       dispatch(clearUser());
       router.replace("/");
     }
