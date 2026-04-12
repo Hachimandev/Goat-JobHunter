@@ -8,14 +8,20 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import useFriendActions from '@/hooks/useFriendActions';
 import { useUser } from '@/hooks/useUser';
-import { selectPendingIncomingRequests, selectPendingOutgoingRequests } from '@/lib/features/friendshipSlice';
+import {
+  selectFriendPairs,
+  selectPendingIncomingRequests,
+  selectPendingOutgoingRequests,
+} from '@/lib/features/friendshipSlice';
 import { useAppSelector } from '@/lib/hooks';
-import { useGetMyPendingFriendRequestsQuery } from '@/services/friendship/friendshipApi';
+import {
+  useGetMyFriendshipsQuery,
+  useGetMyReceivedFriendRequestsQuery,
+  useGetMySentFriendRequestsQuery,
+} from '@/services/friendship/friendshipApi';
 import { FriendRequest } from '@/services/friendship/friendshipType';
 import { Check, UserRound, X } from 'lucide-react';
 import Link from 'next/link';
-
-const ENABLE_FRIENDSHIP_READ_API = process.env.NEXT_PUBLIC_FRIENDSHIP_READ_API_ENABLED === 'true';
 
 const formatRequesterName = (request: FriendRequest, isIncoming: boolean): string => {
   if (isIncoming) {
@@ -37,17 +43,34 @@ const formatTargetId = (request: FriendRequest, isIncoming: boolean): number => 
   return isIncoming ? request.requesterId : request.recipientId;
 };
 
+const formatFriendName = (targetAccountId: number, fullName?: string, username?: string): string => {
+  return fullName || username || `Người dùng #${targetAccountId}`;
+};
+
 export default function FriendRequestsInboxPage() {
   const { user, isSignedIn } = useUser();
   const currentUserId = user?.accountId ?? 0;
+  const skipReadQuery = !isSignedIn || !user;
 
-  const {
-    isLoading: isLoadingRequests,
-    isError: isLoadRequestsError,
-    refetch,
-  } = useGetMyPendingFriendRequestsQuery(undefined, {
-    skip: !ENABLE_FRIENDSHIP_READ_API || !isSignedIn || !user,
+  const friendshipsQuery = useGetMyFriendshipsQuery(undefined, {
+    skip: skipReadQuery,
   });
+  const receivedQuery = useGetMyReceivedFriendRequestsQuery(undefined, {
+    skip: skipReadQuery,
+  });
+  const sentQuery = useGetMySentFriendRequestsQuery(undefined, {
+    skip: skipReadQuery,
+  });
+
+  const isLoadingRequests =
+    friendshipsQuery.isLoading ||
+    friendshipsQuery.isFetching ||
+    receivedQuery.isLoading ||
+    receivedQuery.isFetching ||
+    sentQuery.isLoading ||
+    sentQuery.isFetching;
+
+  const isLoadRequestsError = friendshipsQuery.isError || receivedQuery.isError || sentQuery.isError;
 
   const incomingRequests = useAppSelector((state) =>
     currentUserId > 0 ? selectPendingIncomingRequests(state, currentUserId) : [],
@@ -55,34 +78,74 @@ export default function FriendRequestsInboxPage() {
   const outgoingRequests = useAppSelector((state) =>
     currentUserId > 0 ? selectPendingOutgoingRequests(state, currentUserId) : [],
   );
+  const friendPairs = useAppSelector((state) => (currentUserId > 0 ? selectFriendPairs(state) : []));
 
   const { handleAcceptFriendRequest, handleRejectFriendRequest, handleCancelFriendRequest, isMutating } =
     useFriendActions();
+
+  const handleRetry = () => {
+    friendshipsQuery.refetch();
+    receivedQuery.refetch();
+    sentQuery.refetch();
+  };
 
   if (!isSignedIn || !user) {
     return <ErrorMessage message="Vui lòng đăng nhập để xem lời mời kết bạn." />;
   }
 
-  if (ENABLE_FRIENDSHIP_READ_API && isLoadingRequests) {
+  if (isLoadingRequests) {
     return <LoaderSpin />;
   }
 
-  if (ENABLE_FRIENDSHIP_READ_API && isLoadRequestsError) {
-    return <ErrorMessage message="Không thể tải lời mời kết bạn." onRetry={refetch} />;
+  if (isLoadRequestsError) {
+    return <ErrorMessage message="Không thể tải dữ liệu bạn bè." onRetry={handleRetry} />;
   }
 
   return (
     <div className="mx-auto max-w-4xl space-y-4">
-      {!ENABLE_FRIENDSHIP_READ_API && (
-        <Card>
-          <CardContent className="pt-6">
-            <p className="text-sm text-muted-foreground">
-              Backend hiện chỉ hỗ trợ write endpoints cho friend request. Danh sách bên dưới sẽ cập nhật theo realtime
-              event và thao tác trong phiên hiện tại.
-            </p>
-          </CardContent>
-        </Card>
-      )}
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-xl font-semibold">Bạn bè</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {friendPairs.length === 0 && <p className="text-sm text-muted-foreground">Bạn chưa có bạn bè nào.</p>}
+
+          {friendPairs.map((friendPair) => {
+            const displayName = formatFriendName(
+              friendPair.targetAccountId,
+              friendPair.targetUser?.fullName,
+              friendPair.targetUser?.username,
+            );
+
+            return (
+              <div
+                key={friendPair.targetAccountId}
+                className="flex items-center justify-between gap-3 rounded-xl border p-3"
+              >
+                <Link href={`/hub/users/${friendPair.targetAccountId}`} className="flex items-center gap-3 min-w-0">
+                  <Avatar className="h-12 w-12 border">
+                    <AvatarImage src={friendPair.targetUser?.avatar || '/placeholder.svg'} alt={displayName} />
+                    <AvatarFallback>
+                      <UserRound className="h-5 w-5" />
+                    </AvatarFallback>
+                  </Avatar>
+
+                  <div className="min-w-0">
+                    <p className="font-medium truncate">{displayName}</p>
+                    <p className="text-sm text-muted-foreground truncate">
+                      {friendPair.friendsSince ? 'Đã trở thành bạn bè' : 'Đang trong danh sách bạn bè'}
+                    </p>
+                  </div>
+                </Link>
+
+                <Badge variant="secondary" className="rounded-xl">
+                  Bạn bè
+                </Badge>
+              </div>
+            );
+          })}
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader className="pb-2">

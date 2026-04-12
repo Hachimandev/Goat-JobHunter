@@ -1,6 +1,7 @@
 import { clearUser } from '@/lib/features/authSlice';
 import { useAppSelector } from '@/lib/hooks';
 import {
+  FriendUserSummary,
   FriendRequest,
   FriendRequestStatus,
   PairFriendshipSnapshot,
@@ -21,8 +22,10 @@ type FriendshipState = {
 
 type PendingRequestsHydrationPayload = {
   currentUserId: number;
-  incoming: FriendRequest[];
-  outgoing: FriendRequest[];
+  incoming?: FriendRequest[];
+  outgoing?: FriendRequest[];
+  replaceIncoming?: boolean;
+  replaceOutgoing?: boolean;
   emittedAt?: string;
 };
 
@@ -70,6 +73,7 @@ const shouldApplyByRecency = (currentTimestamp?: string | null, incomingTimestam
 
 const createEmptyPairState = (targetAccountId: number): PairFriendshipState => ({
   targetAccountId,
+  targetUser: undefined,
   relationshipStatus: UserRelationshipStatus.NONE,
   blockedByMe: false,
   blockedByOther: false,
@@ -100,6 +104,32 @@ const getTargetAccountIdFromRequest = (currentUserId: number, request: FriendReq
   }
 
   return null;
+};
+
+const mergeTargetUserSummary = (
+  currentSummary: FriendUserSummary | undefined,
+  incomingSummary: FriendUserSummary,
+): FriendUserSummary => ({
+  accountId: incomingSummary.accountId,
+  fullName: incomingSummary.fullName ?? currentSummary?.fullName,
+  username: incomingSummary.username ?? currentSummary?.username,
+  avatar: incomingSummary.avatar ?? currentSummary?.avatar,
+  visibility: incomingSummary.visibility ?? currentSummary?.visibility ?? null,
+});
+
+const getTargetUserSummaryFromRequest = (
+  currentUserId: number,
+  request: FriendRequest,
+): FriendUserSummary | undefined => {
+  if (request.requesterId === currentUserId) {
+    return request.recipient;
+  }
+
+  if (request.recipientId === currentUserId) {
+    return request.requester;
+  }
+
+  return undefined;
 };
 
 const isPendingRequestForTarget = (request: FriendRequest, currentUserId: number, targetAccountId: number): boolean => {
@@ -178,6 +208,14 @@ const updatePairTimestamp = (pair: PairFriendshipState, emittedAt?: string): voi
   pair.emittedAt = now;
 };
 
+const setPairTargetUser = (pair: PairFriendshipState, targetUser?: FriendUserSummary): void => {
+  if (!targetUser || targetUser.accountId !== pair.targetAccountId) {
+    return;
+  }
+
+  pair.targetUser = mergeTargetUserSummary(pair.targetUser, targetUser);
+};
+
 const applyPairSnapshot = (state: FriendshipState, snapshot: PairFriendshipSnapshot): void => {
   const pair = ensurePairState(state, snapshot.targetAccountId);
 
@@ -189,6 +227,7 @@ const applyPairSnapshot = (state: FriendshipState, snapshot: PairFriendshipSnaps
   pair.blockedByMe = snapshot.blockedByMe;
   pair.blockedByOther = snapshot.blockedByOther;
   pair.friendsSince = snapshot.friendsSince ?? null;
+  setPairTargetUser(pair, snapshot.targetUser);
 
   if (snapshot.pendingIncomingRequest !== undefined) {
     pair.pendingIncomingRequest = snapshot.pendingIncomingRequest;
@@ -210,14 +249,27 @@ const applyPairSnapshot = (state: FriendshipState, snapshot: PairFriendshipSnaps
   state.lastSyncedAt = pair.updatedAt;
 };
 
-const clearPendingRequestsForCurrentUser = (state: FriendshipState, currentUserId: number): void => {
+const clearPendingRequestsForCurrentUser = (
+  state: FriendshipState,
+  currentUserId: number,
+  options?: {
+    incoming?: boolean;
+    outgoing?: boolean;
+  },
+): void => {
+  const clearIncoming = options?.incoming ?? true;
+  const clearOutgoing = options?.outgoing ?? true;
+
   const removableRequestIds = Object.entries(state.requestsById)
     .filter(([, request]) => {
       if (request.status !== FriendRequestStatus.PENDING) {
         return false;
       }
 
-      return request.requesterId === currentUserId || request.recipientId === currentUserId;
+      const isIncoming = request.recipientId === currentUserId;
+      const isOutgoing = request.requesterId === currentUserId;
+
+      return (clearIncoming && isIncoming) || (clearOutgoing && isOutgoing);
     })
     .map(([requestId]) => requestId);
 
@@ -226,8 +278,13 @@ const clearPendingRequestsForCurrentUser = (state: FriendshipState, currentUserI
   });
 
   Object.values(state.pairs).forEach((pair) => {
-    pair.pendingIncomingRequest = null;
-    pair.pendingOutgoingRequest = null;
+    if (clearIncoming) {
+      pair.pendingIncomingRequest = null;
+    }
+
+    if (clearOutgoing) {
+      pair.pendingOutgoingRequest = null;
+    }
   });
 };
 
@@ -244,9 +301,19 @@ const friendshipSlice = createSlice({
       });
     },
     hydratePendingRequests: (state, action: PayloadAction<PendingRequestsHydrationPayload>) => {
-      const { currentUserId, incoming, outgoing, emittedAt } = action.payload;
+      const {
+        currentUserId,
+        incoming = [],
+        outgoing = [],
+        replaceIncoming = true,
+        replaceOutgoing = true,
+        emittedAt,
+      } = action.payload;
 
-      clearPendingRequestsForCurrentUser(state, currentUserId);
+      clearPendingRequestsForCurrentUser(state, currentUserId, {
+        incoming: replaceIncoming,
+        outgoing: replaceOutgoing,
+      });
 
       [...incoming, ...outgoing]
         .filter((request) => request.status === FriendRequestStatus.PENDING)
@@ -261,6 +328,7 @@ const friendshipSlice = createSlice({
 
           const pair = ensurePairState(state, targetAccountId);
           attachPendingRequestToPair(pair, currentUserId, request);
+          setPairTargetUser(pair, getTargetUserSummaryFromRequest(currentUserId, request));
 
           if (
             pair.relationshipStatus !== UserRelationshipStatus.BLOCKED &&
@@ -293,6 +361,7 @@ const friendshipSlice = createSlice({
 
       state.requestsById[String(request.requestId)] = request;
       attachPendingRequestToPair(pair, currentUserId, request);
+      setPairTargetUser(pair, getTargetUserSummaryFromRequest(currentUserId, request));
 
       if (
         pair.relationshipStatus !== UserRelationshipStatus.BLOCKED &&
@@ -324,6 +393,7 @@ const friendshipSlice = createSlice({
       pair.pendingOutgoingRequest = null;
       pair.relationshipStatus = UserRelationshipStatus.FRIEND;
       pair.friendsSince = friendsSince ?? request.updatedAt ?? request.createdAt ?? pair.friendsSince ?? null;
+      setPairTargetUser(pair, getTargetUserSummaryFromRequest(currentUserId, request));
 
       updatePairTimestamp(pair, emittedAt ?? request.updatedAt);
       state.lastSyncedAt = pair.updatedAt;
@@ -343,6 +413,7 @@ const friendshipSlice = createSlice({
 
       delete state.requestsById[String(request.requestId)];
       removeRequestFromPair(pair, request.requestId);
+      setPairTargetUser(pair, getTargetUserSummaryFromRequest(currentUserId, request));
 
       if (
         pair.relationshipStatus !== UserRelationshipStatus.FRIEND &&
@@ -371,6 +442,7 @@ const friendshipSlice = createSlice({
 
       delete state.requestsById[String(request.requestId)];
       removeRequestFromPair(pair, request.requestId);
+      setPairTargetUser(pair, getTargetUserSummaryFromRequest(currentUserId, request));
 
       if (
         pair.relationshipStatus !== UserRelationshipStatus.FRIEND &&
@@ -470,6 +542,31 @@ export const selectPairFriendshipByTarget = (
   targetAccountId: number,
 ): PairFriendshipState | undefined => {
   return state.friendship.pairs[toPairKey(targetAccountId)];
+};
+
+const sortFriendPairsByRecent = (a: PairFriendshipState, b: PairFriendshipState): number => {
+  const left = Date.parse(a.friendsSince ?? a.updatedAt ?? '');
+  const right = Date.parse(b.friendsSince ?? b.updatedAt ?? '');
+
+  if (Number.isNaN(left) && Number.isNaN(right)) {
+    return b.targetAccountId - a.targetAccountId;
+  }
+
+  if (Number.isNaN(left)) {
+    return 1;
+  }
+
+  if (Number.isNaN(right)) {
+    return -1;
+  }
+
+  return right - left;
+};
+
+export const selectFriendPairs = (state: RootState): PairFriendshipState[] => {
+  return Object.values(state.friendship.pairs)
+    .filter((pair) => pair.relationshipStatus === UserRelationshipStatus.FRIEND)
+    .sort(sortFriendPairsByRecent);
 };
 
 const sortByNewest = (a: FriendRequest, b: FriendRequest): number => {

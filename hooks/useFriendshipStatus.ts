@@ -1,9 +1,11 @@
 import { useUser } from '@/hooks/useUser';
 import { useAppSelector } from '@/lib/hooks';
-import { useGetFriendshipWithUserQuery } from '@/services/friendship/friendshipApi';
+import {
+  useGetMyFriendshipsQuery,
+  useGetMyReceivedFriendRequestsQuery,
+  useGetMySentFriendRequestsQuery,
+} from '@/services/friendship/friendshipApi';
 import { deriveFriendshipUiState, FriendshipUiState } from '@/services/friendship/friendshipType';
-
-const ENABLE_FRIENDSHIP_READ_API = process.env.NEXT_PUBLIC_FRIENDSHIP_READ_API_ENABLED === 'true';
 
 export function useFriendshipStatus(targetAccountId?: number | null) {
   const { user, isSignedIn } = useUser();
@@ -12,14 +14,20 @@ export function useFriendshipStatus(targetAccountId?: number | null) {
   const isValidTarget = Number.isFinite(normalizedTargetAccountId) && normalizedTargetAccountId > 0;
   const isSelf = user?.accountId === normalizedTargetAccountId;
 
-  const shouldFetch = Boolean(ENABLE_FRIENDSHIP_READ_API && isSignedIn && user && isValidTarget && !isSelf);
+  const shouldHydrateReadData = Boolean(isSignedIn && user);
 
-  const { isLoading: isLoadingPair, isFetching: isFetchingPair } = useGetFriendshipWithUserQuery(
-    normalizedTargetAccountId,
+  const { isLoading: isLoadingFriendships, isFetching: isFetchingFriendships } = useGetMyFriendshipsQuery(undefined, {
+    skip: !shouldHydrateReadData,
+  });
+  const { isLoading: isLoadingReceived, isFetching: isFetchingReceived } = useGetMyReceivedFriendRequestsQuery(
+    undefined,
     {
-      skip: !shouldFetch,
+      skip: !shouldHydrateReadData,
     },
   );
+  const { isLoading: isLoadingSent, isFetching: isFetchingSent } = useGetMySentFriendRequestsQuery(undefined, {
+    skip: !shouldHydrateReadData,
+  });
 
   const pair = useAppSelector((state) =>
     isValidTarget ? state.friendship.pairs[String(normalizedTargetAccountId)] : undefined,
@@ -41,6 +49,17 @@ export function useFriendshipStatus(targetAccountId?: number | null) {
   const canReject = uiState === FriendshipUiState.PENDING_RECEIVED && incomingRequestId !== null;
   const canCancel = uiState === FriendshipUiState.PENDING_SENT && outgoingRequestId !== null;
 
+  const isLoadingPair =
+    !isSelf &&
+    isValidTarget &&
+    shouldHydrateReadData &&
+    (isLoadingFriendships ||
+      isFetchingFriendships ||
+      isLoadingReceived ||
+      isFetchingReceived ||
+      isLoadingSent ||
+      isFetchingSent);
+
   return {
     targetAccountId: isValidTarget ? normalizedTargetAccountId : null,
     pair,
@@ -56,6 +75,6 @@ export function useFriendshipStatus(targetAccountId?: number | null) {
     canAccept,
     canReject,
     canCancel,
-    isLoadingPair: isLoadingPair || isFetchingPair,
+    isLoadingPair,
   };
 }

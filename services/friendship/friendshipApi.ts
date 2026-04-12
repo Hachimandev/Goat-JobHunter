@@ -4,7 +4,7 @@ import {
   friendRequestCreated,
   friendRequestRejected,
   hydratePendingRequests,
-  upsertPairSnapshot,
+  upsertPairSnapshots,
 } from '@/lib/features/friendshipSlice';
 import { api } from '@/services/api';
 import type { RootState } from '@/lib/store';
@@ -13,15 +13,20 @@ import {
   FriendRequest,
   FriendRequestActionPayload,
   FriendRequestActionResponse,
+  FriendRequestDirection,
   FriendRequestStatus,
-  GetFriendshipWithUserResponse,
-  GetMyPendingFriendRequestsResponse,
+  GetMyFriendshipsResponse,
+  GetMyReceivedFriendRequestsResponse,
+  GetMySentFriendRequestsResponse,
   normalizeFriendRequest,
-  normalizePairSnapshot,
-  normalizePendingRequestsPayload,
+  normalizeFriendRequestsPayload,
+  normalizePairSnapshotsPayload,
 } from '@/services/friendship/friendshipType';
 
 const FRIEND_REQUEST_LIST_TAG_ID = 'LIST';
+const FRIEND_REQUEST_RECEIVED_TAG_ID = 'RECEIVED';
+const FRIEND_REQUEST_SENT_TAG_ID = 'SENT';
+const FRIENDSHIP_LIST_TAG_ID = 'LIST';
 
 const toRecord = (value: unknown): Record<string, unknown> => {
   if (value && typeof value === 'object') {
@@ -66,35 +71,12 @@ const buildRequestWithStatus = (
 export const friendshipApi = api.injectEndpoints({
   overrideExisting: true,
   endpoints: (builder) => ({
-    getFriendshipWithUser: builder.query<GetFriendshipWithUserResponse, number>({
-      query: (targetAccountId) => ({
-        url: `/user-relationships/me/${targetAccountId}`,
-        method: 'GET',
-      }),
-      providesTags: (_result, _error, targetAccountId) => [
-        { type: 'Friendship', id: targetAccountId },
-        { type: 'FriendRequest', id: targetAccountId },
-      ],
-      async onQueryStarted(targetAccountId, { dispatch, queryFulfilled }) {
-        try {
-          const { data } = await queryFulfilled;
-          const snapshot = normalizePairSnapshot(unwrapResponseData(data), targetAccountId);
-
-          if (snapshot) {
-            dispatch(upsertPairSnapshot(snapshot));
-          }
-        } catch (error) {
-          console.error('Failed to fetch friendship status:', error);
-        }
-      },
-    }),
-
-    getMyPendingFriendRequests: builder.query<GetMyPendingFriendRequestsResponse, void>({
+    getMyFriendships: builder.query<GetMyFriendshipsResponse, void>({
       query: () => ({
-        url: '/friend-requests/me/pending',
+        url: '/friend-requests/me',
         method: 'GET',
       }),
-      providesTags: [{ type: 'FriendRequest', id: FRIEND_REQUEST_LIST_TAG_ID }],
+      providesTags: [{ type: 'Friendship', id: FRIENDSHIP_LIST_TAG_ID }],
       async onQueryStarted(_, { dispatch, getState, queryFulfilled }) {
         const currentUserId = getCurrentUserId(getState() as RootState);
 
@@ -104,18 +86,91 @@ export const friendshipApi = api.injectEndpoints({
 
         try {
           const { data } = await queryFulfilled;
-          const pending = normalizePendingRequestsPayload(unwrapResponseData(data), currentUserId);
+          const snapshots = normalizePairSnapshotsPayload(unwrapResponseData(data), {
+            currentUserId,
+          });
+
+          if (snapshots.length > 0) {
+            dispatch(upsertPairSnapshots(snapshots));
+          }
+        } catch (error) {
+          console.error('Failed to fetch friendship snapshots:', error);
+        }
+      },
+    }),
+
+    getMyReceivedFriendRequests: builder.query<GetMyReceivedFriendRequestsResponse, void>({
+      query: () => ({
+        url: '/friend-requests/me/received',
+        method: 'GET',
+      }),
+      providesTags: [
+        { type: 'FriendRequest', id: FRIEND_REQUEST_LIST_TAG_ID },
+        { type: 'FriendRequest', id: FRIEND_REQUEST_RECEIVED_TAG_ID },
+      ],
+      async onQueryStarted(_, { dispatch, getState, queryFulfilled }) {
+        const currentUserId = getCurrentUserId(getState() as RootState);
+
+        if (!currentUserId) {
+          return;
+        }
+
+        try {
+          const { data } = await queryFulfilled;
+          const incoming = normalizeFriendRequestsPayload(unwrapResponseData(data), {
+            currentUserId,
+            directionHint: FriendRequestDirection.INCOMING,
+          }).filter((request) => request.status === FriendRequestStatus.PENDING);
 
           dispatch(
             hydratePendingRequests({
               currentUserId,
-              incoming: pending.incoming,
-              outgoing: pending.outgoing,
+              incoming,
+              replaceIncoming: true,
+              replaceOutgoing: false,
               emittedAt: new Date().toISOString(),
             }),
           );
         } catch (error) {
-          console.error('Failed to hydrate pending friend requests:', error);
+          console.error('Failed to hydrate received friend requests:', error);
+        }
+      },
+    }),
+
+    getMySentFriendRequests: builder.query<GetMySentFriendRequestsResponse, void>({
+      query: () => ({
+        url: '/friend-requests/me/sent',
+        method: 'GET',
+      }),
+      providesTags: [
+        { type: 'FriendRequest', id: FRIEND_REQUEST_LIST_TAG_ID },
+        { type: 'FriendRequest', id: FRIEND_REQUEST_SENT_TAG_ID },
+      ],
+      async onQueryStarted(_, { dispatch, getState, queryFulfilled }) {
+        const currentUserId = getCurrentUserId(getState() as RootState);
+
+        if (!currentUserId) {
+          return;
+        }
+
+        try {
+          const { data } = await queryFulfilled;
+          const outgoing = normalizeFriendRequestsPayload(unwrapResponseData(data), {
+            currentUserId,
+            directionHint: FriendRequestDirection.OUTGOING,
+          }).filter((request) => request.status === FriendRequestStatus.PENDING);
+
+          dispatch(
+            hydratePendingRequests({
+              currentUserId,
+              outgoing,
+              replaceIncoming: false,
+              replaceOutgoing: true,
+              emittedAt: new Date().toISOString(),
+            }),
+          );
+        } catch (error) {
+          console.error('Failed to hydrate sent friend requests:', error);
         }
       },
     }),
@@ -129,7 +184,10 @@ export const friendshipApi = api.injectEndpoints({
       invalidatesTags: (_result, _error, payload) => [
         { type: 'FriendRequest', id: payload.targetUserId },
         { type: 'Friendship', id: payload.targetUserId },
+        { type: 'Friendship', id: FRIENDSHIP_LIST_TAG_ID },
         { type: 'FriendRequest', id: FRIEND_REQUEST_LIST_TAG_ID },
+        { type: 'FriendRequest', id: FRIEND_REQUEST_RECEIVED_TAG_ID },
+        { type: 'FriendRequest', id: FRIEND_REQUEST_SENT_TAG_ID },
       ],
       async onQueryStarted(payload, { dispatch, getState, queryFulfilled }) {
         const currentUserId = getCurrentUserId(getState() as RootState);
@@ -164,7 +222,12 @@ export const friendshipApi = api.injectEndpoints({
         url: `/friend-requests/${requestId}/accept`,
         method: 'POST',
       }),
-      invalidatesTags: [{ type: 'FriendRequest', id: FRIEND_REQUEST_LIST_TAG_ID }],
+      invalidatesTags: [
+        { type: 'Friendship', id: FRIENDSHIP_LIST_TAG_ID },
+        { type: 'FriendRequest', id: FRIEND_REQUEST_LIST_TAG_ID },
+        { type: 'FriendRequest', id: FRIEND_REQUEST_RECEIVED_TAG_ID },
+        { type: 'FriendRequest', id: FRIEND_REQUEST_SENT_TAG_ID },
+      ],
       async onQueryStarted({ requestId }, { dispatch, getState, queryFulfilled }) {
         const state = getState() as RootState;
         const currentUserId = getCurrentUserId(state);
@@ -207,7 +270,12 @@ export const friendshipApi = api.injectEndpoints({
         url: `/friend-requests/${requestId}/reject`,
         method: 'POST',
       }),
-      invalidatesTags: [{ type: 'FriendRequest', id: FRIEND_REQUEST_LIST_TAG_ID }],
+      invalidatesTags: [
+        { type: 'Friendship', id: FRIENDSHIP_LIST_TAG_ID },
+        { type: 'FriendRequest', id: FRIEND_REQUEST_LIST_TAG_ID },
+        { type: 'FriendRequest', id: FRIEND_REQUEST_RECEIVED_TAG_ID },
+        { type: 'FriendRequest', id: FRIEND_REQUEST_SENT_TAG_ID },
+      ],
       async onQueryStarted({ requestId }, { dispatch, getState, queryFulfilled }) {
         const state = getState() as RootState;
         const currentUserId = getCurrentUserId(state);
@@ -249,7 +317,12 @@ export const friendshipApi = api.injectEndpoints({
         url: `/friend-requests/${requestId}/cancel`,
         method: 'POST',
       }),
-      invalidatesTags: [{ type: 'FriendRequest', id: FRIEND_REQUEST_LIST_TAG_ID }],
+      invalidatesTags: [
+        { type: 'Friendship', id: FRIENDSHIP_LIST_TAG_ID },
+        { type: 'FriendRequest', id: FRIEND_REQUEST_LIST_TAG_ID },
+        { type: 'FriendRequest', id: FRIEND_REQUEST_RECEIVED_TAG_ID },
+        { type: 'FriendRequest', id: FRIEND_REQUEST_SENT_TAG_ID },
+      ],
       async onQueryStarted({ requestId }, { dispatch, getState, queryFulfilled }) {
         const state = getState() as RootState;
         const currentUserId = getCurrentUserId(state);
@@ -289,9 +362,10 @@ export const friendshipApi = api.injectEndpoints({
 });
 
 export const {
-  useGetFriendshipWithUserQuery,
-  useLazyGetFriendshipWithUserQuery,
-  useGetMyPendingFriendRequestsQuery,
+  useGetMyFriendshipsQuery,
+  useLazyGetMyFriendshipsQuery,
+  useGetMyReceivedFriendRequestsQuery,
+  useGetMySentFriendRequestsQuery,
   useCreateFriendRequestMutation,
   useAcceptFriendRequestMutation,
   useRejectFriendRequestMutation,
