@@ -32,6 +32,7 @@ export type Account = {
   password: string;
   avatar?: string;
   enabled: boolean;
+  locked: boolean;
   visibility?: Visibility;
   addresses: Address[];
   createdAt: string;

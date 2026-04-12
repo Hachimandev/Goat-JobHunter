@@ -178,25 +178,6 @@ export const userApi = api.injectEndpoints({
       providesTags: ['User'],
     }),
 
-    // User Status APIs
-    activateUsers: builder.mutation<UserStatusResponse, UserIdsRequest>({
-      query: (data) => ({
-        url: '/users/activate',
-        method: 'PUT',
-        data,
-      }),
-      invalidatesTags: ['User', 'Recruiter', 'Applicant'],
-    }),
-
-    deactivateUsers: builder.mutation<UserStatusResponse, UserIdsRequest>({
-      query: (data) => ({
-        url: '/users/deactivate',
-        method: 'PUT',
-        data,
-      }),
-      invalidatesTags: ['User', 'Recruiter', 'Applicant'],
-    }),
-
     updateMyVisibility: builder.mutation<UpdateMyVisibilityMutationResponse, UpdateMyVisibilityRequest>({
       query: (data) => ({
         url: '/users/me/visibility',
@@ -343,8 +324,6 @@ export const {
 
   useCheckReviewedCompaniesQuery,
 
-  useActivateUsersMutation,
-  useDeactivateUsersMutation,
   useUpdateMyVisibilityMutation,
 
   useFetchJobSubscribersByCurrentUserQuery,
