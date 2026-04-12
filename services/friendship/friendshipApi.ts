@@ -10,14 +10,18 @@ import { api } from '@/services/api';
 import type { RootState } from '@/lib/store';
 import {
   CreateFriendRequestPayload,
+  FRIENDSHIP_DEFAULT_PAGE,
+  FRIENDSHIP_DEFAULT_SIZE,
   FriendRequest,
   FriendRequestActionPayload,
   FriendRequestActionResponse,
   FriendRequestDirection,
   FriendRequestStatus,
+  FriendshipReadQueryParams,
   GetMyFriendshipsResponse,
   GetMyReceivedFriendRequestsResponse,
   GetMySentFriendRequestsResponse,
+  RelationshipState,
 } from '@/services/friendship/friendshipType';
 import {
   normalizeFriendRequest,
@@ -48,6 +52,17 @@ const unwrapResponseData = (value: unknown): unknown => {
   return value;
 };
 
+const buildPageableParams = (params?: FriendshipReadQueryParams | void): Record<string, unknown> => {
+  const page = Number.isFinite(Number(params?.page)) ? Number(params?.page) : FRIENDSHIP_DEFAULT_PAGE;
+  const size = Number.isFinite(Number(params?.size)) ? Number(params?.size) : FRIENDSHIP_DEFAULT_SIZE;
+
+  return {
+    page: Math.max(page, 0),
+    size: Math.max(size, 1),
+    ...(params?.sort ? { sort: params.sort } : {}),
+  };
+};
+
 const getCurrentUserId = (state: RootState): number | null => {
   const accountId = state.auth.user?.accountId;
   return typeof accountId === 'number' && accountId > 0 ? accountId : null;
@@ -66,20 +81,28 @@ const buildRequestWithStatus = (
     ...request,
     requestId: request.requestId || fallbackRequestId,
     status,
-    updatedAt: request.updatedAt ?? new Date().toISOString(),
+    relationshipState:
+      status === FriendRequestStatus.ACCEPTED
+        ? (request.relationshipState ?? RelationshipState.FRIEND)
+        : request.relationshipState,
+    respondedAt:
+      status === FriendRequestStatus.PENDING
+        ? (request.respondedAt ?? null)
+        : (request.respondedAt ?? new Date().toISOString()),
   };
 };
 
 export const friendshipApi = api.injectEndpoints({
   overrideExisting: true,
   endpoints: (builder) => ({
-    getMyFriendships: builder.query<GetMyFriendshipsResponse, void>({
-      query: () => ({
+    getMyFriendships: builder.query<GetMyFriendshipsResponse, FriendshipReadQueryParams | void>({
+      query: (params) => ({
         url: '/friend-requests/me',
         method: 'GET',
+        params: buildPageableParams(params),
       }),
       providesTags: [{ type: 'Friendship', id: FRIENDSHIP_LIST_TAG_ID }],
-      async onQueryStarted(_, { dispatch, getState, queryFulfilled }) {
+      async onQueryStarted(_params, { dispatch, getState, queryFulfilled }) {
         const currentUserId = getCurrentUserId(getState() as RootState);
 
         if (!currentUserId) {
@@ -101,16 +124,17 @@ export const friendshipApi = api.injectEndpoints({
       },
     }),
 
-    getMyReceivedFriendRequests: builder.query<GetMyReceivedFriendRequestsResponse, void>({
-      query: () => ({
+    getMyReceivedFriendRequests: builder.query<GetMyReceivedFriendRequestsResponse, FriendshipReadQueryParams | void>({
+      query: (params) => ({
         url: '/friend-requests/me/received',
         method: 'GET',
+        params: buildPageableParams(params),
       }),
       providesTags: [
         { type: 'FriendRequest', id: FRIEND_REQUEST_LIST_TAG_ID },
         { type: 'FriendRequest', id: FRIEND_REQUEST_RECEIVED_TAG_ID },
       ],
-      async onQueryStarted(_, { dispatch, getState, queryFulfilled }) {
+      async onQueryStarted(_params, { dispatch, getState, queryFulfilled }) {
         const currentUserId = getCurrentUserId(getState() as RootState);
 
         if (!currentUserId) {
@@ -121,7 +145,7 @@ export const friendshipApi = api.injectEndpoints({
           const { data } = await queryFulfilled;
           const incoming = normalizeFriendRequestsPayload(unwrapResponseData(data), {
             currentUserId,
-            directionHint: FriendRequestDirection.INCOMING,
+            directionHint: FriendRequestDirection.RECEIVED,
           }).filter((request) => request.status === FriendRequestStatus.PENDING);
 
           dispatch(
@@ -139,16 +163,17 @@ export const friendshipApi = api.injectEndpoints({
       },
     }),
 
-    getMySentFriendRequests: builder.query<GetMySentFriendRequestsResponse, void>({
-      query: () => ({
+    getMySentFriendRequests: builder.query<GetMySentFriendRequestsResponse, FriendshipReadQueryParams | void>({
+      query: (params) => ({
         url: '/friend-requests/me/sent',
         method: 'GET',
+        params: buildPageableParams(params),
       }),
       providesTags: [
         { type: 'FriendRequest', id: FRIEND_REQUEST_LIST_TAG_ID },
         { type: 'FriendRequest', id: FRIEND_REQUEST_SENT_TAG_ID },
       ],
-      async onQueryStarted(_, { dispatch, getState, queryFulfilled }) {
+      async onQueryStarted(_params, { dispatch, getState, queryFulfilled }) {
         const currentUserId = getCurrentUserId(getState() as RootState);
 
         if (!currentUserId) {
@@ -159,7 +184,7 @@ export const friendshipApi = api.injectEndpoints({
           const { data } = await queryFulfilled;
           const outgoing = normalizeFriendRequestsPayload(unwrapResponseData(data), {
             currentUserId,
-            directionHint: FriendRequestDirection.OUTGOING,
+            directionHint: FriendRequestDirection.SENT,
           }).filter((request) => request.status === FriendRequestStatus.PENDING);
 
           dispatch(
@@ -258,7 +283,7 @@ export const friendshipApi = api.injectEndpoints({
               currentUserId,
               request,
               emittedAt: new Date().toISOString(),
-              friendsSince: request.updatedAt,
+              friendsSince: request.respondedAt,
             }),
           );
         } catch (error) {

@@ -19,14 +19,23 @@ import {
   useGetMyReceivedFriendRequestsQuery,
   useGetMySentFriendRequestsQuery,
 } from '@/services/friendship/friendshipApi';
-import { FriendRequest } from '@/services/friendship/friendshipType';
-import { getFriendUserDisplayName } from '@/utils/friendshipUtils';
+import { FRIENDSHIP_DEFAULT_PAGE, FriendRequest, FriendRequestDirection } from '@/services/friendship/friendshipType';
+import {
+  extractFriendshipPaginationMeta,
+  getFriendUserDisplayName,
+  normalizeFriendRequestsPayload,
+  normalizePairSnapshotsPayload,
+  unwrapFriendshipResponseData,
+} from '@/utils/friendshipUtils';
 import { Check, UserRound, X } from 'lucide-react';
 import Link from 'next/link';
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
 const DEFAULT_AVATAR = '/placeholder.svg';
 const DEFAULT_USER_NAME = 'Người dùng';
+const FRIENDSHIP_PAGE_SIZE = 10;
+const FRIENDS_SORT = ['friendsSince,desc', 'relationshipId,desc'] as const;
+const FRIEND_REQUEST_SORT = ['requestedAt,desc', 'requestId,desc'] as const;
 
 type RequestCardViewModel = {
   requestId: number;
@@ -43,11 +52,12 @@ type FriendCardViewModel = {
 };
 
 const toRequestCardViewModel = (request: FriendRequest, incoming: boolean): RequestCardViewModel => {
-  const summary = incoming ? request.requester : request.recipient;
+  const summary = request.counterpart ?? (incoming ? request.sender : request.receiver);
+  const fallbackTargetId = incoming ? request.senderId : request.receiverId;
 
   return {
     requestId: request.requestId,
-    targetId: incoming ? request.requesterId : request.recipientId,
+    targetId: summary?.accountId ?? fallbackTargetId,
     displayName: getFriendUserDisplayName(summary, DEFAULT_USER_NAME),
     avatar: summary?.avatar || DEFAULT_AVATAR,
   };
@@ -57,33 +67,119 @@ export default function FriendRequestsInboxPage() {
   const { user, isSignedIn } = useUser();
   const currentUserId = user?.accountId ?? 0;
   const skipReadQuery = !isSignedIn || !user;
+  const [friendsPage, setFriendsPage] = useState(FRIENDSHIP_DEFAULT_PAGE);
+  const [receivedPage, setReceivedPage] = useState(FRIENDSHIP_DEFAULT_PAGE);
+  const [sentPage, setSentPage] = useState(FRIENDSHIP_DEFAULT_PAGE);
+
+  const friendshipsQueryParams = useMemo(
+    () => ({
+      page: friendsPage,
+      size: FRIENDSHIP_PAGE_SIZE,
+      sort: FRIENDS_SORT,
+    }),
+    [friendsPage],
+  );
+
+  const receivedQueryParams = useMemo(
+    () => ({
+      page: receivedPage,
+      size: FRIENDSHIP_PAGE_SIZE,
+      sort: FRIEND_REQUEST_SORT,
+    }),
+    [receivedPage],
+  );
+
+  const sentQueryParams = useMemo(
+    () => ({
+      page: sentPage,
+      size: FRIENDSHIP_PAGE_SIZE,
+      sort: FRIEND_REQUEST_SORT,
+    }),
+    [sentPage],
+  );
 
   const {
+    data: friendshipsResponse,
     isLoading: isLoadingFriendships,
     isFetching: isFetchingFriendships,
     isError: isErrorFriendships,
     refetch: refetchFriendships,
-  } = useGetMyFriendshipsQuery(undefined, {
+  } = useGetMyFriendshipsQuery(friendshipsQueryParams, {
     skip: skipReadQuery,
   });
 
   const {
+    data: receivedResponse,
     isLoading: isLoadingReceived,
     isFetching: isFetchingReceived,
     isError: isErrorReceived,
     refetch: refetchReceived,
-  } = useGetMyReceivedFriendRequestsQuery(undefined, {
+  } = useGetMyReceivedFriendRequestsQuery(receivedQueryParams, {
     skip: skipReadQuery,
   });
 
   const {
+    data: sentResponse,
     isLoading: isLoadingSent,
     isFetching: isFetchingSent,
     isError: isErrorSent,
     refetch: refetchSent,
-  } = useGetMySentFriendRequestsQuery(undefined, {
+  } = useGetMySentFriendRequestsQuery(sentQueryParams, {
     skip: skipReadQuery,
   });
+
+  const friendshipsMeta = useMemo(
+    () =>
+      extractFriendshipPaginationMeta(friendshipsResponse, {
+        page: friendsPage + 1,
+        pageSize: FRIENDSHIP_PAGE_SIZE,
+      }),
+    [friendshipsResponse, friendsPage],
+  );
+
+  const receivedMeta = useMemo(
+    () =>
+      extractFriendshipPaginationMeta(receivedResponse, {
+        page: receivedPage + 1,
+        pageSize: FRIENDSHIP_PAGE_SIZE,
+      }),
+    [receivedResponse, receivedPage],
+  );
+
+  const sentMeta = useMemo(
+    () =>
+      extractFriendshipPaginationMeta(sentResponse, {
+        page: sentPage + 1,
+        pageSize: FRIENDSHIP_PAGE_SIZE,
+      }),
+    [sentResponse, sentPage],
+  );
+
+  const friendPageTargetIds = useMemo(() => {
+    const snapshots = normalizePairSnapshotsPayload(unwrapFriendshipResponseData(friendshipsResponse), {
+      currentUserId,
+    });
+
+    return new Set(snapshots.map((snapshot) => snapshot.targetAccountId));
+  }, [friendshipsResponse, currentUserId]);
+
+  const incomingPageRequestIds = useMemo(() => {
+    const requests = normalizeFriendRequestsPayload(unwrapFriendshipResponseData(receivedResponse), {
+      currentUserId,
+      directionHint: FriendRequestDirection.RECEIVED,
+    });
+
+    return new Set(requests.map((request) => request.requestId));
+  }, [receivedResponse, currentUserId]);
+
+  const outgoingPageRequestIds = useMemo(() => {
+    const requests = normalizeFriendRequestsPayload(unwrapFriendshipResponseData(sentResponse), {
+      currentUserId,
+      directionHint: FriendRequestDirection.SENT,
+    });
+
+    return new Set(requests.map((request) => request.requestId));
+  }, [sentResponse, currentUserId]);
 
   const isLoadingRequests = useMemo(
     () =>
@@ -101,13 +197,32 @@ export default function FriendRequestsInboxPage() {
     [isErrorFriendships, isErrorReceived, isErrorSent],
   );
 
-  const incomingRequests = useAppSelector((state) =>
-    currentUserId > 0 ? selectPendingIncomingRequests(state, currentUserId) : [],
-  );
-  const outgoingRequests = useAppSelector((state) =>
-    currentUserId > 0 ? selectPendingOutgoingRequests(state, currentUserId) : [],
-  );
-  const friendPairs = useAppSelector((state) => (currentUserId > 0 ? selectFriendPairs(state) : []));
+  const incomingRequests = useAppSelector((state) => {
+    if (currentUserId <= 0) {
+      return [];
+    }
+
+    const requests = selectPendingIncomingRequests(state, currentUserId);
+    return requests.filter((request) => incomingPageRequestIds.has(request.requestId));
+  });
+
+  const outgoingRequests = useAppSelector((state) => {
+    if (currentUserId <= 0) {
+      return [];
+    }
+
+    const requests = selectPendingOutgoingRequests(state, currentUserId);
+    return requests.filter((request) => outgoingPageRequestIds.has(request.requestId));
+  });
+
+  const friendPairs = useAppSelector((state) => {
+    if (currentUserId <= 0) {
+      return [];
+    }
+
+    const pairs = selectFriendPairs(state);
+    return pairs.filter((pair) => friendPageTargetIds.has(pair.targetAccountId));
+  });
 
   const { handleAcceptFriendRequest, handleRejectFriendRequest, handleCancelFriendRequest, isMutating } =
     useFriendActions();
@@ -138,6 +253,10 @@ export default function FriendRequestsInboxPage() {
     refetchReceived();
     refetchSent();
   }, [refetchFriendships, refetchReceived, refetchSent]);
+
+  const totalFriendPages = Math.max(friendshipsMeta.pages, 1);
+  const totalReceivedPages = Math.max(receivedMeta.pages, 1);
+  const totalSentPages = Math.max(sentMeta.pages, 1);
 
   if (!isSignedIn || !user) {
     return <ErrorMessage message="Vui lòng đăng nhập để xem lời mời kết bạn." />;
@@ -185,6 +304,34 @@ export default function FriendRequestsInboxPage() {
               </div>
             );
           })}
+
+          <div className="flex items-center justify-between border-t pt-3">
+            <p className="text-xs text-muted-foreground">
+              Trang {friendshipsMeta.page} / {totalFriendPages} - {friendshipsMeta.total} kết quả
+            </p>
+            <div className="flex items-center gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setFriendsPage(Math.max(friendshipsMeta.page - 2, FRIENDSHIP_DEFAULT_PAGE))}
+                disabled={friendshipsMeta.page <= 1 || isFetchingFriendships}
+              >
+                Trước
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() =>
+                  setFriendsPage(
+                    Math.min(friendshipsMeta.page, Math.max(totalFriendPages - 1, FRIENDSHIP_DEFAULT_PAGE)),
+                  )
+                }
+                disabled={friendshipsMeta.page >= totalFriendPages || isFetchingFriendships}
+              >
+                Sau
+              </Button>
+            </div>
+          </div>
         </CardContent>
       </Card>
 
@@ -242,6 +389,34 @@ export default function FriendRequestsInboxPage() {
               </div>
             );
           })}
+
+          <div className="flex items-center justify-between border-t pt-3">
+            <p className="text-xs text-muted-foreground">
+              Trang {receivedMeta.page} / {totalReceivedPages} - {receivedMeta.total} kết quả
+            </p>
+            <div className="flex items-center gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setReceivedPage(Math.max(receivedMeta.page - 2, FRIENDSHIP_DEFAULT_PAGE))}
+                disabled={receivedMeta.page <= 1 || isFetchingReceived}
+              >
+                Trước
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() =>
+                  setReceivedPage(
+                    Math.min(receivedMeta.page, Math.max(totalReceivedPages - 1, FRIENDSHIP_DEFAULT_PAGE)),
+                  )
+                }
+                disabled={receivedMeta.page >= totalReceivedPages || isFetchingReceived}
+              >
+                Sau
+              </Button>
+            </div>
+          </div>
         </CardContent>
       </Card>
 
@@ -291,6 +466,32 @@ export default function FriendRequestsInboxPage() {
               </div>
             );
           })}
+
+          <div className="flex items-center justify-between border-t pt-3">
+            <p className="text-xs text-muted-foreground">
+              Trang {sentMeta.page} / {totalSentPages} - {sentMeta.total} kết quả
+            </p>
+            <div className="flex items-center gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setSentPage(Math.max(sentMeta.page - 2, FRIENDSHIP_DEFAULT_PAGE))}
+                disabled={sentMeta.page <= 1 || isFetchingSent}
+              >
+                Trước
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() =>
+                  setSentPage(Math.min(sentMeta.page, Math.max(totalSentPages - 1, FRIENDSHIP_DEFAULT_PAGE)))
+                }
+                disabled={sentMeta.page >= totalSentPages || isFetchingSent}
+              >
+                Sau
+              </Button>
+            </div>
+          </div>
         </CardContent>
       </Card>
     </div>

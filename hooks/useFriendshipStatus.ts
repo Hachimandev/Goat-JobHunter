@@ -5,8 +5,12 @@ import {
   useGetMyReceivedFriendRequestsQuery,
   useGetMySentFriendRequestsQuery,
 } from '@/services/friendship/friendshipApi';
-import { FriendshipUiState } from '@/services/friendship/friendshipType';
+import { FRIENDSHIP_DEFAULT_PAGE, FriendshipUiState } from '@/services/friendship/friendshipType';
 import { deriveFriendshipUiState } from '@/utils/friendshipUtils';
+
+const STATUS_HYDRATION_SIZE = 100;
+const FRIENDS_STATUS_SORT = ['friendsSince,desc', 'relationshipId,desc'];
+const REQUEST_STATUS_SORT = ['requestedAt,desc', 'requestId,desc'];
 
 export function useFriendshipStatus(targetAccountId?: number | null) {
   const { user, isSignedIn } = useUser();
@@ -17,18 +21,36 @@ export function useFriendshipStatus(targetAccountId?: number | null) {
 
   const shouldHydrateReadData = Boolean(isSignedIn && user);
 
-  const { isLoading: isLoadingFriendships, isFetching: isFetchingFriendships } = useGetMyFriendshipsQuery(undefined, {
-    skip: !shouldHydrateReadData,
-  });
-  const { isLoading: isLoadingReceived, isFetching: isFetchingReceived } = useGetMyReceivedFriendRequestsQuery(
-    undefined,
+  const { isLoading: isLoadingFriendships, isFetching: isFetchingFriendships } = useGetMyFriendshipsQuery(
+    {
+      page: FRIENDSHIP_DEFAULT_PAGE,
+      size: STATUS_HYDRATION_SIZE,
+      sort: FRIENDS_STATUS_SORT,
+    },
     {
       skip: !shouldHydrateReadData,
     },
   );
-  const { isLoading: isLoadingSent, isFetching: isFetchingSent } = useGetMySentFriendRequestsQuery(undefined, {
-    skip: !shouldHydrateReadData,
-  });
+  const { isLoading: isLoadingReceived, isFetching: isFetchingReceived } = useGetMyReceivedFriendRequestsQuery(
+    {
+      page: FRIENDSHIP_DEFAULT_PAGE,
+      size: STATUS_HYDRATION_SIZE,
+      sort: REQUEST_STATUS_SORT,
+    },
+    {
+      skip: !shouldHydrateReadData,
+    },
+  );
+  const { isLoading: isLoadingSent, isFetching: isFetchingSent } = useGetMySentFriendRequestsQuery(
+    {
+      page: FRIENDSHIP_DEFAULT_PAGE,
+      size: STATUS_HYDRATION_SIZE,
+      sort: REQUEST_STATUS_SORT,
+    },
+    {
+      skip: !shouldHydrateReadData,
+    },
+  );
 
   const pair = useAppSelector((state) =>
     isValidTarget ? state.friendship.pairs[String(normalizedTargetAccountId)] : undefined,

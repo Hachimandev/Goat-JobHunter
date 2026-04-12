@@ -6,7 +6,7 @@ import {
   useCreateFriendRequestMutation,
   useRejectFriendRequestMutation,
 } from '@/services/friendship/friendshipApi';
-import { FriendshipUiState, UserRelationshipStatus } from '@/services/friendship/friendshipType';
+import { FriendshipUiState, RelationshipState } from '@/services/friendship/friendshipType';
 import { deriveFriendshipUiState } from '@/utils/friendshipUtils';
 import { extractApiErrorMessage } from '@/utils/apiError';
 import { useCallback } from 'react';
@@ -83,7 +83,7 @@ export const useFriendActions = () => {
       const currentState = deriveFriendshipUiState(pair);
 
       if (
-        pair?.relationshipStatus === UserRelationshipStatus.BLOCKED ||
+        pair?.relationshipState === RelationshipState.BLOCKED ||
         pair?.blockedByMe ||
         pair?.blockedByOther ||
         currentState === FriendshipUiState.BLOCKED
@@ -92,7 +92,7 @@ export const useFriendActions = () => {
         return false;
       }
 
-      if (pair?.relationshipStatus === UserRelationshipStatus.FRIEND || currentState === FriendshipUiState.FRIEND) {
+      if (pair?.relationshipState === RelationshipState.FRIEND || currentState === FriendshipUiState.FRIEND) {
         toast.error('Hai bạn đã là bạn bè.');
         return false;
       }

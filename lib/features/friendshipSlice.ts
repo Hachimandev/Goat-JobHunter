@@ -1,11 +1,11 @@
 import { clearUser } from '@/lib/features/authSlice';
 import { useAppSelector } from '@/lib/hooks';
 import {
-  FriendUserSummary,
   FriendRequest,
   FriendRequestStatus,
+  FriendUserSummary,
   PairFriendshipSnapshot,
-  UserRelationshipStatus,
+  RelationshipState,
 } from '@/services/friendship/friendshipType';
 import type { RootState } from '@/lib/store';
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
@@ -60,7 +60,7 @@ const toComparableTimestamp = (value?: string | null): number | null => {
   return Number.isNaN(parsed) ? null : parsed;
 };
 
-const shouldApplyByRecency = (currentTimestamp?: string | null, incomingTimestamp?: string): boolean => {
+const shouldApplyByRecency = (currentTimestamp?: string | null, incomingTimestamp?: string | null): boolean => {
   const incomingValue = toComparableTimestamp(incomingTimestamp);
   const currentValue = toComparableTimestamp(currentTimestamp);
 
@@ -74,7 +74,7 @@ const shouldApplyByRecency = (currentTimestamp?: string | null, incomingTimestam
 const createEmptyPairState = (targetAccountId: number): PairFriendshipState => ({
   targetAccountId,
   targetUser: undefined,
-  relationshipStatus: UserRelationshipStatus.NONE,
+  relationshipState: null,
   blockedByMe: false,
   blockedByOther: false,
   pendingIncomingRequest: null,
@@ -95,12 +95,12 @@ const ensurePairState = (state: FriendshipState, targetAccountId: number): PairF
 };
 
 const getTargetAccountIdFromRequest = (currentUserId: number, request: FriendRequest): number | null => {
-  if (request.requesterId === currentUserId) {
-    return request.recipientId;
+  if (request.senderId === currentUserId) {
+    return request.receiverId;
   }
 
-  if (request.recipientId === currentUserId) {
-    return request.requesterId;
+  if (request.receiverId === currentUserId) {
+    return request.senderId;
   }
 
   return null;
@@ -115,6 +115,9 @@ const mergeTargetUserSummary = (
   fullName: incomingSummary.fullName ?? currentSummary?.fullName,
   username: incomingSummary.username ?? currentSummary?.username,
   avatar: incomingSummary.avatar ?? currentSummary?.avatar,
+  headline: incomingSummary.headline ?? currentSummary?.headline,
+  bio: incomingSummary.bio ?? currentSummary?.bio,
+  coverPhoto: incomingSummary.coverPhoto ?? currentSummary?.coverPhoto,
   visibility: incomingSummary.visibility ?? currentSummary?.visibility ?? null,
 });
 
@@ -122,15 +125,15 @@ const getTargetUserSummaryFromRequest = (
   currentUserId: number,
   request: FriendRequest,
 ): FriendUserSummary | undefined => {
-  if (request.requesterId === currentUserId) {
-    return request.recipient;
+  if (request.senderId === currentUserId) {
+    return request.receiver ?? request.counterpart;
   }
 
-  if (request.recipientId === currentUserId) {
-    return request.requester;
+  if (request.receiverId === currentUserId) {
+    return request.sender ?? request.counterpart;
   }
 
-  return undefined;
+  return request.counterpart;
 };
 
 const isPendingRequestForTarget = (request: FriendRequest, currentUserId: number, targetAccountId: number): boolean => {
@@ -138,10 +141,10 @@ const isPendingRequestForTarget = (request: FriendRequest, currentUserId: number
     return false;
   }
 
-  const requesterTargetMatch = request.requesterId === currentUserId && request.recipientId === targetAccountId;
-  const recipientTargetMatch = request.recipientId === currentUserId && request.requesterId === targetAccountId;
+  const senderTargetMatch = request.senderId === currentUserId && request.receiverId === targetAccountId;
+  const receiverTargetMatch = request.receiverId === currentUserId && request.senderId === targetAccountId;
 
-  return requesterTargetMatch || recipientTargetMatch;
+  return senderTargetMatch || receiverTargetMatch;
 };
 
 const clearPendingRequestsForTarget = (
@@ -171,7 +174,7 @@ const attachPendingRequestToPair = (pair: PairFriendshipState, currentUserId: nu
     return;
   }
 
-  if (request.requesterId === currentUserId) {
+  if (request.senderId === currentUserId) {
     pair.pendingOutgoingRequest = request;
     if (pair.pendingIncomingRequest?.requestId === request.requestId) {
       pair.pendingIncomingRequest = null;
@@ -179,7 +182,7 @@ const attachPendingRequestToPair = (pair: PairFriendshipState, currentUserId: nu
     return;
   }
 
-  if (request.recipientId === currentUserId) {
+  if (request.receiverId === currentUserId) {
     pair.pendingIncomingRequest = request;
     if (pair.pendingOutgoingRequest?.requestId === request.requestId) {
       pair.pendingOutgoingRequest = null;
@@ -197,7 +200,7 @@ const removeRequestFromPair = (pair: PairFriendshipState, requestId: number): vo
   }
 };
 
-const updatePairTimestamp = (pair: PairFriendshipState, emittedAt?: string): void => {
+const updatePairTimestamp = (pair: PairFriendshipState, emittedAt?: string | null): void => {
   if (typeof emittedAt === 'string' && emittedAt.trim().length > 0) {
     pair.updatedAt = emittedAt;
     pair.emittedAt = emittedAt;
@@ -224,7 +227,7 @@ const applyPairSnapshot = (state: FriendshipState, snapshot: PairFriendshipSnaps
     return;
   }
 
-  pair.relationshipStatus = snapshot.relationshipStatus;
+  pair.relationshipState = snapshot.relationshipState;
   pair.blockedByMe = snapshot.blockedByMe;
   pair.blockedByOther = snapshot.blockedByOther;
   pair.friendsSince = snapshot.friendsSince ?? null;
@@ -267,8 +270,8 @@ const clearPendingRequestsForCurrentUser = (
         return false;
       }
 
-      const isIncoming = request.recipientId === currentUserId;
-      const isOutgoing = request.requesterId === currentUserId;
+      const isIncoming = request.receiverId === currentUserId;
+      const isOutgoing = request.senderId === currentUserId;
 
       return (clearIncoming && isIncoming) || (clearOutgoing && isOutgoing);
     })
@@ -332,13 +335,13 @@ const friendshipSlice = createSlice({
           setPairTargetUser(pair, getTargetUserSummaryFromRequest(currentUserId, request));
 
           if (
-            pair.relationshipStatus !== UserRelationshipStatus.BLOCKED &&
-            pair.relationshipStatus !== UserRelationshipStatus.FRIEND
+            pair.relationshipState !== RelationshipState.BLOCKED &&
+            pair.relationshipState !== RelationshipState.FRIEND
           ) {
-            pair.relationshipStatus = UserRelationshipStatus.NONE;
+            pair.relationshipState = null;
           }
 
-          updatePairTimestamp(pair, emittedAt ?? request.updatedAt ?? request.createdAt);
+          updatePairTimestamp(pair, emittedAt ?? request.respondedAt ?? request.requestedAt);
         });
 
       state.lastSyncedAt = emittedAt ?? new Date().toISOString();
@@ -356,7 +359,7 @@ const friendshipSlice = createSlice({
       }
 
       const pair = ensurePairState(state, targetAccountId);
-      if (!shouldApplyByRecency(pair.updatedAt, emittedAt ?? request.updatedAt)) {
+      if (!shouldApplyByRecency(pair.updatedAt, emittedAt ?? request.respondedAt ?? request.requestedAt)) {
         return;
       }
 
@@ -364,14 +367,11 @@ const friendshipSlice = createSlice({
       attachPendingRequestToPair(pair, currentUserId, request);
       setPairTargetUser(pair, getTargetUserSummaryFromRequest(currentUserId, request));
 
-      if (
-        pair.relationshipStatus !== UserRelationshipStatus.BLOCKED &&
-        pair.relationshipStatus !== UserRelationshipStatus.FRIEND
-      ) {
-        pair.relationshipStatus = UserRelationshipStatus.NONE;
+      if (pair.relationshipState !== RelationshipState.BLOCKED && pair.relationshipState !== RelationshipState.FRIEND) {
+        pair.relationshipState = null;
       }
 
-      updatePairTimestamp(pair, emittedAt ?? request.updatedAt ?? request.createdAt);
+      updatePairTimestamp(pair, emittedAt ?? request.respondedAt ?? request.requestedAt);
       state.lastSyncedAt = pair.updatedAt;
     },
     friendRequestAccepted: (state, action: PayloadAction<FriendRequestEventPayload>) => {
@@ -383,7 +383,7 @@ const friendshipSlice = createSlice({
       }
 
       const pair = ensurePairState(state, targetAccountId);
-      if (!shouldApplyByRecency(pair.updatedAt, emittedAt ?? request.updatedAt)) {
+      if (!shouldApplyByRecency(pair.updatedAt, emittedAt ?? request.respondedAt)) {
         return;
       }
 
@@ -392,11 +392,11 @@ const friendshipSlice = createSlice({
 
       pair.pendingIncomingRequest = null;
       pair.pendingOutgoingRequest = null;
-      pair.relationshipStatus = UserRelationshipStatus.FRIEND;
-      pair.friendsSince = friendsSince ?? request.updatedAt ?? request.createdAt ?? pair.friendsSince ?? null;
+      pair.relationshipState = request.relationshipState ?? RelationshipState.FRIEND;
+      pair.friendsSince = friendsSince ?? request.respondedAt ?? request.requestedAt ?? pair.friendsSince ?? null;
       setPairTargetUser(pair, getTargetUserSummaryFromRequest(currentUserId, request));
 
-      updatePairTimestamp(pair, emittedAt ?? request.updatedAt);
+      updatePairTimestamp(pair, emittedAt ?? request.respondedAt);
       state.lastSyncedAt = pair.updatedAt;
     },
     friendRequestRejected: (state, action: PayloadAction<FriendRequestEventPayload>) => {
@@ -408,7 +408,7 @@ const friendshipSlice = createSlice({
       }
 
       const pair = ensurePairState(state, targetAccountId);
-      if (!shouldApplyByRecency(pair.updatedAt, emittedAt ?? request.updatedAt)) {
+      if (!shouldApplyByRecency(pair.updatedAt, emittedAt ?? request.respondedAt)) {
         return;
       }
 
@@ -417,15 +417,15 @@ const friendshipSlice = createSlice({
       setPairTargetUser(pair, getTargetUserSummaryFromRequest(currentUserId, request));
 
       if (
-        pair.relationshipStatus !== UserRelationshipStatus.FRIEND &&
-        pair.relationshipStatus !== UserRelationshipStatus.BLOCKED &&
+        pair.relationshipState !== RelationshipState.FRIEND &&
+        pair.relationshipState !== RelationshipState.BLOCKED &&
         !pair.pendingIncomingRequest &&
         !pair.pendingOutgoingRequest
       ) {
-        pair.relationshipStatus = UserRelationshipStatus.NONE;
+        pair.relationshipState = null;
       }
 
-      updatePairTimestamp(pair, emittedAt ?? request.updatedAt);
+      updatePairTimestamp(pair, emittedAt ?? request.respondedAt);
       state.lastSyncedAt = pair.updatedAt;
     },
     friendRequestCanceled: (state, action: PayloadAction<FriendRequestEventPayload>) => {
@@ -437,7 +437,7 @@ const friendshipSlice = createSlice({
       }
 
       const pair = ensurePairState(state, targetAccountId);
-      if (!shouldApplyByRecency(pair.updatedAt, emittedAt ?? request.updatedAt)) {
+      if (!shouldApplyByRecency(pair.updatedAt, emittedAt ?? request.respondedAt)) {
         return;
       }
 
@@ -446,15 +446,15 @@ const friendshipSlice = createSlice({
       setPairTargetUser(pair, getTargetUserSummaryFromRequest(currentUserId, request));
 
       if (
-        pair.relationshipStatus !== UserRelationshipStatus.FRIEND &&
-        pair.relationshipStatus !== UserRelationshipStatus.BLOCKED &&
+        pair.relationshipState !== RelationshipState.FRIEND &&
+        pair.relationshipState !== RelationshipState.BLOCKED &&
         !pair.pendingIncomingRequest &&
         !pair.pendingOutgoingRequest
       ) {
-        pair.relationshipStatus = UserRelationshipStatus.NONE;
+        pair.relationshipState = null;
       }
 
-      updatePairTimestamp(pair, emittedAt ?? request.updatedAt);
+      updatePairTimestamp(pair, emittedAt ?? request.respondedAt);
       state.lastSyncedAt = pair.updatedAt;
     },
     userBlocked: (state, action: PayloadAction<BlockEventPayload>) => {
@@ -479,7 +479,7 @@ const friendshipSlice = createSlice({
         pair.blockedByOther = true;
       }
 
-      pair.relationshipStatus = UserRelationshipStatus.BLOCKED;
+      pair.relationshipState = RelationshipState.BLOCKED;
       pair.pendingIncomingRequest = null;
       pair.pendingOutgoingRequest = null;
       clearPendingRequestsForTarget(state, currentUserId, targetAccountId);
@@ -509,8 +509,8 @@ const friendshipSlice = createSlice({
         pair.blockedByOther = false;
       }
 
-      if (!pair.blockedByMe && !pair.blockedByOther && pair.relationshipStatus === UserRelationshipStatus.BLOCKED) {
-        pair.relationshipStatus = UserRelationshipStatus.NONE;
+      if (!pair.blockedByMe && !pair.blockedByOther && pair.relationshipState === RelationshipState.BLOCKED) {
+        pair.relationshipState = null;
       }
 
       updatePairTimestamp(pair, emittedAt);
@@ -566,13 +566,13 @@ const sortFriendPairsByRecent = (a: PairFriendshipState, b: PairFriendshipState)
 
 export const selectFriendPairs = (state: RootState): PairFriendshipState[] => {
   return Object.values(state.friendship.pairs)
-    .filter((pair) => pair.relationshipStatus === UserRelationshipStatus.FRIEND)
+    .filter((pair) => pair.relationshipState === RelationshipState.FRIEND)
     .sort(sortFriendPairsByRecent);
 };
 
 const sortByNewest = (a: FriendRequest, b: FriendRequest): number => {
-  const left = Date.parse(a.updatedAt ?? a.createdAt ?? '');
-  const right = Date.parse(b.updatedAt ?? b.createdAt ?? '');
+  const left = Date.parse(a.respondedAt ?? a.requestedAt ?? '');
+  const right = Date.parse(b.respondedAt ?? b.requestedAt ?? '');
 
   if (Number.isNaN(left) && Number.isNaN(right)) {
     return b.requestId - a.requestId;
@@ -591,13 +591,13 @@ const sortByNewest = (a: FriendRequest, b: FriendRequest): number => {
 
 export const selectPendingIncomingRequests = (state: RootState, currentUserId: number): FriendRequest[] => {
   return Object.values(state.friendship.requestsById)
-    .filter((request) => request.status === FriendRequestStatus.PENDING && request.recipientId === currentUserId)
+    .filter((request) => request.status === FriendRequestStatus.PENDING && request.receiverId === currentUserId)
     .sort(sortByNewest);
 };
 
 export const selectPendingOutgoingRequests = (state: RootState, currentUserId: number): FriendRequest[] => {
   return Object.values(state.friendship.requestsById)
-    .filter((request) => request.status === FriendRequestStatus.PENDING && request.requesterId === currentUserId)
+    .filter((request) => request.status === FriendRequestStatus.PENDING && request.senderId === currentUserId)
     .sort(sortByNewest);
 };
 

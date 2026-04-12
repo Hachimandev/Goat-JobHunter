@@ -1,10 +1,23 @@
-import { IBackendRes } from '@/types/api';
+import { IBackendRes, IModelPaginate } from '@/types/api';
 
-export type FriendshipEventType =
+export const FRIENDSHIP_DEFAULT_PAGE = 0;
+export const FRIENDSHIP_DEFAULT_SIZE = 10;
+
+export type FriendshipReadQueryParams = {
+  page?: number;
+  size?: number;
+  sort?: string | string[] | readonly string[];
+};
+
+export type FriendshipPaginationMeta = IModelPaginate<unknown>['meta'];
+
+export type FriendshipRealtimeEventType =
   | 'FRIEND_REQUEST_CREATED'
   | 'FRIEND_REQUEST_ACCEPTED'
   | 'FRIEND_REQUEST_REJECTED'
   | 'FRIEND_REQUEST_CANCELED';
+
+export type FriendshipEventType = FriendshipRealtimeEventType;
 
 export enum FriendRequestStatus {
   PENDING = 'PENDING',
@@ -14,12 +27,12 @@ export enum FriendRequestStatus {
   EXPIRED = 'EXPIRED',
 }
 
-export enum UserRelationshipStatus {
-  NONE = 'NONE',
+export enum RelationshipState {
   FRIEND = 'FRIEND',
   BLOCKED = 'BLOCKED',
 }
 
+// UI-only state derived from relationship + pending requests.
 export enum FriendshipUiState {
   NOT_FRIEND = 'NOT_FRIEND',
   PENDING_SENT = 'PENDING_SENT',
@@ -29,35 +42,74 @@ export enum FriendshipUiState {
 }
 
 export enum FriendRequestDirection {
-  INCOMING = 'INCOMING',
-  OUTGOING = 'OUTGOING',
+  RECEIVED = 'RECEIVED',
+  SENT = 'SENT',
 }
 
-export type FriendUserSummary = {
+export type FriendUserSnippetResponse = {
   accountId: number;
-  displayName?: string;
-  fullName?: string;
-  username?: string;
-  avatar?: string;
+  fullName?: string | null;
+  username?: string | null;
+  avatar?: string | null;
+  headline?: string | null;
+  bio?: string | null;
+  coverPhoto?: string | null;
   visibility?: string | null;
 };
 
-export type FriendRequest = {
+export type FriendUserSummary = FriendUserSnippetResponse & {
+  displayName?: string;
+};
+
+export type CreateFriendRequestRequest = {
+  targetUserId: number;
+};
+
+export type FriendRequestResponse = {
   requestId: number;
-  requesterId: number;
-  recipientId: number;
+  senderId: number;
+  receiverId: number;
   status: FriendRequestStatus;
-  createdAt?: string;
-  updatedAt?: string;
-  expiresAt?: string;
-  requester?: FriendUserSummary;
-  recipient?: FriendUserSummary;
+  relationshipState: RelationshipState | null;
+  requestedAt?: string;
+  respondedAt?: string | null;
+};
+
+export type FriendRequestListItemResponse = {
+  requestId: number;
+  status: FriendRequestStatus;
+  requestedAt?: string;
+  respondedAt?: string | null;
+  direction: FriendRequestDirection;
+  counterpart: FriendUserSnippetResponse;
+};
+
+export type MyFriendResponse = {
+  relationshipId: number;
+  friendsSince?: string;
+  friend: FriendUserSnippetResponse;
+};
+
+export type FriendshipRealtimeEventResponse = {
+  type: FriendshipRealtimeEventType;
+  actorUser?: FriendUserSnippetResponse;
+  targetUser?: FriendUserSnippetResponse;
+  requestId: number;
+  relationshipState: RelationshipState | null;
+  emittedAt?: string;
+};
+
+export type FriendRequest = FriendRequestResponse & {
+  direction?: FriendRequestDirection;
+  counterpart?: FriendUserSummary;
+  sender?: FriendUserSummary;
+  receiver?: FriendUserSummary;
 };
 
 export type PairFriendshipSnapshot = {
   targetAccountId: number;
   targetUser?: FriendUserSummary;
-  relationshipStatus: UserRelationshipStatus;
+  relationshipState: RelationshipState | null;
   friendsSince?: string | null;
   blockedByMe: boolean;
   blockedByOther: boolean;
@@ -71,42 +123,34 @@ export type PendingFriendRequestsSnapshot = {
   outgoing: FriendRequest[];
 };
 
-export type CreateFriendRequestPayload = {
-  targetUserId: number;
-};
+export type CreateFriendRequestPayload = CreateFriendRequestRequest;
 
 export type FriendRequestActionPayload = {
   requestId: number;
 };
 
-export type GetMyFriendshipsResponse =
-  | IBackendRes<PairFriendshipSnapshot[] | PairFriendshipSnapshot | Record<string, unknown> | unknown[]>
-  | PairFriendshipSnapshot[]
-  | PairFriendshipSnapshot
-  | Record<string, unknown>;
+type FriendshipReadPayload =
+  | IModelPaginate<MyFriendResponse>
+  | MyFriendResponse[]
+  | MyFriendResponse
+  | Record<string, unknown>
+  | unknown[];
 
-export type GetMyReceivedFriendRequestsResponse =
-  | IBackendRes<FriendRequest[] | FriendRequest | Record<string, unknown> | unknown[]>
-  | FriendRequest[]
-  | FriendRequest
-  | Record<string, unknown>;
+type FriendRequestReadPayload =
+  | IModelPaginate<FriendRequestListItemResponse>
+  | FriendRequestListItemResponse[]
+  | FriendRequestListItemResponse
+  | Record<string, unknown>
+  | unknown[];
 
-export type GetMySentFriendRequestsResponse =
-  | IBackendRes<FriendRequest[] | FriendRequest | Record<string, unknown> | unknown[]>
-  | FriendRequest[]
-  | FriendRequest
-  | Record<string, unknown>;
+export type GetMyFriendshipsResponse = IBackendRes<FriendshipReadPayload> | FriendshipReadPayload;
 
-// Backward-compatible aliases while call sites migrate to dedicated read endpoints.
-export type GetFriendshipWithUserResponse = GetMyFriendshipsResponse;
-export type GetMyPendingFriendRequestsResponse =
-  | IBackendRes<PendingFriendRequestsSnapshot | FriendRequest[] | Record<string, unknown>>
-  | PendingFriendRequestsSnapshot
-  | FriendRequest[]
-  | Record<string, unknown>;
+export type GetMyReceivedFriendRequestsResponse = IBackendRes<FriendRequestReadPayload> | FriendRequestReadPayload;
+
+export type GetMySentFriendRequestsResponse = IBackendRes<FriendRequestReadPayload> | FriendRequestReadPayload;
 
 export type FriendRequestActionResponse =
-  | IBackendRes<FriendRequest | Record<string, unknown> | null>
-  | FriendRequest
+  | IBackendRes<FriendRequestResponse | Record<string, unknown> | null>
+  | FriendRequestResponse
   | Record<string, unknown>
   | null;

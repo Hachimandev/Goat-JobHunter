@@ -8,6 +8,7 @@ import {
   useSendMessageToNewChatRoomMutation,
 } from '@/services/chatRoom/chatRoomApi';
 import { Visibility } from '@/types/enum';
+import { RelationshipState } from '@/services/friendship/friendshipType';
 import { extractApiErrorMessage, isAccountPrivateError } from '@/utils/apiError';
 import { useAppSelector } from '@/lib/hooks';
 
@@ -33,7 +34,8 @@ export function useDirectMessageNavigation() {
       }
 
       const pair = friendshipPairs[String(accountId)];
-      const isBlocked = pair?.blockedByMe || pair?.blockedByOther || pair?.relationshipStatus === 'BLOCKED';
+      const isBlocked =
+        pair?.blockedByMe || pair?.blockedByOther || pair?.relationshipState === RelationshipState.BLOCKED;
 
       if (isBlocked) {
         toast.error('Không thể mở cuộc trò chuyện khi đang ở trạng thái chặn.');
