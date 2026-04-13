@@ -14,6 +14,8 @@ export default function NewChatRoomPage() {
   const searchParams = useSearchParams();
   const recipientId = searchParams.get('recipient');
   const recipientAccountId = Number(recipientId);
+  const normalizedRecipientAccountId =
+    Number.isFinite(recipientAccountId) && recipientAccountId > 0 ? recipientAccountId : 0;
   const { user } = useUser();
   const { handleSendMessageToNewChat } = useChatRoomAndMessageActions();
 
@@ -23,13 +25,11 @@ export default function NewChatRoomPage() {
 
   const recipientVisibility = data?.data?.visibility;
   const isRecipientPrivate = recipientVisibility === Visibility.PRIVATE;
-  const { isBlockedAnyDirection, isBlockedByMe, isBlockedByOther } = useFriendshipStatus(recipientAccountId);
+  const { isBlockedAnyDirection, isBlockedByMe } = useFriendshipStatus(recipientAccountId);
   const isBlockedChat = Number.isFinite(recipientAccountId) && recipientAccountId > 0 && isBlockedAnyDirection;
   const blockedReason = isBlockedByMe
     ? 'Bạn đã chặn người này. Hãy bỏ chặn trước khi nhắn tin.'
-    : isBlockedByOther
-      ? 'Người này đã chặn bạn. Bạn không thể bắt đầu cuộc trò chuyện mới.'
-      : 'Bạn không thể nhắn tin với người này.';
+    : 'Bạn không thể nhắn tin với người này.';
 
   const chatRoom: ChatRoom = useMemo(() => {
     return {
@@ -41,8 +41,11 @@ export default function NewChatRoomPage() {
       lastMessageTime: new Date().toISOString(),
       memberCount: 2,
       currentUserSentLastMessage: true,
+      blocked: false,
+      blockedByMe: false,
+      counterpartAccountId: normalizedRecipientAccountId,
     };
-  }, [data?.data?.avatar, data?.data?.fullName, data?.data?.username]);
+  }, [data?.data?.avatar, data?.data?.fullName, data?.data?.username, normalizedRecipientAccountId]);
 
   if (isRecipientPrivate) {
     return (
@@ -73,7 +76,6 @@ export default function NewChatRoomPage() {
       chatRoom={chatRoom}
       messages={[]}
       currentUserId={user?.accountId?.toString()}
-      directTargetUserId={Number.isFinite(recipientAccountId) && recipientAccountId > 0 ? recipientAccountId : null}
       isChatBlocked={isBlockedChat}
       chatBlockedReason={blockedReason}
       onSendMessage={(text, files) => {

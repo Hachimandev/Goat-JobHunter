@@ -28,7 +28,7 @@ export default function FriendActionButtons({
   hideWhenFriendOrBlocked = false,
   showBlockActions = false,
 }: Readonly<FriendActionButtonsProps>) {
-  const { uiState, isSelf, incomingRequestId, outgoingRequestId, isBlockedByMe, isBlockedByOther, isLoadingPair } =
+  const { uiState, isSelf, incomingRequestId, outgoingRequestId, isBlockedByMe, isLoadingPair } =
     useFriendshipStatus(targetUserId);
 
   const {
@@ -63,13 +63,13 @@ export default function FriendActionButtons({
     return (
       <div className={cn('flex items-center gap-2', className)}>
         <Badge variant="secondary" className="rounded-xl">
-          {isBlockedByMe ? 'Bạn đã chặn' : isBlockedByOther ? 'Bạn bị chặn' : 'Đang bị chặn'}
+          {isBlockedByMe && 'Bạn đã chặn người dùng này'}
         </Badge>
         {shouldShowBlockActions && isBlockedByMe && (
           <Button
             size={buttonSize}
             variant="outline"
-            className="rounded-xl"
+            className="rounded-xl flex-1"
             onClick={() => handleUnblockUser(targetUserId)}
             disabled={isBusy}
             title="Bỏ chặn"
@@ -97,7 +97,7 @@ export default function FriendActionButtons({
           <Button
             size={buttonSize}
             variant="outline"
-            className="rounded-xl"
+            className="rounded-xl flex-1"
             onClick={() => handleBlockUser(targetUserId)}
             disabled={isBusy}
             title="Chặn người dùng"
@@ -140,7 +140,7 @@ export default function FriendActionButtons({
           <Button
             size={buttonSize}
             variant="outline"
-            className="rounded-xl"
+            className="rounded-xl flex-1"
             onClick={() => handleBlockUser(targetUserId)}
             disabled={isBusy}
             title="Chặn người dùng"
@@ -159,7 +159,7 @@ export default function FriendActionButtons({
         <Button
           size={buttonSize}
           variant="outline"
-          className="rounded-xl w-full"
+          className="rounded-xl flex-1"
           onClick={() => outgoingRequestId && handleCancelFriendRequest(outgoingRequestId)}
           disabled={!outgoingRequestId || isBusy}
           title="Hủy lời mời"
@@ -172,7 +172,7 @@ export default function FriendActionButtons({
           <Button
             size={buttonSize}
             variant="outline"
-            className="rounded-xl"
+            className="rounded-xl flex-1"
             onClick={() => handleBlockUser(targetUserId)}
             disabled={isBusy}
             title="Chặn người dùng"
@@ -190,7 +190,7 @@ export default function FriendActionButtons({
       <Button
         size={buttonSize}
         variant="outline"
-        className="rounded-xl w-full"
+        className="rounded-xl flex-1"
         onClick={() => handleSendFriendRequest(targetUserId)}
         disabled={isBusy}
         title={title || 'Thêm bạn bè'}
@@ -203,7 +203,7 @@ export default function FriendActionButtons({
         <Button
           size={buttonSize}
           variant="outline"
-          className="rounded-xl"
+          className="rounded-xl flex-1"
           onClick={() => handleBlockUser(targetUserId)}
           disabled={isBusy}
           title="Chặn người dùng"

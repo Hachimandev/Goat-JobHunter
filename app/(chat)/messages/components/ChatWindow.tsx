@@ -13,9 +13,9 @@ interface ChatWindowProps {
   chatRoom: ChatRoom;
   messages: MessageType[];
   currentUserId?: string;
-  directTargetUserId?: number | null;
   isChatBlocked?: boolean;
   chatBlockedReason?: string;
+  onDirectRelationshipChanged?: () => void;
   onSendMessage: (text?: string, files?: File[]) => void;
   onForwardMessage?: (message: MessageType) => void;
   isForwardingMessage?: boolean;
@@ -29,9 +29,9 @@ export function ChatWindow({
   chatRoom,
   messages,
   currentUserId,
-  directTargetUserId,
   isChatBlocked = false,
   chatBlockedReason = 'Bạn không thể nhắn tin với người này.',
+  onDirectRelationshipChanged,
   onSendMessage,
   onForwardMessage,
   isForwardingMessage,
@@ -60,7 +60,7 @@ export function ChatWindow({
           isRecallingMessage={isRecallingMessage}
         />
         {isChatLocked ? (
-          <div className="border-t border-border bg-card px-4 py-3 text-sm text-muted-foreground">
+          <div className="border-t border-border bg-card px-4 py-3 text-sm text-muted-foreground text-center">
             {chatBlockedReason}
           </div>
         ) : (
@@ -73,7 +73,7 @@ export function ChatWindow({
           chatRoom={chatRoom}
           isOpen={isDetailsOpen}
           onClose={close}
-          targetUserId={directTargetUserId}
+          onRelationshipChanged={onDirectRelationshipChanged}
         />
       )}
 

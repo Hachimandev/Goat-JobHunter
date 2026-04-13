@@ -12,16 +12,20 @@ import { Badge } from '@/components/ui/badge';
 import { useFetchFilesInChatRoomQuery, useFetchMediaInChatRoomQuery } from '@/services/chatRoom/chatRoomApi';
 import { useMemo } from 'react';
 import useFriendActions from '@/hooks/useFriendActions';
-import { useFriendshipStatus } from '@/hooks/useFriendshipStatus';
 
 interface ChatDetailsPanelProps {
   chatRoom: ChatRoom;
   isOpen: boolean;
   onClose: () => void;
-  targetUserId?: number | null;
+  onRelationshipChanged?: () => void;
 }
 
-export function ChatDetailsPanel({ chatRoom, isOpen, onClose, targetUserId }: Readonly<ChatDetailsPanelProps>) {
+export function ChatDetailsPanel({
+  chatRoom,
+  isOpen,
+  onClose,
+  onRelationshipChanged,
+}: Readonly<ChatDetailsPanelProps>) {
   const {
     data: filesData,
     isLoading: isLoadingFile,
@@ -40,32 +44,30 @@ export function ChatDetailsPanel({ chatRoom, isOpen, onClose, targetUserId }: Re
   const files = useMemo(() => {
     return filesData?.data || [];
   }, [filesData]);
-  const normalizedTargetUserId =
-    Number.isFinite(targetUserId) && Number(targetUserId) > 0 ? Number(targetUserId) : null;
-  const { isBlockedByMe, isBlockedByOther, isBlockedAnyDirection, isLoadingPair } =
-    useFriendshipStatus(normalizedTargetUserId);
   const { handleBlockUser, handleUnblockUser, isMutating } = useFriendActions();
 
   if (!isOpen) return null;
 
   const isGroup = chatRoom.type === ChatRoomType.GROUP;
+  const isDirectBlocked = !isGroup && Boolean(chatRoom.blocked);
+  const isBlockedByMe = isDirectBlocked && Boolean(chatRoom.blockedByMe);
 
-  const isBlockActionDisabled =
-    isGroup || !normalizedTargetUserId || isLoadingPair || isMutating || (isBlockedByOther && !isBlockedByMe);
+  const isBlockActionDisabled = isGroup || isMutating;
 
   const canUnblock = isBlockedByMe;
 
   const handleToggleBlock = async () => {
-    if (!normalizedTargetUserId || isGroup) {
+    if (isGroup) {
       return;
     }
 
-    if (canUnblock) {
-      await handleUnblockUser(normalizedTargetUserId);
-      return;
-    }
+    const success = canUnblock
+      ? await handleUnblockUser(chatRoom.counterpartAccountId)
+      : await handleBlockUser(chatRoom.counterpartAccountId);
 
-    await handleBlockUser(normalizedTargetUserId);
+    if (success) {
+      onRelationshipChanged?.();
+    }
   };
 
   return (
@@ -127,13 +129,7 @@ export function ChatDetailsPanel({ chatRoom, isOpen, onClose, targetUserId }: Re
             </Button>
           </div>
 
-          {!isGroup && !normalizedTargetUserId && (
-            <p className="text-xs text-muted-foreground">
-              Chưa thể xác định người dùng đối phương nên tạm thời không thao tác chặn/bỏ chặn được.
-            </p>
-          )}
-
-          {!isGroup && normalizedTargetUserId && isBlockedAnyDirection && (
+          {!isGroup && isDirectBlocked && (
             <p className="text-xs text-muted-foreground">
               {isBlockedByMe
                 ? 'Bạn đã chặn người dùng này. Không thể gửi tin nhắn cho đến khi bỏ chặn.'

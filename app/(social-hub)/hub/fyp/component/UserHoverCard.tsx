@@ -56,15 +56,11 @@ export function UserHoverCard({
     await navigateToDirectChat(userId, { visibility });
   };
 
-  // render nothing: isSelf
-  // render send message button: is not self and not private
-  // render private account message: is not self and is private
-
   return (
     <HoverCard openDelay={300}>
       <HoverCardTrigger asChild>{children}</HoverCardTrigger>
       <HoverCardContent className="w-80 rounded-xl" align="start">
-        <div className="flex flex-col gap-4">
+        <div className="space-y-4">
           <div className="flex items-start gap-3">
             <Avatar className="h-14 w-14">
               <AvatarImage src={avatar || '/placeholder.svg'} alt={fullName} />
@@ -80,20 +76,24 @@ export function UserHoverCard({
 
           {bio && <p className="text-sm text-muted-foreground line-clamp-3">{bio}</p>}
 
-          <div className="space-y-2">
-            {showMessageButton && (
+          {showMessageButton && (
+            <div className="space-y-2">
               <Button className="w-full rounded-xl" size="sm" onClick={handleMessageClick} disabled={isLoading}>
                 <MessageCircle className="h-4 w-4 mr-2" />
                 {isLoading ? 'Đang mở chat...' : 'Nhắn tin'}
               </Button>
-            )}
 
-            {showAddFriendButton && <FriendActionButtons className="w-full" targetUserId={userId} compact />}
+              {showAddFriendButton && <FriendActionButtons className="w-full" targetUserId={userId} compact />}
+            </div>
+          )}
 
-            {showPrivateMessage && <p>Tài khoản đang ở chế độ riêng tư.</p>}
+          {showPrivateMessage && (
+            <p className="text-sm text-muted-foreground line-clamp-3">Tài khoản đang ở chế độ riêng tư.</p>
+          )}
 
-            {showBlockedMessage && <p>Không thể nhắn tin khi đang ở trạng thái chặn.</p>}
-          </div>
+          {showBlockedMessage && (
+            <p className="text-sm text-muted-foreground line-clamp-3">Không thể nhắn tin khi đang ở trạng thái chặn.</p>
+          )}
         </div>
       </HoverCardContent>
     </HoverCard>

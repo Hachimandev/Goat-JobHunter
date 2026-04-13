@@ -265,10 +265,10 @@ export const useFriendActions = () => {
         return false;
       }
 
-      if (!pair?.blockedByMe && pair?.relationshipState !== RelationshipState.BLOCKED) {
-        toast('Người dùng này hiện không nằm trong danh sách bạn đã chặn.');
-        return true;
-      }
+      // if (!pair?.blockedByMe && pair?.relationshipState !== RelationshipState.BLOCKED) {
+      //   toast('Người dùng này hiện không nằm trong danh sách bạn đã chặn.');
+      //   return true;
+      // }
 
       try {
         await unblockUser({ targetUserId }).unwrap();

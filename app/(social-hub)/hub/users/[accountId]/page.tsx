@@ -68,7 +68,7 @@ export default function UserProfilePage() {
       <div className="bg-card rounded-xl border shadow-sm overflow-hidden p-4 mb-4">
         <ProfileHeader user={viewedUser} />
         {!isOwnProfile && (
-          <div className="mt-20 mb-4 flex justify-end">
+          <div className="mt-20 mb-4">
             <FriendActionButtons targetUserId={viewedUser.accountId} showBlockActions />
           </div>
         )}
