@@ -30,7 +30,7 @@ export function ReceivedInvitesPreview() {
 
       <CardContent className="space-y-2">
         {invites.length === 0 ? (
-          <p className="text-sm text-muted-foreground">Bạn chưa có lời mời mới.</p>
+          <p className="text-sm text-muted-foreground">Bạn không có lời mời nào.</p>
         ) : (
           invites.map((invite) => (
             <FriendRequestInfoRow
