@@ -4,6 +4,7 @@ import React, { useMemo } from 'react';
 import { Header } from '@/app/(main)/components';
 import { AIChatPopup } from '@/components/common/AIChatPopup';
 import { PopularTags } from '@/app/(social-hub)/components/PopularTags';
+import { ReceivedInvitesPreview } from '@/app/(social-hub)/components/ReceivedInvitesPreview';
 import { UserFriendList } from '@/app/(social-hub)/components/UserFriendList';
 import { UserDisplay } from '@/app/(social-hub)/components/UserDisplay';
 import { NavigationBar } from '@/app/(social-hub)/components/NavigationBar';
@@ -34,6 +35,7 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
           <aside className="w-80 shrink-0">
             <ScrollArea className="sticky top-2 max-h-[calc(100vh-2rem)]">
               <div className="space-y-4 py-6 pr-4">
+                <ReceivedInvitesPreview />
                 <PopularTags popularTags={popularTags} />
                 <UserFriendList />
               </div>

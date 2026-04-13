@@ -21,22 +21,16 @@ import {
   normalizePairSnapshotsPayload,
   unwrapFriendshipResponseData,
 } from '@/utils/friendshipUtils';
+import { FriendRequestCardViewModel, toFriendRequestCardViewModel } from '@/utils/friendshipRequestViewModel';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-const DEFAULT_AVATAR = '/placeholder.svg';
-const DEFAULT_USER_NAME = 'Người dùng';
 const FRIENDSHIP_PAGE_SIZE = 10;
 const FRIENDS_SORT = ['friendsSince,desc', 'relationshipId,desc'] as const;
 const FRIEND_REQUEST_SORT = ['requestedAt,desc', 'requestId,desc'] as const;
 const EMPTY_REQUESTS: FriendRequest[] = [];
 const EMPTY_PAIRS: PairFriendshipState[] = [];
 
-export type RequestCardViewModel = {
-  requestId: number;
-  targetId: number;
-  displayName: string;
-  avatar: string;
-};
+export type RequestCardViewModel = FriendRequestCardViewModel;
 
 export type FriendCardViewModel = {
   targetId: number;
@@ -73,18 +67,6 @@ type UseFriendsInboxPageResult = {
   handleAcceptFriendRequest: (requestId: number) => Promise<boolean>;
   handleRejectFriendRequest: (requestId: number) => Promise<boolean>;
   handleCancelFriendRequest: (requestId: number) => Promise<boolean>;
-};
-
-const toRequestCardViewModel = (request: FriendRequest, incoming: boolean): RequestCardViewModel => {
-  const summary = request.counterpart ?? (incoming ? request.sender : request.receiver);
-  const fallbackTargetId = incoming ? request.senderId : request.receiverId;
-
-  return {
-    requestId: request.requestId,
-    targetId: summary?.accountId ?? fallbackTargetId,
-    displayName: getFriendUserDisplayName(summary, DEFAULT_USER_NAME),
-    avatar: summary?.avatar || DEFAULT_AVATAR,
-  };
 };
 
 const clampPage = (page: number, totalPages: number): number => {
@@ -250,20 +232,20 @@ export default function useFriendsInboxPage(): UseFriendsInboxPageResult {
     () =>
       friendPairs.map((friendPair) => ({
         targetId: friendPair.targetAccountId,
-        displayName: getFriendUserDisplayName(friendPair.targetUser, DEFAULT_USER_NAME),
-        avatar: friendPair.targetUser?.avatar || DEFAULT_AVATAR,
+        displayName: getFriendUserDisplayName(friendPair.targetUser, 'Người dùng'),
+        avatar: friendPair.targetUser?.avatar || '/placeholder.svg',
         isConnected: Boolean(friendPair.friendsSince),
       })),
     [friendPairs],
   );
 
   const incomingRequestCards = useMemo<RequestCardViewModel[]>(
-    () => incomingRequests.map((request) => toRequestCardViewModel(request, true)),
+    () => incomingRequests.map((request) => toFriendRequestCardViewModel(request, true)),
     [incomingRequests],
   );
 
   const outgoingRequestCards = useMemo<RequestCardViewModel[]>(
-    () => outgoingRequests.map((request) => toRequestCardViewModel(request, false)),
+    () => outgoingRequests.map((request) => toFriendRequestCardViewModel(request, false)),
     [outgoingRequests],
   );
 

@@ -2,6 +2,7 @@
 
 import CustomPagination from '@/components/common/CustomPagination';
 import ErrorMessage from '@/components/common/ErrorMessage';
+import FriendRequestInfoRow from '@/components/common/FriendRequestInfoRow';
 import LoaderSpin from '@/components/common/LoaderSpin';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
@@ -139,47 +140,37 @@ export default function FriendRequestsInboxPage() {
 
               {incomingRequestCards.map((requestCard) => {
                 return (
-                  <div
+                  <FriendRequestInfoRow
                     key={requestCard.requestId}
-                    className="flex items-center justify-between gap-3 rounded-xl border p-3"
-                  >
-                    <Link href={`/hub/users/${requestCard.targetId}`} className="min-w-0 flex items-center gap-3">
-                      <Avatar className="h-12 w-12 border">
-                        <AvatarImage src={requestCard.avatar} alt={requestCard.displayName} />
-                        <AvatarFallback>
-                          <UserRound className="h-5 w-5" />
-                        </AvatarFallback>
-                      </Avatar>
+                    targetId={requestCard.targetId}
+                    displayName={requestCard.displayName}
+                    avatar={requestCard.avatar}
+                    subtitle="Lời mời đang chờ phản hồi"
+                    actions={
+                      <>
+                        <Button
+                          size="sm"
+                          className="rounded-xl"
+                          onClick={() => handleAcceptFriendRequest(requestCard.requestId)}
+                          disabled={isMutating}
+                        >
+                          <Check className="mr-1 h-4 w-4" />
+                          Chấp nhận
+                        </Button>
 
-                      <div className="min-w-0">
-                        <p className="truncate font-medium">{requestCard.displayName}</p>
-                        <p className="truncate text-sm text-muted-foreground">Lời mời đang chờ phản hồi</p>
-                      </div>
-                    </Link>
-
-                    <div className="flex items-center gap-2">
-                      <Button
-                        size="sm"
-                        className="rounded-xl"
-                        onClick={() => handleAcceptFriendRequest(requestCard.requestId)}
-                        disabled={isMutating}
-                      >
-                        <Check className="mr-1 h-4 w-4" />
-                        Chấp nhận
-                      </Button>
-
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="rounded-xl"
-                        onClick={() => handleRejectFriendRequest(requestCard.requestId)}
-                        disabled={isMutating}
-                      >
-                        <X className="mr-1 h-4 w-4" />
-                        Từ chối
-                      </Button>
-                    </div>
-                  </div>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="rounded-xl"
+                          onClick={() => handleRejectFriendRequest(requestCard.requestId)}
+                          disabled={isMutating}
+                        >
+                          <X className="mr-1 h-4 w-4" />
+                          Từ chối
+                        </Button>
+                      </>
+                    }
+                  />
                 );
               })}
 
