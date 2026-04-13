@@ -28,14 +28,13 @@ export default function UserProfilePage() {
   const params = useParams<{ accountId: string }>();
   const accountIdParam = params?.accountId;
   const accountId = Number(accountIdParam);
-  const isValidAccountId = Number.isFinite(accountId) && accountId > 0;
 
   const {
     data: userResponse,
     isLoading: isLoadingUser,
     isError: isUserError,
   } = useFetchUserByIdQuery(accountIdParam || '', {
-    skip: !isAuthResolved || !isSignedIn || !accountIdParam || !isValidAccountId,
+    skip: !isAuthResolved || !isSignedIn || !accountIdParam,
   });
 
   const { blogs, isLoading, isError, isFetching, isSuccess, hasMore, savedBlogIds, reactedBlogIds, targetRef } =
@@ -46,10 +45,6 @@ export default function UserProfilePage() {
     if (!currentUser || !viewedUser) return false;
     return currentUser.accountId === viewedUser.accountId;
   }, [currentUser, viewedUser]);
-
-  if (!isValidAccountId) {
-    return <ErrorMessage message="ID tài khoản không hợp lệ." />;
-  }
 
   if (!isAuthResolved || !isSignedIn) {
     return <LoaderSpin />;

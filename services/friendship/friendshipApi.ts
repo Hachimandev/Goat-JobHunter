@@ -82,29 +82,17 @@ const pickEventTimestampFromResponse = (value: unknown): string | undefined => {
 
 const resolveBlockActionParticipants = (
   value: unknown,
-  fallback: {
-    currentUserId: number;
-    targetUserId: number;
-  },
 ): {
   blockerId: number;
   blockedId: number;
-} => {
+} | null => {
   const source = toRecord(value);
-  const actorUser = toRecord(source.actorUser);
-  const targetUser = toRecord(source.targetUser);
+  const blockerId = toPositiveNumber(source.senderId);
+  const blockedId = toPositiveNumber(source.receiverId);
 
-  const blockerId =
-    toPositiveNumber(source.blockerId) ??
-    toPositiveNumber(source.senderId) ??
-    toPositiveNumber(actorUser.accountId) ??
-    fallback.currentUserId;
-
-  const blockedId =
-    toPositiveNumber(source.blockedId) ??
-    toPositiveNumber(source.receiverId) ??
-    toPositiveNumber(targetUser.accountId) ??
-    fallback.targetUserId;
+  if (blockerId === null || blockedId === null) {
+    return null;
+  }
 
   return {
     blockerId,
@@ -143,8 +131,8 @@ const buildRequestWithStatus = (
     status,
     relationshipState:
       status === FriendRequestStatus.ACCEPTED
-        ? (request.relationshipState ?? RelationshipState.FRIEND)
-        : request.relationshipState,
+        ? RelationshipState.FRIEND
+        : (request.relationshipState ?? RelationshipState.NONE),
     respondedAt:
       status === FriendRequestStatus.PENDING
         ? (request.respondedAt ?? null)
@@ -459,7 +447,7 @@ export const friendshipApi = api.injectEndpoints({
         { type: 'FriendRequest', id: FRIEND_REQUEST_RECEIVED_TAG_ID },
         { type: 'FriendRequest', id: FRIEND_REQUEST_SENT_TAG_ID },
       ],
-      async onQueryStarted({ targetUserId }, { dispatch, getState, queryFulfilled }) {
+      async onQueryStarted(_payload, { dispatch, getState, queryFulfilled }) {
         const currentUserId = getCurrentUserId(getState() as RootState);
 
         if (!currentUserId) {
@@ -469,10 +457,12 @@ export const friendshipApi = api.injectEndpoints({
         try {
           const { data } = await queryFulfilled;
           const normalizedData = unwrapResponseData(data);
-          const participants = resolveBlockActionParticipants(normalizedData, {
-            currentUserId,
-            targetUserId,
-          });
+          const participants = resolveBlockActionParticipants(normalizedData);
+
+          if (!participants) {
+            console.error('Invalid block action response payload:', normalizedData);
+            return;
+          }
 
           dispatch(
             userBlocked({
@@ -501,7 +491,7 @@ export const friendshipApi = api.injectEndpoints({
         { type: 'FriendRequest', id: FRIEND_REQUEST_RECEIVED_TAG_ID },
         { type: 'FriendRequest', id: FRIEND_REQUEST_SENT_TAG_ID },
       ],
-      async onQueryStarted({ targetUserId }, { dispatch, getState, queryFulfilled }) {
+      async onQueryStarted(_payload, { dispatch, getState, queryFulfilled }) {
         const currentUserId = getCurrentUserId(getState() as RootState);
 
         if (!currentUserId) {
@@ -511,10 +501,12 @@ export const friendshipApi = api.injectEndpoints({
         try {
           const { data } = await queryFulfilled;
           const normalizedData = unwrapResponseData(data);
-          const participants = resolveBlockActionParticipants(normalizedData, {
-            currentUserId,
-            targetUserId,
-          });
+          const participants = resolveBlockActionParticipants(normalizedData);
+
+          if (!participants) {
+            console.error('Invalid unblock action response payload:', normalizedData);
+            return;
+          }
 
           dispatch(
             userUnblocked({

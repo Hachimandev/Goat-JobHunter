@@ -32,6 +32,7 @@ export enum FriendRequestStatus {
 export enum RelationshipState {
   FRIEND = 'FRIEND',
   BLOCKED = 'BLOCKED',
+  NONE = 'NONE',
 }
 
 // UI-only state derived from relationship + pending requests.
@@ -50,13 +51,13 @@ export enum FriendRequestDirection {
 
 export type FriendUserSnippetResponse = {
   accountId: number;
-  fullName?: string | null;
-  username?: string | null;
-  avatar?: string | null;
-  headline?: string | null;
-  bio?: string | null;
-  coverPhoto?: string | null;
-  visibility?: string | null;
+  fullName?: string;
+  username?: string;
+  avatar?: string;
+  headline?: string;
+  bio?: string;
+  coverPhoto?: string;
+  visibility?: string;
 };
 
 export type FriendUserSummary = FriendUserSnippetResponse & {
@@ -96,8 +97,8 @@ export type FriendshipRealtimeEventResponse = {
   type: FriendshipRealtimeEventType;
   actorUser?: FriendUserSnippetResponse;
   targetUser?: FriendUserSnippetResponse;
-  requestId: number | null;
-  relationshipState: RelationshipState | null;
+  requestId?: number;
+  relationshipState?: RelationshipState;
   emittedAt?: string;
 };
 
@@ -111,12 +112,12 @@ export type FriendRequest = FriendRequestResponse & {
 export type PairFriendshipSnapshot = {
   targetAccountId: number;
   targetUser?: FriendUserSummary;
-  relationshipState: RelationshipState | null;
-  friendsSince?: string | null;
+  relationshipState: RelationshipState;
+  friendsSince: string | null;
   blockedByMe: boolean;
   blockedByOther: boolean;
-  pendingIncomingRequest?: FriendRequest | null;
-  pendingOutgoingRequest?: FriendRequest | null;
+  pendingIncomingRequest: FriendRequest | null;
+  pendingOutgoingRequest: FriendRequest | null;
   emittedAt?: string;
 };
 
@@ -135,13 +136,10 @@ export type FriendRequestActionPayload = {
 };
 
 export type FriendBlockActionResponseBody = {
-  requestId?: number | null;
-  senderId?: number | null;
-  receiverId?: number | null;
-  status?: FriendRequestStatus | null;
-  relationshipState?: RelationshipState | null;
-  requestedAt?: string;
-  respondedAt?: string | null;
+  senderId: number;
+  receiverId: number;
+  relationshipState: RelationshipState;
+  requestedAt: string;
 };
 
 type FriendshipReadPayload =

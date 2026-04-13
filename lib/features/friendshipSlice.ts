@@ -76,7 +76,7 @@ const shouldApplyByRecency = (currentTimestamp?: string | null, incomingTimestam
 const createEmptyPairState = (targetAccountId: number): PairFriendshipState => ({
   targetAccountId,
   targetUser: undefined,
-  relationshipState: null,
+  relationshipState: RelationshipState.NONE,
   blockedByMe: false,
   blockedByOther: false,
   pendingIncomingRequest: null,
@@ -96,7 +96,21 @@ const ensurePairState = (state: FriendshipState, targetAccountId: number): PairF
   return state.pairs[key];
 };
 
+const isValidPositiveId = (value: number): boolean => {
+  return Number.isFinite(value) && value > 0;
+};
+
+const isValidFriendRequestPayload = (request: FriendRequest): boolean => {
+  return (
+    isValidPositiveId(request.requestId) && isValidPositiveId(request.senderId) && isValidPositiveId(request.receiverId)
+  );
+};
+
 const getTargetAccountIdFromRequest = (currentUserId: number, request: FriendRequest): number | null => {
+  if (!isValidFriendRequestPayload(request)) {
+    return null;
+  }
+
   if (request.senderId === currentUserId) {
     return request.receiverId;
   }
@@ -120,7 +134,7 @@ const mergeTargetUserSummary = (
   headline: incomingSummary.headline ?? currentSummary?.headline,
   bio: incomingSummary.bio ?? currentSummary?.bio,
   coverPhoto: incomingSummary.coverPhoto ?? currentSummary?.coverPhoto,
-  visibility: incomingSummary.visibility ?? currentSummary?.visibility ?? null,
+  visibility: incomingSummary.visibility ?? currentSummary?.visibility,
 });
 
 const getTargetUserSummaryFromRequest = (
@@ -243,20 +257,14 @@ const applyPairSnapshot = (state: FriendshipState, snapshot: PairFriendshipSnaps
   pair.friendsSince = snapshot.friendsSince ?? null;
   setPairTargetUser(pair, snapshot.targetUser);
 
-  if (snapshot.pendingIncomingRequest !== undefined) {
-    pair.pendingIncomingRequest = snapshot.pendingIncomingRequest;
-
-    if (snapshot.pendingIncomingRequest?.status === FriendRequestStatus.PENDING) {
-      state.requestsById[String(snapshot.pendingIncomingRequest.requestId)] = snapshot.pendingIncomingRequest;
-    }
+  pair.pendingIncomingRequest = snapshot.pendingIncomingRequest;
+  if (snapshot.pendingIncomingRequest?.status === FriendRequestStatus.PENDING) {
+    state.requestsById[String(snapshot.pendingIncomingRequest.requestId)] = snapshot.pendingIncomingRequest;
   }
 
-  if (snapshot.pendingOutgoingRequest !== undefined) {
-    pair.pendingOutgoingRequest = snapshot.pendingOutgoingRequest;
-
-    if (snapshot.pendingOutgoingRequest?.status === FriendRequestStatus.PENDING) {
-      state.requestsById[String(snapshot.pendingOutgoingRequest.requestId)] = snapshot.pendingOutgoingRequest;
-    }
+  pair.pendingOutgoingRequest = snapshot.pendingOutgoingRequest;
+  if (snapshot.pendingOutgoingRequest?.status === FriendRequestStatus.PENDING) {
+    state.requestsById[String(snapshot.pendingOutgoingRequest.requestId)] = snapshot.pendingOutgoingRequest;
   }
 
   updatePairTimestamp(pair, snapshot.emittedAt);
@@ -335,6 +343,11 @@ const friendshipSlice = createSlice({
       [...incoming, ...outgoing]
         .filter((request) => request.status === FriendRequestStatus.PENDING)
         .forEach((request) => {
+          if (!isValidFriendRequestPayload(request)) {
+            console.error('Skip invalid friendship request payload in hydratePendingRequests:', request);
+            return;
+          }
+
           const targetAccountId = getTargetAccountIdFromRequest(currentUserId, request);
 
           if (targetAccountId === null) {
@@ -351,7 +364,7 @@ const friendshipSlice = createSlice({
             pair.relationshipState !== RelationshipState.BLOCKED &&
             pair.relationshipState !== RelationshipState.FRIEND
           ) {
-            pair.relationshipState = null;
+            pair.relationshipState = RelationshipState.NONE;
           }
 
           updatePairTimestamp(pair, emittedAt ?? request.respondedAt ?? request.requestedAt);
@@ -363,6 +376,11 @@ const friendshipSlice = createSlice({
       const { currentUserId, request, emittedAt } = action.payload;
 
       if (request.status !== FriendRequestStatus.PENDING) {
+        return;
+      }
+
+      if (!isValidFriendRequestPayload(request)) {
+        console.error('Skip invalid friendship request payload in friendRequestCreated:', request);
         return;
       }
 
@@ -381,7 +399,7 @@ const friendshipSlice = createSlice({
       setPairTargetUser(pair, getTargetUserSummaryFromRequest(currentUserId, request));
 
       if (pair.relationshipState !== RelationshipState.BLOCKED && pair.relationshipState !== RelationshipState.FRIEND) {
-        pair.relationshipState = null;
+        pair.relationshipState = RelationshipState.NONE;
       }
 
       updatePairTimestamp(pair, emittedAt ?? request.respondedAt ?? request.requestedAt);
@@ -389,6 +407,12 @@ const friendshipSlice = createSlice({
     },
     friendRequestAccepted: (state, action: PayloadAction<FriendRequestEventPayload>) => {
       const { currentUserId, request, emittedAt, friendsSince } = action.payload;
+
+      if (!isValidFriendRequestPayload(request)) {
+        console.error('Skip invalid friendship request payload in friendRequestAccepted:', request);
+        return;
+      }
+
       const targetAccountId = getTargetAccountIdFromRequest(currentUserId, request);
 
       if (targetAccountId === null) {
@@ -405,7 +429,7 @@ const friendshipSlice = createSlice({
 
       pair.pendingIncomingRequest = null;
       pair.pendingOutgoingRequest = null;
-      pair.relationshipState = request.relationshipState ?? RelationshipState.FRIEND;
+      pair.relationshipState = RelationshipState.FRIEND;
       pair.friendsSince = friendsSince ?? request.respondedAt ?? request.requestedAt ?? pair.friendsSince ?? null;
       setPairTargetUser(pair, getTargetUserSummaryFromRequest(currentUserId, request));
 
@@ -414,6 +438,12 @@ const friendshipSlice = createSlice({
     },
     friendRequestRejected: (state, action: PayloadAction<FriendRequestEventPayload>) => {
       const { currentUserId, request, emittedAt } = action.payload;
+
+      if (!isValidFriendRequestPayload(request)) {
+        console.error('Skip invalid friendship request payload in friendRequestRejected:', request);
+        return;
+      }
+
       const targetAccountId = getTargetAccountIdFromRequest(currentUserId, request);
 
       if (targetAccountId === null) {
@@ -435,7 +465,7 @@ const friendshipSlice = createSlice({
         !pair.pendingIncomingRequest &&
         !pair.pendingOutgoingRequest
       ) {
-        pair.relationshipState = null;
+        pair.relationshipState = RelationshipState.NONE;
       }
 
       updatePairTimestamp(pair, emittedAt ?? request.respondedAt);
@@ -443,6 +473,12 @@ const friendshipSlice = createSlice({
     },
     friendRequestCanceled: (state, action: PayloadAction<FriendRequestEventPayload>) => {
       const { currentUserId, request, emittedAt } = action.payload;
+
+      if (!isValidFriendRequestPayload(request)) {
+        console.error('Skip invalid friendship request payload in friendRequestCanceled:', request);
+        return;
+      }
+
       const targetAccountId = getTargetAccountIdFromRequest(currentUserId, request);
 
       if (targetAccountId === null) {
@@ -464,7 +500,7 @@ const friendshipSlice = createSlice({
         !pair.pendingIncomingRequest &&
         !pair.pendingOutgoingRequest
       ) {
-        pair.relationshipState = null;
+        pair.relationshipState = RelationshipState.NONE;
       }
 
       updatePairTimestamp(pair, emittedAt ?? request.respondedAt);
@@ -472,6 +508,11 @@ const friendshipSlice = createSlice({
     },
     userBlocked: (state, action: PayloadAction<BlockEventPayload>) => {
       const { currentUserId, blockerId, blockedId, emittedAt } = action.payload;
+
+      if (!isValidPositiveId(blockerId) || !isValidPositiveId(blockedId) || blockerId === blockedId) {
+        console.error('Skip invalid friendship block payload:', action.payload);
+        return;
+      }
 
       if (blockerId !== currentUserId && blockedId !== currentUserId) {
         return;
@@ -503,6 +544,11 @@ const friendshipSlice = createSlice({
     userUnblocked: (state, action: PayloadAction<BlockEventPayload>) => {
       const { currentUserId, blockerId, blockedId, emittedAt } = action.payload;
 
+      if (!isValidPositiveId(blockerId) || !isValidPositiveId(blockedId) || blockerId === blockedId) {
+        console.error('Skip invalid friendship unblock payload:', action.payload);
+        return;
+      }
+
       if (blockerId !== currentUserId && blockedId !== currentUserId) {
         return;
       }
@@ -523,7 +569,7 @@ const friendshipSlice = createSlice({
       }
 
       if (!pair.blockedByMe && !pair.blockedByOther && pair.relationshipState === RelationshipState.BLOCKED) {
-        pair.relationshipState = null;
+        pair.relationshipState = RelationshipState.NONE;
       }
 
       updatePairTimestamp(pair, emittedAt);

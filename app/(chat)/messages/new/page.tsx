@@ -14,8 +14,6 @@ export default function NewChatRoomPage() {
   const searchParams = useSearchParams();
   const recipientId = searchParams.get('recipient');
   const recipientAccountId = Number(recipientId);
-  const normalizedRecipientAccountId =
-    Number.isFinite(recipientAccountId) && recipientAccountId > 0 ? recipientAccountId : 0;
   const { user } = useUser();
   const { handleSendMessageToNewChat } = useChatRoomAndMessageActions();
 
@@ -26,7 +24,6 @@ export default function NewChatRoomPage() {
   const recipientVisibility = data?.data?.visibility;
   const isRecipientPrivate = recipientVisibility === Visibility.PRIVATE;
   const { isBlockedAnyDirection, isBlockedByMe } = useFriendshipStatus(recipientAccountId);
-  const isBlockedChat = Number.isFinite(recipientAccountId) && recipientAccountId > 0 && isBlockedAnyDirection;
   const blockedReason = isBlockedByMe
     ? 'Bạn đã chặn người này. Hãy bỏ chặn trước khi nhắn tin.'
     : 'Bạn không thể nhắn tin với người này.';
@@ -43,9 +40,9 @@ export default function NewChatRoomPage() {
       currentUserSentLastMessage: true,
       blocked: false,
       blockedByMe: false,
-      counterpartAccountId: normalizedRecipientAccountId,
+      counterpartAccountId: recipientAccountId,
     };
-  }, [data?.data?.avatar, data?.data?.fullName, data?.data?.username, normalizedRecipientAccountId]);
+  }, [data?.data?.avatar, data?.data?.fullName, data?.data?.username, recipientAccountId]);
 
   if (isRecipientPrivate) {
     return (
@@ -60,7 +57,7 @@ export default function NewChatRoomPage() {
     );
   }
 
-  if (isBlockedChat) {
+  if (isBlockedAnyDirection) {
     return (
       <div className="flex-1 flex items-center justify-center bg-background px-4">
         <div className="max-w-md text-center space-y-2">
@@ -76,10 +73,10 @@ export default function NewChatRoomPage() {
       chatRoom={chatRoom}
       messages={[]}
       currentUserId={user?.accountId?.toString()}
-      isChatBlocked={isBlockedChat}
+      isChatBlocked={isBlockedAnyDirection}
       chatBlockedReason={blockedReason}
       onSendMessage={(text, files) => {
-        if (isBlockedChat) {
+        if (isBlockedAnyDirection) {
           return;
         }
 

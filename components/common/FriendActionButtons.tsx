@@ -28,8 +28,20 @@ export default function FriendActionButtons({
   hideWhenFriendOrBlocked = false,
   showBlockActions = false,
 }: Readonly<FriendActionButtonsProps>) {
-  const { uiState, isSelf, incomingRequestId, outgoingRequestId, isBlockedByMe, isLoadingPair } =
-    useFriendshipStatus(targetUserId);
+  const {
+    uiState,
+    isSelf,
+    incomingRequestId,
+    outgoingRequestId,
+    isBlockedByMe,
+    isLoadingPair,
+    canAccept,
+    canReject,
+    canCancel,
+    canSendRequest,
+    canBlock,
+    canUnblock,
+  } = useFriendshipStatus(targetUserId);
 
   const {
     handleAcceptFriendRequest,
@@ -71,7 +83,7 @@ export default function FriendActionButtons({
             variant="outline"
             className="rounded-xl flex-1"
             onClick={() => handleUnblockUser(targetUserId)}
-            disabled={isBusy}
+            disabled={!canUnblock || isBusy}
             title="Bỏ chặn"
           >
             {isBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Undo2 className="h-4 w-4 mr-1" />}
@@ -99,7 +111,7 @@ export default function FriendActionButtons({
             variant="outline"
             className="rounded-xl flex-1"
             onClick={() => handleBlockUser(targetUserId)}
-            disabled={isBusy}
+            disabled={!canBlock || isBusy}
             title="Chặn người dùng"
           >
             {isBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldBan className="h-4 w-4 mr-1" />}
@@ -116,8 +128,12 @@ export default function FriendActionButtons({
         <Button
           size={buttonSize}
           className="rounded-xl flex-1"
-          onClick={() => incomingRequestId && handleAcceptFriendRequest(incomingRequestId)}
-          disabled={!incomingRequestId || isBusy}
+          onClick={() => {
+            if (canAccept && incomingRequestId) {
+              void handleAcceptFriendRequest(incomingRequestId);
+            }
+          }}
+          disabled={!canAccept || isBusy}
           title="Chấp nhận"
         >
           {isBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4 mr-1" />}
@@ -128,8 +144,12 @@ export default function FriendActionButtons({
           size={buttonSize}
           variant="outline"
           className="rounded-xl flex-1"
-          onClick={() => incomingRequestId && handleRejectFriendRequest(incomingRequestId)}
-          disabled={!incomingRequestId || isBusy}
+          onClick={() => {
+            if (canReject && incomingRequestId) {
+              void handleRejectFriendRequest(incomingRequestId);
+            }
+          }}
+          disabled={!canReject || isBusy}
           title="Từ chối"
         >
           {isBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <X className="h-4 w-4 mr-1" />}
@@ -142,7 +162,7 @@ export default function FriendActionButtons({
             variant="outline"
             className="rounded-xl flex-1"
             onClick={() => handleBlockUser(targetUserId)}
-            disabled={isBusy}
+            disabled={!canBlock || isBusy}
             title="Chặn người dùng"
           >
             {isBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldBan className="h-4 w-4 mr-1" />}
@@ -160,8 +180,12 @@ export default function FriendActionButtons({
           size={buttonSize}
           variant="outline"
           className="rounded-xl flex-1"
-          onClick={() => outgoingRequestId && handleCancelFriendRequest(outgoingRequestId)}
-          disabled={!outgoingRequestId || isBusy}
+          onClick={() => {
+            if (canCancel && outgoingRequestId) {
+              void handleCancelFriendRequest(outgoingRequestId);
+            }
+          }}
+          disabled={!canCancel || isBusy}
           title="Hủy lời mời"
         >
           {isBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <UserMinus className="h-4 w-4 mr-1" />}
@@ -174,7 +198,7 @@ export default function FriendActionButtons({
             variant="outline"
             className="rounded-xl flex-1"
             onClick={() => handleBlockUser(targetUserId)}
-            disabled={isBusy}
+            disabled={!canBlock || isBusy}
             title="Chặn người dùng"
           >
             {isBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldBan className="h-4 w-4 mr-1" />}
@@ -192,7 +216,7 @@ export default function FriendActionButtons({
         variant="outline"
         className="rounded-xl flex-1"
         onClick={() => handleSendFriendRequest(targetUserId)}
-        disabled={isBusy}
+        disabled={!canSendRequest || isBusy}
         title={title || 'Thêm bạn bè'}
       >
         {isBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <UserPlus className="h-4 w-4 mr-1" />}
@@ -205,7 +229,7 @@ export default function FriendActionButtons({
           variant="outline"
           className="rounded-xl flex-1"
           onClick={() => handleBlockUser(targetUserId)}
-          disabled={isBusy}
+          disabled={!canBlock || isBusy}
           title="Chặn người dùng"
         >
           {isBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldBan className="h-4 w-4 mr-1" />}

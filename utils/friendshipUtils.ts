@@ -37,7 +37,7 @@ export const FRIENDSHIP_EVENT_TYPES = [
   'USER_UNBLOCKED',
 ] as const satisfies readonly FriendshipEventType[];
 
-const DEFAULT_COLLECTION_KEYS = ['result', 'items', 'content', 'data'] as const;
+const DEFAULT_COLLECTION_KEYS = ['result'] as const;
 
 const toRecord = (value: unknown): Record<string, unknown> => {
   if (value && typeof value === 'object') {
@@ -153,20 +153,7 @@ const extractCollectionPayload = (input: unknown, preferredKeys?: string[]): unk
   }
 
   const source = toRecord(input);
-  const collection = pickCollectionFromSource(source, preferredKeys);
-
-  if (collection.length > 0) {
-    return collection;
-  }
-
-  const nestedData = toRecord(source.data);
-  const nestedCollection = pickCollectionFromSource(nestedData, preferredKeys);
-
-  if (nestedCollection.length > 0) {
-    return nestedCollection;
-  }
-
-  return [];
+  return pickCollectionFromSource(source, preferredKeys);
 };
 
 export const unwrapFriendshipResponseData = (input: unknown): unknown => {
@@ -213,13 +200,13 @@ const normalizeUserSnippet = (input: unknown): FriendUserSummary | undefined => 
   return {
     accountId,
     displayName,
-    fullName: fullName ?? null,
-    username: username ?? null,
-    avatar: pickString(source, ['avatar']) ?? null,
-    headline: pickString(source, ['headline']) ?? null,
-    bio: pickString(source, ['bio']) ?? null,
-    coverPhoto: pickString(source, ['coverPhoto']) ?? null,
-    visibility: pickString(source, ['visibility']) ?? null,
+    fullName,
+    username,
+    avatar: pickString(source, ['avatar']),
+    headline: pickString(source, ['headline']),
+    bio: pickString(source, ['bio']),
+    coverPhoto: pickString(source, ['coverPhoto']),
+    visibility: pickString(source, ['visibility']),
   };
 };
 
@@ -295,6 +282,8 @@ export const normalizeRelationshipStatus = (value: unknown): RelationshipState |
       return RelationshipState.FRIEND;
     case RelationshipState.BLOCKED:
       return RelationshipState.BLOCKED;
+    case RelationshipState.NONE:
+      return RelationshipState.NONE;
     default:
       return null;
   }
@@ -326,8 +315,8 @@ export const normalizeFriendRequest = (
     }
   }
 
-  const sender = normalizeUserSnippet(source.sender ?? source.actorUser);
-  const receiver = normalizeUserSnippet(source.receiver ?? source.targetUser);
+  const sender = normalizeUserSnippet(source.sender);
+  const receiver = normalizeUserSnippet(source.receiver);
 
   if (senderId === null) {
     senderId = sender?.accountId ?? null;
@@ -346,7 +335,7 @@ export const normalizeFriendRequest = (
     senderId,
     receiverId,
     status: normalizeFriendRequestStatus(source.status),
-    relationshipState: normalizeRelationshipStatus(source.relationshipState),
+    relationshipState: normalizeRelationshipStatus(source.relationshipState) ?? RelationshipState.NONE,
     requestedAt: pickString(source, ['requestedAt']) ?? undefined,
     respondedAt: pickString(source, ['respondedAt']) ?? null,
     direction: direction ?? undefined,
@@ -422,7 +411,7 @@ export const normalizePairSnapshot = (
   options?: NormalizePairSnapshotOptions,
 ): PairFriendshipSnapshot | null => {
   const source = toRecord(input);
-  const friend = normalizeUserSnippet(source.friend ?? source.targetUser ?? source.counterpart);
+  const friend = normalizeUserSnippet(source.friend);
 
   const targetAccountId =
     friend?.accountId ??
@@ -446,10 +435,11 @@ export const normalizePairSnapshot = (
   });
 
   const relationshipState =
-    normalizeRelationshipStatus(source.relationshipState) ?? (friend ? RelationshipState.FRIEND : null);
+    normalizeRelationshipStatus(source.relationshipState) ??
+    (friend ? RelationshipState.FRIEND : RelationshipState.NONE);
 
-  const blockedByMe = parseBoolean(source.blockedByMe ?? source.isBlockedByMe);
-  const blockedByOther = parseBoolean(source.blockedByOther ?? source.isBlockedByOther);
+  const blockedByMe = parseBoolean(source.blockedByMe);
+  const blockedByOther = parseBoolean(source.blockedByOther);
 
   return {
     targetAccountId,
@@ -458,8 +448,8 @@ export const normalizePairSnapshot = (
     friendsSince: pickString(source, ['friendsSince']) ?? null,
     blockedByMe,
     blockedByOther,
-    pendingIncomingRequest,
-    pendingOutgoingRequest,
+    pendingIncomingRequest: pendingIncomingRequest ?? null,
+    pendingOutgoingRequest: pendingOutgoingRequest ?? null,
     emittedAt: pickString(source, ['emittedAt', 'updatedAt']),
   };
 };
@@ -513,6 +503,11 @@ export const normalizeFriendRequestFromEventData = (
   data: Record<string, unknown>,
   status: FriendRequestStatus,
 ): FriendRequest | null => {
+  const relationshipStateForStatus =
+    status === FriendRequestStatus.ACCEPTED
+      ? RelationshipState.FRIEND
+      : (normalizeRelationshipStatus(data.relationshipState) ?? RelationshipState.NONE);
+
   const explicitSenderId = pickNumber(data, ['senderId']);
   const explicitReceiverId = pickNumber(data, ['receiverId']);
   const hasExplicitDirection = explicitSenderId !== null && explicitReceiverId !== null;
@@ -530,6 +525,7 @@ export const normalizeFriendRequestFromEventData = (
       sender: shouldSwapActorAndTarget ? normalized.receiver : normalized.sender,
       receiver: shouldSwapActorAndTarget ? normalized.sender : normalized.receiver,
       status,
+      relationshipState: relationshipStateForStatus,
       respondedAt:
         status === FriendRequestStatus.PENDING
           ? normalized.respondedAt
@@ -563,7 +559,7 @@ export const normalizeFriendRequestFromEventData = (
     senderId,
     receiverId,
     status,
-    relationshipState: normalizeRelationshipStatus(data.relationshipState),
+    relationshipState: relationshipStateForStatus,
     requestedAt: pickString(data, ['requestedAt', 'emittedAt']) ?? undefined,
     respondedAt:
       status === FriendRequestStatus.PENDING ? null : (pickString(data, ['respondedAt', 'emittedAt']) ?? null),
@@ -581,7 +577,7 @@ export const normalizeFriendRequestFromEventData = (
 const parseUserIdFromObject = (value: unknown): number | null => {
   const source = toRecord(value);
 
-  return pickNumber(source, ['accountId', 'userId', 'id']);
+  return pickNumber(source, ['accountId']);
 };
 
 export const normalizeFriendshipBlockEventParticipants = (
@@ -590,15 +586,9 @@ export const normalizeFriendshipBlockEventParticipants = (
   blockerId: number;
   blockedId: number;
 } | null => {
-  const blockerId =
-    pickNumber(data, ['blockerId', 'senderId', 'actorUserId']) ??
-    parseUserIdFromObject(data.actorUser) ??
-    parseUserIdFromObject(data.blocker);
+  const blockerId = pickNumber(data, ['senderId']) ?? parseUserIdFromObject(data.actorUser);
 
-  const blockedId =
-    pickNumber(data, ['blockedId', 'receiverId', 'targetUserId']) ??
-    parseUserIdFromObject(data.targetUser) ??
-    parseUserIdFromObject(data.blocked);
+  const blockedId = pickNumber(data, ['receiverId']) ?? parseUserIdFromObject(data.targetUser);
 
   if (blockerId === null || blockedId === null) {
     return null;
@@ -612,25 +602,16 @@ export const normalizeFriendshipBlockEventParticipants = (
 
 export const parseFriendshipEventEnvelope = (payload: unknown): ParsedFriendshipEnvelope | null => {
   const source = toRecord(payload);
-  const nestedData = toRecord(source.data);
-
-  const eventCandidate = source.type;
-  const nestedEventCandidate = nestedData.type;
-
-  const eventType = isFriendshipEventType(eventCandidate)
-    ? eventCandidate
-    : isFriendshipEventType(nestedEventCandidate)
-      ? nestedEventCandidate
-      : null;
+  const eventType = isFriendshipEventType(source.type) ? source.type : null;
 
   if (!eventType) {
     return null;
   }
 
-  const eventData = Object.keys(nestedData).length > 0 ? { ...nestedData } : { ...source };
+  const eventData = { ...source };
   eventData.type = eventType;
 
-  const emittedAt = pickString(eventData, ['emittedAt']);
+  const emittedAt = pickString(source, ['emittedAt']);
 
   return {
     eventType,

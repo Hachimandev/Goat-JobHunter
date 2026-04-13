@@ -8,8 +8,6 @@ import {
   useRejectFriendRequestMutation,
   useUnblockUserMutation,
 } from '@/services/friendship/friendshipApi';
-import { FriendshipUiState, RelationshipState } from '@/services/friendship/friendshipType';
-import { deriveFriendshipUiState } from '@/utils/friendshipUtils';
 import { extractApiErrorMessage, isBlockedInteractionError } from '@/utils/apiError';
 import { useCallback } from 'react';
 import { toast } from 'sonner';
@@ -83,41 +81,8 @@ export const useFriendActions = () => {
         return false;
       }
 
-      if (!Number.isFinite(recipientId) || recipientId <= 0) {
-        toast.error('Không tìm thấy người dùng hợp lệ.');
-        return false;
-      }
-
       if (recipientId === user.accountId) {
         toast.error('Bạn không thể tự gửi lời mời kết bạn cho chính mình.');
-        return false;
-      }
-
-      const pair = pairs[String(recipientId)];
-      const currentState = deriveFriendshipUiState(pair);
-
-      if (
-        pair?.relationshipState === RelationshipState.BLOCKED ||
-        pair?.blockedByMe ||
-        pair?.blockedByOther ||
-        currentState === FriendshipUiState.BLOCKED
-      ) {
-        toast.error('Không thể gửi lời mời khi đang ở trạng thái chặn.');
-        return false;
-      }
-
-      if (pair?.relationshipState === RelationshipState.FRIEND || currentState === FriendshipUiState.FRIEND) {
-        toast.error('Hai bạn đã là bạn bè.');
-        return false;
-      }
-
-      if (
-        currentState === FriendshipUiState.PENDING_SENT ||
-        currentState === FriendshipUiState.PENDING_RECEIVED ||
-        pair?.pendingIncomingRequest ||
-        pair?.pendingOutgoingRequest
-      ) {
-        toast.error('Đã có lời mời kết bạn đang chờ xử lý.');
         return false;
       }
 
@@ -131,17 +96,12 @@ export const useFriendActions = () => {
         return false;
       }
     },
-    [createFriendRequest, ensureSignedIn, pairs, user],
+    [createFriendRequest, ensureSignedIn, user],
   );
 
   const handleAcceptFriendRequest = useCallback(
     async (requestId: number): Promise<boolean> => {
       if (!ensureSignedIn()) {
-        return false;
-      }
-
-      if (!Number.isFinite(requestId) || requestId <= 0) {
-        toast.error('Lời mời không hợp lệ.');
         return false;
       }
 
@@ -164,11 +124,6 @@ export const useFriendActions = () => {
         return false;
       }
 
-      if (!Number.isFinite(requestId) || requestId <= 0) {
-        toast.error('Lời mời không hợp lệ.');
-        return false;
-      }
-
       try {
         await rejectFriendRequest({ requestId }).unwrap();
         toast.success('Đã từ chối lời mời kết bạn.');
@@ -185,11 +140,6 @@ export const useFriendActions = () => {
   const handleCancelFriendRequest = useCallback(
     async (requestId: number): Promise<boolean> => {
       if (!ensureSignedIn()) {
-        return false;
-      }
-
-      if (!Number.isFinite(requestId) || requestId <= 0) {
-        toast.error('Lời mời không hợp lệ.');
         return false;
       }
 
@@ -212,21 +162,9 @@ export const useFriendActions = () => {
         return false;
       }
 
-      if (!Number.isFinite(targetUserId) || targetUserId <= 0) {
-        toast.error('Không tìm thấy người dùng hợp lệ.');
-        return false;
-      }
-
       if (targetUserId === user.accountId) {
         toast.error('Bạn không thể tự chặn chính mình.');
         return false;
-      }
-
-      const pair = pairs[String(targetUserId)];
-
-      if (pair?.blockedByMe && pair?.relationshipState === RelationshipState.BLOCKED) {
-        toast('Bạn đã chặn người dùng này.');
-        return true;
       }
 
       try {
@@ -239,17 +177,12 @@ export const useFriendActions = () => {
         return false;
       }
     },
-    [blockUser, ensureSignedIn, pairs, user],
+    [blockUser, ensureSignedIn, user],
   );
 
   const handleUnblockUser = useCallback(
     async (targetUserId: number): Promise<boolean> => {
       if (!ensureSignedIn() || !user) {
-        return false;
-      }
-
-      if (!Number.isFinite(targetUserId) || targetUserId <= 0) {
-        toast.error('Không tìm thấy người dùng hợp lệ.');
         return false;
       }
 
@@ -260,15 +193,10 @@ export const useFriendActions = () => {
 
       const pair = pairs[String(targetUserId)];
 
-      if (pair?.blockedByOther && !pair?.blockedByMe) {
-        toast.error('Bạn không thể bỏ chặn vì người dùng này đang chặn bạn.');
-        return false;
+      if (!pair?.blockedByMe) {
+        toast('Người dùng này hiện không nằm trong danh sách bạn đã chặn.');
+        return true;
       }
-
-      // if (!pair?.blockedByMe && pair?.relationshipState !== RelationshipState.BLOCKED) {
-      //   toast('Người dùng này hiện không nằm trong danh sách bạn đã chặn.');
-      //   return true;
-      // }
 
       try {
         await unblockUser({ targetUserId }).unwrap();

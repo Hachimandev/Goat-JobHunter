@@ -18,7 +18,6 @@ export function useInfiniteScrollUserBlogs(accountId: number, options?: UseInfin
   const [hasMore, setHasMore] = useState(true);
 
   const isQueryEnabled = options?.enabled ?? true;
-  const shouldFetchBlogs = isQueryEnabled && Number.isFinite(accountId) && accountId > 0;
 
   const { data, isLoading, isError, isFetching, isSuccess } = useFetchBlogsByAuthorQuery(
     {
@@ -28,7 +27,7 @@ export function useInfiniteScrollUserBlogs(accountId: number, options?: UseInfin
       enabled: true,
     },
     {
-      skip: !shouldFetchBlogs,
+      skip: !isQueryEnabled,
     },
   );
 
