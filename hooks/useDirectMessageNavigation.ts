@@ -9,7 +9,7 @@ import {
 } from '@/services/chatRoom/chatRoomApi';
 import { Visibility } from '@/types/enum';
 import { RelationshipState } from '@/services/friendship/friendshipType';
-import { extractApiErrorMessage, isAccountPrivateError } from '@/utils/apiError';
+import { extractApiErrorMessage, isAccountPrivateError, isBlockedInteractionError } from '@/utils/apiError';
 import { useAppSelector } from '@/lib/hooks';
 
 const DEFAULT_MESSAGE_ERROR = 'Không thể tạo cuộc trò chuyện';
@@ -69,6 +69,11 @@ export function useDirectMessageNavigation() {
 
         if (isAccountPrivateError(error)) {
           toast.error(ACCOUNT_PRIVATE_MESSAGE);
+          return false;
+        }
+
+        if (isBlockedInteractionError(error)) {
+          toast.error('Không thể mở cuộc trò chuyện khi đang ở trạng thái chặn.');
           return false;
         }
 

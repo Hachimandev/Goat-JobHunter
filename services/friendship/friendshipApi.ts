@@ -5,11 +5,15 @@ import {
   friendRequestRejected,
   hydratePendingRequests,
   upsertPairSnapshots,
+  userBlocked,
+  userUnblocked,
 } from '@/lib/features/friendshipSlice';
 import { api } from '@/services/api';
 import type { RootState } from '@/lib/store';
 import {
   CreateFriendRequestPayload,
+  FriendBlockActionPayload,
+  FriendBlockActionResponse,
   FRIENDSHIP_DEFAULT_PAGE,
   FRIENDSHIP_DEFAULT_SIZE,
   FriendRequest,
@@ -42,6 +46,16 @@ const toRecord = (value: unknown): Record<string, unknown> => {
   return {};
 };
 
+const toPositiveNumber = (value: unknown): number | null => {
+  const parsed = Number(value);
+
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    return null;
+  }
+
+  return parsed;
+};
+
 const unwrapResponseData = (value: unknown): unknown => {
   const source = toRecord(value);
 
@@ -50,6 +64,52 @@ const unwrapResponseData = (value: unknown): unknown => {
   }
 
   return value;
+};
+
+const pickEventTimestampFromResponse = (value: unknown): string | undefined => {
+  const source = toRecord(value);
+
+  const candidates = [source.emittedAt, source.respondedAt, source.requestedAt];
+
+  for (const candidate of candidates) {
+    if (typeof candidate === 'string' && candidate.trim().length > 0) {
+      return candidate;
+    }
+  }
+
+  return undefined;
+};
+
+const resolveBlockActionParticipants = (
+  value: unknown,
+  fallback: {
+    currentUserId: number;
+    targetUserId: number;
+  },
+): {
+  blockerId: number;
+  blockedId: number;
+} => {
+  const source = toRecord(value);
+  const actorUser = toRecord(source.actorUser);
+  const targetUser = toRecord(source.targetUser);
+
+  const blockerId =
+    toPositiveNumber(source.blockerId) ??
+    toPositiveNumber(source.senderId) ??
+    toPositiveNumber(actorUser.accountId) ??
+    fallback.currentUserId;
+
+  const blockedId =
+    toPositiveNumber(source.blockedId) ??
+    toPositiveNumber(source.receiverId) ??
+    toPositiveNumber(targetUser.accountId) ??
+    fallback.targetUserId;
+
+  return {
+    blockerId,
+    blockedId,
+  };
 };
 
 const buildPageableParams = (params?: FriendshipReadQueryParams | void): Record<string, unknown> => {
@@ -385,6 +445,90 @@ export const friendshipApi = api.injectEndpoints({
         }
       },
     }),
+
+    blockUser: builder.mutation<FriendBlockActionResponse, FriendBlockActionPayload>({
+      query: ({ targetUserId }) => ({
+        url: `/friend-requests/${targetUserId}/block`,
+        method: 'POST',
+      }),
+      invalidatesTags: (_result, _error, payload) => [
+        { type: 'Friendship', id: payload.targetUserId },
+        { type: 'Friendship', id: FRIENDSHIP_LIST_TAG_ID },
+        { type: 'FriendRequest', id: payload.targetUserId },
+        { type: 'FriendRequest', id: FRIEND_REQUEST_LIST_TAG_ID },
+        { type: 'FriendRequest', id: FRIEND_REQUEST_RECEIVED_TAG_ID },
+        { type: 'FriendRequest', id: FRIEND_REQUEST_SENT_TAG_ID },
+      ],
+      async onQueryStarted({ targetUserId }, { dispatch, getState, queryFulfilled }) {
+        const currentUserId = getCurrentUserId(getState() as RootState);
+
+        if (!currentUserId) {
+          return;
+        }
+
+        try {
+          const { data } = await queryFulfilled;
+          const normalizedData = unwrapResponseData(data);
+          const participants = resolveBlockActionParticipants(normalizedData, {
+            currentUserId,
+            targetUserId,
+          });
+
+          dispatch(
+            userBlocked({
+              currentUserId,
+              blockerId: participants.blockerId,
+              blockedId: participants.blockedId,
+              emittedAt: pickEventTimestampFromResponse(normalizedData) ?? new Date().toISOString(),
+            }),
+          );
+        } catch (error) {
+          console.error('Block user failed:', error);
+        }
+      },
+    }),
+
+    unblockUser: builder.mutation<FriendBlockActionResponse, FriendBlockActionPayload>({
+      query: ({ targetUserId }) => ({
+        url: `/friend-requests/${targetUserId}/unblock`,
+        method: 'POST',
+      }),
+      invalidatesTags: (_result, _error, payload) => [
+        { type: 'Friendship', id: payload.targetUserId },
+        { type: 'Friendship', id: FRIENDSHIP_LIST_TAG_ID },
+        { type: 'FriendRequest', id: payload.targetUserId },
+        { type: 'FriendRequest', id: FRIEND_REQUEST_LIST_TAG_ID },
+        { type: 'FriendRequest', id: FRIEND_REQUEST_RECEIVED_TAG_ID },
+        { type: 'FriendRequest', id: FRIEND_REQUEST_SENT_TAG_ID },
+      ],
+      async onQueryStarted({ targetUserId }, { dispatch, getState, queryFulfilled }) {
+        const currentUserId = getCurrentUserId(getState() as RootState);
+
+        if (!currentUserId) {
+          return;
+        }
+
+        try {
+          const { data } = await queryFulfilled;
+          const normalizedData = unwrapResponseData(data);
+          const participants = resolveBlockActionParticipants(normalizedData, {
+            currentUserId,
+            targetUserId,
+          });
+
+          dispatch(
+            userUnblocked({
+              currentUserId,
+              blockerId: participants.blockerId,
+              blockedId: participants.blockedId,
+              emittedAt: pickEventTimestampFromResponse(normalizedData) ?? new Date().toISOString(),
+            }),
+          );
+        } catch (error) {
+          console.error('Unblock user failed:', error);
+        }
+      },
+    }),
   }),
 });
 
@@ -397,4 +541,6 @@ export const {
   useAcceptFriendRequestMutation,
   useRejectFriendRequestMutation,
   useCancelFriendRequestMutation,
+  useBlockUserMutation,
+  useUnblockUserMutation,
 } = friendshipApi;

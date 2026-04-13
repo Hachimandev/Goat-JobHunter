@@ -6,7 +6,7 @@ import { cn } from '@/lib/utils';
 import { FriendshipUiState } from '@/services/friendship/friendshipType';
 import { Badge } from '@/components/ui/badge';
 import { Button, ButtonSize } from '@/components/ui/button';
-import { Check, Loader2, UserCheck, UserMinus, UserPlus, X } from 'lucide-react';
+import { Check, Loader2, ShieldBan, Undo2, UserCheck, UserMinus, UserPlus, X } from 'lucide-react';
 import { useMemo } from 'react';
 
 type FriendActionButtonsProps = {
@@ -16,6 +16,7 @@ type FriendActionButtonsProps = {
   iconOnly?: boolean;
   title?: string;
   hideWhenFriendOrBlocked?: boolean;
+  showBlockActions?: boolean;
 };
 
 export default function FriendActionButtons({
@@ -25,6 +26,7 @@ export default function FriendActionButtons({
   iconOnly = false,
   title = '',
   hideWhenFriendOrBlocked = false,
+  showBlockActions = false,
 }: Readonly<FriendActionButtonsProps>) {
   const { uiState, isSelf, incomingRequestId, outgoingRequestId, isBlockedByMe, isBlockedByOther, isLoadingPair } =
     useFriendshipStatus(targetUserId);
@@ -34,6 +36,8 @@ export default function FriendActionButtons({
     handleCancelFriendRequest,
     handleRejectFriendRequest,
     handleSendFriendRequest,
+    handleBlockUser,
+    handleUnblockUser,
     isMutating,
   } = useFriendActions();
 
@@ -49,6 +53,7 @@ export default function FriendActionButtons({
   }
 
   const isBusy = isLoadingPair || isMutating;
+  const shouldShowBlockActions = showBlockActions && !iconOnly;
 
   if (uiState === FriendshipUiState.BLOCKED) {
     if (hideWhenFriendOrBlocked) {
@@ -60,6 +65,19 @@ export default function FriendActionButtons({
         <Badge variant="secondary" className="rounded-xl">
           {isBlockedByMe ? 'Bạn đã chặn' : isBlockedByOther ? 'Bạn bị chặn' : 'Đang bị chặn'}
         </Badge>
+        {shouldShowBlockActions && isBlockedByMe && (
+          <Button
+            size={buttonSize}
+            variant="outline"
+            className="rounded-xl"
+            onClick={() => handleUnblockUser(targetUserId)}
+            disabled={isBusy}
+            title="Bỏ chặn"
+          >
+            {isBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Undo2 className="h-4 w-4 mr-1" />}
+            Bỏ chặn
+          </Button>
+        )}
       </div>
     );
   }
@@ -75,6 +93,19 @@ export default function FriendActionButtons({
           <UserCheck className="h-3.5 w-3.5 mr-1" />
           Bạn bè
         </Badge>
+        {shouldShowBlockActions && (
+          <Button
+            size={buttonSize}
+            variant="outline"
+            className="rounded-xl"
+            onClick={() => handleBlockUser(targetUserId)}
+            disabled={isBusy}
+            title="Chặn người dùng"
+          >
+            {isBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldBan className="h-4 w-4 mr-1" />}
+            Chặn
+          </Button>
+        )}
       </div>
     );
   }
@@ -104,6 +135,20 @@ export default function FriendActionButtons({
           {isBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <X className="h-4 w-4 mr-1" />}
           Từ chối
         </Button>
+
+        {shouldShowBlockActions && (
+          <Button
+            size={buttonSize}
+            variant="outline"
+            className="rounded-xl"
+            onClick={() => handleBlockUser(targetUserId)}
+            disabled={isBusy}
+            title="Chặn người dùng"
+          >
+            {isBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldBan className="h-4 w-4 mr-1" />}
+            Chặn
+          </Button>
+        )}
       </div>
     );
   }
@@ -122,6 +167,20 @@ export default function FriendActionButtons({
           {isBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <UserMinus className="h-4 w-4 mr-1" />}
           Hủy lời mời
         </Button>
+
+        {shouldShowBlockActions && (
+          <Button
+            size={buttonSize}
+            variant="outline"
+            className="rounded-xl"
+            onClick={() => handleBlockUser(targetUserId)}
+            disabled={isBusy}
+            title="Chặn người dùng"
+          >
+            {isBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldBan className="h-4 w-4 mr-1" />}
+            Chặn
+          </Button>
+        )}
       </div>
     );
   }
@@ -139,6 +198,20 @@ export default function FriendActionButtons({
         {isBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <UserPlus className="h-4 w-4 mr-1" />}
         {!iconOnly && 'Thêm bạn bè'}
       </Button>
+
+      {shouldShowBlockActions && (
+        <Button
+          size={buttonSize}
+          variant="outline"
+          className="rounded-xl"
+          onClick={() => handleBlockUser(targetUserId)}
+          disabled={isBusy}
+          title="Chặn người dùng"
+        >
+          {isBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldBan className="h-4 w-4 mr-1" />}
+          Chặn
+        </Button>
+      )}
     </div>
   );
 }

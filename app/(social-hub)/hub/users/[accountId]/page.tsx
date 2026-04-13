@@ -69,7 +69,7 @@ export default function UserProfilePage() {
         <ProfileHeader user={viewedUser} />
         {!isOwnProfile && (
           <div className="mt-20 mb-4 flex justify-end">
-            <FriendActionButtons targetUserId={viewedUser.accountId} />
+            <FriendActionButtons targetUserId={viewedUser.accountId} showBlockActions />
           </div>
         )}
         <ProfileInfo user={viewedUser} hideSensitiveContact={!isOwnProfile} />

@@ -5,20 +5,23 @@ import { Separator } from '@/components/ui/separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ChatRoom } from '@/types/model';
 import { ChatRoomType } from '@/types/enum';
-import { Bell, ShieldBan, UserCircle, X, Users } from 'lucide-react';
+import { Bell, Loader2, ShieldBan, Undo2, UserCircle, X, Users } from 'lucide-react';
 import { SharedMediaGrid } from './SharedMediaGrid';
 import { SharedFilesList } from './SharedFilesList';
 import { Badge } from '@/components/ui/badge';
 import { useFetchFilesInChatRoomQuery, useFetchMediaInChatRoomQuery } from '@/services/chatRoom/chatRoomApi';
 import { useMemo } from 'react';
+import useFriendActions from '@/hooks/useFriendActions';
+import { useFriendshipStatus } from '@/hooks/useFriendshipStatus';
 
 interface ChatDetailsPanelProps {
   chatRoom: ChatRoom;
   isOpen: boolean;
   onClose: () => void;
+  targetUserId?: number | null;
 }
 
-export function ChatDetailsPanel({ chatRoom, isOpen, onClose }: Readonly<ChatDetailsPanelProps>) {
+export function ChatDetailsPanel({ chatRoom, isOpen, onClose, targetUserId }: Readonly<ChatDetailsPanelProps>) {
   const {
     data: filesData,
     isLoading: isLoadingFile,
@@ -30,8 +33,6 @@ export function ChatDetailsPanel({ chatRoom, isOpen, onClose }: Readonly<ChatDet
     isError: isErrorMedia,
   } = useFetchMediaInChatRoomQuery({ chatRoomId: chatRoom.roomId }, { skip: !isOpen || !chatRoom });
 
-  console.log({ filesData, mediaData });
-
   const media = useMemo(() => {
     return mediaData?.data || [];
   }, [mediaData]);
@@ -39,10 +40,33 @@ export function ChatDetailsPanel({ chatRoom, isOpen, onClose }: Readonly<ChatDet
   const files = useMemo(() => {
     return filesData?.data || [];
   }, [filesData]);
+  const normalizedTargetUserId =
+    Number.isFinite(targetUserId) && Number(targetUserId) > 0 ? Number(targetUserId) : null;
+  const { isBlockedByMe, isBlockedByOther, isBlockedAnyDirection, isLoadingPair } =
+    useFriendshipStatus(normalizedTargetUserId);
+  const { handleBlockUser, handleUnblockUser, isMutating } = useFriendActions();
 
   if (!isOpen) return null;
 
   const isGroup = chatRoom.type === ChatRoomType.GROUP;
+
+  const isBlockActionDisabled =
+    isGroup || !normalizedTargetUserId || isLoadingPair || isMutating || (isBlockedByOther && !isBlockedByMe);
+
+  const canUnblock = isBlockedByMe;
+
+  const handleToggleBlock = async () => {
+    if (!normalizedTargetUserId || isGroup) {
+      return;
+    }
+
+    if (canUnblock) {
+      await handleUnblockUser(normalizedTargetUserId);
+      return;
+    }
+
+    await handleBlockUser(normalizedTargetUserId);
+  };
 
   return (
     <div className="w-[450px] border-l border-border bg-card shrink-0 flex flex-col h-full min-h-0">
@@ -85,11 +109,37 @@ export function ChatDetailsPanel({ chatRoom, isOpen, onClose }: Readonly<ChatDet
               <Bell className="h-5 w-5" />
               <span className="text-xs">Tắt thông báo</span>
             </Button>
-            <Button variant="outline" className="rounded-xl flex flex-col h-auto py-3 gap-1 bg-transparent" size="sm">
-              <ShieldBan className="h-5 w-5" />
-              <span className="text-xs">Chặn</span>
+            <Button
+              variant="outline"
+              className="rounded-xl flex flex-col h-auto py-3 gap-1 bg-transparent"
+              size="sm"
+              onClick={handleToggleBlock}
+              disabled={isBlockActionDisabled}
+            >
+              {isMutating ? (
+                <Loader2 className="h-5 w-5 animate-spin" />
+              ) : canUnblock ? (
+                <Undo2 className="h-5 w-5" />
+              ) : (
+                <ShieldBan className="h-5 w-5" />
+              )}
+              <span className="text-xs">{canUnblock ? 'Bỏ chặn' : 'Chặn'}</span>
             </Button>
           </div>
+
+          {!isGroup && !normalizedTargetUserId && (
+            <p className="text-xs text-muted-foreground">
+              Chưa thể xác định người dùng đối phương nên tạm thời không thao tác chặn/bỏ chặn được.
+            </p>
+          )}
+
+          {!isGroup && normalizedTargetUserId && isBlockedAnyDirection && (
+            <p className="text-xs text-muted-foreground">
+              {isBlockedByMe
+                ? 'Bạn đã chặn người dùng này. Không thể gửi tin nhắn cho đến khi bỏ chặn.'
+                : 'Người dùng này đã chặn bạn. Bạn không thể nhắn tin ở thời điểm hiện tại.'}
+            </p>
+          )}
 
           <Separator />
 

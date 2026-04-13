@@ -13,6 +13,9 @@ interface ChatWindowProps {
   chatRoom: ChatRoom;
   messages: MessageType[];
   currentUserId?: string;
+  directTargetUserId?: number | null;
+  isChatBlocked?: boolean;
+  chatBlockedReason?: string;
   onSendMessage: (text?: string, files?: File[]) => void;
   onForwardMessage?: (message: MessageType) => void;
   isForwardingMessage?: boolean;
@@ -26,6 +29,9 @@ export function ChatWindow({
   chatRoom,
   messages,
   currentUserId,
+  directTargetUserId,
+  isChatBlocked = false,
+  chatBlockedReason = 'Bạn không thể nhắn tin với người này.',
   onSendMessage,
   onForwardMessage,
   isForwardingMessage,
@@ -36,6 +42,7 @@ export function ChatWindow({
 }: Readonly<ChatWindowProps>) {
   const { isOpen: isDetailsOpen, toggle, close } = useDetailsPanelState();
   const isGroup = chatRoom.type === ChatRoomType.GROUP;
+  const isChatLocked = !isGroup && isChatBlocked;
 
   return (
     <>
@@ -52,10 +59,23 @@ export function ChatWindow({
           onRecallMessage={onRecallMessage}
           isRecallingMessage={isRecallingMessage}
         />
-        <MessageInput onSendMessage={onSendMessage} />
+        {isChatLocked ? (
+          <div className="border-t border-border bg-card px-4 py-3 text-sm text-muted-foreground">
+            {chatBlockedReason}
+          </div>
+        ) : (
+          <MessageInput onSendMessage={onSendMessage} disabled={isChatLocked} />
+        )}
       </div>
 
-      {isDetailsOpen && !isGroup && <ChatDetailsPanel chatRoom={chatRoom} isOpen={isDetailsOpen} onClose={close} />}
+      {isDetailsOpen && !isGroup && (
+        <ChatDetailsPanel
+          chatRoom={chatRoom}
+          isOpen={isDetailsOpen}
+          onClose={close}
+          targetUserId={directTargetUserId}
+        />
+      )}
 
       {isDetailsOpen && isGroup && <GroupDetailsPanel chatRoom={chatRoom} isOpen={isDetailsOpen} onClose={close} />}
     </>

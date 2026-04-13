@@ -33,6 +33,8 @@ export const FRIENDSHIP_EVENT_TYPES = [
   'FRIEND_REQUEST_ACCEPTED',
   'FRIEND_REQUEST_REJECTED',
   'FRIEND_REQUEST_CANCELED',
+  'USER_BLOCKED',
+  'USER_UNBLOCKED',
 ] as const satisfies readonly FriendshipEventType[];
 
 const DEFAULT_COLLECTION_KEYS = ['result', 'items', 'content', 'data'] as const;
@@ -573,6 +575,38 @@ export const normalizeFriendRequestFromEventData = (
       ...targetUser,
       accountId: receiverId,
     },
+  };
+};
+
+const parseUserIdFromObject = (value: unknown): number | null => {
+  const source = toRecord(value);
+
+  return pickNumber(source, ['accountId', 'userId', 'id']);
+};
+
+export const normalizeFriendshipBlockEventParticipants = (
+  data: Record<string, unknown>,
+): {
+  blockerId: number;
+  blockedId: number;
+} | null => {
+  const blockerId =
+    pickNumber(data, ['blockerId', 'senderId', 'actorUserId']) ??
+    parseUserIdFromObject(data.actorUser) ??
+    parseUserIdFromObject(data.blocker);
+
+  const blockedId =
+    pickNumber(data, ['blockedId', 'receiverId', 'targetUserId']) ??
+    parseUserIdFromObject(data.targetUser) ??
+    parseUserIdFromObject(data.blocked);
+
+  if (blockerId === null || blockedId === null) {
+    return null;
+  }
+
+  return {
+    blockerId,
+    blockedId,
   };
 };
 

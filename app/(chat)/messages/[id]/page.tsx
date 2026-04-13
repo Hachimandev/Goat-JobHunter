@@ -9,6 +9,8 @@ import { subscribeToChatRoom, unsubscribeFromChatRoom } from '@/services/chatRoo
 import { useUser } from '@/hooks/useUser';
 import useChatRoomAndMessageActions from '@/hooks/useChatRoomAndMessageActions';
 import { MessageType } from '@/types/model';
+import { ChatRoomType } from '@/types/enum';
+import { useFriendshipStatus } from '@/hooks/useFriendshipStatus';
 
 export default function ChatRoomPage() {
   const params = useParams();
@@ -62,6 +64,19 @@ export default function ChatRoomPage() {
     );
   }, [messagesData]);
 
+  const directTargetUserId =
+    currentChatRoom && currentChatRoom.type === ChatRoomType.DIRECT && user?.accountId
+      ? (messages.find((message) => message.sender.accountId !== user.accountId)?.sender.accountId ?? null)
+      : null;
+
+  const { isBlockedAnyDirection, isBlockedByMe, isBlockedByOther } = useFriendshipStatus(directTargetUserId);
+  const isDirectBlocked = currentChatRoom?.type === ChatRoomType.DIRECT && isBlockedAnyDirection;
+  const blockedReason = isBlockedByMe
+    ? 'Bạn đã chặn người này. Hãy bỏ chặn để tiếp tục nhắn tin.'
+    : isBlockedByOther
+      ? 'Người này đã chặn bạn. Bạn không thể gửi tin nhắn trong cuộc trò chuyện này.'
+      : 'Bạn không thể nhắn tin với người này.';
+
   if (isLoading) {
     return (
       <div className="flex-1 flex items-center justify-center bg-background">
@@ -110,7 +125,14 @@ export default function ChatRoomPage() {
         chatRoom={currentChatRoom}
         messages={messages}
         currentUserId={user?.accountId?.toString()}
+        directTargetUserId={directTargetUserId}
+        isChatBlocked={isDirectBlocked}
+        chatBlockedReason={blockedReason}
         onSendMessage={async (text, files) => {
+          if (isDirectBlocked) {
+            return;
+          }
+
           await handleSendMessage(Number(chatRoomId), text, files);
         }}
         onForwardMessage={handleOpenForwardModal}

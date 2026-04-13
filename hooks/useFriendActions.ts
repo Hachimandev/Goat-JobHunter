@@ -2,13 +2,15 @@ import { useUser } from '@/hooks/useUser';
 import { useAppSelector } from '@/lib/hooks';
 import {
   useAcceptFriendRequestMutation,
+  useBlockUserMutation,
   useCancelFriendRequestMutation,
   useCreateFriendRequestMutation,
   useRejectFriendRequestMutation,
+  useUnblockUserMutation,
 } from '@/services/friendship/friendshipApi';
 import { FriendshipUiState, RelationshipState } from '@/services/friendship/friendshipType';
 import { deriveFriendshipUiState } from '@/utils/friendshipUtils';
-import { extractApiErrorMessage } from '@/utils/apiError';
+import { extractApiErrorMessage, isBlockedInteractionError } from '@/utils/apiError';
 import { useCallback } from 'react';
 import { toast } from 'sonner';
 
@@ -16,6 +18,8 @@ const DEFAULT_SEND_ERROR_MESSAGE = 'Không thể gửi lời mời lúc này.';
 const DEFAULT_ACCEPT_ERROR_MESSAGE = 'Không thể chấp nhận lời mời lúc này.';
 const DEFAULT_REJECT_ERROR_MESSAGE = 'Không thể từ chối lời mời lúc này.';
 const DEFAULT_CANCEL_ERROR_MESSAGE = 'Không thể hủy lời mời lúc này.';
+const DEFAULT_BLOCK_ERROR_MESSAGE = 'Không thể chặn người dùng lúc này.';
+const DEFAULT_UNBLOCK_ERROR_MESSAGE = 'Không thể bỏ chặn người dùng lúc này.';
 
 type ApiErrorLike = {
   status?: number;
@@ -29,6 +33,14 @@ const getApiErrorStatus = (error: unknown): number | null => {
 
 const mapErrorMessage = (error: unknown, fallbackMessage: string): string => {
   const status = getApiErrorStatus(error);
+
+  if (isBlockedInteractionError(error)) {
+    return 'Không thể thực hiện thao tác vì mối quan hệ hiện đang bị chặn.';
+  }
+
+  if (status === 403) {
+    return 'Bạn không có quyền thực hiện thao tác này.';
+  }
 
   if (status === 409) {
     return 'Không thể thực hiện thao tác này vì trạng thái quan hệ đã thay đổi.';
@@ -53,6 +65,8 @@ export const useFriendActions = () => {
   const [acceptFriendRequest, { isLoading: isAcceptingRequest }] = useAcceptFriendRequestMutation();
   const [rejectFriendRequest, { isLoading: isRejectingRequest }] = useRejectFriendRequestMutation();
   const [cancelFriendRequest, { isLoading: isCancelingRequest }] = useCancelFriendRequestMutation();
+  const [blockUser, { isLoading: isBlockingUser }] = useBlockUserMutation();
+  const [unblockUser, { isLoading: isUnblockingUser }] = useUnblockUserMutation();
 
   const ensureSignedIn = useCallback((): boolean => {
     if (!isSignedIn || !user) {
@@ -192,16 +206,103 @@ export const useFriendActions = () => {
     [cancelFriendRequest, ensureSignedIn],
   );
 
+  const handleBlockUser = useCallback(
+    async (targetUserId: number): Promise<boolean> => {
+      if (!ensureSignedIn() || !user) {
+        return false;
+      }
+
+      if (!Number.isFinite(targetUserId) || targetUserId <= 0) {
+        toast.error('Không tìm thấy người dùng hợp lệ.');
+        return false;
+      }
+
+      if (targetUserId === user.accountId) {
+        toast.error('Bạn không thể tự chặn chính mình.');
+        return false;
+      }
+
+      const pair = pairs[String(targetUserId)];
+
+      if (pair?.blockedByMe && pair?.relationshipState === RelationshipState.BLOCKED) {
+        toast('Bạn đã chặn người dùng này.');
+        return true;
+      }
+
+      try {
+        await blockUser({ targetUserId }).unwrap();
+        toast.success('Đã chặn người dùng.');
+        return true;
+      } catch (error) {
+        console.error('Failed to block user:', error);
+        toast.error(mapErrorMessage(error, DEFAULT_BLOCK_ERROR_MESSAGE));
+        return false;
+      }
+    },
+    [blockUser, ensureSignedIn, pairs, user],
+  );
+
+  const handleUnblockUser = useCallback(
+    async (targetUserId: number): Promise<boolean> => {
+      if (!ensureSignedIn() || !user) {
+        return false;
+      }
+
+      if (!Number.isFinite(targetUserId) || targetUserId <= 0) {
+        toast.error('Không tìm thấy người dùng hợp lệ.');
+        return false;
+      }
+
+      if (targetUserId === user.accountId) {
+        toast.error('Bạn không thể tự bỏ chặn chính mình.');
+        return false;
+      }
+
+      const pair = pairs[String(targetUserId)];
+
+      if (pair?.blockedByOther && !pair?.blockedByMe) {
+        toast.error('Bạn không thể bỏ chặn vì người dùng này đang chặn bạn.');
+        return false;
+      }
+
+      if (!pair?.blockedByMe && pair?.relationshipState !== RelationshipState.BLOCKED) {
+        toast('Người dùng này hiện không nằm trong danh sách bạn đã chặn.');
+        return true;
+      }
+
+      try {
+        await unblockUser({ targetUserId }).unwrap();
+        toast.success('Đã bỏ chặn người dùng.');
+        return true;
+      } catch (error) {
+        console.error('Failed to unblock user:', error);
+        toast.error(mapErrorMessage(error, DEFAULT_UNBLOCK_ERROR_MESSAGE));
+        return false;
+      }
+    },
+    [ensureSignedIn, pairs, unblockUser, user],
+  );
+
   return {
     handleSendFriendRequest,
     handleAcceptFriendRequest,
     handleRejectFriendRequest,
     handleCancelFriendRequest,
+    handleBlockUser,
+    handleUnblockUser,
     isSendingRequest,
     isAcceptingRequest,
     isRejectingRequest,
     isCancelingRequest,
-    isMutating: isSendingRequest || isAcceptingRequest || isRejectingRequest || isCancelingRequest,
+    isBlockingUser,
+    isUnblockingUser,
+    isMutating:
+      isSendingRequest ||
+      isAcceptingRequest ||
+      isRejectingRequest ||
+      isCancelingRequest ||
+      isBlockingUser ||
+      isUnblockingUser,
   };
 };
 

@@ -1,77 +1,84 @@
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Paperclip, Send, X, Pilcrow } from "lucide-react"
-import { useState, useRef, type KeyboardEvent, type ChangeEvent } from "react"
-import RichTextEditor from "@/components/RichText/Editor"
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Paperclip, Send, X, Pilcrow } from 'lucide-react';
+import { useState, useRef, type KeyboardEvent, type ChangeEvent } from 'react';
+import RichTextEditor from '@/components/RichText/Editor';
 
 interface MessageInputProps {
-  readonly onSendMessage: (text?: string, files?: File[]) => void
+  readonly onSendMessage: (text?: string, files?: File[]) => void;
+  readonly disabled?: boolean;
 }
 
-export function MessageInput({ onSendMessage }: MessageInputProps) {
-  const [message, setMessage] = useState("")
-  const [richMessage, setRichMessage] = useState("")
-  const [isEditorMode, setIsEditorMode] = useState(false)
-  const [selectedFiles, setSelectedFiles] = useState<File[]>([])
-  const fileInputRef = useRef<HTMLInputElement>(null)
+export function MessageInput({ onSendMessage, disabled = false }: MessageInputProps) {
+  const [message, setMessage] = useState('');
+  const [richMessage, setRichMessage] = useState('');
+  const [isEditorMode, setIsEditorMode] = useState(false);
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleSend = () => {
-    const plainText = isEditorMode
-      ? richMessage.replace(/<[^>]*>/g, '').trim()
-      : message.trim()
+    if (disabled) {
+      return;
+    }
+
+    const plainText = isEditorMode ? richMessage.replace(/<[^>]*>/g, '').trim() : message.trim();
 
     if (plainText || selectedFiles.length > 0) {
-      onSendMessage(isEditorMode ? richMessage : message.trim(), selectedFiles)
-      setMessage("")
-      setRichMessage("")
-      setSelectedFiles([])
+      onSendMessage(isEditorMode ? richMessage : message.trim(), selectedFiles);
+      setMessage('');
+      setRichMessage('');
+      setSelectedFiles([]);
     }
-  }
+  };
 
   const handleKeyPress = (e: KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault()
-      handleSend()
+    if (disabled) {
+      return;
     }
-  }
+
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSend();
+    }
+  };
 
   const toggleEditorMode = () => {
     if (isEditorMode) {
-      const plainText = richMessage.replace(/<[^>]*>/g, '').trim()
-      setMessage(plainText)
-      setRichMessage("")
+      const plainText = richMessage.replace(/<[^>]*>/g, '').trim();
+      setMessage(plainText);
+      setRichMessage('');
     } else {
-      setRichMessage(message ? `<p>${message}</p>` : "")
+      setRichMessage(message ? `<p>${message}</p>` : '');
     }
-    setIsEditorMode(!isEditorMode)
-  }
+    setIsEditorMode(!isEditorMode);
+  };
 
   const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files
+    const files = e.target.files;
     if (files) {
-      const newFiles = Array.from(files)
-      setSelectedFiles(prev => [...prev, ...newFiles])
+      const newFiles = Array.from(files);
+      setSelectedFiles((prev) => [...prev, ...newFiles]);
     }
     if (fileInputRef.current) {
-      fileInputRef.current.value = ""
+      fileInputRef.current.value = '';
     }
-  }
+  };
 
   const handleAttachClick = () => {
-    fileInputRef.current?.click()
-  }
+    fileInputRef.current?.click();
+  };
 
   const handleRemoveFile = (index: number) => {
-    setSelectedFiles(prev => prev.filter((_, i) => i !== index))
-  }
+    setSelectedFiles((prev) => prev.filter((_, i) => i !== index));
+  };
 
   const formatFileSize = (bytes: number): string => {
-    if (bytes === 0) return "0 Bytes"
-    const k = 1024
-    const sizes = ["Bytes", "KB", "MB", "GB"]
-    const i = Math.floor(Math.log(bytes) / Math.log(k))
-    return Math.round(bytes / Math.pow(k, i) * 100) / 100 + " " + sizes[i]
-  }
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + ' ' + sizes[i];
+  };
 
   return (
     <div className="border-t border-border bg-card">
@@ -88,15 +95,14 @@ export function MessageInput({ onSendMessage }: MessageInputProps) {
                   <span className="truncate max-w-[150px]" title={file.name}>
                     {file.name}
                   </span>
-                  <span className="text-xs text-muted-foreground">
-                    {formatFileSize(file.size)}
-                  </span>
+                  <span className="text-xs text-muted-foreground">{formatFileSize(file.size)}</span>
                 </div>
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="h-5 w-5 flex-shrink-0"
+                  className="h-5 w-5 shrink-0"
                   onClick={() => handleRemoveFile(index)}
+                  disabled={disabled}
                 >
                   <X className="h-3 w-3" />
                 </Button>
@@ -114,6 +120,7 @@ export function MessageInput({ onSendMessage }: MessageInputProps) {
               size="icon"
               className="h-8 w-8 rounded-full"
               onClick={handleAttachClick}
+              disabled={disabled}
             >
               <Paperclip className="h-5 w-5" />
             </Button>
@@ -122,7 +129,8 @@ export function MessageInput({ onSendMessage }: MessageInputProps) {
               size="icon"
               className={`h-8 w-8 rounded-full ${isEditorMode ? 'bg-accent' : ''}`}
               onClick={toggleEditorMode}
-              title={isEditorMode ? "Switch to simple input" : "Switch to rich text editor"}
+              title={isEditorMode ? 'Switch to simple input' : 'Switch to rich text editor'}
+              disabled={disabled}
             >
               <Pilcrow className="h-5 w-5" />
             </Button>
@@ -138,11 +146,7 @@ export function MessageInput({ onSendMessage }: MessageInputProps) {
           </div>
 
           <div className="flex items-center gap-1">
-            <Button
-              onClick={handleSend}
-              size="icon"
-              className="h-8 w-8 rounded-full"
-            >
+            <Button onClick={handleSend} size="icon" className="h-8 w-8 rounded-full" disabled={disabled}>
               <Send className="h-4 w-4" />
             </Button>
           </div>
@@ -156,6 +160,7 @@ export function MessageInput({ onSendMessage }: MessageInputProps) {
                 onChange={(e) => setMessage(e.target.value)}
                 onKeyDown={handleKeyPress}
                 placeholder="Nhập tin nhắn..."
+                disabled={disabled}
                 className="bg-accent/50 border-0 focus-visible:ring-1 rounded-full h-8"
               />
             </div>
@@ -178,5 +183,5 @@ export function MessageInput({ onSendMessage }: MessageInputProps) {
         )}
       </div>
     </div>
-  )
+  );
 }
