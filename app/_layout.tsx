@@ -13,8 +13,8 @@ import { persistor, store } from "../lib/store";
 import { tokenManager } from "../lib/tokenManager";
 import { useGetMyAccountQuery } from "../services/auth/authApi";
 import {
-    connectWebSocketLogout,
-    disconnectWebSocketLogout,
+  connectWebSocketLogout,
+  disconnectWebSocketLogout,
 } from "../services/WebSocketLogoutService";
 
 // Component to check auth on app start
@@ -35,6 +35,14 @@ function AuthChecker() {
 
       const exists = await tokenManager.hasValidToken();
       setHasToken(exists);
+
+      // If no token, redirect to signin immediately
+      if (!exists) {
+        setCheckingToken(false);
+        router.replace("/(auth)/signin");
+        return;
+      }
+
       setCheckingToken(false);
 
       // Log tokenManager state for debugging
@@ -45,7 +53,7 @@ function AuthChecker() {
       });
     };
     checkToken();
-  }, []);
+  }, [router]);
 
   // Fetch account if token exists
   const { data, isLoading, isError } = useGetMyAccountQuery(undefined, {
@@ -63,13 +71,17 @@ function AuthChecker() {
       );
       // Reset pending notifications to avoid showing old notifications from persist state
       dispatch(resetPendingNotifications());
+
+      // Redirect to chat after user data is loaded
+      router.replace("/(tabs)/chat");
     } else if (isError) {
       // Clear token if fetch failed
       tokenManager.clearTokens().catch((error) => {
         console.error("Error clearing tokens:", error);
       });
+      router.replace("/(auth)/signin");
     }
-  }, [data, isError, dispatch]);
+  }, [data, isError, dispatch, router]);
 
   // Connect WebSocket logout listener when user is authenticated
   // This handles force logout on app startup (auto-login scenario)
