@@ -1,39 +1,43 @@
-import React, { useState } from 'react';
+import { useRouter } from "expo-router";
+import React, { useState } from "react";
 import {
-  View,
-  Text,
-  StyleSheet,
-  TextInput,
-  TouchableOpacity,
-  ScrollView,
-  ActivityIndicator,
-  KeyboardAvoidingView,
-  Platform,
-  Alert,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
-import { useUser } from '../../hooks/useUser';
+    ActivityIndicator,
+    Alert,
+    KeyboardAvoidingView,
+    Platform,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { useUser } from "../../hooks/useUser";
 
 export default function SignInScreen() {
   const router = useRouter();
   const { signIn, isSigningIn } = useUser();
 
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [errors, setErrors] = useState<{ email?: string; password?: string; root?: string }>({});
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [errors, setErrors] = useState<{
+    email?: string;
+    password?: string;
+    root?: string;
+  }>({});
 
   const validateForm = () => {
     const newErrors: typeof errors = {};
 
     if (!email.trim()) {
-      newErrors.email = 'Email không được để trống';
+      newErrors.email = "Email không được để trống";
     } else if (!/\S+@\S+\.\S+/.test(email)) {
-      newErrors.email = 'Email không hợp lệ';
+      newErrors.email = "Email không hợp lệ";
     }
 
     if (!password.trim()) {
-      newErrors.password = 'Mật khẩu không được để trống';
+      newErrors.password = "Mật khẩu không được để trống";
     }
 
     setErrors(newErrors);
@@ -47,42 +51,45 @@ export default function SignInScreen() {
       const result = await signIn(email, password);
 
       if (result.success) {
-        // Navigate to profile
-        Alert.alert('Thành công', 'Đăng nhập thành công!', [
+        // Navigate to chat
+        Alert.alert("Thành công", "Đăng nhập thành công!", [
           {
-            text: 'OK',
+            text: "OK",
             onPress: () => {
-              router.replace('/profile');
+              router.replace("/(tabs)/chat");
             },
           },
         ]);
       } else {
         // Handle specific errors
-        if (result.error === 'Bad credentials') {
-          setErrors({ root: 'Email hoặc mật khẩu không đúng' });
-        } else if (result.error === 'Account is locked') {
+        if (result.error === "Bad credentials") {
+          setErrors({ root: "Email hoặc mật khẩu không đúng" });
+        } else if (result.error === "Account is locked") {
           // The error handling already happens in signIn function with Alert
           return;
         } else {
-          setErrors({ root: 'Đăng nhập thất bại. Vui lòng thử lại.' });
+          setErrors({ root: "Đăng nhập thất bại. Vui lòng thử lại." });
         }
       }
     } catch (error: any) {
-      console.error('Login error:', error);
-      setErrors({ root: 'Lỗi không xác định' });
+      console.error("Login error:", error);
+      setErrors({ root: "Lỗi không xác định" });
     }
   };
 
   return (
     <SafeAreaView style={styles.container}>
       <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
         style={styles.keyboardView}
       >
         <ScrollView contentContainerStyle={styles.scrollContent}>
           {/* Header */}
           <View style={styles.header}>
-            <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+            <TouchableOpacity
+              onPress={() => router.back()}
+              style={styles.backButton}
+            >
               <Text style={styles.backButtonText}>‹ Quay lại</Text>
             </TouchableOpacity>
           </View>
@@ -91,7 +98,9 @@ export default function SignInScreen() {
           <View style={styles.titleContainer}>
             <Text style={styles.logo}>💼</Text>
             <Text style={styles.title}>Đăng nhập</Text>
-            <Text style={styles.subtitle}>Nhập email và mật khẩu để đăng nhập</Text>
+            <Text style={styles.subtitle}>
+              Nhập email và mật khẩu để đăng nhập
+            </Text>
           </View>
 
           {/* Form */}
@@ -113,7 +122,9 @@ export default function SignInScreen() {
                 keyboardType="email-address"
                 editable={!isSigningIn}
               />
-              {errors.email && <Text style={styles.errorText}>{errors.email}</Text>}
+              {errors.email && (
+                <Text style={styles.errorText}>{errors.email}</Text>
+              )}
             </View>
 
             {/* Password */}
@@ -122,7 +133,9 @@ export default function SignInScreen() {
                 <Text style={styles.label}>
                   Mật khẩu <Text style={styles.required}>*</Text>
                 </Text>
-                <TouchableOpacity onPress={() => router.push('/(auth)/forgot-password')}>
+                <TouchableOpacity
+                  onPress={() => router.push("/(auth)/forgot-password")}
+                >
                   <Text style={styles.forgotPassword}>Quên mật khẩu?</Text>
                 </TouchableOpacity>
               </View>
@@ -132,12 +145,15 @@ export default function SignInScreen() {
                 value={password}
                 onChangeText={(text) => {
                   setPassword(text);
-                  if (errors.password) setErrors({ ...errors, password: undefined });
+                  if (errors.password)
+                    setErrors({ ...errors, password: undefined });
                 }}
                 secureTextEntry
                 editable={!isSigningIn}
               />
-              {errors.password && <Text style={styles.errorText}>{errors.password}</Text>}
+              {errors.password && (
+                <Text style={styles.errorText}>{errors.password}</Text>
+              )}
             </View>
 
             {/* Root Error */}
@@ -149,7 +165,10 @@ export default function SignInScreen() {
 
             {/* Submit Button */}
             <TouchableOpacity
-              style={[styles.submitButton, isSigningIn && styles.submitButtonDisabled]}
+              style={[
+                styles.submitButton,
+                isSigningIn && styles.submitButtonDisabled,
+              ]}
               onPress={handleSignIn}
               disabled={isSigningIn}
             >
@@ -164,7 +183,7 @@ export default function SignInScreen() {
             <View style={styles.signupContainer}>
               <Text style={styles.signupText}>Chưa có tài khoản? </Text>
               <TouchableOpacity
-                onPress={() => !isSigningIn && router.push('/(auth)/signup')}
+                onPress={() => !isSigningIn && router.push("/(auth)/signup")}
                 disabled={isSigningIn}
               >
                 <Text style={styles.signupLink}>Đăng ký</Text>
@@ -173,9 +192,11 @@ export default function SignInScreen() {
 
             {/* Company Signup Link */}
             <View style={styles.signupContainer}>
-              <Text style={styles.signupText}>Bạn đại diện cho doanh nghiệp? </Text>
+              <Text style={styles.signupText}>
+                Bạn đại diện cho doanh nghiệp?{" "}
+              </Text>
               <TouchableOpacity
-                onPress={() => !isSigningIn && router.push('/(auth)/company')}
+                onPress={() => !isSigningIn && router.push("/(auth)/company")}
                 disabled={isSigningIn}
               >
                 <Text style={styles.signupLink}>Đăng ký tài khoản công ty</Text>
@@ -191,7 +212,7 @@ export default function SignInScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
   },
   keyboardView: {
     flex: 1,
@@ -204,16 +225,16 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
   },
   backButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
   },
   backButtonText: {
     fontSize: 16,
-    color: '#1976d2',
-    fontWeight: '600',
+    color: "#1976d2",
+    fontWeight: "600",
   },
   titleContainer: {
-    alignItems: 'center',
+    alignItems: "center",
     marginTop: 24,
     marginBottom: 32,
   },
@@ -223,14 +244,14 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 28,
-    fontWeight: 'bold',
-    color: '#111827',
+    fontWeight: "bold",
+    color: "#111827",
     marginBottom: 8,
   },
   subtitle: {
     fontSize: 14,
-    color: '#6b7280',
-    textAlign: 'center',
+    color: "#6b7280",
+    textAlign: "center",
   },
   formContainer: {
     flex: 1,
@@ -240,60 +261,60 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: 14,
-    fontWeight: '600',
-    color: '#374151',
+    fontWeight: "600",
+    color: "#374151",
     marginBottom: 8,
   },
   required: {
-    color: '#ef4444',
+    color: "#ef4444",
   },
   labelRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     marginBottom: 8,
   },
   forgotPassword: {
     fontSize: 14,
-    color: '#1976d2',
-    fontWeight: '500',
+    color: "#1976d2",
+    fontWeight: "500",
   },
   input: {
     borderWidth: 1,
-    borderColor: '#d1d5db',
+    borderColor: "#d1d5db",
     borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: 12,
     fontSize: 16,
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
   },
   inputError: {
-    borderColor: '#ef4444',
+    borderColor: "#ef4444",
   },
   errorText: {
     fontSize: 12,
-    color: '#ef4444',
+    color: "#ef4444",
     marginTop: 4,
   },
   rootError: {
-    backgroundColor: '#fef2f2',
+    backgroundColor: "#fef2f2",
     borderWidth: 1,
-    borderColor: '#fecaca',
+    borderColor: "#fecaca",
     borderRadius: 12,
     padding: 12,
     marginBottom: 20,
   },
   rootErrorText: {
     fontSize: 14,
-    color: '#ef4444',
-    textAlign: 'center',
+    color: "#ef4444",
+    textAlign: "center",
   },
   submitButton: {
-    backgroundColor: '#1976d2',
+    backgroundColor: "#1976d2",
     paddingVertical: 16,
     borderRadius: 12,
-    alignItems: 'center',
-    shadowColor: '#000',
+    alignItems: "center",
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
@@ -303,25 +324,24 @@ const styles = StyleSheet.create({
     opacity: 0.6,
   },
   submitButtonText: {
-    color: '#fff',
+    color: "#fff",
     fontSize: 16,
-    fontWeight: 'bold',
+    fontWeight: "bold",
   },
   signupContainer: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
     marginTop: 24,
   },
   signupText: {
     fontSize: 14,
-    color: '#6b7280',
+    color: "#6b7280",
   },
   signupLink: {
     fontSize: 14,
-    color: '#1976d2',
-    fontWeight: '600',
-    textDecorationLine: 'underline',
+    color: "#1976d2",
+    fontWeight: "600",
+    textDecorationLine: "underline",
   },
 });
-
