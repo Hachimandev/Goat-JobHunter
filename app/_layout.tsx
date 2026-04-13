@@ -6,12 +6,16 @@ import { ActivityIndicator, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { Provider } from "react-redux";
 import { PersistGate } from "redux-persist/integration/react";
-import { setUser, clearUser } from "../lib/authSlice";
+import { clearUser, setUser } from "../lib/authSlice";
+import { resetPendingNotifications } from "../lib/chatNotificationSlice";
 import { useAppDispatch } from "../lib/hooks";
 import { persistor, store } from "../lib/store";
-import { useGetMyAccountQuery } from "../services/auth/authApi";
 import { tokenManager } from "../lib/tokenManager";
-import { connectWebSocketLogout, disconnectWebSocketLogout } from "../services/WebSocketLogoutService";
+import { useGetMyAccountQuery } from "../services/auth/authApi";
+import {
+    connectWebSocketLogout,
+    disconnectWebSocketLogout,
+} from "../services/WebSocketLogoutService";
 
 // Component to check auth on app start
 function AuthChecker() {
@@ -35,7 +39,7 @@ function AuthChecker() {
 
       // Log tokenManager state for debugging
       const state = tokenManager.getState();
-      console.log('[TokenManager] Initialized at app start:', {
+      console.log("[TokenManager] Initialized at app start:", {
         isLoading: state.isLoading,
         listenerCount: tokenManager.getListenerCount(),
       });
@@ -57,6 +61,8 @@ function AuthChecker() {
           roles: data.data.role ? [data.data.role.name] : [],
         }),
       );
+      // Reset pending notifications to avoid showing old notifications from persist state
+      dispatch(resetPendingNotifications());
     } else if (isError) {
       // Clear token if fetch failed
       tokenManager.clearTokens().catch((error) => {
@@ -69,18 +75,21 @@ function AuthChecker() {
   // This handles force logout on app startup (auto-login scenario)
   useEffect(() => {
     if (data?.data && data.data.email) {
-      console.log('[AuthChecker] User authenticated, connecting WebSocket logout listener');
+      console.log(
+        "[AuthChecker] User authenticated, connecting WebSocket logout listener",
+      );
 
       const handleForceLogout = async (isForceLogout: boolean) => {
-        console.log('[AuthChecker] Force logout triggered from WebSocket');
-        
+        console.log("[AuthChecker] Force logout triggered from WebSocket");
+
         try {
           disconnectWebSocketLogout();
+          dispatch(resetPendingNotifications());
           await tokenManager.clearTokens();
           dispatch(clearUser());
-          router.replace('/(auth)/signin');
+          router.replace("/(auth)/signin");
         } catch (error) {
-          console.error('[AuthChecker] Error handling force logout:', error);
+          console.error("[AuthChecker] Error handling force logout:", error);
         }
       };
 
@@ -89,7 +98,9 @@ function AuthChecker() {
 
       // Return cleanup function to disconnect on unmount
       return () => {
-        console.log('[AuthChecker] Disconnecting WebSocket logout listener on unmount');
+        console.log(
+          "[AuthChecker] Disconnecting WebSocket logout listener on unmount",
+        );
         disconnectWebSocketLogout();
       };
     }

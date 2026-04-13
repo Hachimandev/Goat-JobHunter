@@ -133,6 +133,15 @@ const chatNotificationSlice = createSlice({
       const roomId = action.payload;
       state.unreadCounts[roomId] = 0;
     },
+
+    // Reset pending notifications khi app init hoặc user login
+    // (để tránh hiển thị notification cũ từ persist state)
+    // Giữ lại lastSeenTimestamps để không re-trigger notification
+    resetPendingNotifications: (state) => {
+      state.pendingNotifications = [];
+      state.showNotification = false;
+      // Không reset unreadCounts và lastSeenTimestamps - giữ để tránh re-notification
+    },
   },
 });
 
@@ -146,6 +155,7 @@ export const {
   setUnreadCount,
   setLastSeenTimestamp,
   clearUnreadCountOnly,
+  resetPendingNotifications,
 } = chatNotificationSlice.actions;
 
 export default chatNotificationSlice.reducer;
