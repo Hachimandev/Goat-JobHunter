@@ -22,12 +22,14 @@ import {
   FriendRequestDirection,
   FriendRequestStatus,
   FriendshipReadQueryParams,
+  GetMyBlockedUsersResponse,
   GetMyFriendshipsResponse,
   GetMyReceivedFriendRequestsResponse,
   GetMySentFriendRequestsResponse,
   RelationshipState,
 } from '@/services/friendship/friendshipType';
 import {
+  normalizeFriendUserSnippetsPayload,
   normalizeFriendRequest,
   normalizeFriendRequestsPayload,
   normalizePairSnapshotsPayload,
@@ -37,6 +39,8 @@ const FRIEND_REQUEST_LIST_TAG_ID = 'LIST';
 const FRIEND_REQUEST_RECEIVED_TAG_ID = 'RECEIVED';
 const FRIEND_REQUEST_SENT_TAG_ID = 'SENT';
 const FRIENDSHIP_LIST_TAG_ID = 'LIST';
+const FRIENDSHIP_BLOCKED_LIST_TAG_ID = 'BLOCKED_LIST';
+const BLOCKED_USERS_DEFAULT_SORT = ['blockedSince,desc'] as const;
 
 const toRecord = (value: unknown): Record<string, unknown> => {
   if (value && typeof value === 'object') {
@@ -250,6 +254,59 @@ export const friendshipApi = api.injectEndpoints({
       },
     }),
 
+    getMyBlockedUsers: builder.query<GetMyBlockedUsersResponse, FriendshipReadQueryParams | void>({
+      query: (params) => ({
+        url: '/friend-requests/me/block',
+        method: 'GET',
+        params: buildPageableParams({
+          ...(params ?? {}),
+          sort: params?.sort ?? BLOCKED_USERS_DEFAULT_SORT,
+        }),
+      }),
+      providesTags: [{ type: 'Friendship', id: FRIENDSHIP_BLOCKED_LIST_TAG_ID }],
+      async onQueryStarted(_params, { dispatch, getState, queryFulfilled }) {
+        const currentUserId = getCurrentUserId(getState() as RootState);
+
+        if (!currentUserId) {
+          return;
+        }
+
+        try {
+          const { data } = await queryFulfilled;
+          const blockedUsers = normalizeFriendUserSnippetsPayload(unwrapResponseData(data));
+
+          if (blockedUsers.length === 0) {
+            return;
+          }
+
+          const emittedAt = new Date().toISOString();
+          const state = getState() as RootState;
+
+          dispatch(
+            upsertPairSnapshots(
+              blockedUsers.map((blockedUser) => {
+                const existingPair = state.friendship.pairs[String(blockedUser.accountId)];
+
+                return {
+                  targetAccountId: blockedUser.accountId,
+                  targetUser: blockedUser,
+                  relationshipState: RelationshipState.BLOCKED,
+                  friendsSince: existingPair?.friendsSince ?? null,
+                  blockedByMe: true,
+                  blockedByOther: existingPair?.blockedByOther ?? false,
+                  pendingIncomingRequest: null,
+                  pendingOutgoingRequest: null,
+                  emittedAt,
+                };
+              }),
+            ),
+          );
+        } catch (error) {
+          console.error('Failed to hydrate blocked users:', error);
+        }
+      },
+    }),
+
     createFriendRequest: builder.mutation<FriendRequestActionResponse, CreateFriendRequestPayload>({
       query: (payload) => ({
         url: '/friend-requests',
@@ -442,6 +499,7 @@ export const friendshipApi = api.injectEndpoints({
       invalidatesTags: (_result, _error, payload) => [
         { type: 'Friendship', id: payload.targetUserId },
         { type: 'Friendship', id: FRIENDSHIP_LIST_TAG_ID },
+        { type: 'Friendship', id: FRIENDSHIP_BLOCKED_LIST_TAG_ID },
         { type: 'FriendRequest', id: payload.targetUserId },
         { type: 'FriendRequest', id: FRIEND_REQUEST_LIST_TAG_ID },
         { type: 'FriendRequest', id: FRIEND_REQUEST_RECEIVED_TAG_ID },
@@ -486,6 +544,7 @@ export const friendshipApi = api.injectEndpoints({
       invalidatesTags: (_result, _error, payload) => [
         { type: 'Friendship', id: payload.targetUserId },
         { type: 'Friendship', id: FRIENDSHIP_LIST_TAG_ID },
+        { type: 'Friendship', id: FRIENDSHIP_BLOCKED_LIST_TAG_ID },
         { type: 'FriendRequest', id: payload.targetUserId },
         { type: 'FriendRequest', id: FRIEND_REQUEST_LIST_TAG_ID },
         { type: 'FriendRequest', id: FRIEND_REQUEST_RECEIVED_TAG_ID },
@@ -529,6 +588,7 @@ export const {
   useLazyGetMyFriendshipsQuery,
   useGetMyReceivedFriendRequestsQuery,
   useGetMySentFriendRequestsQuery,
+  useGetMyBlockedUsersQuery,
   useCreateFriendRequestMutation,
   useAcceptFriendRequestMutation,
   useRejectFriendRequestMutation,

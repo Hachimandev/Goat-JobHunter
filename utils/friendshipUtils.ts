@@ -345,6 +345,17 @@ export const normalizeFriendRequest = (
   };
 };
 
+export const normalizeFriendUserSnippetsPayload = (input: unknown): FriendUserSummary[] => {
+  const collection = extractCollectionPayload(input, ['result']);
+
+  if (collection.length > 0) {
+    return collection.map((item) => normalizeUserSnippet(item)).filter((item): item is FriendUserSummary => !!item);
+  }
+
+  const single = normalizeUserSnippet(input);
+  return single ? [single] : [];
+};
+
 const normalizeRequestCollection = (input: unknown, options?: NormalizeFriendRequestOptions): FriendRequest[] => {
   return toArray(input)
     .map((item) => normalizeFriendRequest(item, options))

@@ -193,7 +193,7 @@ export const useFriendActions = () => {
 
       const pair = pairs[String(targetUserId)];
 
-      if (!pair?.blockedByMe) {
+      if (pair && !pair.blockedByMe) {
         toast('Người dùng này hiện không nằm trong danh sách bạn đã chặn.');
         return true;
       }
