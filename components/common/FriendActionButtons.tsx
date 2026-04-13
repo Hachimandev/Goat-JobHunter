@@ -6,7 +6,7 @@ import { cn } from '@/lib/utils';
 import { FriendshipUiState } from '@/services/friendship/friendshipType';
 import { Badge } from '@/components/ui/badge';
 import { Button, ButtonSize } from '@/components/ui/button';
-import { Check, Loader2, UserCheck, UserPlus, X } from 'lucide-react';
+import { Check, Loader2, UserCheck, UserMinus, UserPlus, X } from 'lucide-react';
 import { useMemo } from 'react';
 
 type FriendActionButtonsProps = {
@@ -84,7 +84,7 @@ export default function FriendActionButtons({
       <div className={cn('flex items-center gap-2', className)}>
         <Button
           size={buttonSize}
-          className="rounded-xl"
+          className="rounded-xl flex-1"
           onClick={() => incomingRequestId && handleAcceptFriendRequest(incomingRequestId)}
           disabled={!incomingRequestId || isBusy}
           title="Chấp nhận"
@@ -96,7 +96,7 @@ export default function FriendActionButtons({
         <Button
           size={buttonSize}
           variant="outline"
-          className="rounded-xl"
+          className="rounded-xl flex-1"
           onClick={() => incomingRequestId && handleRejectFriendRequest(incomingRequestId)}
           disabled={!incomingRequestId || isBusy}
           title="Từ chối"
@@ -114,12 +114,12 @@ export default function FriendActionButtons({
         <Button
           size={buttonSize}
           variant="outline"
-          className="rounded-xl"
+          className="rounded-xl w-full"
           onClick={() => outgoingRequestId && handleCancelFriendRequest(outgoingRequestId)}
           disabled={!outgoingRequestId || isBusy}
           title="Hủy lời mời"
         >
-          {isBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+          {isBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <UserMinus className="h-4 w-4 mr-1" />}
           Hủy lời mời
         </Button>
       </div>
@@ -131,7 +131,7 @@ export default function FriendActionButtons({
       <Button
         size={buttonSize}
         variant="outline"
-        className="rounded-xl"
+        className="rounded-xl w-full"
         onClick={() => handleSendFriendRequest(targetUserId)}
         disabled={isBusy}
         title={title || 'Thêm bạn bè'}

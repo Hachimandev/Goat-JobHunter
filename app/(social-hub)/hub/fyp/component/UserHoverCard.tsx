@@ -80,15 +80,15 @@ export function UserHoverCard({
 
           {bio && <p className="text-sm text-muted-foreground line-clamp-3">{bio}</p>}
 
-          <div className="flex items-center justify-between gap-2">
+          <div className="space-y-2">
             {showMessageButton && (
-              <Button className="flex-1 rounded-xl" size="sm" onClick={handleMessageClick} disabled={isLoading}>
+              <Button className="w-full rounded-xl" size="sm" onClick={handleMessageClick} disabled={isLoading}>
                 <MessageCircle className="h-4 w-4 mr-2" />
                 {isLoading ? 'Đang mở chat...' : 'Nhắn tin'}
               </Button>
             )}
 
-            {showAddFriendButton && <FriendActionButtons className="flex-1" targetUserId={userId} compact />}
+            {showAddFriendButton && <FriendActionButtons className="w-full" targetUserId={userId} compact />}
 
             {showPrivateMessage && <p>Tài khoản đang ở chế độ riêng tư.</p>}
 

@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import useFriendsInboxPage, { FriendsInboxPagination } from '@/hooks/useFriendsInboxPage';
-import { Check, Inbox, Send, UserRound, Users, X } from 'lucide-react';
+import { Check, Inbox, Send, UserMinus, UserRound, Users, X } from 'lucide-react';
 import Link from 'next/link';
 import { useState } from 'react';
 
@@ -229,6 +229,7 @@ export default function FriendRequestsInboxPage() {
                         onClick={() => handleCancelFriendRequest(requestCard.requestId)}
                         disabled={isMutating}
                       >
+                        <UserMinus className="mr-1 h-4 w-4" />
                         Hủy lời mời
                       </Button>
                     </div>
