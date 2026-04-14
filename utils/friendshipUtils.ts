@@ -128,8 +128,6 @@ export const extractFriendshipPaginationMeta = <T>(
 };
 
 const normalizeUserSnippet = (input: unknown): FriendUserSummary | undefined => {
-  console.log('Normalized user snippet:', input);
-
   const source = toRecord(input);
   const accountId = toPositiveInt(source.accountId);
 
