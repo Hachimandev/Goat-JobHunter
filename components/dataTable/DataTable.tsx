@@ -1,9 +1,9 @@
-"use client";
+'use client';
 
-import { useDataTable } from "@/components/dataTable/useDataTable";
-import { ColumnDef } from "@tanstack/react-table";
-import { DataTableContent } from "./DataTableContent";
-import { useEffect } from "react";
+import { useDataTable } from '@/components/dataTable/useDataTable';
+import { ColumnDef } from '@tanstack/react-table';
+import { DataTableContent } from './DataTableContent';
+import { useEffect } from 'react';
 
 interface DataTableProps<TData, TValue> {
   columns: ColumnDef<TData, TValue>[];
@@ -14,7 +14,7 @@ interface DataTableProps<TData, TValue> {
 export function DataTable<TData, TValue>({
   columns,
   data,
-  onSelectionChange
+  onSelectionChange,
 }: Readonly<DataTableProps<TData, TValue>>) {
   const table = useDataTable({
     data,
@@ -29,7 +29,6 @@ export function DataTable<TData, TValue>({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [table.getState().rowSelection, onSelectionChange, table]);
-
 
   return (
     <div className="space-y-4">

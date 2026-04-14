@@ -1,21 +1,21 @@
-import { useFetchUsersQuery } from "@/services/user/userApi";
-import { useMemo, useState } from "react";
+import { useGetAllAccountsQuery } from '@/services/admin/adminApi';
+import { useMemo, useState } from 'react';
 
-export type UserFilterType = {
+export type AccountFilterType = {
   email?: string;
-  phone?: string;
   role?: string;
   enabled?: boolean;
+  locked?: boolean;
 };
 
-export default function useUsersManagement() {
+export default function useAccountManagement() {
   const [page, setPage] = useState(1);
   const [size, setSize] = useState(10);
-  const [filters, setFilters] = useState<UserFilterType>({
-    email: "",
-    phone: "",
-    role: "",
+  const [filters, setFilters] = useState<AccountFilterType>({
+    email: '',
+    role: '',
     enabled: undefined,
+    locked: undefined,
   });
 
   // Build query params
@@ -26,16 +26,16 @@ export default function useUsersManagement() {
     };
 
     if (filters.email) params.email = filters.email;
-    if (filters.phone) params.phone = filters.phone;
     if (filters.role) params.role = filters.role;
     if (filters.enabled != undefined) params.enabled = filters.enabled;
+    if (filters.locked != undefined) params.locked = filters.locked;
 
     return params;
   }, [page, size, filters]);
 
-  const { data, isLoading, isFetching, isError } = useFetchUsersQuery(queryParams);
+  const { data, isLoading, isFetching, isError } = useGetAllAccountsQuery(queryParams);
 
-  const users = data?.data?.result || [];
+  const accounts = data?.data?.result || [];
   const meta = data?.data?.meta || {
     current: 1,
     pageSize: 10,
@@ -53,23 +53,23 @@ export default function useUsersManagement() {
     setPage(1);
   };
 
-  const handleFilterChange = (newFilters: UserFilterType) => {
+  const handleFilterChange = (newFilters: AccountFilterType) => {
     setFilters(newFilters);
     setPage(1);
   };
 
   const resetFilters = () => {
     setFilters({
-      email: "",
-      phone: "",
-      role: "",
+      email: '',
+      role: '',
       enabled: undefined,
+      locked: undefined,
     });
     setPage(1);
   };
 
   return {
-    users,
+    accounts,
     meta,
     isLoading: isLoading || isFetching,
     isError,

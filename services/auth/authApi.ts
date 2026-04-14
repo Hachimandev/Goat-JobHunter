@@ -63,6 +63,11 @@ export const authApi = api.injectEndpoints({
       providesTags: ['User', 'Applicant', 'Recruiter', 'Company'],
       onQueryStarted: createUserSyncOnQueryStarted({ operation: 'fetch account' }),
     }),
+
+    deleteMyAccount: builder.mutation<IBackendRes<void>, void>({
+      query: () => ({ url: '/auth/account', method: 'DELETE' }),
+      invalidatesTags: ['User', 'Applicant', 'Recruiter', 'Company'],
+    }),
   }),
 });
 
@@ -74,4 +79,5 @@ export const {
   useVerifyCodeMutation,
   useResendCodeMutation,
   useGetMyAccountQuery,
+  useDeleteMyAccountMutation,
 } = authApi;

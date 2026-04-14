@@ -3,7 +3,7 @@
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Edit2 } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import CompanyUserForm from '@/app/(main)/profile/components/ProfileInfo/CompanyUserForm';
 import RecruiterUserForm from '@/app/(main)/profile/components/ProfileInfo/RecruiterUserForm';
 import ApplicantUserForm from '@/app/(main)/profile/components/ProfileInfo/ApplicantUserForm';
@@ -19,14 +19,26 @@ import { Visibility } from '@/types/enum';
 import { useUpdateMyVisibilityMutation } from '@/services/user/userApi';
 import { toast } from 'sonner';
 import { extractApiErrorMessage } from '@/utils/apiError';
+import ConfirmDialog from '@/components/common/ConfirmDialog';
+import { useDeleteMyAccountMutation } from '@/services/auth/authApi';
 
 export default function ProfileInfo() {
   const [showModal, setShowModal] = useState(false);
   const [showCompanyModal, setShowCompanyModal] = useState(false);
   const [showRecruiterModal, setShowRecruiterModal] = useState(false);
   const [optimisticVisibility, setOptimisticVisibility] = useState<Visibility | null>(null);
-  const { user } = useUser();
+  const { user, signOut } = useUser();
   const [updateMyVisibility, { isLoading: isUpdatingVisibility }] = useUpdateMyVisibilityMutation();
+  const [deleteMyAccount, { isLoading: isDeletingAccount }] = useDeleteMyAccountMutation();
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+
+  useEffect(() => {
+    if (isDeletingAccount) {
+      toast.loading('Đang xóa tài khoản...', { id: 'delete-account' });
+    } else {
+      toast.dismiss('delete-account');
+    }
+  }, [isDeletingAccount]);
 
   if (!user) {
     return <ErrorMessage message={'Không tìm thấy thông tin người dùng.'} />;
@@ -63,26 +75,43 @@ export default function ProfileInfo() {
     }
   };
 
+  const handleDeleteAccount = async () => {
+    try {
+      await deleteMyAccount().unwrap();
+      toast.success('Tài khoản của bạn đã được xóa thành công.');
+
+      await signOut();
+    } catch (error) {
+      toast.error(extractApiErrorMessage(error, 'Không thể xóa tài khoản. Vui lòng thử lại sau.'));
+    }
+  };
+
   return (
     <>
       <Card className="p-6">
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-xl font-bold text-foreground">Thông Tin Tài Khoản</h2>
-          <Button
-            onClick={() => {
-              if (isCompany) {
-                setShowCompanyModal(true);
-              } else if (isRecruiter) {
-                setShowRecruiterModal(true);
-              } else {
-                setShowModal(true);
-              }
-            }}
-            className="flex items-center gap-2 bg-primary text-primary-foreground hover:bg-primary/90 rounded-xl"
-          >
-            <Edit2 className="h-4 w-4" />
-            Cập Nhật
-          </Button>
+          <div className="flex items-center gap-3">
+            <Button
+              onClick={() => {
+                if (isCompany) {
+                  setShowCompanyModal(true);
+                } else if (isRecruiter) {
+                  setShowRecruiterModal(true);
+                } else {
+                  setShowModal(true);
+                }
+              }}
+              className="flex items-center gap-2 bg-primary text-primary-foreground hover:bg-primary/90 rounded-xl"
+            >
+              <Edit2 className="h-4 w-4" />
+              Cập Nhật
+            </Button>
+
+            <Button variant="destructive" className="rounded-xl" onClick={() => setShowDeleteDialog(true)}>
+              Xóa tài khoản
+            </Button>
+          </div>
         </div>
 
         <div className="mb-6 rounded-xl border border-border bg-muted/30 p-4">
@@ -126,6 +155,25 @@ export default function ProfileInfo() {
       ) : (
         <ApplicantUserForm open={showModal} onOpenChange={setShowModal} profile={me as ApplicantResponse} />
       )}
+
+      <ConfirmDialog
+        open={showDeleteDialog}
+        onOpenChange={setShowDeleteDialog}
+        title="Xóa tài khoản"
+        description={
+          <span>
+            Hành động này sẽ xóa vĩnh viễn tài khoản của bạn khỏi hệ thống. Bạn sẽ không thể khôi phục lại tài khoản sau
+            khi xóa.
+            <br />
+            Bạn có chắc chắn muốn tiếp tục?
+          </span>
+        }
+        confirmText="Xóa tài khoản"
+        confirmBtnClass="bg-destructive text-destructive-foreground hover:bg-destructive/90 text-white"
+        disableConfirm={isDeletingAccount}
+        isLoading={isDeletingAccount}
+        onConfirm={handleDeleteAccount}
+      />
     </>
   );
 }

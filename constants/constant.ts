@@ -20,9 +20,9 @@ export const WORKING_TYPE_OPTIONS = [
 ];
 
 export const ROLE_LIST = [
-  { label: 'Admin', value: 'SUPER_ADMIN' },
   { label: 'Nhà tuyển dụng', value: 'HR' },
   { label: 'Ứng viên', value: 'APPLICANT' },
+  { label: 'Công ty', value: 'COMPANY' },
 ];
 
 export const PROVINCE_OPTIONS: Option[] = [

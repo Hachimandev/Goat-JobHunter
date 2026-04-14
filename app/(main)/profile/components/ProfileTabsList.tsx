@@ -1,5 +1,5 @@
 import { TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Bell, Lock, Mail, UserIcon } from 'lucide-react';
+import { Bell, Lock, Mail, MonitorSmartphone, UserIcon } from 'lucide-react';
 
 const ProfileTabsList = () => {
   return (
@@ -21,6 +21,11 @@ const ProfileTabsList = () => {
       <TabsTrigger value="info" className="flex items-center gap-2 rounded-xl cursor-pointer">
         <UserIcon className="h-4 w-4" />
         <span className="hidden sm:inline">Thông Tin</span>
+      </TabsTrigger>
+
+      <TabsTrigger value="devices" className="flex items-center gap-2 rounded-xl cursor-pointer">
+        <MonitorSmartphone className="h-4 w-4" />
+        <span className="hidden sm:inline">Phiên đăng nhập</span>
       </TabsTrigger>
     </TabsList>
   );

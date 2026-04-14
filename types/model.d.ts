@@ -32,6 +32,7 @@ export type Account = {
   password: string;
   avatar?: string;
   enabled: boolean;
+  locked: boolean;
   visibility?: Visibility;
   addresses: Address[];
   createdAt: string;
@@ -316,6 +317,19 @@ export type NotificationType = {
     comment: string;
   };
   createdAt: string;
+};
+
+export type DeviceNotificationType = {
+  message: string;
+  deviceName: string;
+  time: string;
+};
+
+export type Device = {
+  deviceId: number;
+  name: string;
+  createdAt: string;
+  account: Account;
 };
 
 export type Conversation = {
