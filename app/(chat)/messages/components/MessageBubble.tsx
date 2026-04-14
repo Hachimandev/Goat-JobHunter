@@ -24,6 +24,8 @@ import {
   Loader2,
   Trash2,
   Pin,
+  PinIcon,
+  PinOff,
 } from 'lucide-react';
 import Image from 'next/image';
 import { MessageEvent, MessageTypeEnum } from '@/types/enum';
@@ -117,7 +119,7 @@ export function MessageBubble({
     try {
       const systemData = JSON.parse(message.content);
       const event = systemData.event as MessageEvent;
-      const actor = systemData.actor || 'Ai đó';
+      const actor = systemData.actorName || 'Ai đó';
       const target = systemData.target;
 
       const eventIcons: Record<MessageEvent, JSX.Element> = {
@@ -128,6 +130,8 @@ export function MessageBubble({
         [MessageEvent.GROUP_CREATED]: <Users className="h-3.5 w-3.5" />,
         [MessageEvent.GROUP_NAME_CHANGED]: <Users className="h-3.5 w-3.5" />,
         [MessageEvent.GROUP_AVATAR_CHANGED]: <ImageIcon className="h-3.5 w-3.5" />,
+        [MessageEvent.MESSAGE_PINNED]: <PinIcon className="h-3.5 w-3.5" />,
+        [MessageEvent.MESSAGE_UNPINNED]: <PinOff className="h-3.5 w-3.5" />,
       };
 
       const eventMessages: Record<MessageEvent, string> = {
@@ -138,16 +142,24 @@ export function MessageBubble({
         [MessageEvent.GROUP_CREATED]: `${actor} đã tạo nhóm`,
         [MessageEvent.GROUP_NAME_CHANGED]: `${actor} đã đổi tên nhóm thành "${target}"`,
         [MessageEvent.GROUP_AVATAR_CHANGED]: `${actor} đã thay đổi ảnh nhóm`,
+        [MessageEvent.MESSAGE_PINNED]: `${actor} đã ghim một tin nhắn`,
+        [MessageEvent.MESSAGE_UNPINNED]: `${actor} đã bỏ ghim một tin nhắn`,
       };
 
+      const isPinnedMessage = message.content.includes('(Xem');
+      const finalContent = isPinnedMessage
+        ? message.content.split('(Xem')[0].trim()
+        : eventMessages[event] || message.content;
       return {
         icon: eventIcons[event],
-        text: eventMessages[event] || message.content,
+        text: finalContent,
       };
     } catch {
+      const isPinnedMessage = message.content.includes('(Xem');
+      const finalContent = isPinnedMessage ? message.content.split('(Xem')[0].trim() : message.content;
       return {
         icon: <Users className="h-3.5 w-3.5" />,
-        text: message.content,
+        text: finalContent,
       };
     }
   };

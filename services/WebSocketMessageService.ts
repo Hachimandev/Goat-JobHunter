@@ -6,6 +6,7 @@ import { store } from '@/lib/store';
 import { chatRoomApi } from '@/services/chatRoom/chatRoomApi';
 import { MessageType } from '@/types/model';
 import { groupChatApi } from '@/services/chatRoom/groupChat/groupChatApi';
+import { pinnedMessageApi } from '@/services/chatRoom/pinned_message/pinnedMessageApi';
 import {
   cascadeReplyContextForDeletedMessage,
   cascadeReplyContextForRecalledMessage,
@@ -242,7 +243,7 @@ export class WebSocketMessageService {
     try {
       const content = message.content;
 
-      // Detect MEMBER_REMOVED or MEMBER_LEFT
+      // Detect MEMBER_REMOVED or MEMBER_LEFT or MESSAGE_UNPINNED
       if (content.includes('đã xóa') && content.includes('khỏi nhóm')) {
         // Extract member name: "{actor} đã xóa {member} khỏi nhóm"
         const match = content.match(/đã xóa (.+?) khỏi nhóm/);
@@ -290,6 +291,10 @@ export class WebSocketMessageService {
               }
             }
           }),
+        );
+      } else if (content.includes('bỏ ghim')) {
+        this.dispatch(
+          pinnedMessageApi.util.invalidateTags([{ type: 'PinnedMessage', id: `PINNED_MESSAGE_${chatRoomId}` }]),
         );
       }
       // Detect ROLE_CHANGED
