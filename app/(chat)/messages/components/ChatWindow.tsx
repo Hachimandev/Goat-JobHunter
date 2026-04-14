@@ -1,13 +1,15 @@
 'use client';
 
-import { MessageType, ChatRoom } from '@/types/model';
+import { MessageType, ChatRoom, PinnedMessage } from '@/types/model';
 import { ChatHeader } from './ChatHeader';
 import { MessageInput } from './MessageInput';
 import { MessageList } from './MessageList';
 import { ChatDetailsPanel } from './ChatDetailsPanel';
+import { PinnedMessagesPanel } from './PinnedMessagesPanel';
 import { useDetailsPanelState } from '../hooks/useDetailsPanelState';
 import { ChatRoomType } from '@/types/enum';
 import { GroupDetailsPanel } from '@/app/(chat)/messages/components/GroupDetailsPanel';
+import { useState } from 'react';
 
 interface ChatWindowProps {
   chatRoom: ChatRoom;
@@ -27,6 +29,12 @@ interface ChatWindowProps {
   isDeletingMessage?: (messageId: string) => boolean;
   onRecallMessage?: (messageId: string) => Promise<void> | void;
   isRecallingMessage?: (messageId: string) => boolean;
+  onPinMessage?: (messageId: string) => Promise<void> | void;
+  onUnpinMessage?: (messageId: string) => Promise<void> | void;
+  isPinnedMessage?: (messageId: string) => boolean;
+  isPinningMessage?: (messageId: string) => boolean;
+  pinnedMessages?: PinnedMessage[];
+  isLoadingPinnedMessages?: boolean;
 }
 
 export function ChatWindow({
@@ -47,15 +55,28 @@ export function ChatWindow({
   isDeletingMessage,
   onRecallMessage,
   isRecallingMessage,
+  onPinMessage,
+  onUnpinMessage,
+  isPinnedMessage,
+  isPinningMessage,
+  pinnedMessages = [],
+  isLoadingPinnedMessages = false,
 }: Readonly<ChatWindowProps>) {
   const { isOpen: isDetailsOpen, toggle, close } = useDetailsPanelState();
+  const [isPinnedPanelOpen, setIsPinnedPanelOpen] = useState(false);
   const isGroup = chatRoom.type === ChatRoomType.GROUP;
   const isChatLocked = !isGroup && isChatBlocked;
 
   return (
     <>
       <div className="flex-1 flex flex-col bg-background h-full overflow-hidden">
-        <ChatHeader chatRoom={chatRoom} onToggleDetails={toggle} isDetailsOpen={isDetailsOpen} />
+        <ChatHeader
+          chatRoom={chatRoom}
+          onToggleDetails={toggle}
+          isDetailsOpen={isDetailsOpen}
+          onShowPinnedMessages={() => setIsPinnedPanelOpen(!isPinnedPanelOpen)}
+          pinnedMessagesCount={pinnedMessages.length}
+        />
         <MessageList
           messages={messages}
           currentUserId={currentUserId}
@@ -68,6 +89,10 @@ export function ChatWindow({
           isDeletingMessage={isDeletingMessage}
           onRecallMessage={onRecallMessage}
           isRecallingMessage={isRecallingMessage}
+          onPinMessage={onPinMessage}
+          onUnpinMessage={onUnpinMessage}
+          isPinnedMessage={isPinnedMessage}
+          isPinningMessage={isPinningMessage}
         />
         {isChatLocked ? (
           <div className="border-t border-border bg-card px-4 py-3 text-sm text-muted-foreground text-center">
@@ -93,6 +118,16 @@ export function ChatWindow({
       )}
 
       {isDetailsOpen && isGroup && <GroupDetailsPanel chatRoom={chatRoom} isOpen={isDetailsOpen} onClose={close} />}
+
+      <PinnedMessagesPanel
+        open={isPinnedPanelOpen}
+        onOpenChange={setIsPinnedPanelOpen}
+        pinnedMessages={pinnedMessages}
+        isLoadingPinnedMessages={isLoadingPinnedMessages}
+        onUnpin={onUnpinMessage}
+        isUnpinning={isPinningMessage}
+        onNavigateToMessage={onNavigateToMessage}
+      />
     </>
   );
 }

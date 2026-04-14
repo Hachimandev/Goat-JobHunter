@@ -8,10 +8,17 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { subscribeToChatRoom, unsubscribeFromChatRoom } from '@/services/chatRoom/message/messageApi';
 import { useUser } from '@/hooks/useUser';
 import useChatRoomAndMessageActions from '@/hooks/useChatRoomAndMessageActions';
-import { MessageType } from '@/types/model';
+import { MessageType, PinnedMessage } from '@/types/model';
 import { ChatRoomType } from '@/types/enum';
 import { useAppSelector } from '@/lib/hooks';
 import { selectLastFriendshipRealtimeEventAt } from '@/lib/features/friendshipSlice';
+import {
+  usePinMessageMutation,
+  useUnpinMessageMutation,
+  useGetPinnedMessagesQuery,
+} from '@/services/chatRoom/pinned_message/pinnedMessageApi';
+import { toast } from 'sonner';
+import { IBackendError } from '@/types/api';
 
 export default function ChatRoomPage() {
   const params = useParams();
@@ -21,6 +28,8 @@ export default function ChatRoomPage() {
   const [forwardMessage, setForwardMessage] = useState<MessageType | null>(null);
   const [replyMessage, setReplyMessage] = useState<MessageType | null>(null);
   const [forwardModalOpen, setForwardModalOpen] = useState(false);
+  const [pinnedMessageIds, setPinnedMessageIds] = useState<Set<string>>(new Set());
+  const [pinningMessageIds, setPinningMessageIds] = useState<Set<string>>(new Set());
 
   const {
     handleSendMessage,
@@ -43,6 +52,13 @@ export default function ChatRoomPage() {
     }
   }, [chatRoomId]);
 
+  const [pinMessage] = usePinMessageMutation();
+  const [unpinMessage] = useUnpinMessageMutation();
+  const { data: pinnedMessagesData, isLoading: isLoadingPinnedMessages } = useGetPinnedMessagesQuery(
+    { chatRoomId: Number(chatRoomId) },
+    { skip: !chatRoomId || isNaN(Number(chatRoomId)) },
+  );
+
   const { data: messagesData, isLoading } = useFetchMessagesInChatRoomQuery(
     {
       chatRoomId: Number(chatRoomId),
@@ -63,6 +79,13 @@ export default function ChatRoomPage() {
 
     void refetchChatRoom();
   }, [chatRoomId, lastFriendshipRealtimeEventAt, refetchChatRoom]);
+
+  useEffect(() => {
+    if (pinnedMessagesData?.data) {
+      const pinnedIds = new Set(pinnedMessagesData.data.map((msg: PinnedMessage) => msg.messageId));
+      setPinnedMessageIds(pinnedIds);
+    }
+  }, [pinnedMessagesData]);
 
   const currentChatRoom = useMemo(() => {
     return chatRoomsData?.data || null;
@@ -98,6 +121,56 @@ export default function ChatRoomPage() {
     targetElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
     targetElement.focus({ preventScroll: true });
   }, []);
+
+  const handlePinMessage = useCallback(
+    async (messageId: string) => {
+      try {
+        setPinningMessageIds((prev) => new Set([...prev, messageId]));
+        await pinMessage({
+          chatRoomId: Number(chatRoomId),
+          messageId,
+        }).unwrap();
+        setPinnedMessageIds((prev) => new Set([...prev, messageId]));
+        toast.success('Tin nhắn đã được ghim');
+      } catch (error: unknown) {
+        toast.error((error as IBackendError).data?.message || 'Không thể ghim tin nhắn');
+      } finally {
+        setPinningMessageIds((prev) => {
+          const next = new Set(prev);
+          next.delete(messageId);
+          return next;
+        });
+      }
+    },
+    [chatRoomId, pinMessage],
+  );
+
+  const handleUnpinMessage = useCallback(
+    async (messageId: string) => {
+      try {
+        setPinningMessageIds((prev) => new Set([...prev, messageId]));
+        await unpinMessage({
+          chatRoomId: Number(chatRoomId),
+          messageId,
+        }).unwrap();
+        setPinnedMessageIds((prev) => {
+          const next = new Set(prev);
+          next.delete(messageId);
+          return next;
+        });
+        toast.success('Bỏ ghim tin nhắn thành công');
+      } catch (error: unknown) {
+        toast.error((error as IBackendError).data?.message || 'Không thể bỏ ghim tin nhắn');
+      } finally {
+        setPinningMessageIds((prev) => {
+          const next = new Set(prev);
+          next.delete(messageId);
+          return next;
+        });
+      }
+    },
+    [chatRoomId, unpinMessage],
+  );
 
   if (isLoading) {
     return (
@@ -174,6 +247,12 @@ export default function ChatRoomPage() {
           await handleRecallMessage(Number(chatRoomId), messageId);
         }}
         isRecallingMessage={isRecallingMessage}
+        onPinMessage={handlePinMessage}
+        onUnpinMessage={handleUnpinMessage}
+        isPinnedMessage={(messageId: string) => pinnedMessageIds.has(messageId)}
+        isPinningMessage={(messageId: string) => pinningMessageIds.has(messageId)}
+        pinnedMessages={pinnedMessagesData?.data || []}
+        isLoadingPinnedMessages={isLoadingPinnedMessages}
       />
 
       <ForwardMessageModal

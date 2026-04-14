@@ -23,6 +23,7 @@ import {
   Undo2,
   Loader2,
   Trash2,
+  Pin,
 } from 'lucide-react';
 import Image from 'next/image';
 import { MessageEvent, MessageTypeEnum } from '@/types/enum';
@@ -42,6 +43,10 @@ interface MessageBubbleProps {
   onForward?: (message: MessageType) => void;
   onRecall?: (messageId: string) => void | Promise<void>;
   onDelete?: (messageId: string) => void | Promise<void>;
+  onPin?: (messageId: string) => void | Promise<void>;
+  onUnpin?: (messageId: string) => void | Promise<void>;
+  isPinned?: boolean;
+  isPinning?: boolean;
   isForwarding?: boolean;
   isRecalling?: boolean;
   isDeleting?: boolean;
@@ -58,6 +63,10 @@ export function MessageBubble({
   onForward,
   onRecall,
   onDelete,
+  onPin,
+  onUnpin,
+  isPinned = false,
+  isPinning = false,
   isForwarding = false,
   isRecalling = false,
   isDeleting = false,
@@ -89,14 +98,16 @@ export function MessageBubble({
       type === MessageTypeEnum.FILE,
     [type],
   );
-  const disableReplyAction = isDeleting || isRecalling || isForwarding || !onReply;
+  const disableReplyAction = isDeleting || isRecalling || isForwarding || isPinning || !onReply;
   const disableForwardAction = isForwarding || isRecalled || !onForward;
   const disableRecallAction = isRecalled || isRecalling || !onRecall;
   const disableDeleteAction = isDeleting || isRecalling || !onDelete;
+  const disablePinAction = isPinning || isRecalling || !onPin || !onUnpin;
   const canShowReplyAction = isReplyableType && !isSystem && !isRecalled && !!onReply;
   const canShowForwardAction = !isSystem && !isRecalled && !!onForward;
   const canShowRecallAction = isOwn && !isRecalled && !!onRecall;
   const canShowDeleteAction = isOwn && !!onDelete;
+  const canShowPinAction = !isSystem && !isRecalled && !!onPin && !!onUnpin;
   const canShowOwnerActions = isOwn && !isSystem && (canShowRecallAction || canShowDeleteAction);
   const canShowActionMenu = canShowReplyAction || canShowForwardAction || canShowOwnerActions;
 
@@ -212,6 +223,15 @@ export function MessageBubble({
     onReply(message);
   };
 
+  const handlePin = async () => {
+    if (disablePinAction) return;
+    if (isPinned && onUnpin) {
+      await onUnpin(message.messageId);
+    } else if (!isPinned && onPin) {
+      await onPin(message.messageId);
+    }
+  };
+
   const handleDelete = async () => {
     if (!onDelete || disableDeleteAction) return;
     await onDelete(message.messageId);
@@ -311,9 +331,9 @@ export function MessageBubble({
                   variant="ghost"
                   size="icon"
                   className="h-7 w-7 rounded-full mt-0.5"
-                  disabled={isDeleting || isRecalling || isForwarding}
+                  disabled={isDeleting || isRecalling || isForwarding || isPinning}
                 >
-                  {isRecalling || isDeleting || isForwarding ? (
+                  {isRecalling || isDeleting || isForwarding || isPinning ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
                   ) : (
                     <MoreVertical className="h-4 w-4" />
@@ -332,6 +352,13 @@ export function MessageBubble({
                   <DropdownMenuItem onClick={handleForward} disabled={disableForwardAction} className="rounded-xl">
                     <Forward className="h-4 w-4" />
                     Chuyển tiếp
+                  </DropdownMenuItem>
+                )}
+
+                {canShowPinAction && (
+                  <DropdownMenuItem onClick={handlePin} disabled={disablePinAction} className="rounded-xl">
+                    <Pin className="h-4 w-4" />
+                    {isPinned ? 'Bỏ ghim' : 'Ghim tin nhắn'}
                   </DropdownMenuItem>
                 )}
 

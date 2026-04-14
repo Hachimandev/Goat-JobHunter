@@ -18,6 +18,10 @@ interface MessageListProps {
   isDeletingMessage?: (messageId: string) => boolean;
   onRecallMessage?: (messageId: string) => Promise<void> | void;
   isRecallingMessage?: (messageId: string) => boolean;
+  onPinMessage?: (messageId: string) => Promise<void> | void;
+  onUnpinMessage?: (messageId: string) => Promise<void> | void;
+  isPinnedMessage?: (messageId: string) => boolean;
+  isPinningMessage?: (messageId: string) => boolean;
 }
 
 export function MessageList({
@@ -32,6 +36,10 @@ export function MessageList({
   isDeletingMessage,
   onRecallMessage,
   isRecallingMessage,
+  onPinMessage,
+  onUnpinMessage,
+  isPinnedMessage,
+  isPinningMessage,
 }: Readonly<MessageListProps>) {
   const bottomRef = useRef<HTMLDivElement>(null);
   const { pendingMessages } = usePendingMessages();
@@ -60,6 +68,10 @@ export function MessageList({
                 isDeleting={isDeletingMessage?.(message.messageId) ?? false}
                 onRecall={onRecallMessage}
                 isRecalling={isRecallingMessage?.(message.messageId) ?? false}
+                onPin={onPinMessage}
+                onUnpin={onUnpinMessage}
+                isPinned={isPinnedMessage?.(message.messageId) ?? false}
+                isPinning={isPinningMessage?.(message.messageId) ?? false}
               />
             </div>
           ))}
