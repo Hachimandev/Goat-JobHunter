@@ -149,32 +149,11 @@ export default function useFriendsInboxPage(): UseFriendsInboxPageResult {
   const lastRealtimeEventAt = useAppSelector(selectLastFriendshipRealtimeEventAt);
   const lastHandledRealtimeEventAtRef = useRef<string | null>(null);
 
-  const friendshipsMeta = useMemo(
-    () =>
-      extractFriendshipPaginationMeta(friendshipsResponse, {
-        page: friendsPage + 1,
-        pageSize: FRIENDSHIP_PAGE_SIZE,
-      }),
-    [friendshipsResponse, friendsPage],
-  );
+  const friendshipsMeta = useMemo(() => extractFriendshipPaginationMeta(friendshipsResponse), [friendshipsResponse]);
 
-  const receivedMeta = useMemo(
-    () =>
-      extractFriendshipPaginationMeta(receivedResponse, {
-        page: receivedPage + 1,
-        pageSize: FRIENDSHIP_PAGE_SIZE,
-      }),
-    [receivedResponse, receivedPage],
-  );
+  const receivedMeta = useMemo(() => extractFriendshipPaginationMeta(receivedResponse), [receivedResponse]);
 
-  const sentMeta = useMemo(
-    () =>
-      extractFriendshipPaginationMeta(sentResponse, {
-        page: sentPage + 1,
-        pageSize: FRIENDSHIP_PAGE_SIZE,
-      }),
-    [sentResponse, sentPage],
-  );
+  const sentMeta = useMemo(() => extractFriendshipPaginationMeta(sentResponse), [sentResponse]);
 
   const friendPageTargetIds = useMemo(() => {
     const snapshots = normalizePairSnapshotsPayload(unwrapFriendshipResponseData(friendshipsResponse), {

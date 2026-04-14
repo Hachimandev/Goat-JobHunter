@@ -12,6 +12,7 @@ import {
   PendingFriendRequestsSnapshot,
   RelationshipState,
 } from '@/services/friendship/friendshipType';
+import { IBackendRes, IModelPaginate } from '@/types/api';
 
 type NormalizeFriendRequestOptions = {
   currentUserId?: number;
@@ -37,14 +38,16 @@ export const FRIENDSHIP_EVENT_TYPES = [
   'USER_UNBLOCKED',
 ] as const satisfies readonly FriendshipEventType[];
 
-const DEFAULT_COLLECTION_KEYS = ['result'] as const;
-
 const toRecord = (value: unknown): Record<string, unknown> => {
   if (value && typeof value === 'object') {
     return value as Record<string, unknown>;
   }
 
   return {};
+};
+
+const toArray = (value: unknown): unknown[] => {
+  return Array.isArray(value) ? value : [];
 };
 
 const toPositiveInt = (value: unknown): number | null => {
@@ -58,32 +61,7 @@ const toPositiveInt = (value: unknown): number | null => {
   return normalized > 0 ? normalized : null;
 };
 
-const toNonNegativeInt = (value: unknown): number | null => {
-  const parsed = Number(value);
-
-  if (!Number.isFinite(parsed)) {
-    return null;
-  }
-
-  const normalized = Math.floor(parsed);
-  return normalized >= 0 ? normalized : null;
-};
-
-const toArray = (value: unknown): unknown[] => {
-  return Array.isArray(value) ? value : [];
-};
-
-const parsePositiveNumber = (value: unknown): number | null => {
-  const parsed = Number(value);
-
-  if (!Number.isFinite(parsed) || parsed <= 0) {
-    return null;
-  }
-
-  return parsed;
-};
-
-const parseBoolean = (value: unknown): boolean => {
+const toBoolean = (value: unknown): boolean => {
   if (typeof value === 'boolean') {
     return value;
   }
@@ -100,19 +78,7 @@ const parseBoolean = (value: unknown): boolean => {
   return false;
 };
 
-const pickNumber = (source: Record<string, unknown>, keys: string[]): number | null => {
-  for (const key of keys) {
-    const parsed = parsePositiveNumber(source[key]);
-
-    if (parsed !== null) {
-      return parsed;
-    }
-  }
-
-  return null;
-};
-
-const normalizeText = (value: unknown): string | undefined => {
+const toTrimmedString = (value: unknown): string | undefined => {
   if (typeof value !== 'string') {
     return undefined;
   }
@@ -121,39 +87,13 @@ const normalizeText = (value: unknown): string | undefined => {
   return normalized.length > 0 ? normalized : undefined;
 };
 
-const pickString = (source: Record<string, unknown>, keys: string[]): string | undefined => {
-  for (const key of keys) {
-    const normalized = normalizeText(source[key]);
-
-    if (normalized) {
-      return normalized;
-    }
-  }
-
-  return undefined;
-};
-
-const pickCollectionFromSource = (source: Record<string, unknown>, preferredKeys?: string[]): unknown[] => {
-  const keys = [...(preferredKeys ?? []), ...DEFAULT_COLLECTION_KEYS];
-
-  for (const key of keys) {
-    const value = source[key];
-
-    if (Array.isArray(value)) {
-      return value;
-    }
-  }
-
-  return [];
-};
-
-const extractCollectionPayload = (input: unknown, preferredKeys?: string[]): unknown[] => {
+const getResultCollection = (input: unknown): unknown[] => {
   if (Array.isArray(input)) {
     return input;
   }
 
   const source = toRecord(input);
-  return pickCollectionFromSource(source, preferredKeys);
+  return toArray(source.result);
 };
 
 export const unwrapFriendshipResponseData = (input: unknown): unknown => {
@@ -166,35 +106,39 @@ export const unwrapFriendshipResponseData = (input: unknown): unknown => {
   return input;
 };
 
-export const extractFriendshipPaginationMeta = (
-  input: unknown,
-  fallback?: Partial<FriendshipPaginationMeta>,
+export const extractFriendshipPaginationMeta = <T>(
+  input: IBackendRes<IModelPaginate<T>> | undefined,
 ): FriendshipPaginationMeta => {
-  const source = toRecord(unwrapFriendshipResponseData(input));
-  const meta = toRecord(source.meta);
-
-  const fallbackPage = toPositiveInt(fallback?.page) ?? 1;
-  const rawPage = toNonNegativeInt(meta.page);
-  const page = rawPage === 0 ? 1 : (rawPage ?? fallbackPage);
+  if (input?.data?.meta) {
+    const { page, pageSize, pages, total } = input.data.meta;
+    return {
+      page,
+      pageSize,
+      pages,
+      total,
+    };
+  }
 
   return {
-    page,
-    pageSize: toPositiveInt(meta.pageSize) ?? toPositiveInt(fallback?.pageSize) ?? FRIENDSHIP_DEFAULT_SIZE,
-    pages: toNonNegativeInt(meta.pages) ?? toNonNegativeInt(fallback?.pages) ?? 0,
-    total: toNonNegativeInt(meta.total) ?? toNonNegativeInt(fallback?.total) ?? 0,
+    page: FRIENDSHIP_DEFAULT_SIZE,
+    pageSize: FRIENDSHIP_DEFAULT_SIZE,
+    pages: 0,
+    total: 0,
   };
 };
 
 const normalizeUserSnippet = (input: unknown): FriendUserSummary | undefined => {
+  console.log('Normalized user snippet:', input);
+
   const source = toRecord(input);
-  const accountId = pickNumber(source, ['accountId']);
+  const accountId = toPositiveInt(source.accountId);
 
   if (accountId === null) {
     return undefined;
   }
 
-  const fullName = pickString(source, ['fullName']);
-  const username = pickString(source, ['username']);
+  const fullName = toTrimmedString(source.fullName);
+  const username = toTrimmedString(source.username);
   const displayName = fullName ?? username;
 
   return {
@@ -202,11 +146,11 @@ const normalizeUserSnippet = (input: unknown): FriendUserSummary | undefined => 
     displayName,
     fullName,
     username,
-    avatar: pickString(source, ['avatar']),
-    headline: pickString(source, ['headline']),
-    bio: pickString(source, ['bio']),
-    coverPhoto: pickString(source, ['coverPhoto']),
-    visibility: pickString(source, ['visibility']),
+    avatar: toTrimmedString(source.avatar),
+    headline: toTrimmedString(source.headline),
+    bio: toTrimmedString(source.bio),
+    coverPhoto: toTrimmedString(source.coverPhoto),
+    visibility: toTrimmedString(source.visibility),
   };
 };
 
@@ -236,7 +180,7 @@ export const getFriendUserDisplayName = (
   user?: Pick<FriendUserSnippetResponse, 'fullName' | 'username'> | null,
   fallback = 'Người dùng',
 ): string => {
-  return normalizeText(user?.fullName) ?? normalizeText(user?.username) ?? fallback;
+  return toTrimmedString(user?.fullName) ?? toTrimmedString(user?.username) ?? fallback;
 };
 
 export const isFriendshipEventType = (value: unknown): value is FriendshipEventType => {
@@ -295,7 +239,7 @@ export const normalizeFriendRequest = (
 ): FriendRequest | null => {
   const source = toRecord(input);
 
-  const requestId = pickNumber(source, ['requestId']);
+  const requestId = toPositiveInt(source.requestId);
   if (requestId === null) {
     return null;
   }
@@ -303,27 +247,18 @@ export const normalizeFriendRequest = (
   const direction = normalizeFriendRequestDirection(source.direction ?? options?.directionHint);
   const currentUserId = toOptionalNumber(options?.currentUserId);
   const counterpart = normalizeUserSnippet(source.counterpart);
+  const sender = normalizeUserSnippet(source.sender);
+  const receiver = normalizeUserSnippet(source.receiver);
 
-  let senderId = pickNumber(source, ['senderId']);
-  let receiverId = pickNumber(source, ['receiverId']);
+  let senderId = toPositiveInt(source.senderId) ?? sender?.accountId ?? null;
+  let receiverId = toPositiveInt(source.receiverId) ?? receiver?.accountId ?? null;
 
   if (senderId === null || receiverId === null) {
     if (currentUserId !== null && counterpart?.accountId && direction) {
       const inferred = inferSenderAndReceiver(currentUserId, direction, counterpart.accountId);
-      senderId = inferred.senderId;
-      receiverId = inferred.receiverId;
+      senderId = senderId ?? inferred.senderId;
+      receiverId = receiverId ?? inferred.receiverId;
     }
-  }
-
-  const sender = normalizeUserSnippet(source.sender);
-  const receiver = normalizeUserSnippet(source.receiver);
-
-  if (senderId === null) {
-    senderId = sender?.accountId ?? null;
-  }
-
-  if (receiverId === null) {
-    receiverId = receiver?.accountId ?? null;
   }
 
   if (senderId === null || receiverId === null) {
@@ -336,8 +271,8 @@ export const normalizeFriendRequest = (
     receiverId,
     status: normalizeFriendRequestStatus(source.status),
     relationshipState: normalizeRelationshipStatus(source.relationshipState) ?? RelationshipState.NONE,
-    requestedAt: pickString(source, ['requestedAt']) ?? undefined,
-    respondedAt: pickString(source, ['respondedAt']) ?? null,
+    requestedAt: toTrimmedString(source.requestedAt) ?? undefined,
+    respondedAt: toTrimmedString(source.respondedAt) ?? null,
     direction: direction ?? undefined,
     counterpart,
     sender,
@@ -346,13 +281,14 @@ export const normalizeFriendRequest = (
 };
 
 export const normalizeFriendUserSnippetsPayload = (input: unknown): FriendUserSummary[] => {
-  const collection = extractCollectionPayload(input, ['result']);
+  const payload = unwrapFriendshipResponseData(input);
+  const collection = getResultCollection(payload);
 
   if (collection.length > 0) {
     return collection.map((item) => normalizeUserSnippet(item)).filter((item): item is FriendUserSummary => !!item);
   }
 
-  const single = normalizeUserSnippet(input);
+  const single = normalizeUserSnippet(payload);
   return single ? [single] : [];
 };
 
@@ -366,13 +302,14 @@ export const normalizeFriendRequestsPayload = (
   input: unknown,
   options?: NormalizeFriendRequestOptions,
 ): FriendRequest[] => {
-  const collection = extractCollectionPayload(input, ['result']);
+  const payload = unwrapFriendshipResponseData(input);
+  const collection = getResultCollection(payload);
 
   if (collection.length > 0) {
     return normalizeRequestCollection(collection, options);
   }
 
-  const single = normalizeFriendRequest(input, options);
+  const single = normalizeFriendRequest(payload, options);
   return single ? [single] : [];
 };
 
@@ -380,14 +317,14 @@ export const normalizePendingRequestsPayload = (
   input: unknown,
   currentUserId?: number,
 ): PendingFriendRequestsSnapshot => {
-  const source = toRecord(input);
+  const source = toRecord(unwrapFriendshipResponseData(input));
 
-  const incoming = normalizeRequestCollection(source.incoming ?? source.received, {
+  const incoming = normalizeRequestCollection(source.incoming, {
     currentUserId,
     directionHint: FriendRequestDirection.RECEIVED,
   });
 
-  const outgoing = normalizeRequestCollection(source.outgoing ?? source.sent, {
+  const outgoing = normalizeRequestCollection(source.outgoing, {
     currentUserId,
     directionHint: FriendRequestDirection.SENT,
   });
@@ -403,7 +340,7 @@ export const normalizePendingRequestsPayload = (
     (request) => request.status === FriendRequestStatus.PENDING,
   );
 
-  if (currentUserId && Number.isFinite(currentUserId)) {
+  if (typeof currentUserId === 'number' && Number.isFinite(currentUserId) && currentUserId > 0) {
     return {
       incoming: requests.filter((request) => request.receiverId === currentUserId),
       outgoing: requests.filter((request) => request.senderId === currentUserId),
@@ -422,12 +359,10 @@ export const normalizePairSnapshot = (
   options?: NormalizePairSnapshotOptions,
 ): PairFriendshipSnapshot | null => {
   const source = toRecord(input);
-  const friend = normalizeUserSnippet(source.friend);
+  const friend = normalizeUserSnippet(source.friend) ?? normalizeUserSnippet(source.targetUser);
 
   const targetAccountId =
-    friend?.accountId ??
-    pickNumber(source, ['targetAccountId']) ??
-    (Number.isFinite(fallbackTargetAccountId) ? (fallbackTargetAccountId as number) : null);
+    friend?.accountId ?? toPositiveInt(source.targetAccountId) ?? toPositiveInt(fallbackTargetAccountId);
 
   if (targetAccountId === null) {
     return null;
@@ -449,19 +384,19 @@ export const normalizePairSnapshot = (
     normalizeRelationshipStatus(source.relationshipState) ??
     (friend ? RelationshipState.FRIEND : RelationshipState.NONE);
 
-  const blockedByMe = parseBoolean(source.blockedByMe);
-  const blockedByOther = parseBoolean(source.blockedByOther);
+  const blockedByMe = toBoolean(source.blockedByMe);
+  const blockedByOther = toBoolean(source.blockedByOther);
 
   return {
     targetAccountId,
     targetUser: friend,
     relationshipState: blockedByMe || blockedByOther ? RelationshipState.BLOCKED : relationshipState,
-    friendsSince: pickString(source, ['friendsSince']) ?? null,
+    friendsSince: toTrimmedString(source.friendsSince) ?? null,
     blockedByMe,
     blockedByOther,
     pendingIncomingRequest: pendingIncomingRequest ?? null,
     pendingOutgoingRequest: pendingOutgoingRequest ?? null,
-    emittedAt: pickString(source, ['emittedAt', 'updatedAt']),
+    emittedAt: toTrimmedString(source.emittedAt) ?? toTrimmedString(source.updatedAt),
   };
 };
 
@@ -469,7 +404,8 @@ export const normalizePairSnapshotsPayload = (
   input: unknown,
   options?: NormalizePairSnapshotOptions,
 ): PairFriendshipSnapshot[] => {
-  const collection = extractCollectionPayload(input, ['result']);
+  const payload = unwrapFriendshipResponseData(input);
+  const collection = getResultCollection(payload);
 
   if (collection.length > 0) {
     return collection
@@ -477,7 +413,7 @@ export const normalizePairSnapshotsPayload = (
       .filter((item): item is PairFriendshipSnapshot => item !== null);
   }
 
-  const single = normalizePairSnapshot(input, undefined, options);
+  const single = normalizePairSnapshot(payload, undefined, options);
   return single ? [single] : [];
 };
 
@@ -514,81 +450,85 @@ export const normalizeFriendRequestFromEventData = (
   data: Record<string, unknown>,
   status: FriendRequestStatus,
 ): FriendRequest | null => {
+  const requestId = toPositiveInt(data.requestId);
+
+  if (requestId === null) {
+    return null;
+  }
+
   const relationshipStateForStatus =
     status === FriendRequestStatus.ACCEPTED
       ? RelationshipState.FRIEND
       : (normalizeRelationshipStatus(data.relationshipState) ?? RelationshipState.NONE);
 
-  const explicitSenderId = pickNumber(data, ['senderId']);
-  const explicitReceiverId = pickNumber(data, ['receiverId']);
-  const hasExplicitDirection = explicitSenderId !== null && explicitReceiverId !== null;
-
-  const normalized = normalizeFriendRequest(data);
-
-  if (normalized) {
-    const shouldSwapActorAndTarget =
-      !hasExplicitDirection && (status === FriendRequestStatus.ACCEPTED || status === FriendRequestStatus.REJECTED);
-
-    return {
-      ...normalized,
-      senderId: shouldSwapActorAndTarget ? normalized.receiverId : normalized.senderId,
-      receiverId: shouldSwapActorAndTarget ? normalized.senderId : normalized.receiverId,
-      sender: shouldSwapActorAndTarget ? normalized.receiver : normalized.sender,
-      receiver: shouldSwapActorAndTarget ? normalized.sender : normalized.receiver,
-      status,
-      relationshipState: relationshipStateForStatus,
-      respondedAt:
-        status === FriendRequestStatus.PENDING
-          ? normalized.respondedAt
-          : (normalized.respondedAt ?? pickString(data, ['emittedAt']) ?? new Date().toISOString()),
-    };
-  }
-
-  const requestId = pickNumber(data, ['requestId']);
   const actorUser = normalizeUserSnippet(data.actorUser);
   const targetUser = normalizeUserSnippet(data.targetUser);
 
-  if (!requestId || !actorUser || !targetUser) {
-    return null;
+  let senderId = toPositiveInt(data.senderId);
+  let receiverId = toPositiveInt(data.receiverId);
+
+  if ((senderId === null || receiverId === null) && actorUser && targetUser) {
+    const actorIsSender = status === FriendRequestStatus.PENDING || status === FriendRequestStatus.CANCELED;
+    const inferredSenderId = actorIsSender ? actorUser.accountId : targetUser.accountId;
+    const inferredReceiverId = actorIsSender ? targetUser.accountId : actorUser.accountId;
+
+    senderId = senderId ?? inferredSenderId;
+    receiverId = receiverId ?? inferredReceiverId;
   }
 
-  let senderId = pickNumber(data, ['senderId']);
-  let receiverId = pickNumber(data, ['receiverId']);
+  if (senderId === null || receiverId === null) {
+    const fallback = normalizeFriendRequest(data);
 
-  if (!senderId || !receiverId) {
-    if (status === FriendRequestStatus.PENDING || status === FriendRequestStatus.CANCELED) {
-      senderId = actorUser.accountId;
-      receiverId = targetUser.accountId;
-    } else {
-      senderId = targetUser.accountId;
-      receiverId = actorUser.accountId;
+    if (!fallback) {
+      return null;
+    }
+
+    const fallbackSenderId = toPositiveInt(fallback.senderId);
+    const fallbackReceiverId = toPositiveInt(fallback.receiverId);
+
+    if (senderId === null && fallbackSenderId !== null) {
+      senderId = fallbackSenderId;
+    }
+
+    if (receiverId === null && fallbackReceiverId !== null) {
+      receiverId = fallbackReceiverId;
     }
   }
 
+  const finalSenderId = toPositiveInt(senderId);
+  const finalReceiverId = toPositiveInt(receiverId);
+
+  if (finalSenderId === null || finalReceiverId === null) {
+    return null;
+  }
+
+  const sender =
+    actorUser?.accountId === finalSenderId
+      ? actorUser
+      : targetUser?.accountId === finalSenderId
+        ? targetUser
+        : undefined;
+  const receiver =
+    actorUser?.accountId === finalReceiverId
+      ? actorUser
+      : targetUser?.accountId === finalReceiverId
+        ? targetUser
+        : undefined;
+
   return {
     requestId,
-    senderId,
-    receiverId,
+    senderId: finalSenderId,
+    receiverId: finalReceiverId,
     status,
     relationshipState: relationshipStateForStatus,
-    requestedAt: pickString(data, ['requestedAt', 'emittedAt']) ?? undefined,
+    requestedAt: toTrimmedString(data.requestedAt) ?? toTrimmedString(data.emittedAt) ?? undefined,
     respondedAt:
-      status === FriendRequestStatus.PENDING ? null : (pickString(data, ['respondedAt', 'emittedAt']) ?? null),
-    sender: {
-      ...actorUser,
-      accountId: senderId,
-    },
-    receiver: {
-      ...targetUser,
-      accountId: receiverId,
-    },
+      status === FriendRequestStatus.PENDING
+        ? null
+        : (toTrimmedString(data.respondedAt) ?? toTrimmedString(data.emittedAt) ?? new Date().toISOString()),
+    sender,
+    receiver,
   };
-};
-
-const parseUserIdFromObject = (value: unknown): number | null => {
-  const source = toRecord(value);
-
-  return pickNumber(source, ['accountId']);
 };
 
 export const normalizeFriendshipBlockEventParticipants = (
@@ -597,9 +537,9 @@ export const normalizeFriendshipBlockEventParticipants = (
   blockerId: number;
   blockedId: number;
 } | null => {
-  const blockerId = pickNumber(data, ['senderId']) ?? parseUserIdFromObject(data.actorUser);
+  const blockerId = toPositiveInt(data.senderId) ?? normalizeUserSnippet(data.actorUser)?.accountId ?? null;
 
-  const blockedId = pickNumber(data, ['receiverId']) ?? parseUserIdFromObject(data.targetUser);
+  const blockedId = toPositiveInt(data.receiverId) ?? normalizeUserSnippet(data.targetUser)?.accountId ?? null;
 
   if (blockerId === null || blockedId === null) {
     return null;
@@ -613,16 +553,16 @@ export const normalizeFriendshipBlockEventParticipants = (
 
 export const parseFriendshipEventEnvelope = (payload: unknown): ParsedFriendshipEnvelope | null => {
   const source = toRecord(payload);
-  const eventType = isFriendshipEventType(source.type) ? source.type : null;
+  const eventType = source.type;
 
-  if (!eventType) {
+  if (!isFriendshipEventType(eventType)) {
     return null;
   }
 
   const eventData = { ...source };
   eventData.type = eventType;
 
-  const emittedAt = pickString(source, ['emittedAt']);
+  const emittedAt = toTrimmedString(source.emittedAt);
 
   return {
     eventType,

@@ -3,7 +3,7 @@ import { useUser } from '@/hooks/useUser';
 import { selectLastFriendshipRealtimeEventAt } from '@/lib/features/friendshipSlice';
 import { useAppSelector } from '@/lib/hooks';
 import { useGetMyBlockedUsersQuery } from '@/services/friendship/friendshipApi';
-import { FRIENDSHIP_DEFAULT_PAGE } from '@/services/friendship/friendshipType';
+import { FRIENDSHIP_DEFAULT_PAGE, FRIENDSHIP_DEFAULT_SIZE } from '@/services/friendship/friendshipType';
 import {
   extractFriendshipPaginationMeta,
   getFriendUserDisplayName,
@@ -12,8 +12,7 @@ import {
 } from '@/utils/friendshipUtils';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-const BLOCKED_USERS_PAGE_SIZE = 10;
-const BLOCKED_USERS_SORT = ['blockedSince,desc'] as const;
+const BLOCKED_USERS_PAGE_SIZE = FRIENDSHIP_DEFAULT_SIZE;
 
 export type BlockedUsersPagination = {
   page: number;
@@ -66,7 +65,7 @@ export default function useBlockedUsersPage(): UseBlockedUsersPageResult {
     () => ({
       page: blockedPage,
       size: BLOCKED_USERS_PAGE_SIZE,
-      sort: BLOCKED_USERS_SORT,
+      sort: ['blockedAt,desc'],
     }),
     [blockedPage],
   );
@@ -81,14 +80,7 @@ export default function useBlockedUsersPage(): UseBlockedUsersPageResult {
     skip: skipReadQuery,
   });
 
-  const blockedMeta = useMemo(
-    () =>
-      extractFriendshipPaginationMeta(blockedResponse, {
-        page: blockedPage + 1,
-        pageSize: BLOCKED_USERS_PAGE_SIZE,
-      }),
-    [blockedPage, blockedResponse],
-  );
+  const blockedMeta = useMemo(() => extractFriendshipPaginationMeta(blockedResponse), [blockedResponse]);
 
   const blockedUsers = useMemo(() => {
     return normalizeFriendUserSnippetsPayload(unwrapFriendshipResponseData(blockedResponse));

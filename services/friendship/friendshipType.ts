@@ -142,27 +142,15 @@ export type FriendBlockActionResponseBody = {
   requestedAt: string;
 };
 
-type FriendshipReadPayload =
-  | IModelPaginate<MyFriendResponse>
-  | MyFriendResponse[]
-  | MyFriendResponse
-  | Record<string, unknown>
-  | unknown[];
+type FriendshipPageResponse<T> = IBackendRes<IModelPaginate<T>>;
 
-type FriendRequestReadPayload =
-  | IModelPaginate<FriendRequestListItemResponse>
-  | FriendRequestListItemResponse[]
-  | FriendRequestListItemResponse
-  | Record<string, unknown>
-  | unknown[];
+export type GetMyFriendshipsResponse = FriendshipPageResponse<MyFriendResponse>;
 
-export type GetMyFriendshipsResponse = IBackendRes<FriendshipReadPayload>;
+export type GetMyReceivedFriendRequestsResponse = FriendshipPageResponse<FriendRequestListItemResponse>;
 
-export type GetMyReceivedFriendRequestsResponse = IBackendRes<FriendRequestReadPayload>;
+export type GetMySentFriendRequestsResponse = FriendshipPageResponse<FriendRequestListItemResponse>;
 
-export type GetMySentFriendRequestsResponse = IBackendRes<FriendRequestReadPayload>;
-
-export type GetMyBlockedUsersResponse = IBackendRes<IModelPaginate<FriendUserSnippetResponse>>;
+export type GetMyBlockedUsersResponse = FriendshipPageResponse<FriendUserSnippetResponse>;
 
 export type FriendRequestActionResponse = IBackendRes<FriendRequestResponse>;
 
