@@ -107,11 +107,11 @@ export function MessageInput({
     const plainText = isEditorMode ? richMessage.replace(/<[^>]*>/g, '').trim() : message.trim();
 
     if (plainText || selectedFiles.length > 0) {
-      await onSendMessage(isEditorMode ? richMessage : message.trim(), selectedFiles, replyTarget?.messageId ?? null);
       setMessage('');
       setRichMessage('');
       setSelectedFiles([]);
       onCancelReply?.();
+      await onSendMessage(isEditorMode ? richMessage : message.trim(), selectedFiles, replyTarget?.messageId ?? null);
     }
   };
 
