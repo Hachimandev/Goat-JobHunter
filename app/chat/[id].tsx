@@ -4,9 +4,12 @@ import { useUser } from "@/hooks/useUser";
 import {
     useDeleteMessagePermanentMutation,
     useFetchMessagesInChatRoomQuery,
+    useFetchChatRoomsByIdQuery,
     useRevokeMessageMutation,
 } from "@/services/chatRoom/chatRoomApi";
+import { useBlockUserMutation, useUnblockUserMutation } from "@/services/friendship/friendshipApi";
 import { MessageType } from "@/types/model";
+import { ChatRoomType } from "@/types/enum";
 import { Ionicons } from "@expo/vector-icons";
 import BottomSheet, { BottomSheetView } from "@gorhom/bottom-sheet";
 import * as ImagePicker from "expo-image-picker";
@@ -14,6 +17,7 @@ import { router, useLocalSearchParams } from "expo-router";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
     ActivityIndicator,
+    Alert,
     FlatList,
     Image,
     KeyboardAvoidingView,
@@ -41,9 +45,21 @@ export default function ChatDetail() {
   const { handleSendMessage, pickImage, isSending } = useChatActionsMobile();
   const [revokeMessage] = useRevokeMessageMutation();
   const [deleteMessagePermanent] = useDeleteMessagePermanentMutation();
+  const [blockUser] = useBlockUserMutation();
+  const [unblockUser] = useUnblockUserMutation();
 
   // Notification manager
   const { setActiveChatRoom } = useNotificationManager();
+
+  // Fetch chat room details to get blocked status
+  const { data: chatRoomData } = useFetchChatRoomsByIdQuery(chatRoomId, {
+    skip: !chatRoomId,
+    pollingInterval: 5000,
+  });
+  const chatRoom = chatRoomData?.data;
+  const isDirectBlocked =
+    chatRoom?.type === ChatRoomType.DIRECT && Boolean(chatRoom?.blocked);
+  const isBlockedByMe = isDirectBlocked && Boolean(chatRoom?.blockedByMe);
 
   // Set active chat room khi component mount/unmount
   useEffect(() => {
@@ -142,6 +158,46 @@ export default function ChatDetail() {
   const handleLongPress = (message: OptimisticMessage) => {
     setSelectedMessage(message);
     bottomSheetRef.current?.expand();
+  };
+
+  const handleBlockUser = async () => {
+    try {
+      const counterpartId = chatRoom?.counterpartAccountId;
+      if (!counterpartId) return;
+      
+      await blockUser({
+        targetUserId: counterpartId,
+      }).unwrap();
+      
+      Alert.alert("Thành công", "Đã chặn người dùng này");
+    } catch (error: any) {
+      Alert.alert("Lỗi", error?.data?.message || "Không thể chặn người dùng");
+    }
+  };
+
+  const handleUnblockUser = async () => {
+    try {
+      const counterpartId = chatRoom?.counterpartAccountId;
+      if (!counterpartId) return;
+      
+      Alert.alert("Xác nhận", "Bỏ chặn người dùng này?", [
+        {
+          text: "Hủy",
+          style: "cancel",
+        },
+        {
+          text: "Bỏ chặn",
+          onPress: async () => {
+            await unblockUser({
+              targetUserId: counterpartId,
+            }).unwrap();
+            Alert.alert("Thành công", "Đã bỏ chặn người dùng");
+          },
+        },
+      ]);
+    } catch (error: any) {
+      Alert.alert("Lỗi", error?.data?.message || "Không thể bỏ chặn người dùng");
+    }
   };
 
   if (isLoading && !messagesData)
@@ -266,11 +322,37 @@ export default function ChatDetail() {
           </View>
         )}
 
+        {/* BLOCKED MESSAGE */}
+        {isDirectBlocked && (
+          <View style={styles.blockedBanner}>
+            <Ionicons name="lock-closed" size={20} color="#fff" />
+            <View style={styles.blockedTextContainer}>
+              <Text style={styles.blockedTitle}>
+                {isBlockedByMe ? "Bạn đã chặn người này" : "Bạn không thể nhắn tin với người này"}
+              </Text>
+              <Text style={styles.blockedDescription}>
+                {isBlockedByMe
+                  ? "Bạn đã chặn người dùng này. Bỏ chặn để tiếp tục nhắn tin."
+                  : "Người này đã chặn bạn hoặc tài khoản của họ đã bị xóa."}
+              </Text>
+            </View>
+            {isBlockedByMe && (
+              <TouchableOpacity
+                style={styles.unblockBtn}
+                onPress={handleUnblockUser}
+              >
+                <Text style={styles.unblockBtnText}>Bỏ chặn</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        )}
+
         {/* INPUT BAR */}
-        <View style={styles.inputContainer}>
+        <View style={[styles.inputContainer, isDirectBlocked && { opacity: 0.5 }]}>
           <TouchableOpacity
             onPress={() => setIsEmojiOpen(true)}
             style={styles.iconBtn}
+            disabled={isDirectBlocked}
           >
             <Ionicons name="happy-outline" size={26} color="#0084FF" />
           </TouchableOpacity>
@@ -280,6 +362,7 @@ export default function ChatDetail() {
               if (imgs) setSelectedImages((prev) => [...prev, ...imgs]);
             }}
             style={styles.iconBtn}
+            disabled={isDirectBlocked}
           >
             <Ionicons name="image" size={26} color="#0084FF" />
           </TouchableOpacity>
@@ -287,18 +370,19 @@ export default function ChatDetail() {
           <TextInput
             value={text}
             onChangeText={setText}
-            placeholder="Tin nhắn"
+            placeholder={isDirectBlocked ? "Không thể nhắn tin" : "Tin nhắn"}
             style={styles.input}
             multiline
+            editable={!isDirectBlocked}
           />
 
           <TouchableOpacity
             onPress={onSend}
             style={[
               styles.sendBtn,
-              !text.trim() && selectedImages.length === 0 && { opacity: 0.5 },
+              (!text.trim() && selectedImages.length === 0 || isDirectBlocked) && { opacity: 0.5 },
             ]}
-            disabled={!text.trim() && selectedImages.length === 0}
+            disabled={!text.trim() && selectedImages.length === 0 || isDirectBlocked}
           >
             {isSending ? (
               <ActivityIndicator size="small" color="#fff" />
@@ -461,5 +545,39 @@ const styles = StyleSheet.create({
     color: "#999999",
     fontStyle: "italic",
     fontSize: 14,
+  },
+  blockedBanner: {
+    backgroundColor: "#dc2626",
+    padding: 12,
+    margin: 8,
+    borderRadius: 8,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  blockedTextContainer: {
+    flex: 1,
+  },
+  blockedTitle: {
+    color: "#fff",
+    fontWeight: "bold",
+    fontSize: 14,
+    marginBottom: 4,
+  },
+  blockedDescription: {
+    color: "#fecaca",
+    fontSize: 12,
+    lineHeight: 16,
+  },
+  unblockBtn: {
+    backgroundColor: "#fff",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 6,
+  },
+  unblockBtnText: {
+    color: "#dc2626",
+    fontWeight: "bold",
+    fontSize: 12,
   },
 });

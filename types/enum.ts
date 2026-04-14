@@ -70,3 +70,14 @@ export enum ApplicationStatus {
   ACCEPTED = "ACCEPTED",
   REJECTED = "REJECTED",
 }
+
+export enum ChatRoomType {
+  DIRECT = "DIRECT",
+  GROUP = "GROUP",
+}
+
+export enum MessageTypeEnum {
+  TEXT = "TEXT",
+  IMAGE = "IMAGE",
+  FILE = "FILE",
+}
