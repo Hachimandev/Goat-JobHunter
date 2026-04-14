@@ -20,9 +20,7 @@ import {
   UpdateMyVisibilityRequest,
   UpdatePasswordRequest,
   UpdatePasswordResponse,
-  UserIdsRequest,
   UserMutationResponse,
-  UserStatusResponse,
 } from './userType';
 import { FetchJobsRequest, FetchJobsResponse } from '../job/jobType';
 import { FetchResumesRequest, FetchResumesResponse } from '../resume/resumeType';
