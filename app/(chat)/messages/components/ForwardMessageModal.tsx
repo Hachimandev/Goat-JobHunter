@@ -15,6 +15,7 @@ import { Loader2, Search, X, ImageIcon, Video, Music, FileText } from 'lucide-re
 import { useMemo, useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { getMessagePreviewText } from '@/utils/messageUtils';
+import { useUser } from '@/hooks/useUser';
 
 interface ForwardMessageModalProps {
   open: boolean;
@@ -33,7 +34,8 @@ export function ForwardMessageModal({
   isSubmitting = false,
   onConfirm,
 }: Readonly<ForwardMessageModalProps>) {
-  const { chatRooms, isLoading, isError } = useChatRooms();
+  const { isSignedIn } = useUser();
+  const { chatRooms, isLoading, isError } = useChatRooms({ isSignedIn });
   const [keyword, setKeyword] = useState('');
   const [selectedRoomIds, setSelectedRoomIds] = useState<number[]>([]);
 

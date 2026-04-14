@@ -72,6 +72,10 @@ export const getReplyContextPreviewText = (replyContext: MessageReplyContext): s
     return RECALLED_MESSAGE_PREVIEW;
   }
 
+  if (replyContext.originalMessageType !== MessageTypeEnum.TEXT) {
+    return getMessageTypePreviewText(replyContext.originalMessageType);
+  }
+
   const previewText = (replyContext.originalContentPreview || '').trim();
 
   if (previewText) {

@@ -121,23 +121,25 @@ export function MessageInput({
 
       {selectedFiles.length > 0 && (
         <div className="px-4 pt-3 pb-2 border-b border-border">
-          <div className="flex flex-wrap gap-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
             {selectedFiles.map((file, index) => (
               <div
                 key={`${file.name}-${index}`}
-                className="flex items-center gap-2 px-3 py-2 bg-accent rounded-lg text-sm"
+                className="flex items-center justify-between px-3 py-2 bg-accent rounded-lg text-sm"
               >
-                <Paperclip className="h-4 w-4 text-muted-foreground" />
-                <div className="flex flex-col min-w-0">
-                  <span className="truncate max-w-[150px]" title={file.name}>
-                    {file.name}
-                  </span>
-                  <span className="text-xs text-muted-foreground">{formatFileSize(file.size)}</span>
+                <div className="flex items-center gap-2 min-w-0">
+                  <Paperclip className="h-4 w-4 text-muted-foreground" />
+                  <div className="flex flex-col min-w-0">
+                    <span className="truncate max-w-[150px]" title={file.name}>
+                      {file.name}
+                    </span>
+                    <span className="text-xs text-muted-foreground">{formatFileSize(file.size)}</span>
+                  </div>
                 </div>
                 <Button
-                  variant="ghost"
+                  variant="destructive"
                   size="icon"
-                  className="h-5 w-5 shrink-0"
+                  className="h-5 w-5 shrink-0 rounded-full"
                   onClick={() => handleRemoveFile(index)}
                   disabled={disabled}
                 >
