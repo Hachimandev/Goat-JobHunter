@@ -1,10 +1,28 @@
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Paperclip, Send, X, Pilcrow } from 'lucide-react';
-import { useState, useRef, type KeyboardEvent, type ChangeEvent } from 'react';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Paperclip, Send, X, Pilcrow, Smile } from 'lucide-react';
+import { useState, useRef, useCallback, type KeyboardEvent, type ChangeEvent } from 'react';
 import RichTextEditor from '@/components/RichText/Editor';
 import { MessageType } from '@/types/model';
 import { getMessagePreviewText, getMessageSenderDisplayName } from '@/utils/messageUtils';
+import EmojiPicker, { EmojiClickData } from 'emoji-picker-react';
+
+type RichTextSelection = {
+  index: number;
+  length: number;
+} | null;
+
+type RichTextEditorInstance = {
+  getSelection: () => RichTextSelection;
+  getLength: () => number;
+  insertText: (index: number, text: string, source?: 'api' | 'user' | 'silent') => void;
+  setSelection: (index: number, length?: number, source?: 'api' | 'user' | 'silent') => void;
+  focus: () => void;
+  root: {
+    innerHTML: string;
+  };
+};
 
 interface MessageInputProps {
   readonly onSendMessage: (text?: string, files?: File[], replyToMessageId?: string | null) => void | Promise<void>;
@@ -22,8 +40,64 @@ export function MessageInput({
   const [message, setMessage] = useState('');
   const [richMessage, setRichMessage] = useState('');
   const [isEditorMode, setIsEditorMode] = useState(false);
+  const [isEmojiPickerOpen, setIsEmojiPickerOpen] = useState(false);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const textInputRef = useRef<HTMLInputElement>(null);
+  const getRichTextEditorRef = useRef<(() => RichTextEditorInstance | null) | null>(null);
+
+  const handleEditorReady = useCallback((getEditor: () => RichTextEditorInstance | null) => {
+    getRichTextEditorRef.current = getEditor;
+  }, []);
+
+  const insertEmojiToSimpleInput = useCallback((emoji: string) => {
+    const inputElement = textInputRef.current;
+
+    if (!inputElement) {
+      setMessage((prev) => `${prev}${emoji}`);
+      return;
+    }
+
+    const selectionStart = inputElement.selectionStart ?? inputElement.value.length;
+    const selectionEnd = inputElement.selectionEnd ?? selectionStart;
+
+    setMessage((prev) => {
+      const safeStart = Math.min(selectionStart, prev.length);
+      const safeEnd = Math.min(selectionEnd, prev.length);
+      return `${prev.slice(0, safeStart)}${emoji}${prev.slice(safeEnd)}`;
+    });
+  }, []);
+
+  const insertEmojiToRichEditor = useCallback((emoji: string) => {
+    const editor = getRichTextEditorRef.current?.();
+
+    if (!editor) {
+      setRichMessage((prev) => `${prev}${emoji}`);
+      return;
+    }
+
+    const currentSelection = editor.getSelection();
+    const insertIndex = currentSelection?.index ?? Math.max(editor.getLength() - 1, 0);
+
+    editor.insertText(insertIndex, emoji, 'user');
+    editor.setSelection(insertIndex + emoji.length, 0, 'user');
+    setRichMessage(editor.root.innerHTML);
+  }, []);
+
+  const handleEmojiClick = useCallback(
+    (emojiData: EmojiClickData) => {
+      const emoji = emojiData.emoji;
+
+      if (isEditorMode) {
+        insertEmojiToRichEditor(emoji);
+      } else {
+        insertEmojiToSimpleInput(emoji);
+      }
+
+      setIsEmojiPickerOpen(true);
+    },
+    [insertEmojiToRichEditor, insertEmojiToSimpleInput, isEditorMode],
+  );
 
   const handleSend = async () => {
     if (disabled) {
@@ -163,6 +237,29 @@ export function MessageInput({
             >
               <Paperclip className="h-5 w-5" />
             </Button>
+            <Popover open={isEmojiPickerOpen} onOpenChange={setIsEmojiPickerOpen}>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className={`h-8 w-8 rounded-full ${isEmojiPickerOpen ? 'bg-accent' : ''}`}
+                  title="Thêm emoji"
+                  disabled={disabled}
+                >
+                  <Smile className="h-5 w-5" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent side="top" align="start" className="w-auto border-none p-0 shadow-lg">
+                <EmojiPicker
+                  onEmojiClick={handleEmojiClick}
+                  autoFocusSearch={false}
+                  previewConfig={{ showPreview: false }}
+                  searchDisabled={false}
+                  lazyLoadEmojis={true}
+                  skinTonesDisabled
+                />
+              </PopoverContent>
+            </Popover>
             <Button
               variant="ghost"
               size="icon"
@@ -195,6 +292,7 @@ export function MessageInput({
           <div className="flex items-center gap-2">
             <div className="relative flex-1">
               <Input
+                ref={textInputRef}
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
                 onKeyDown={handleKeyPress}
@@ -209,6 +307,7 @@ export function MessageInput({
             <RichTextEditor
               value={richMessage}
               onChange={setRichMessage}
+              onEditorReady={handleEditorReady}
               placeholder="Nhập tin nhắn..."
               maxHeight={200}
               allowImage={false}
