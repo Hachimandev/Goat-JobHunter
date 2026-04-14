@@ -14,8 +14,6 @@ import {
   CreateFriendRequestPayload,
   FriendBlockActionPayload,
   FriendBlockActionResponse,
-  FRIENDSHIP_DEFAULT_PAGE,
-  FRIENDSHIP_DEFAULT_SIZE,
   FriendRequest,
   FriendRequestActionPayload,
   FriendRequestActionResponse,
@@ -40,7 +38,7 @@ const FRIEND_REQUEST_RECEIVED_TAG_ID = 'RECEIVED';
 const FRIEND_REQUEST_SENT_TAG_ID = 'SENT';
 const FRIENDSHIP_LIST_TAG_ID = 'LIST';
 const FRIENDSHIP_BLOCKED_LIST_TAG_ID = 'BLOCKED_LIST';
-const BLOCKED_USERS_DEFAULT_SORT = ['blockedSince,desc'] as const;
+const BLOCKED_USERS_DEFAULT_SORT = ['blockedSince,desc'];
 
 const toRecord = (value: unknown): Record<string, unknown> => {
   if (value && typeof value === 'object') {
@@ -104,17 +102,6 @@ const resolveBlockActionParticipants = (
   };
 };
 
-const buildPageableParams = (params?: FriendshipReadQueryParams | void): Record<string, unknown> => {
-  const page = Number.isFinite(Number(params?.page)) ? Number(params?.page) : FRIENDSHIP_DEFAULT_PAGE;
-  const size = Number.isFinite(Number(params?.size)) ? Number(params?.size) : FRIENDSHIP_DEFAULT_SIZE;
-
-  return {
-    page: Math.max(page, 0),
-    size: Math.max(size, 1),
-    ...(params?.sort ? { sort: params.sort } : {}),
-  };
-};
-
 const getCurrentUserId = (state: RootState): number | null => {
   const accountId = state.auth.user?.accountId;
   return typeof accountId === 'number' && accountId > 0 ? accountId : null;
@@ -147,11 +134,16 @@ const buildRequestWithStatus = (
 export const friendshipApi = api.injectEndpoints({
   overrideExisting: true,
   endpoints: (builder) => ({
-    getMyFriendships: builder.query<GetMyFriendshipsResponse, FriendshipReadQueryParams | void>({
-      query: (params) => ({
+    getMyFriendships: builder.query<GetMyFriendshipsResponse, FriendshipReadQueryParams & { searchTerm?: string }>({
+      query: ({ page = 1, size = 10, searchTerm = '' }) => ({
         url: '/friend-requests/me',
         method: 'GET',
-        params: buildPageableParams(params),
+        params: {
+          page,
+          size,
+          sort: ['friendsSince,desc'],
+          searchTerm: searchTerm.trim() ?? undefined,
+        },
       }),
       providesTags: [{ type: 'Friendship', id: FRIENDSHIP_LIST_TAG_ID }],
       async onQueryStarted(_params, { dispatch, getState, queryFulfilled }) {
@@ -176,11 +168,15 @@ export const friendshipApi = api.injectEndpoints({
       },
     }),
 
-    getMyReceivedFriendRequests: builder.query<GetMyReceivedFriendRequestsResponse, FriendshipReadQueryParams | void>({
-      query: (params) => ({
+    getMyReceivedFriendRequests: builder.query<GetMyReceivedFriendRequestsResponse, FriendshipReadQueryParams>({
+      query: ({ page = 1, size = 10, sort = ['requestedAt,desc'] }) => ({
         url: '/friend-requests/me/received',
         method: 'GET',
-        params: buildPageableParams(params),
+        params: {
+          page,
+          size,
+          sort,
+        },
       }),
       providesTags: [
         { type: 'FriendRequest', id: FRIEND_REQUEST_LIST_TAG_ID },
@@ -215,11 +211,15 @@ export const friendshipApi = api.injectEndpoints({
       },
     }),
 
-    getMySentFriendRequests: builder.query<GetMySentFriendRequestsResponse, FriendshipReadQueryParams | void>({
-      query: (params) => ({
+    getMySentFriendRequests: builder.query<GetMySentFriendRequestsResponse, FriendshipReadQueryParams>({
+      query: ({ page = 1, size = 10, sort = ['requestedAt,desc'] }) => ({
         url: '/friend-requests/me/sent',
         method: 'GET',
-        params: buildPageableParams(params),
+        params: {
+          page,
+          size,
+          sort,
+        },
       }),
       providesTags: [
         { type: 'FriendRequest', id: FRIEND_REQUEST_LIST_TAG_ID },
@@ -254,14 +254,15 @@ export const friendshipApi = api.injectEndpoints({
       },
     }),
 
-    getMyBlockedUsers: builder.query<GetMyBlockedUsersResponse, FriendshipReadQueryParams | void>({
-      query: (params) => ({
+    getMyBlockedUsers: builder.query<GetMyBlockedUsersResponse, FriendshipReadQueryParams>({
+      query: ({ page = 1, size = 10, sort = BLOCKED_USERS_DEFAULT_SORT }) => ({
         url: '/friend-requests/me/block',
         method: 'GET',
-        params: buildPageableParams({
-          ...(params ?? {}),
-          sort: params?.sort ?? BLOCKED_USERS_DEFAULT_SORT,
-        }),
+        params: {
+          page,
+          size,
+          sort,
+        },
       }),
       providesTags: [{ type: 'Friendship', id: FRIENDSHIP_BLOCKED_LIST_TAG_ID }],
       async onQueryStarted(_params, { dispatch, getState, queryFulfilled }) {
