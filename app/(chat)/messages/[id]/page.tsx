@@ -8,7 +8,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { subscribeToChatRoom, unsubscribeFromChatRoom } from '@/services/chatRoom/message/messageApi';
 import { useUser } from '@/hooks/useUser';
 import useChatRoomAndMessageActions from '@/hooks/useChatRoomAndMessageActions';
-import { MessageType } from '@/types/model';
+import { MessageResponse } from '@/types/model';
 import { ChatRoomType } from '@/types/enum';
 import { useAppSelector } from '@/lib/hooks';
 import { selectLastFriendshipRealtimeEventAt } from '@/lib/features/friendshipSlice';
@@ -18,8 +18,8 @@ export default function ChatRoomPage() {
   const chatRoomId = params?.id as string;
   const { user } = useUser();
   const lastFriendshipRealtimeEventAt = useAppSelector(selectLastFriendshipRealtimeEventAt);
-  const [forwardMessage, setForwardMessage] = useState<MessageType | null>(null);
-  const [replyMessage, setReplyMessage] = useState<MessageType | null>(null);
+  const [forwardMessage, setForwardMessage] = useState<MessageResponse | null>(null);
+  const [replyMessage, setReplyMessage] = useState<MessageResponse | null>(null);
   const [forwardModalOpen, setForwardModalOpen] = useState(false);
 
   const {
@@ -115,7 +115,7 @@ export default function ChatRoomPage() {
     );
   }
 
-  const handleOpenForwardModal = (message: MessageType) => {
+  const handleOpenForwardModal = (message: MessageResponse) => {
     setForwardMessage(message);
     setForwardModalOpen(true);
   };

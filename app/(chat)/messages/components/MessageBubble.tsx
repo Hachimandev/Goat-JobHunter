@@ -1,4 +1,4 @@
-import { MessageType } from '@/types/model';
+import { MessageResponse } from '@/types/model';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import {
@@ -32,14 +32,14 @@ import ConfirmDialog from '@/components/common/ConfirmDialog';
 import { getMessageSenderDisplayName, getReplyContextPreviewText } from '@/utils/messageUtils';
 
 interface MessageBubbleProps {
-  message: MessageType;
+  message: MessageResponse;
   isOwn: boolean;
   showAvatar?: boolean;
   senderName?: string;
   senderAvatar?: string;
-  onReply?: (message: MessageType) => void;
+  onReply?: (message: MessageResponse) => void;
   onNavigateToMessage?: (messageId: string) => void;
-  onForward?: (message: MessageType) => void;
+  onForward?: (message: MessageResponse) => void;
   onRecall?: (messageId: string) => void | Promise<void>;
   onDelete?: (messageId: string) => void | Promise<void>;
   isForwarding?: boolean;

@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Checkbox } from '@/components/ui/checkbox';
 import { cn } from '@/lib/utils';
-import { MessageType } from '@/types/model';
+import { MessageResponse } from '@/types/model';
 import { MessageTypeEnum } from '@/types/enum';
 import { useChatRooms } from '@/app/(chat)/messages/hooks/useChatRooms';
 import type { ForwardMessageSubmitResult } from '@/hooks/useChatRoomAndMessageActions';
@@ -21,7 +21,7 @@ interface ForwardMessageModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   sourceChatRoomId: number;
-  message: MessageType | null;
+  message: MessageResponse | null;
   isSubmitting?: boolean;
   onConfirm: (targetChatRoomIds: number[]) => Promise<ForwardMessageSubmitResult | null>;
 }

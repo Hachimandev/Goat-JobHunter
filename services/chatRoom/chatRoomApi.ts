@@ -11,7 +11,7 @@ import {
   SendMessageToChatRoomRequest,
   SendMessageToNewChatRoomRequest,
 } from '@/services/chatRoom/chatRoomType';
-import { ChatRoom, MessageType } from '@/types/model';
+import { ChatRoom } from '@/types/model';
 import { IBackendRes } from '@/types/api';
 import {
   cascadeReplyContextForDeletedMessage,
@@ -77,7 +77,7 @@ export const chatRoomApi = api.injectEndpoints({
     }),
 
     // Send message to a existed chat room
-    sendMessageToChatRoom: builder.mutation<IBackendRes<MessageType[]>, SendMessageToChatRoomRequest>({
+    sendMessageToChatRoom: builder.mutation<FetchMessagesInChatRoomResponse, SendMessageToChatRoomRequest>({
       query: ({ chatRoomId, content, files, replyToMessageId }) => {
         const formData = new FormData();
         const normalizedContent = content?.trim();

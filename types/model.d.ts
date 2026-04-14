@@ -379,6 +379,30 @@ export type MessageType = {
   role?: MessageTypeRole; // temporary field to avoid error for build in chat container
 };
 
+export type MessageResponse = {
+  messageId: string;
+  chatRoomId: string;
+  sender: SenderInfo;
+  content: string;
+  messageType: MessageTypeEnum;
+  replyToMessageId?: string | null;
+  replyContext?: ReplyContext | null;
+  isHidden: boolean;
+  isForwarded: boolean;
+  originalMessageId?: string | null;
+  createdAt: string; // Instant -> ISO string
+  updatedAt: string; // Instant -> ISO string
+};
+
+export type ReplyContext = {
+  originalMessageId: string;
+  originalSender: SenderInfo;
+  originalMessageType: MessageTypeEnum | null;
+  originalContentPreview: string;
+  originalMessageUnavailable: boolean;
+  originalMessageHidden: boolean;
+};
+
 export type Reaction = {
   id: string;
   icon: LucideIcon;

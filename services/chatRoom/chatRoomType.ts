@@ -1,5 +1,5 @@
 import { IBackendRes, IModelPaginate } from '@/types/api';
-import { ChatRoom, MessageType } from '@/types/model';
+import { ChatRoom, MessageResponse } from '@/types/model';
 
 export type FetchChatRoomsRequest = {
   page?: number;
@@ -14,7 +14,7 @@ export type FetchMessagesInChatRoomRequest = {
 
 export type FetchChatRoomsResponse = IBackendRes<IModelPaginate<ChatRoom>>;
 
-export type FetchMessagesInChatRoomResponse = IBackendRes<MessageType[]>;
+export type FetchMessagesInChatRoomResponse = IBackendRes<MessageResponse[]>;
 
 export type SendMessageToChatRoomRequest = {
   chatRoomId: number;

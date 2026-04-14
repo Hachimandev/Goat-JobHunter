@@ -1,5 +1,5 @@
 import { MessageTypeEnum } from '@/types/enum';
-import type { MessageReplyContext, MessageType } from '@/types/model';
+import type { MessageReplyContext, MessageResponse } from '@/types/model';
 import { extractPlainTextFromHtml } from '@/utils/extractPlainTextFromHtml';
 
 export const RECALLED_MESSAGE_PREVIEW = 'Tin nhắn đã được thu hồi';
@@ -11,7 +11,7 @@ type SenderPreview = {
   username?: string | null;
 } | null;
 
-type MessagePreviewSource = Pick<MessageType, 'isHidden' | 'messageType' | 'content'>;
+type MessagePreviewSource = Pick<MessageResponse, 'isHidden' | 'messageType' | 'content'>;
 
 const truncatePreviewText = (value: string, maxLength: number): string => {
   if (maxLength <= 0 || value.length <= maxLength) {

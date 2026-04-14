@@ -1,18 +1,18 @@
 'use client';
 
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { MessageType } from '@/types/model';
+import { MessageResponse } from '@/types/model';
 import { useEffect, useRef } from 'react';
 import { MessageBubble, MessageBubbleLoading } from './MessageBubble';
 import { usePendingMessages } from '@/contexts/PendingMessagesContext';
 
 interface MessageListProps {
-  messages: MessageType[];
+  messages: MessageResponse[];
   currentUserId?: string;
   isGroup?: boolean;
-  onReplyMessage?: (message: MessageType) => void;
+  onReplyMessage?: (message: MessageResponse) => void;
   onNavigateToMessage?: (messageId: string) => void;
-  onForwardMessage?: (message: MessageType) => void;
+  onForwardMessage?: (message: MessageResponse) => void;
   isForwardingMessage?: boolean;
   onDeleteMessage?: (messageId: string) => Promise<void> | void;
   isDeletingMessage?: (messageId: string) => boolean;

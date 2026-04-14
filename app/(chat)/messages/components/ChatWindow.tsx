@@ -1,6 +1,4 @@
-'use client';
-
-import { MessageType, ChatRoom } from '@/types/model';
+import { ChatRoom, MessageResponse } from '@/types/model';
 import { ChatHeader } from './ChatHeader';
 import { MessageInput } from './MessageInput';
 import { MessageList } from './MessageList';
@@ -11,17 +9,17 @@ import { GroupDetailsPanel } from '@/app/(chat)/messages/components/GroupDetails
 
 interface ChatWindowProps {
   chatRoom: ChatRoom;
-  messages: MessageType[];
+  messages: MessageResponse[];
   currentUserId?: string;
   isChatBlocked?: boolean;
   chatBlockedReason?: string;
   onDirectRelationshipChanged?: () => void;
   onSendMessage: (text?: string, files?: File[], replyToMessageId?: string | null) => void | Promise<void>;
-  replyTarget?: MessageType | null;
+  replyTarget?: MessageResponse | null;
   onCancelReply?: () => void;
-  onReplyMessage?: (message: MessageType) => void;
+  onReplyMessage?: (message: MessageResponse) => void;
   onNavigateToMessage?: (messageId: string) => void;
-  onForwardMessage?: (message: MessageType) => void;
+  onForwardMessage?: (message: MessageResponse) => void;
   isForwardingMessage?: boolean;
   onDeleteMessage?: (messageId: string) => Promise<void> | void;
   isDeletingMessage?: (messageId: string) => boolean;

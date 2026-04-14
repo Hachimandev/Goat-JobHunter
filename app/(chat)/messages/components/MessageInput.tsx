@@ -1,12 +1,13 @@
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Paperclip, Send, X, Pilcrow, Smile } from 'lucide-react';
+import { Paperclip, Send, X, Pilcrow, Smile, UserRound } from 'lucide-react';
 import { useState, useRef, useCallback, type KeyboardEvent, type ChangeEvent } from 'react';
 import RichTextEditor from '@/components/RichText/Editor';
-import { MessageType } from '@/types/model';
+import { MessageResponse } from '@/types/model';
 import { getMessagePreviewText, getMessageSenderDisplayName } from '@/utils/messageUtils';
 import EmojiPicker, { EmojiClickData } from 'emoji-picker-react';
+import { BusinessCardModal } from '@/app/(chat)/messages/components/BusinessCardModal';
 
 type RichTextSelection = {
   index: number;
@@ -26,7 +27,7 @@ type RichTextEditorInstance = {
 
 interface MessageInputProps {
   readonly onSendMessage: (text?: string, files?: File[], replyToMessageId?: string | null) => void | Promise<void>;
-  readonly replyTarget?: MessageType | null;
+  readonly replyTarget?: MessageResponse | null;
   readonly onCancelReply?: () => void;
   readonly disabled?: boolean;
 }
@@ -41,6 +42,7 @@ export function MessageInput({
   const [richMessage, setRichMessage] = useState('');
   const [isEditorMode, setIsEditorMode] = useState(false);
   const [isEmojiPickerOpen, setIsEmojiPickerOpen] = useState(false);
+  const [isBusinessCardModalOpen, setIsBusinessCardModalOpen] = useState(false);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const textInputRef = useRef<HTMLInputElement>(null);
@@ -99,6 +101,10 @@ export function MessageInput({
     [insertEmojiToRichEditor, insertEmojiToSimpleInput, isEditorMode],
   );
 
+  const handleBusinessCardSubmit = useCallback((selectedUserIds: number[]) => {
+    console.log('Selected business card recipient userIds:', selectedUserIds);
+  }, []);
+
   const handleSend = async () => {
     if (disabled) {
       return;
@@ -154,6 +160,10 @@ export function MessageInput({
 
   const handleRemoveFile = (index: number) => {
     setSelectedFiles((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const handleOpenBusinessCardModal = () => {
+    setIsBusinessCardModalOpen(true);
   };
 
   const formatFileSize = (bytes: number): string => {
@@ -270,6 +280,16 @@ export function MessageInput({
             >
               <Pilcrow className="h-5 w-5" />
             </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className={`h-8 w-8 rounded-full ${isBusinessCardModalOpen ? 'bg-accent' : ''}`}
+              onClick={handleOpenBusinessCardModal}
+              title="Gửi danh thiếp"
+              disabled={disabled}
+            >
+              <UserRound className="h-5 w-5" />
+            </Button>
 
             <input
               ref={fileInputRef}
@@ -319,6 +339,12 @@ export function MessageInput({
             />
           </div>
         )}
+
+        <BusinessCardModal
+          open={isBusinessCardModalOpen}
+          onOpenChange={setIsBusinessCardModalOpen}
+          onSubmit={handleBusinessCardSubmit}
+        />
       </div>
     </div>
   );
