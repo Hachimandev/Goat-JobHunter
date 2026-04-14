@@ -4,7 +4,7 @@ import { ChatWindow } from '@/app/(chat)/messages/components/ChatWindow';
 import { ForwardMessageModal } from '@/app/(chat)/messages/components/ForwardMessageModal';
 import { useParams } from 'next/navigation';
 import { useFetchChatRoomsByIdQuery, useFetchMessagesInChatRoomQuery } from '@/services/chatRoom/chatRoomApi';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { subscribeToChatRoom, unsubscribeFromChatRoom } from '@/services/chatRoom/message/messageApi';
 import { useUser } from '@/hooks/useUser';
 import useChatRoomAndMessageActions from '@/hooks/useChatRoomAndMessageActions';
@@ -19,6 +19,7 @@ export default function ChatRoomPage() {
   const { user } = useUser();
   const lastFriendshipRealtimeEventAt = useAppSelector(selectLastFriendshipRealtimeEventAt);
   const [forwardMessage, setForwardMessage] = useState<MessageType | null>(null);
+  const [replyMessage, setReplyMessage] = useState<MessageType | null>(null);
   const [forwardModalOpen, setForwardModalOpen] = useState(false);
 
   const {
@@ -80,6 +81,24 @@ export default function ChatRoomPage() {
     ? 'Bạn đã chặn người này. Hãy bỏ chặn để tiếp tục nhắn tin.'
     : 'Bạn không thể nhắn tin với người này.';
 
+  const handleNavigateToMessage = useCallback((targetMessageId: string) => {
+    if (!targetMessageId) {
+      return;
+    }
+
+    const escapedId =
+      typeof CSS !== 'undefined' && typeof CSS.escape === 'function' ? CSS.escape(targetMessageId) : targetMessageId;
+
+    const targetElement = document.querySelector(`[data-message-id="${escapedId}"]`) as HTMLElement | null;
+
+    if (!targetElement) {
+      return;
+    }
+
+    targetElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    targetElement.focus({ preventScroll: true });
+  }, []);
+
   if (isLoading) {
     return (
       <div className="flex-1 flex items-center justify-center bg-background">
@@ -133,13 +152,18 @@ export default function ChatRoomPage() {
         onDirectRelationshipChanged={() => {
           void refetchChatRoom();
         }}
-        onSendMessage={async (text, files) => {
+        onSendMessage={async (text, files, replyToMessageId) => {
           if (isDirectBlocked) {
             return;
           }
 
-          await handleSendMessage(Number(chatRoomId), text, files);
+          await handleSendMessage(Number(chatRoomId), text, files, replyToMessageId);
+          setReplyMessage(null);
         }}
+        replyTarget={replyMessage}
+        onCancelReply={() => setReplyMessage(null)}
+        onReplyMessage={setReplyMessage}
+        onNavigateToMessage={handleNavigateToMessage}
         onForwardMessage={handleOpenForwardModal}
         isForwardingMessage={isForwardingMessage}
         onDeleteMessage={async (messageId) => {

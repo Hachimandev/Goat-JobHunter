@@ -3,20 +3,29 @@ import { Input } from '@/components/ui/input';
 import { Paperclip, Send, X, Pilcrow } from 'lucide-react';
 import { useState, useRef, type KeyboardEvent, type ChangeEvent } from 'react';
 import RichTextEditor from '@/components/RichText/Editor';
+import { MessageType } from '@/types/model';
+import { getMessagePreviewText, getMessageSenderDisplayName } from '@/utils/messageUtils';
 
 interface MessageInputProps {
-  readonly onSendMessage: (text?: string, files?: File[]) => void;
+  readonly onSendMessage: (text?: string, files?: File[], replyToMessageId?: string | null) => void | Promise<void>;
+  readonly replyTarget?: MessageType | null;
+  readonly onCancelReply?: () => void;
   readonly disabled?: boolean;
 }
 
-export function MessageInput({ onSendMessage, disabled = false }: MessageInputProps) {
+export function MessageInput({
+  onSendMessage,
+  replyTarget = null,
+  onCancelReply,
+  disabled = false,
+}: MessageInputProps) {
   const [message, setMessage] = useState('');
   const [richMessage, setRichMessage] = useState('');
   const [isEditorMode, setIsEditorMode] = useState(false);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleSend = () => {
+  const handleSend = async () => {
     if (disabled) {
       return;
     }
@@ -24,10 +33,11 @@ export function MessageInput({ onSendMessage, disabled = false }: MessageInputPr
     const plainText = isEditorMode ? richMessage.replace(/<[^>]*>/g, '').trim() : message.trim();
 
     if (plainText || selectedFiles.length > 0) {
-      onSendMessage(isEditorMode ? richMessage : message.trim(), selectedFiles);
+      await onSendMessage(isEditorMode ? richMessage : message.trim(), selectedFiles, replyTarget?.messageId ?? null);
       setMessage('');
       setRichMessage('');
       setSelectedFiles([]);
+      onCancelReply?.();
     }
   };
 
@@ -38,7 +48,7 @@ export function MessageInput({ onSendMessage, disabled = false }: MessageInputPr
 
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
-      handleSend();
+      void handleSend();
     }
   };
 
@@ -80,27 +90,56 @@ export function MessageInput({ onSendMessage, disabled = false }: MessageInputPr
     return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + ' ' + sizes[i];
   };
 
+  const replySenderName = getMessageSenderDisplayName(replyTarget?.sender);
+  const replyPreviewText = replyTarget ? getMessagePreviewText(replyTarget) : null;
+
   return (
     <div className="border-t border-border bg-card">
+      {replyTarget && (
+        <div className="px-4 pt-3 pb-2 border-b border-border bg-accent/40">
+          <div className="flex items-start gap-2 rounded-lg border border-border bg-white px-3 py-2">
+            <div className="min-w-0 flex-1 border-l-2 border-primary pl-2">
+              <p className="text-xs text-muted-foreground">
+                Đang trả lời <span className="font-medium text-foreground">{replySenderName}</span>
+              </p>
+              <p className="text-sm truncate" title={replyPreviewText || ''}>
+                {replyPreviewText}
+              </p>
+            </div>
+            <Button
+              variant="destructive"
+              size="icon"
+              className="h-6 w-6 shrink-0 rounded-full"
+              onClick={onCancelReply}
+              disabled={disabled}
+            >
+              <X className="h-3.5 w-3.5" />
+            </Button>
+          </div>
+        </div>
+      )}
+
       {selectedFiles.length > 0 && (
         <div className="px-4 pt-3 pb-2 border-b border-border">
-          <div className="flex flex-wrap gap-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
             {selectedFiles.map((file, index) => (
               <div
                 key={`${file.name}-${index}`}
-                className="flex items-center gap-2 px-3 py-2 bg-accent rounded-lg text-sm"
+                className="flex items-center justify-between px-3 py-2 bg-accent rounded-lg text-sm"
               >
-                <Paperclip className="h-4 w-4 text-muted-foreground" />
-                <div className="flex flex-col min-w-0">
-                  <span className="truncate max-w-[150px]" title={file.name}>
-                    {file.name}
-                  </span>
-                  <span className="text-xs text-muted-foreground">{formatFileSize(file.size)}</span>
+                <div className="flex items-center gap-2 min-w-0">
+                  <Paperclip className="h-4 w-4 text-muted-foreground" />
+                  <div className="flex flex-col min-w-0">
+                    <span className="truncate max-w-[150px]" title={file.name}>
+                      {file.name}
+                    </span>
+                    <span className="text-xs text-muted-foreground">{formatFileSize(file.size)}</span>
+                  </div>
                 </div>
                 <Button
-                  variant="ghost"
+                  variant="destructive"
                   size="icon"
-                  className="h-5 w-5 shrink-0"
+                  className="h-5 w-5 shrink-0 rounded-full"
                   onClick={() => handleRemoveFile(index)}
                   disabled={disabled}
                 >
@@ -146,7 +185,7 @@ export function MessageInput({ onSendMessage, disabled = false }: MessageInputPr
           </div>
 
           <div className="flex items-center gap-1">
-            <Button onClick={handleSend} size="icon" className="h-8 w-8 rounded-full" disabled={disabled}>
+            <Button onClick={() => void handleSend()} size="icon" className="h-8 w-8 rounded-full" disabled={disabled}>
               <Send className="h-4 w-4" />
             </Button>
           </div>

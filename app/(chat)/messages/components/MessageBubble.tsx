@@ -19,6 +19,7 @@ import {
   Users,
   MoreVertical,
   Forward,
+  Reply,
   Undo2,
   Loader2,
   Trash2,
@@ -28,6 +29,7 @@ import { MessageEvent, MessageTypeEnum } from '@/types/enum';
 import { JSX, useMemo, useState } from 'react';
 import MarkdownDisplay from '@/components/common/MarkdownDisplay';
 import ConfirmDialog from '@/components/common/ConfirmDialog';
+import { getMessageSenderDisplayName, getReplyContextPreviewText } from '@/utils/messageUtils';
 
 interface MessageBubbleProps {
   message: MessageType;
@@ -35,6 +37,8 @@ interface MessageBubbleProps {
   showAvatar?: boolean;
   senderName?: string;
   senderAvatar?: string;
+  onReply?: (message: MessageType) => void;
+  onNavigateToMessage?: (messageId: string) => void;
   onForward?: (message: MessageType) => void;
   onRecall?: (messageId: string) => void | Promise<void>;
   onDelete?: (messageId: string) => void | Promise<void>;
@@ -49,6 +53,8 @@ export function MessageBubble({
   showAvatar = false,
   senderName,
   senderAvatar,
+  onReply,
+  onNavigateToMessage,
   onForward,
   onRecall,
   onDelete,
@@ -74,14 +80,25 @@ export function MessageBubble({
   );
 
   const isSystem = useMemo(() => type === MessageTypeEnum.SYSTEM, [type]);
+  const isReplyableType = useMemo(
+    () =>
+      type === MessageTypeEnum.TEXT ||
+      type === MessageTypeEnum.IMAGE ||
+      type === MessageTypeEnum.VIDEO ||
+      type === MessageTypeEnum.AUDIO ||
+      type === MessageTypeEnum.FILE,
+    [type],
+  );
+  const disableReplyAction = isDeleting || isRecalling || isForwarding || !onReply;
   const disableForwardAction = isForwarding || isRecalled || !onForward;
   const disableRecallAction = isRecalled || isRecalling || !onRecall;
   const disableDeleteAction = isDeleting || isRecalling || !onDelete;
+  const canShowReplyAction = isReplyableType && !isSystem && !isRecalled && !!onReply;
   const canShowForwardAction = !isSystem && !isRecalled && !!onForward;
   const canShowRecallAction = isOwn && !isRecalled && !!onRecall;
   const canShowDeleteAction = isOwn && !!onDelete;
   const canShowOwnerActions = isOwn && !isSystem && (canShowRecallAction || canShowDeleteAction);
-  const canShowActionMenu = canShowForwardAction || canShowOwnerActions;
+  const canShowActionMenu = canShowReplyAction || canShowForwardAction || canShowOwnerActions;
 
   if (!message.content && !isRecalled) return null;
 
@@ -190,10 +207,53 @@ export function MessageBubble({
     onForward(message);
   };
 
+  const handleReply = () => {
+    if (!onReply || disableReplyAction) return;
+    onReply(message);
+  };
+
   const handleDelete = async () => {
     if (!onDelete || disableDeleteAction) return;
     await onDelete(message.messageId);
     setIsDeleteDialogOpen(false);
+  };
+
+  const renderReplyContext = () => {
+    if (!message.replyToMessageId || !message.replyContext) {
+      return null;
+    }
+
+    const replyContext = message.replyContext;
+    const originalSenderName = getMessageSenderDisplayName(replyContext.originalSender);
+    const previewText = getReplyContextPreviewText(replyContext);
+
+    const canNavigate = Boolean(replyContext.originalMessageId && onNavigateToMessage);
+
+    return (
+      <button
+        type="button"
+        className={cn(
+          'w-full text-left border-l-2 rounded-md px-2 py-1 mb-2 transition-colors',
+          isOwn
+            ? 'bg-primary-foreground/15 border-primary-foreground/40 text-primary-foreground'
+            : 'bg-muted/70 border-border text-foreground',
+          canNavigate ? 'cursor-pointer hover:opacity-90' : 'cursor-default',
+        )}
+        onClick={() => {
+          if (canNavigate) {
+            onNavigateToMessage?.(replyContext.originalMessageId);
+          }
+        }}
+        disabled={!canNavigate}
+      >
+        <p className={cn('text-xs font-semibold', isOwn ? 'text-primary-foreground/90' : 'text-muted-foreground')}>
+          {originalSenderName}
+        </p>
+        <p className={cn('text-xs line-clamp-2', isOwn ? 'text-primary-foreground/85' : 'text-muted-foreground')}>
+          {previewText}
+        </p>
+      </button>
+    );
   };
 
   return (
@@ -222,7 +282,10 @@ export function MessageBubble({
               )}
             </p>
             {isMedia ? (
-              renderContent()
+              <>
+                {renderReplyContext()}
+                {renderContent()}
+              </>
             ) : (
               <div
                 className={cn(
@@ -234,6 +297,7 @@ export function MessageBubble({
                       : 'bg-secondary text-secondary-foreground',
                 )}
               >
+                {renderReplyContext()}
                 {renderContent()}
               </div>
             )}
@@ -257,6 +321,13 @@ export function MessageBubble({
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="rounded-xl">
+                {canShowReplyAction && (
+                  <DropdownMenuItem onClick={handleReply} disabled={disableReplyAction} className="rounded-xl">
+                    <Reply className="h-4 w-4" />
+                    Trả lời
+                  </DropdownMenuItem>
+                )}
+
                 {canShowForwardAction && (
                   <DropdownMenuItem onClick={handleForward} disabled={disableForwardAction} className="rounded-xl">
                     <Forward className="h-4 w-4" />
