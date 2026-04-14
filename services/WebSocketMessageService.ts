@@ -8,8 +8,11 @@ import { MessageType } from '@/types/model';
 import { groupChatApi } from '@/services/chatRoom/groupChat/groupChatApi';
 
 type DeleteMessageRealtimeEvent = {
+  eventType?: string;
   messageId: string;
   chatRoomId: string | number;
+  deletedByAccountId?: number;
+  deletedAt?: string;
 };
 
 export class WebSocketMessageService {
@@ -123,7 +126,12 @@ export class WebSocketMessageService {
     const candidate = payload as Record<string, unknown>;
     const hasValidMessageId = typeof candidate.messageId === 'string';
     const hasValidChatRoomId = typeof candidate.chatRoomId === 'string' || typeof candidate.chatRoomId === 'number';
+    const eventType = typeof candidate.eventType === 'string' ? candidate.eventType.toUpperCase() : '';
     const hasSender = 'sender' in candidate;
+
+    if (eventType === 'MESSAGE_DELETED') {
+      return hasValidMessageId && hasValidChatRoomId;
+    }
 
     return hasValidMessageId && hasValidChatRoomId && !hasSender;
   }

@@ -3,20 +3,60 @@ import { Input } from '@/components/ui/input';
 import { Paperclip, Send, X, Pilcrow } from 'lucide-react';
 import { useState, useRef, type KeyboardEvent, type ChangeEvent } from 'react';
 import RichTextEditor from '@/components/RichText/Editor';
+import { MessageType } from '@/types/model';
+import { MessageTypeEnum } from '@/types/enum';
+import { extractPlainTextFromHtml } from '@/utils/extractPlainTextFromHtml';
 
 interface MessageInputProps {
-  readonly onSendMessage: (text?: string, files?: File[]) => void;
+  readonly onSendMessage: (text?: string, files?: File[], replyToMessageId?: string | null) => void | Promise<void>;
+  readonly replyTarget?: MessageType | null;
+  readonly onCancelReply?: () => void;
   readonly disabled?: boolean;
 }
 
-export function MessageInput({ onSendMessage, disabled = false }: MessageInputProps) {
+export function MessageInput({
+  onSendMessage,
+  replyTarget = null,
+  onCancelReply,
+  disabled = false,
+}: MessageInputProps) {
   const [message, setMessage] = useState('');
   const [richMessage, setRichMessage] = useState('');
   const [isEditorMode, setIsEditorMode] = useState(false);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleSend = () => {
+  const getReplyPreviewText = (target: MessageType) => {
+    if (target.isHidden) {
+      return 'Tin nhắn đã được thu hồi';
+    }
+
+    if (target.messageType === MessageTypeEnum.IMAGE) {
+      return '[Hình ảnh]';
+    }
+
+    if (target.messageType === MessageTypeEnum.VIDEO) {
+      return '[Video]';
+    }
+
+    if (target.messageType === MessageTypeEnum.AUDIO) {
+      return '[Âm thanh]';
+    }
+
+    if (target.messageType === MessageTypeEnum.FILE) {
+      return '[Tệp đính kèm]';
+    }
+
+    const plainText = extractPlainTextFromHtml(target.content || '').trim();
+
+    if (!plainText) {
+      return '[Tin nhắn văn bản]';
+    }
+
+    return plainText.length > 80 ? `${plainText.slice(0, 80)}...` : plainText;
+  };
+
+  const handleSend = async () => {
     if (disabled) {
       return;
     }
@@ -24,10 +64,11 @@ export function MessageInput({ onSendMessage, disabled = false }: MessageInputPr
     const plainText = isEditorMode ? richMessage.replace(/<[^>]*>/g, '').trim() : message.trim();
 
     if (plainText || selectedFiles.length > 0) {
-      onSendMessage(isEditorMode ? richMessage : message.trim(), selectedFiles);
+      await onSendMessage(isEditorMode ? richMessage : message.trim(), selectedFiles, replyTarget?.messageId ?? null);
       setMessage('');
       setRichMessage('');
       setSelectedFiles([]);
+      onCancelReply?.();
     }
   };
 
@@ -38,7 +79,7 @@ export function MessageInput({ onSendMessage, disabled = false }: MessageInputPr
 
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
-      handleSend();
+      void handleSend();
     }
   };
 
@@ -80,8 +121,35 @@ export function MessageInput({ onSendMessage, disabled = false }: MessageInputPr
     return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + ' ' + sizes[i];
   };
 
+  const replySenderName = replyTarget?.sender.fullName || replyTarget?.sender.username || 'Người dùng';
+  const replyPreviewText = replyTarget ? getReplyPreviewText(replyTarget) : null;
+
   return (
     <div className="border-t border-border bg-card">
+      {replyTarget && (
+        <div className="px-4 pt-3 pb-2 border-b border-border bg-accent/20">
+          <div className="flex items-start gap-2 rounded-lg border border-border/70 bg-background/70 px-3 py-2">
+            <div className="min-w-0 flex-1">
+              <p className="text-xs text-muted-foreground">
+                Đang trả lời <span className="font-medium text-foreground">{replySenderName}</span>
+              </p>
+              <p className="text-sm truncate" title={replyPreviewText || ''}>
+                {replyPreviewText}
+              </p>
+            </div>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-6 w-6 shrink-0"
+              onClick={onCancelReply}
+              disabled={disabled}
+            >
+              <X className="h-3.5 w-3.5" />
+            </Button>
+          </div>
+        </div>
+      )}
+
       {selectedFiles.length > 0 && (
         <div className="px-4 pt-3 pb-2 border-b border-border">
           <div className="flex flex-wrap gap-2">
@@ -146,7 +214,7 @@ export function MessageInput({ onSendMessage, disabled = false }: MessageInputPr
           </div>
 
           <div className="flex items-center gap-1">
-            <Button onClick={handleSend} size="icon" className="h-8 w-8 rounded-full" disabled={disabled}>
+            <Button onClick={() => void handleSend()} size="icon" className="h-8 w-8 rounded-full" disabled={disabled}>
               <Send className="h-4 w-4" />
             </Button>
           </div>

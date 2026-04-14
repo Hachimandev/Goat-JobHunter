@@ -328,6 +328,21 @@ export type Conversation = {
   updatedBy: string;
 };
 
+export type MessageReplyContext = {
+  originalMessageId: string;
+  originalSender: {
+    accountId: number;
+    fullName: string;
+    username: string;
+    email: string;
+    avatar: string;
+  };
+  originalMessageType: MessageTypeEnum;
+  originalContentPreview: string;
+  originalMessageUnavailable: boolean;
+  originalMessageHidden: boolean;
+};
+
 export type MessageType = {
   chatRoomId: string;
   messageId: string;
@@ -340,7 +355,8 @@ export type MessageType = {
   };
   content: string;
   messageType: MessageTypeEnum;
-  replyTo?: string;
+  replyToMessageId?: string;
+  replyContext?: MessageReplyContext;
   isHidden: boolean;
   isForwarded?: boolean;
   originalMessageId?: string;

@@ -73,9 +73,11 @@ export const chatRoomApi = api.injectEndpoints({
     }),
 
     // Send message to a existed chat room
-    sendMessageToChatRoom: builder.mutation<MessageType, SendMessageToChatRoomRequest>({
-      query: ({ chatRoomId, content, files }) => {
+    sendMessageToChatRoom: builder.mutation<IBackendRes<MessageType[]>, SendMessageToChatRoomRequest>({
+      query: ({ chatRoomId, content, files, replyToMessageId }) => {
         const formData = new FormData();
+        const normalizedContent = content?.trim();
+        const hasReplyReference = Boolean(replyToMessageId);
 
         // Add files nếu có
         if (files && files.length > 0) {
@@ -84,9 +86,19 @@ export const chatRoomApi = api.injectEndpoints({
           });
         }
 
-        // Add content nếu có (dưới dạng JSON part)
-        if (content && content.trim()) {
-          const requestBlob = new Blob([JSON.stringify({ content })], { type: 'application/json' });
+        // Add request part when content exists or this message is a reply.
+        if (normalizedContent || hasReplyReference) {
+          const requestPayload: { content?: string; replyToMessageId?: string } = {};
+
+          if (normalizedContent) {
+            requestPayload.content = content;
+          }
+
+          if (replyToMessageId) {
+            requestPayload.replyToMessageId = replyToMessageId;
+          }
+
+          const requestBlob = new Blob([JSON.stringify(requestPayload)], { type: 'application/json' });
           formData.append('request', requestBlob);
         }
 
@@ -98,7 +110,14 @@ export const chatRoomApi = api.injectEndpoints({
       },
       async onQueryStarted({ chatRoomId }, { dispatch, queryFulfilled }) {
         try {
-          const { data: newMessage } = await queryFulfilled;
+          const { data: sendResponse } = await queryFulfilled;
+          const sentMessages = sendResponse?.data || [];
+
+          if (sentMessages.length === 0) {
+            return;
+          }
+
+          const latestMessage = sentMessages[sentMessages.length - 1];
 
           // Update chat rooms list cache
           dispatch(
@@ -110,8 +129,8 @@ export const chatRoomApi = api.injectEndpoints({
                   const chatRoom = draft.data.result[chatRoomIndex];
 
                   // Update last message info
-                  chatRoom.lastMessagePreview = newMessage.content;
-                  chatRoom.lastMessageTime = newMessage.createdAt;
+                  chatRoom.lastMessagePreview = latestMessage.content;
+                  chatRoom.lastMessageTime = latestMessage.createdAt;
 
                   // Move to top if not already first
                   if (chatRoomIndex !== 0) {

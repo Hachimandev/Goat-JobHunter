@@ -20,6 +20,7 @@ export type SendMessageToChatRoomRequest = {
   chatRoomId: number;
   content?: string;
   files?: File[];
+  replyToMessageId?: string | null;
 };
 
 export type SendMessageToNewChatRoomRequest = {

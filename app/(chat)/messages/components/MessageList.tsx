@@ -10,6 +10,8 @@ interface MessageListProps {
   messages: MessageType[];
   currentUserId?: string;
   isGroup?: boolean;
+  onReplyMessage?: (message: MessageType) => void;
+  onNavigateToMessage?: (messageId: string) => void;
   onForwardMessage?: (message: MessageType) => void;
   isForwardingMessage?: boolean;
   onDeleteMessage?: (messageId: string) => Promise<void> | void;
@@ -22,6 +24,8 @@ export function MessageList({
   messages,
   currentUserId,
   isGroup = false,
+  onReplyMessage,
+  onNavigateToMessage,
   onForwardMessage,
   isForwardingMessage = false,
   onDeleteMessage,
@@ -41,20 +45,23 @@ export function MessageList({
       <ScrollArea className="h-full px-4">
         <div className="py-4 space-y-1">
           {messages.map((message) => (
-            <MessageBubble
-              key={message.messageId}
-              message={message}
-              isOwn={message.sender.accountId.toString() === currentUserId}
-              showAvatar={isGroup}
-              senderName={message.sender.fullName || message.sender.username}
-              senderAvatar={message.sender.avatar || undefined}
-              onForward={onForwardMessage}
-              isForwarding={isForwardingMessage}
-              onDelete={onDeleteMessage}
-              isDeleting={isDeletingMessage?.(message.messageId) ?? false}
-              onRecall={onRecallMessage}
-              isRecalling={isRecallingMessage?.(message.messageId) ?? false}
-            />
+            <div key={message.messageId} data-message-id={message.messageId} tabIndex={-1} className="outline-none">
+              <MessageBubble
+                message={message}
+                isOwn={message.sender.accountId.toString() === currentUserId}
+                showAvatar={isGroup}
+                senderName={message.sender.fullName || message.sender.username}
+                senderAvatar={message.sender.avatar || undefined}
+                onReply={onReplyMessage}
+                onNavigateToMessage={onNavigateToMessage}
+                onForward={onForwardMessage}
+                isForwarding={isForwardingMessage}
+                onDelete={onDeleteMessage}
+                isDeleting={isDeletingMessage?.(message.messageId) ?? false}
+                onRecall={onRecallMessage}
+                isRecalling={isRecallingMessage?.(message.messageId) ?? false}
+              />
+            </div>
           ))}
           {pendingMessages.map((pending) => (
             <MessageBubbleLoading key={pending.id} />

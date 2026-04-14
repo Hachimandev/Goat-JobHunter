@@ -125,7 +125,12 @@ const useChatRoomAndMessageActions = () => {
     };
   };
 
-  const handleSendMessage = async (chatRoomId: number, content?: string, files?: File[]) => {
+  const handleSendMessage = async (
+    chatRoomId: number,
+    content?: string,
+    files?: File[],
+    replyToMessageId?: string | null,
+  ) => {
     let pendingId: string | null = null;
 
     try {
@@ -140,9 +145,9 @@ const useChatRoomAndMessageActions = () => {
       }
 
       if ((content && content.trim()) || (files && files.length)) {
-        pendingId = addPendingMessage(content, files);
-        console.log('Send message: ', { chatRoomId, content, files });
-        await sendMessageToChatRoom({ chatRoomId, content, files }).unwrap();
+        pendingId = addPendingMessage(content, files, replyToMessageId);
+        console.log('Send message: ', { chatRoomId, content, files, replyToMessageId });
+        await sendMessageToChatRoom({ chatRoomId, content, files, replyToMessageId }).unwrap();
       }
     } catch (error) {
       console.error('Error sending message:', error);

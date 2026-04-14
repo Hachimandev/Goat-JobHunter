@@ -16,7 +16,11 @@ interface ChatWindowProps {
   isChatBlocked?: boolean;
   chatBlockedReason?: string;
   onDirectRelationshipChanged?: () => void;
-  onSendMessage: (text?: string, files?: File[]) => void;
+  onSendMessage: (text?: string, files?: File[], replyToMessageId?: string | null) => void | Promise<void>;
+  replyTarget?: MessageType | null;
+  onCancelReply?: () => void;
+  onReplyMessage?: (message: MessageType) => void;
+  onNavigateToMessage?: (messageId: string) => void;
   onForwardMessage?: (message: MessageType) => void;
   isForwardingMessage?: boolean;
   onDeleteMessage?: (messageId: string) => Promise<void> | void;
@@ -33,6 +37,10 @@ export function ChatWindow({
   chatBlockedReason = 'Bạn không thể nhắn tin với người này.',
   onDirectRelationshipChanged,
   onSendMessage,
+  replyTarget,
+  onCancelReply,
+  onReplyMessage,
+  onNavigateToMessage,
   onForwardMessage,
   isForwardingMessage,
   onDeleteMessage,
@@ -52,6 +60,8 @@ export function ChatWindow({
           messages={messages}
           currentUserId={currentUserId}
           isGroup={isGroup}
+          onReplyMessage={onReplyMessage}
+          onNavigateToMessage={onNavigateToMessage}
           onForwardMessage={onForwardMessage}
           isForwardingMessage={isForwardingMessage}
           onDeleteMessage={onDeleteMessage}
@@ -64,7 +74,12 @@ export function ChatWindow({
             {chatBlockedReason}
           </div>
         ) : (
-          <MessageInput onSendMessage={onSendMessage} disabled={isChatLocked} />
+          <MessageInput
+            onSendMessage={onSendMessage}
+            replyTarget={replyTarget}
+            onCancelReply={onCancelReply}
+            disabled={isChatLocked}
+          />
         )}
       </div>
 
