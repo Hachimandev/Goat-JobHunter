@@ -19,6 +19,7 @@ import { useUpdateRecruiterMutation } from '@/services/recruiter/recruiterApi';
 import { TUserSignUpSchema } from '@/app/(auth)/components/schemas';
 import { api } from '@/services/api';
 import { useUpdateCompanyMutation } from '@/services/company/companyApi';
+import { IBackendError } from '@/types/api';
 
 export function useUser() {
   const router = useRouter();
@@ -86,101 +87,6 @@ export function useUser() {
   );
 
   /**
-   * Sign in user
-   */
-  const signIn = useCallback(
-    async (params: SignInRequest) => {
-      try {
-        const response = await signinMutation(params).unwrap();
-
-        if (response.statusCode === 400) {
-          throw new Error('Tài khoản đang bị khóa');
-        }
-
-        if (response.statusCode === 200) {
-          toast.success('Đăng nhập thành công!');
-
-          connectWebSocketLogout(params.email, () => {
-            void signOut();
-          });
-
-          return { success: true, user: response?.data };
-        }
-
-        return { success: false };
-      } catch (error) {
-        console.error('error signin:', error);
-
-        // @ts-expect-error ts-ignore
-        if (error.status === 400 && error.data.message == 'Account is locked') {
-          toast('Tài khoản của bạn đã bị khóa. Vui lòng kích hoạt lại.', {
-            action: {
-              label: 'Kích hoạt ngay',
-              onClick: () => {
-                router.push('/otp?email=' + params.email);
-              },
-            },
-          });
-          return { success: false, error: 'Account is locked' };
-        }
-
-        // @ts-expect-error ts-ignore
-        if (error.status === 400 && error.data.message == 'Bad credentials') {
-          return { success: false, error: 'Bad credentials' };
-        }
-
-        toast.error('Đăng nhập thất bại!');
-        return { success: false };
-      }
-    },
-    [signinMutation, router],
-  );
-
-  /**
-   * Sign up new user (applicant or recruiter)
-   */
-  const userSignUp = useCallback(
-    async (params: TUserSignUpSchema) => {
-      try {
-        const response = await userSignUpMutation(params).unwrap();
-
-        if (response.statusCode === 201) {
-          toast.success('Đăng ký thành công!');
-          return { success: true, type: params.type };
-        }
-        return { success: false };
-      } catch (error) {
-        console.error('error sign up:', error);
-        toast.error('Đăng ký thất bại!');
-        return { success: false };
-      }
-    },
-    [userSignUpMutation],
-  );
-
-  /**
-   * Sign up new company
-   */
-  const companySignUp = useCallback(
-    async (params: FormData) => {
-      try {
-        const response = await companySignUpMutation(params).unwrap();
-
-        if (response.statusCode === 201) {
-          toast.success('Đăng ký thành công!');
-          return { success: true, type: 'company' };
-        }
-        return { success: false };
-      } catch (error) {
-        console.error('error sign up:', error);
-        toast.error('Đăng ký thất bại!');
-        return { success: false };
-      }
-    },
-    [companySignUpMutation],
-  );
-
-  /**
    * Sign out user
    */
   const signOut = useCallback(async () => {
@@ -209,6 +115,95 @@ export function useUser() {
       return { success: false };
     }
   }, [logoutMutation, dispatch, router]);
+
+  /**
+   * Sign in user
+   */
+  const signIn = useCallback(
+    async (params: SignInRequest) => {
+      try {
+        const response = await signinMutation(params).unwrap();
+
+        if (response.statusCode === 200) {
+          toast.success('Đăng nhập thành công!');
+
+          connectWebSocketLogout(params.email, () => {
+            signOut();
+          });
+
+          return { success: true, user: response?.data };
+        }
+
+        return { success: false };
+      } catch (error) {
+        console.error('error signin:', error);
+
+        if (
+          (error as IBackendError).status === 400 &&
+          (error as IBackendError).data.message ==
+            'Tài khoản bị vô hiệu hóa. Vui lòng liên hệ hỗ trợ để biết thêm chi tiết.'
+        ) {
+          toast('Tài khoản của bạn đã bị khóa. Vui lòng kích hoạt lại.', {
+            action: {
+              label: 'Kích hoạt ngay',
+              onClick: () => {
+                router.push('/otp?email=' + params.email);
+              },
+            },
+          });
+          return { success: false, error: 'Tài khoản bị vô hiệu hóa. Vui lòng liên hệ hỗ trợ để biết thêm chi tiết.' };
+        }
+
+        toast.error((error as IBackendError)?.data?.message || 'Đăng nhập thất bại!');
+        return { success: false };
+      }
+    },
+    [signinMutation, router, signOut],
+  );
+
+  /**
+   * Sign up new user (applicant or recruiter)
+   */
+  const userSignUp = useCallback(
+    async (params: TUserSignUpSchema) => {
+      try {
+        const response = await userSignUpMutation(params).unwrap();
+
+        if (response.statusCode === 201) {
+          toast.success('Đăng ký thành công!');
+          return { success: true, type: params.type };
+        }
+        return { success: false };
+      } catch (error: unknown) {
+        console.error('error sign up:', error);
+        toast.error((error as IBackendError)?.data?.message || 'Đăng ký thất bại!');
+        return { success: false };
+      }
+    },
+    [userSignUpMutation],
+  );
+
+  /**
+   * Sign up new company
+   */
+  const companySignUp = useCallback(
+    async (params: FormData) => {
+      try {
+        const response = await companySignUpMutation(params).unwrap();
+
+        if (response.statusCode === 201) {
+          toast.success('Đăng ký thành công!');
+          return { success: true, type: 'company' };
+        }
+        return { success: false };
+      } catch (error) {
+        console.error('error sign up:', error);
+        toast.error('Đăng ký thất bại!');
+        return { success: false };
+      }
+    },
+    [companySignUpMutation],
+  );
 
   /**
    * Verify email code
