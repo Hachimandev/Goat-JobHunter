@@ -336,9 +336,9 @@ export type MessageReplyContext = {
     username: string;
     email: string;
     avatar: string;
-  };
-  originalMessageType: MessageTypeEnum;
-  originalContentPreview: string;
+  } | null;
+  originalMessageType: MessageTypeEnum | null;
+  originalContentPreview: string | null;
   originalMessageUnavailable: boolean;
   originalMessageHidden: boolean;
 };
@@ -355,8 +355,8 @@ export type MessageType = {
   };
   content: string;
   messageType: MessageTypeEnum;
-  replyToMessageId?: string;
-  replyContext?: MessageReplyContext;
+  replyToMessageId?: string | null;
+  replyContext?: MessageReplyContext | null;
   isHidden: boolean;
   isForwarded?: boolean;
   originalMessageId?: string;

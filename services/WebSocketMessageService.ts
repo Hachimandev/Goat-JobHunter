@@ -6,6 +6,10 @@ import { store } from '@/lib/store';
 import { chatRoomApi } from '@/services/chatRoom/chatRoomApi';
 import { MessageType } from '@/types/model';
 import { groupChatApi } from '@/services/chatRoom/groupChat/groupChatApi';
+import {
+  cascadeReplyContextForDeletedMessage,
+  cascadeReplyContextForRecalledMessage,
+} from '@/utils/replyContextRealtime';
 
 type DeleteMessageRealtimeEvent = {
   eventType?: string;
@@ -150,6 +154,8 @@ export class WebSocketMessageService {
         },
         (draft) => {
           if (!draft?.data) return;
+
+          cascadeReplyContextForDeletedMessage(draft.data, payload.messageId);
           draft.data = draft.data.filter((message) => message.messageId !== payload.messageId);
         },
       ),
@@ -176,13 +182,16 @@ export class WebSocketMessageService {
 
             if (existingMessageIndex === -1) {
               draft.data.push(message);
-              return;
+            } else {
+              draft.data[existingMessageIndex] = {
+                ...draft.data[existingMessageIndex],
+                ...message,
+              };
             }
 
-            draft.data[existingMessageIndex] = {
-              ...draft.data[existingMessageIndex],
-              ...message,
-            };
+            if (message.isHidden) {
+              cascadeReplyContextForRecalledMessage(draft.data, message.messageId);
+            }
           }
         },
       ),

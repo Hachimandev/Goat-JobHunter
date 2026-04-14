@@ -13,6 +13,10 @@ import {
 } from '@/services/chatRoom/chatRoomType';
 import { ChatRoom, MessageType } from '@/types/model';
 import { IBackendRes } from '@/types/api';
+import {
+  cascadeReplyContextForDeletedMessage,
+  cascadeReplyContextForRecalledMessage,
+} from '@/utils/replyContextRealtime';
 
 export const chatRoomApi = api.injectEndpoints({
   endpoints: (builder) => ({
@@ -224,6 +228,8 @@ export const chatRoomApi = api.injectEndpoints({
           dispatch(
             chatRoomApi.util.updateQueryData('fetchMessagesInChatRoom', { chatRoomId, page: 1, size: 50 }, (draft) => {
               if (!draft?.data) return;
+
+              cascadeReplyContextForDeletedMessage(draft.data, messageId);
               draft.data = draft.data.filter((message) => message.messageId !== messageId);
             }),
           );
@@ -285,6 +291,8 @@ export const chatRoomApi = api.injectEndpoints({
                 recalledMessage.isHidden = true;
                 recalledMessage.content = 'Tin nhắn đã được thu hồi';
               }
+
+              cascadeReplyContextForRecalledMessage(draft.data, messageId);
             }),
           );
 
