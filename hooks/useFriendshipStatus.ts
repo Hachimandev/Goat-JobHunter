@@ -12,12 +12,10 @@ const STATUS_HYDRATION_SIZE = 100;
 const FRIENDS_STATUS_SORT = ['friendsSince,desc', 'relationshipId,desc'];
 const REQUEST_STATUS_SORT = ['requestedAt,desc', 'requestId,desc'];
 
-export function useFriendshipStatus(targetAccountId?: number | null) {
+export function useFriendshipStatus(targetAccountId: number) {
   const { user, isSignedIn } = useUser();
 
-  const normalizedTargetAccountId = Number(targetAccountId);
-  const isValidTarget = Number.isFinite(normalizedTargetAccountId) && normalizedTargetAccountId > 0;
-  const isSelf = user?.accountId === normalizedTargetAccountId;
+  const isSelf = user?.accountId === targetAccountId;
 
   const shouldHydrateReadData = Boolean(isSignedIn && user);
 
@@ -52,9 +50,7 @@ export function useFriendshipStatus(targetAccountId?: number | null) {
     },
   );
 
-  const pair = useAppSelector((state) =>
-    isValidTarget ? state.friendship.pairs[String(normalizedTargetAccountId)] : undefined,
-  );
+  const pair = useAppSelector((state) => state.friendship.pairs[String(targetAccountId)]);
 
   const uiState = isSelf ? FriendshipUiState.NOT_FRIEND : deriveFriendshipUiState(pair);
 
@@ -65,16 +61,16 @@ export function useFriendshipStatus(targetAccountId?: number | null) {
 
   const isBlockedAnyDirection = uiState === FriendshipUiState.BLOCKED || isBlockedByMe || isBlockedByOther;
 
-  const canSendRequest =
-    !isSelf && isSignedIn && isValidTarget && uiState === FriendshipUiState.NOT_FRIEND && !isBlockedAnyDirection;
+  const canSendRequest = !isSelf && isSignedIn && uiState === FriendshipUiState.NOT_FRIEND && !isBlockedAnyDirection;
 
   const canAccept = uiState === FriendshipUiState.PENDING_RECEIVED && incomingRequestId !== null;
   const canReject = uiState === FriendshipUiState.PENDING_RECEIVED && incomingRequestId !== null;
   const canCancel = uiState === FriendshipUiState.PENDING_SENT && outgoingRequestId !== null;
+  const canBlock = !isSelf && isSignedIn && !isBlockedAnyDirection;
+  const canUnblock = !isSelf && isSignedIn && isBlockedByMe;
 
   const isLoadingPair =
     !isSelf &&
-    isValidTarget &&
     shouldHydrateReadData &&
     (isLoadingFriendships ||
       isFetchingFriendships ||
@@ -84,7 +80,7 @@ export function useFriendshipStatus(targetAccountId?: number | null) {
       isFetchingSent);
 
   return {
-    targetAccountId: isValidTarget ? normalizedTargetAccountId : null,
+    targetAccountId,
     pair,
     uiState,
     incomingRequestId,
@@ -98,6 +94,8 @@ export function useFriendshipStatus(targetAccountId?: number | null) {
     canAccept,
     canReject,
     canCancel,
+    canBlock,
+    canUnblock,
     isLoadingPair,
   };
 }

@@ -366,6 +366,9 @@ export type ChatRoom = {
   lastMessagePreview: string | null;
   lastMessageTime: string | null;
   currentUserSentLastMessage: boolean | null;
+  blocked: boolean;
+  blockedByMe: boolean;
+  counterpartAccountId: number;
 };
 
 export type Resume = {

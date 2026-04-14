@@ -8,10 +8,16 @@ import {
   friendRequestCreated,
   friendRequestRejected,
   markFriendshipRealtimeEvent,
+  userBlocked,
+  userUnblocked,
 } from '@/lib/features/friendshipSlice';
 import { store } from '@/lib/store';
 import { FriendRequestStatus } from '@/services/friendship/friendshipType';
-import { normalizeFriendRequestFromEventData, parseFriendshipEventEnvelope } from '@/utils/friendshipUtils';
+import {
+  normalizeFriendRequestFromEventData,
+  normalizeFriendshipBlockEventParticipants,
+  parseFriendshipEventEnvelope,
+} from '@/utils/friendshipUtils';
 
 const FRIENDSHIP_EVENT_DESTINATIONS = ['/user/queue/friendships'] as const;
 
@@ -160,6 +166,42 @@ export class WebSocketFriendshipService {
           friendRequestCanceled({
             currentUserId,
             request,
+            emittedAt: envelope.emittedAt,
+          }),
+        );
+        return;
+      }
+      case 'USER_BLOCKED': {
+        const participants = normalizeFriendshipBlockEventParticipants(envelope.data);
+
+        if (!participants) {
+          return;
+        }
+
+        this.dispatch(markFriendshipRealtimeEvent(envelope.emittedAt));
+        this.dispatch(
+          userBlocked({
+            currentUserId,
+            blockerId: participants.blockerId,
+            blockedId: participants.blockedId,
+            emittedAt: envelope.emittedAt,
+          }),
+        );
+        return;
+      }
+      case 'USER_UNBLOCKED': {
+        const participants = normalizeFriendshipBlockEventParticipants(envelope.data);
+
+        if (!participants) {
+          return;
+        }
+
+        this.dispatch(markFriendshipRealtimeEvent(envelope.emittedAt));
+        this.dispatch(
+          userUnblocked({
+            currentUserId,
+            blockerId: participants.blockerId,
+            blockedId: participants.blockedId,
             emittedAt: envelope.emittedAt,
           }),
         );

@@ -15,7 +15,9 @@ export type FriendshipRealtimeEventType =
   | 'FRIEND_REQUEST_CREATED'
   | 'FRIEND_REQUEST_ACCEPTED'
   | 'FRIEND_REQUEST_REJECTED'
-  | 'FRIEND_REQUEST_CANCELED';
+  | 'FRIEND_REQUEST_CANCELED'
+  | 'USER_BLOCKED'
+  | 'USER_UNBLOCKED';
 
 export type FriendshipEventType = FriendshipRealtimeEventType;
 
@@ -30,6 +32,7 @@ export enum FriendRequestStatus {
 export enum RelationshipState {
   FRIEND = 'FRIEND',
   BLOCKED = 'BLOCKED',
+  NONE = 'NONE',
 }
 
 // UI-only state derived from relationship + pending requests.
@@ -48,13 +51,13 @@ export enum FriendRequestDirection {
 
 export type FriendUserSnippetResponse = {
   accountId: number;
-  fullName?: string | null;
-  username?: string | null;
-  avatar?: string | null;
-  headline?: string | null;
-  bio?: string | null;
-  coverPhoto?: string | null;
-  visibility?: string | null;
+  fullName?: string;
+  username?: string;
+  avatar?: string;
+  headline?: string;
+  bio?: string;
+  coverPhoto?: string;
+  visibility?: string;
 };
 
 export type FriendUserSummary = FriendUserSnippetResponse & {
@@ -94,8 +97,8 @@ export type FriendshipRealtimeEventResponse = {
   type: FriendshipRealtimeEventType;
   actorUser?: FriendUserSnippetResponse;
   targetUser?: FriendUserSnippetResponse;
-  requestId: number;
-  relationshipState: RelationshipState | null;
+  requestId?: number;
+  relationshipState?: RelationshipState;
   emittedAt?: string;
 };
 
@@ -109,12 +112,12 @@ export type FriendRequest = FriendRequestResponse & {
 export type PairFriendshipSnapshot = {
   targetAccountId: number;
   targetUser?: FriendUserSummary;
-  relationshipState: RelationshipState | null;
-  friendsSince?: string | null;
+  relationshipState: RelationshipState;
+  friendsSince: string | null;
   blockedByMe: boolean;
   blockedByOther: boolean;
-  pendingIncomingRequest?: FriendRequest | null;
-  pendingOutgoingRequest?: FriendRequest | null;
+  pendingIncomingRequest: FriendRequest | null;
+  pendingOutgoingRequest: FriendRequest | null;
   emittedAt?: string;
 };
 
@@ -124,33 +127,31 @@ export type PendingFriendRequestsSnapshot = {
 };
 
 export type CreateFriendRequestPayload = CreateFriendRequestRequest;
+export type FriendBlockActionPayload = {
+  targetUserId: number;
+};
 
 export type FriendRequestActionPayload = {
   requestId: number;
 };
 
-type FriendshipReadPayload =
-  | IModelPaginate<MyFriendResponse>
-  | MyFriendResponse[]
-  | MyFriendResponse
-  | Record<string, unknown>
-  | unknown[];
+export type FriendBlockActionResponseBody = {
+  senderId: number;
+  receiverId: number;
+  relationshipState: RelationshipState;
+  requestedAt: string;
+};
 
-type FriendRequestReadPayload =
-  | IModelPaginate<FriendRequestListItemResponse>
-  | FriendRequestListItemResponse[]
-  | FriendRequestListItemResponse
-  | Record<string, unknown>
-  | unknown[];
+type FriendshipPageResponse<T> = IBackendRes<IModelPaginate<T>>;
 
-export type GetMyFriendshipsResponse = IBackendRes<FriendshipReadPayload> | FriendshipReadPayload;
+export type GetMyFriendshipsResponse = FriendshipPageResponse<MyFriendResponse>;
 
-export type GetMyReceivedFriendRequestsResponse = IBackendRes<FriendRequestReadPayload> | FriendRequestReadPayload;
+export type GetMyReceivedFriendRequestsResponse = FriendshipPageResponse<FriendRequestListItemResponse>;
 
-export type GetMySentFriendRequestsResponse = IBackendRes<FriendRequestReadPayload> | FriendRequestReadPayload;
+export type GetMySentFriendRequestsResponse = FriendshipPageResponse<FriendRequestListItemResponse>;
 
-export type FriendRequestActionResponse =
-  | IBackendRes<FriendRequestResponse | Record<string, unknown> | null>
-  | FriendRequestResponse
-  | Record<string, unknown>
-  | null;
+export type GetMyBlockedUsersResponse = FriendshipPageResponse<FriendUserSnippetResponse>;
+
+export type FriendRequestActionResponse = IBackendRes<FriendRequestResponse>;
+
+export type FriendBlockActionResponse = IBackendRes<FriendBlockActionResponseBody>;

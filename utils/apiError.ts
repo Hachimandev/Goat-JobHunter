@@ -51,10 +51,24 @@ export const extractApiErrorCode = (error: unknown): string | null => {
     (value) => typeof value === 'string' && value.toUpperCase().includes('ACCOUNT_PRIVATE'),
   );
 
-  return hasAccountPrivateMessage ? 'ACCOUNT_PRIVATE' : null;
+  const hasBlockedInteractionMessage = messageCandidates.some(
+    (value) => typeof value === 'string' && value.toUpperCase().includes('BLOCKED_INTERACTION'),
+  );
+
+  if (hasAccountPrivateMessage) {
+    return 'ACCOUNT_PRIVATE';
+  }
+
+  if (hasBlockedInteractionMessage) {
+    return 'BLOCKED_INTERACTION';
+  }
+
+  return null;
 };
 
 export const isAccountPrivateError = (error: unknown): boolean => extractApiErrorCode(error) === 'ACCOUNT_PRIVATE';
+export const isBlockedInteractionError = (error: unknown): boolean =>
+  extractApiErrorCode(error) === 'BLOCKED_INTERACTION';
 
 export const extractApiErrorMessage = (error: unknown, fallbackMessage: string): string => {
   const root = toRecord(error);

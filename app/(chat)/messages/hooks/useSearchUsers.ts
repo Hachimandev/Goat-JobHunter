@@ -1,7 +1,9 @@
-import { useState, useEffect } from "react";
-import { useDebounce } from "@/components/ui/MultipleSelector";
-import { useLazySearchUsersQuery } from "@/services/user/userApi";
-import { useUser } from "@/hooks/useUser";
+import { useState, useEffect } from 'react';
+import { useDebounce } from '@/components/ui/MultipleSelector';
+import { useLazySearchUsersQuery } from '@/services/user/userApi';
+import { useUser } from '@/hooks/useUser';
+import { useAppSelector } from '@/lib/hooks';
+import { RelationshipState } from '@/services/friendship/friendshipType';
 
 interface UseSearchUsersOptions {
   minLength?: number;
@@ -11,7 +13,8 @@ interface UseSearchUsersOptions {
 export function useSearchUsers(options: UseSearchUsersOptions = {}) {
   const { minLength = 2, debounceMs = 500 } = options;
   const { user: currentUser } = useUser();
-  const [keyword, setKeyword] = useState("");
+  const friendshipPairs = useAppSelector((state) => state.friendship.pairs);
+  const [keyword, setKeyword] = useState('');
   const debouncedKeyword = useDebounce(keyword, debounceMs);
 
   const [trigger, { data, isLoading, isFetching, isError }] = useLazySearchUsersQuery();
@@ -22,7 +25,18 @@ export function useSearchUsers(options: UseSearchUsersOptions = {}) {
     }
   }, [debouncedKeyword, trigger, minLength]);
 
-  const users = data?.data?.result.filter(u => u.accountId !== currentUser?.accountId) || [];
+  const users =
+    data?.data?.result.filter((u) => {
+      if (u.accountId === currentUser?.accountId) {
+        return false;
+      }
+
+      const pair = friendshipPairs[String(u.accountId)];
+      const isBlocked =
+        pair?.blockedByMe || pair?.blockedByOther || pair?.relationshipState === RelationshipState.BLOCKED;
+
+      return !isBlocked;
+    }) || [];
   const shouldShowResults = debouncedKeyword.length >= minLength;
   const isEmpty = !isFetching && !isError && shouldShowResults && !isLoading && users.length === 0;
 
@@ -33,6 +47,6 @@ export function useSearchUsers(options: UseSearchUsersOptions = {}) {
     isLoading: isLoading || isFetching,
     isError,
     isEmpty,
-    shouldShowResults
+    shouldShowResults,
   };
 }

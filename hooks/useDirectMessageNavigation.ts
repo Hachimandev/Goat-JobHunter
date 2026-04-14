@@ -8,9 +8,10 @@ import {
   useSendMessageToNewChatRoomMutation,
 } from '@/services/chatRoom/chatRoomApi';
 import { Visibility } from '@/types/enum';
-import { RelationshipState } from '@/services/friendship/friendshipType';
-import { extractApiErrorMessage, isAccountPrivateError } from '@/utils/apiError';
+import { FriendshipUiState } from '@/services/friendship/friendshipType';
+import { extractApiErrorMessage, isAccountPrivateError, isBlockedInteractionError } from '@/utils/apiError';
 import { useAppSelector } from '@/lib/hooks';
+import { deriveFriendshipUiState } from '@/utils/friendshipUtils';
 
 const DEFAULT_MESSAGE_ERROR = 'Không thể tạo cuộc trò chuyện';
 const ACCOUNT_PRIVATE_MESSAGE = 'Tài khoản này đang ở chế độ riêng tư. Bạn không thể bắt đầu cuộc trò chuyện mới.';
@@ -28,14 +29,8 @@ export function useDirectMessageNavigation() {
         visibility?: Visibility | string | null;
       },
     ): Promise<boolean> => {
-      if (!Number.isFinite(accountId) || accountId <= 0) {
-        toast.error(DEFAULT_MESSAGE_ERROR);
-        return false;
-      }
-
       const pair = friendshipPairs[String(accountId)];
-      const isBlocked =
-        pair?.blockedByMe || pair?.blockedByOther || pair?.relationshipState === RelationshipState.BLOCKED;
+      const isBlocked = deriveFriendshipUiState(pair) === FriendshipUiState.BLOCKED;
 
       if (isBlocked) {
         toast.error('Không thể mở cuộc trò chuyện khi đang ở trạng thái chặn.');
@@ -69,6 +64,11 @@ export function useDirectMessageNavigation() {
 
         if (isAccountPrivateError(error)) {
           toast.error(ACCOUNT_PRIVATE_MESSAGE);
+          return false;
+        }
+
+        if (isBlockedInteractionError(error)) {
+          toast.error('Không thể mở cuộc trò chuyện khi đang ở trạng thái chặn.');
           return false;
         }
 
