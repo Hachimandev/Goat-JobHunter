@@ -91,3 +91,10 @@ export type CompanySignUpRequest = {
 };
 
 export type CompanySignUpResponse = IBackendRes<unknown>;
+
+// Delete Account
+export type DeleteAccountRequest = {
+  password: string;
+};
+
+export type DeleteAccountResponse = IBackendRes<string>;

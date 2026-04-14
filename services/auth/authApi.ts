@@ -14,6 +14,8 @@ import type {
   VerifyCodeResponse,
   CompanySignUpRequest,
   CompanySignUpResponse,
+  DeleteAccountRequest,
+  DeleteAccountResponse,
 } from './authType';
 
 export const authApi = api.injectEndpoints({
@@ -105,6 +107,24 @@ export const authApi = api.injectEndpoints({
         }
       },
     }),
+
+    deleteMyAccount: builder.mutation<DeleteAccountResponse, DeleteAccountRequest>({
+      query: (args) => ({
+        url: '/auth/account',
+        method: 'DELETE',
+        data: args,
+      }),
+      async onQueryStarted(_, { dispatch, queryFulfilled }) {
+        try {
+          await queryFulfilled;
+          // Clear user data on successful deletion
+          dispatch(setUser({ user: undefined, roles: [] }));
+          await tokenManager.clearTokens();
+        } catch (error) {
+          console.error('Delete account error:', error);
+        }
+      },
+    }),
   }),
 });
 
@@ -117,5 +137,6 @@ export const {
   useResendCodeMutation,
   useGetMyAccountQuery,
   useLazyGetMyAccountQuery,
+  useDeleteMyAccountMutation,
 } = authApi;
 
