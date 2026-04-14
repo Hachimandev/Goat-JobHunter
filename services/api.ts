@@ -79,6 +79,7 @@ export const api = createApi({
     'Reaction',
     'Ticket',
     'ResumeEvaluation',
+    'Device',
     'FriendRequest',
     'Friendship',
   ],

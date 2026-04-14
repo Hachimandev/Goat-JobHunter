@@ -11,6 +11,7 @@ import {
 } from '@/services/auth/authApi';
 import { SignInRequest, VerifyCodeRequest } from '@/services/auth/authType';
 import { useCreateUserMutation, useResetPasswordMutation, useUpdatePasswordMutation } from '@/services/user/userApi';
+import { connectWebSocketLogout, disconnectWebSocketLogout } from '@/services/WebSocketLogoutService';
 import { useRouter } from 'next/navigation';
 import { useCallback } from 'react';
 import { toast } from 'sonner';
@@ -98,6 +99,11 @@ export function useUser() {
 
         if (response.statusCode === 200) {
           toast.success('Đăng nhập thành công!');
+
+          connectWebSocketLogout(params.email, () => {
+            void signOut();
+          });
+
           return { success: true, user: response?.data };
         }
 
@@ -179,6 +185,9 @@ export function useUser() {
    */
   const signOut = useCallback(async () => {
     try {
+      // Ngắt kết nối WebSocket lắng nghe FORCE_LOGOUT khi người dùng đăng xuất
+      disconnectWebSocketLogout();
+
       await logoutMutation().unwrap();
 
       // Clear Redux state

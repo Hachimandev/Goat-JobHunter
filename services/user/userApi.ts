@@ -28,6 +28,7 @@ import { FetchJobsRequest, FetchJobsResponse } from '../job/jobType';
 import { FetchResumesRequest, FetchResumesResponse } from '../resume/resumeType';
 import { mergeUserProfileIfNewer } from '@/lib/features/authSlice';
 import { AuthUser } from '@/lib/features/authSyncTypes';
+import { FetchDevicesRequest, FetchDevicesResponse } from '../device/deviceType';
 
 export const userApi = api.injectEndpoints({
   overrideExisting: true,
@@ -297,6 +298,25 @@ export const userApi = api.injectEndpoints({
       },
       providesTags: ['Resume'],
     }),
+
+    fetchDevicesByCurrentUser: builder.query<FetchDevicesResponse, FetchDevicesRequest>({
+      query: (params) => {
+        const { params: queryParams } = buildSpringQuery({
+          params: {
+            ...params,
+          },
+          filterFields: [],
+          defaultSort: 'updatedAt,desc',
+        });
+
+        return {
+          url: '/users/me/devices',
+          method: 'GET',
+          params: queryParams,
+        };
+      },
+      providesTags: ['Device'],
+    }),
   }),
 });
 
@@ -331,4 +351,6 @@ export const {
   useFetchRelatedJobsByCurrentUserQuery,
 
   useFetchResumesByCurrentUserQuery,
+
+  useFetchDevicesByCurrentUserQuery,
 } = userApi;
