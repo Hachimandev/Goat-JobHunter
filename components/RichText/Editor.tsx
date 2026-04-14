@@ -1,10 +1,10 @@
-import { useCallback, useMemo, useRef, useState } from "react";
-import ReactQuill from "react-quill-new";
-import "react-quill-new/dist/quill.snow.css";
-import "./quill-fonts.css";
-import ImageInsertModal from "./ImageInsertModal";
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import ReactQuill from 'react-quill-new';
+import 'react-quill-new/dist/quill.snow.css';
+import './quill-fonts.css';
+import ImageInsertModal from './ImageInsertModal';
 
-import Quill from "quill";
+import Quill from 'quill';
 const Font = Quill.import('formats/font');
 const Size = Quill.import('formats/size');
 
@@ -18,19 +18,34 @@ Font.whitelist = [
   'inter',
   'lucida',
   'times-new-roman',
-  'verdana'
+  'verdana',
 ];
 // @ts-expect-error -- whitelist fonts
 Quill.register(Font, true);
 
 // @ts-expect-error -- whitelist fonts
-Size.whitelist = ['8px', '10px', '12px', '14px', '16px', '18px', '20px', '24px', '28px', '32px', '36px', '48px', '64px'];
+Size.whitelist = [
+  '8px',
+  '10px',
+  '12px',
+  '14px',
+  '16px',
+  '18px',
+  '20px',
+  '24px',
+  '28px',
+  '32px',
+  '36px',
+  '48px',
+  '64px',
+];
 // @ts-expect-error -- whitelist fonts
 Quill.register(Size, true);
 
 interface RichTextEditorProps {
   value: string;
   onChange: (value: string) => void;
+  onEditorReady?: (getEditor: () => Quill | null) => void;
   placeholder?: string;
   maxHeight?: number; // New prop for max height with scroll
   // Toolbar options - all default to true
@@ -53,7 +68,8 @@ interface RichTextEditorProps {
 export default function RichTextEditor({
   value,
   onChange,
-  placeholder = "Nhập nội dung...",
+  onEditorReady,
+  placeholder = 'Nhập nội dung...',
   maxHeight,
   allowImage = true,
   allowHeader = true,
@@ -73,6 +89,10 @@ export default function RichTextEditor({
   const quillRef = useRef<ReactQuill>(null);
   const [showImageModal, setShowImageModal] = useState(false);
 
+  const getEditor = useCallback(() => {
+    return quillRef.current?.getEditor() ?? null;
+  }, []);
+
   const imageHandler = useCallback(() => {
     if (!allowImage) return;
     setShowImageModal(true);
@@ -86,30 +106,36 @@ export default function RichTextEditor({
     }
 
     if (allowFont) {
-      toolbarContainer.push([{
-        font: [
-          'arial',
-          'comic-sans',
-          'courier-new',
-          'georgia',
-          'helvetica',
-          'inter',
-          'lucida',
-          'times-new-roman',
-          'verdana'
-        ]
-      }]);
+      toolbarContainer.push([
+        {
+          font: [
+            'arial',
+            'comic-sans',
+            'courier-new',
+            'georgia',
+            'helvetica',
+            'inter',
+            'lucida',
+            'times-new-roman',
+            'verdana',
+          ],
+        },
+      ]);
     }
 
     if (allowSize) {
-      toolbarContainer.push([{ size: ['8px', '10px', '12px', '14px', '16px', '18px', '20px', '24px', '28px', '32px', '36px', '48px', '64px'] }]);
+      toolbarContainer.push([
+        {
+          size: ['8px', '10px', '12px', '14px', '16px', '18px', '20px', '24px', '28px', '32px', '36px', '48px', '64px'],
+        },
+      ]);
     }
 
     const textFormats: string[] = [];
-    if (allowBold) textFormats.push("bold");
-    if (allowItalic) textFormats.push("italic");
-    if (allowUnderline) textFormats.push("underline");
-    if (allowStrike) textFormats.push("strike");
+    if (allowBold) textFormats.push('bold');
+    if (allowItalic) textFormats.push('italic');
+    if (allowUnderline) textFormats.push('underline');
+    if (allowStrike) textFormats.push('strike');
     if (textFormats.length > 0) {
       toolbarContainer.push(textFormats);
     }
@@ -126,61 +152,95 @@ export default function RichTextEditor({
     }
 
     if (allowList) {
-      toolbarContainer.push([{ list: "ordered" }, { list: "bullet" }]);
+      toolbarContainer.push([{ list: 'ordered' }, { list: 'bullet' }]);
     }
 
     if (allowLink) {
-      toolbarContainer.push(["link"]);
+      toolbarContainer.push(['link']);
     }
 
     if (allowImage) {
-      toolbarContainer.push(["image"]);
+      toolbarContainer.push(['image']);
     }
 
     if (allowClean) {
-      toolbarContainer.push(["clean"]);
+      toolbarContainer.push(['clean']);
     }
 
     return {
       toolbar: {
         container: toolbarContainer,
-        handlers: allowImage ? { image: imageHandler } : {}
-      }
+        handlers: allowImage ? { image: imageHandler } : {},
+      },
     };
   }, [
-    allowHeader, allowFont, allowSize, allowBold, allowItalic,
-    allowUnderline, allowStrike, allowColor, allowBackground,
-    allowAlign, allowList, allowLink, allowImage, allowClean, imageHandler
+    allowHeader,
+    allowFont,
+    allowSize,
+    allowBold,
+    allowItalic,
+    allowUnderline,
+    allowStrike,
+    allowColor,
+    allowBackground,
+    allowAlign,
+    allowList,
+    allowLink,
+    allowImage,
+    allowClean,
+    imageHandler,
   ]);
 
   const formats = useMemo(() => {
     const baseFormats: string[] = [];
 
-    if (allowHeader) baseFormats.push("header");
-    if (allowFont) baseFormats.push("font");
-    if (allowSize) baseFormats.push("size");
-    if (allowBold) baseFormats.push("bold");
-    if (allowItalic) baseFormats.push("italic");
-    if (allowUnderline) baseFormats.push("underline");
-    if (allowStrike) baseFormats.push("strike");
-    if (allowColor) baseFormats.push("color");
-    if (allowBackground) baseFormats.push("background");
-    if (allowAlign) baseFormats.push("align");
-    if (allowList) baseFormats.push("list");
-    if (allowLink) baseFormats.push("link");
-    if (allowImage) baseFormats.push("image");
+    if (allowHeader) baseFormats.push('header');
+    if (allowFont) baseFormats.push('font');
+    if (allowSize) baseFormats.push('size');
+    if (allowBold) baseFormats.push('bold');
+    if (allowItalic) baseFormats.push('italic');
+    if (allowUnderline) baseFormats.push('underline');
+    if (allowStrike) baseFormats.push('strike');
+    if (allowColor) baseFormats.push('color');
+    if (allowBackground) baseFormats.push('background');
+    if (allowAlign) baseFormats.push('align');
+    if (allowList) baseFormats.push('list');
+    if (allowLink) baseFormats.push('link');
+    if (allowImage) baseFormats.push('image');
 
     return baseFormats;
-  }, [allowHeader, allowFont, allowSize, allowBold, allowItalic, allowUnderline, allowStrike, allowColor, allowBackground, allowAlign, allowList, allowLink, allowImage]);
+  }, [
+    allowHeader,
+    allowFont,
+    allowSize,
+    allowBold,
+    allowItalic,
+    allowUnderline,
+    allowStrike,
+    allowColor,
+    allowBackground,
+    allowAlign,
+    allowList,
+    allowLink,
+    allowImage,
+  ]);
 
   const handleInsertImage = useCallback(() => {
-    const editor = quillRef.current?.getEditor();
+    const editor = getEditor();
     return editor ?? null;
-  }, []);
+  }, [getEditor]);
+
+  useEffect(() => {
+    if (!onEditorReady) {
+      return;
+    }
+
+    onEditorReady(getEditor);
+  }, [getEditor, onEditorReady]);
 
   const editorClassName = maxHeight
     ? `w-full [&_.ql-container]:border-0! [&_.ql-formats]:mr-2! [&_.ql-editor]:max-h-[${maxHeight}px] [&_.ql-editor]:overflow-y-auto`
-    : "w-full [&_.ql-container]:border-0! [&_.ql-container]:min-h-[120px] [&_.ql-editor]:min-h-[120px] [&_.ql-formats]:mr-2!";
+    : 'w-full [&_.ql-container]:border-0! [&_.ql-container]:min-h-[120px] [&_.ql-editor]:min-h-[120px] [&_.ql-formats]:mr-2!';
 
   return (
     <>
@@ -195,10 +255,10 @@ export default function RichTextEditor({
           theme="snow"
           className={editorClassName}
           style={{
-            width: "100%",
+            width: '100%',
             ...(maxHeight && {
-              ['--editor-max-height' as string]: `${maxHeight}px`
-            })
+              ['--editor-max-height' as string]: `${maxHeight}px`,
+            }),
           }}
         />
       </div>
