@@ -2,6 +2,15 @@
 
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog';
 import { Edit2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import CompanyUserForm from '@/app/(main)/profile/components/ProfileInfo/CompanyUserForm';
@@ -19,8 +28,8 @@ import { Visibility } from '@/types/enum';
 import { useUpdateMyVisibilityMutation } from '@/services/user/userApi';
 import { toast } from 'sonner';
 import { extractApiErrorMessage } from '@/utils/apiError';
-import ConfirmDialog from '@/components/common/ConfirmDialog';
 import { useDeleteMyAccountMutation } from '@/services/auth/authApi';
+import { IBackendError } from '@/types/api';
 
 export default function ProfileInfo() {
   const [showModal, setShowModal] = useState(false);
@@ -31,6 +40,7 @@ export default function ProfileInfo() {
   const [updateMyVisibility, { isLoading: isUpdatingVisibility }] = useUpdateMyVisibilityMutation();
   const [deleteMyAccount, { isLoading: isDeletingAccount }] = useDeleteMyAccountMutation();
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [deletePassword, setDeletePassword] = useState('');
 
   useEffect(() => {
     if (isDeletingAccount) {
@@ -76,14 +86,26 @@ export default function ProfileInfo() {
   };
 
   const handleDeleteAccount = async () => {
+    if (!deletePassword.trim()) {
+      toast.error('Vui lòng nhập mật khẩu để xác nhận xóa tài khoản.');
+      return;
+    }
+
     try {
-      await deleteMyAccount().unwrap();
+      await deleteMyAccount({ password: deletePassword }).unwrap();
       toast.success('Tài khoản của bạn đã được xóa thành công.');
+      setDeletePassword('');
+      setShowDeleteDialog(false);
 
       await signOut();
     } catch (error) {
-      toast.error(extractApiErrorMessage(error, 'Không thể xóa tài khoản. Vui lòng thử lại sau.'));
+      toast.error((error as IBackendError).data?.message || 'Đã có lỗi xảy ra khi xóa tài khoản. Vui lòng thử lại.');
     }
+  };
+
+  const handleCloseDeleteDialog = () => {
+    setDeletePassword('');
+    setShowDeleteDialog(false);
   };
 
   return (
@@ -156,24 +178,55 @@ export default function ProfileInfo() {
         <ApplicantUserForm open={showModal} onOpenChange={setShowModal} profile={me as ApplicantResponse} />
       )}
 
-      <ConfirmDialog
-        open={showDeleteDialog}
-        onOpenChange={setShowDeleteDialog}
-        title="Xóa tài khoản"
-        description={
-          <span>
-            Hành động này sẽ xóa vĩnh viễn tài khoản của bạn khỏi hệ thống. Bạn sẽ không thể khôi phục lại tài khoản sau
-            khi xóa.
-            <br />
-            Bạn có chắc chắn muốn tiếp tục?
-          </span>
-        }
-        confirmText="Xóa tài khoản"
-        confirmBtnClass="bg-destructive text-destructive-foreground hover:bg-destructive/90 text-white"
-        disableConfirm={isDeletingAccount}
-        isLoading={isDeletingAccount}
-        onConfirm={handleDeleteAccount}
-      />
+      <Dialog open={showDeleteDialog} onOpenChange={handleCloseDeleteDialog}>
+        <DialogContent className="sm:max-w-[425px] rounded-xl">
+          <DialogHeader>
+            <DialogTitle>Xóa tài khoản</DialogTitle>
+            <DialogDescription>
+              Hành động này sẽ xóa vĩnh viễn tài khoản của bạn khỏi hệ thống. Bạn sẽ không thể khôi phục lại tài khoản
+              sau khi xóa.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            <p className="text-sm text-muted-foreground font-medium">
+              Vui lòng nhập mật khẩu để xác nhận xóa tài khoản:
+            </p>
+            <Input
+              type="password"
+              placeholder="Nhập mật khẩu của bạn"
+              value={deletePassword}
+              onChange={(e) => setDeletePassword(e.target.value)}
+              disabled={isDeletingAccount}
+              className="rounded-xl"
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && deletePassword.trim() && !isDeletingAccount) {
+                  handleDeleteAccount();
+                }
+              }}
+            />
+          </div>
+
+          <DialogFooter className="gap-2">
+            <Button
+              variant="outline"
+              onClick={handleCloseDeleteDialog}
+              disabled={isDeletingAccount}
+              className="rounded-xl"
+            >
+              Huỷ
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleDeleteAccount}
+              disabled={!deletePassword.trim() || isDeletingAccount}
+              className="rounded-xl"
+            >
+              {isDeletingAccount ? 'Đang xóa...' : 'Xóa tài khoản'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }
