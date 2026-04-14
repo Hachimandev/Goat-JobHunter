@@ -4,8 +4,7 @@ import { Paperclip, Send, X, Pilcrow } from 'lucide-react';
 import { useState, useRef, type KeyboardEvent, type ChangeEvent } from 'react';
 import RichTextEditor from '@/components/RichText/Editor';
 import { MessageType } from '@/types/model';
-import { MessageTypeEnum } from '@/types/enum';
-import { extractPlainTextFromHtml } from '@/utils/extractPlainTextFromHtml';
+import { getMessagePreviewText, getMessageSenderDisplayName } from '@/utils/messageUtils';
 
 interface MessageInputProps {
   readonly onSendMessage: (text?: string, files?: File[], replyToMessageId?: string | null) => void | Promise<void>;
@@ -25,36 +24,6 @@ export function MessageInput({
   const [isEditorMode, setIsEditorMode] = useState(false);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
-
-  const getReplyPreviewText = (target: MessageType) => {
-    if (target.isHidden) {
-      return 'Tin nhắn đã được thu hồi';
-    }
-
-    if (target.messageType === MessageTypeEnum.IMAGE) {
-      return '[Hình ảnh]';
-    }
-
-    if (target.messageType === MessageTypeEnum.VIDEO) {
-      return '[Video]';
-    }
-
-    if (target.messageType === MessageTypeEnum.AUDIO) {
-      return '[Âm thanh]';
-    }
-
-    if (target.messageType === MessageTypeEnum.FILE) {
-      return '[Tệp đính kèm]';
-    }
-
-    const plainText = extractPlainTextFromHtml(target.content || '').trim();
-
-    if (!plainText) {
-      return '[Tin nhắn văn bản]';
-    }
-
-    return plainText.length > 80 ? `${plainText.slice(0, 80)}...` : plainText;
-  };
 
   const handleSend = async () => {
     if (disabled) {
@@ -121,15 +90,15 @@ export function MessageInput({
     return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + ' ' + sizes[i];
   };
 
-  const replySenderName = replyTarget?.sender.fullName || replyTarget?.sender.username || 'Người dùng';
-  const replyPreviewText = replyTarget ? getReplyPreviewText(replyTarget) : null;
+  const replySenderName = getMessageSenderDisplayName(replyTarget?.sender);
+  const replyPreviewText = replyTarget ? getMessagePreviewText(replyTarget) : null;
 
   return (
     <div className="border-t border-border bg-card">
       {replyTarget && (
-        <div className="px-4 pt-3 pb-2 border-b border-border bg-accent/20">
-          <div className="flex items-start gap-2 rounded-lg border border-border/70 bg-background/70 px-3 py-2">
-            <div className="min-w-0 flex-1">
+        <div className="px-4 pt-3 pb-2 border-b border-border bg-accent/40">
+          <div className="flex items-start gap-2 rounded-lg border border-border bg-white px-3 py-2">
+            <div className="min-w-0 flex-1 border-l-2 border-primary pl-2">
               <p className="text-xs text-muted-foreground">
                 Đang trả lời <span className="font-medium text-foreground">{replySenderName}</span>
               </p>
@@ -138,9 +107,9 @@ export function MessageInput({
               </p>
             </div>
             <Button
-              variant="ghost"
+              variant="destructive"
               size="icon"
-              className="h-6 w-6 shrink-0"
+              className="h-6 w-6 shrink-0 rounded-full"
               onClick={onCancelReply}
               disabled={disabled}
             >

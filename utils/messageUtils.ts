@@ -1,0 +1,82 @@
+import { MessageTypeEnum } from '@/types/enum';
+import type { MessageReplyContext, MessageType } from '@/types/model';
+import { extractPlainTextFromHtml } from '@/utils/extractPlainTextFromHtml';
+
+export const RECALLED_MESSAGE_PREVIEW = 'Tin nhắn đã được thu hồi';
+export const UNAVAILABLE_MESSAGE_PREVIEW = 'Tin nhắn không khả dụng';
+export const DEFAULT_TEXT_MESSAGE_PREVIEW = '[Tin nhắn văn bản]';
+
+type SenderPreview = {
+  fullName?: string | null;
+  username?: string | null;
+} | null;
+
+type MessagePreviewSource = Pick<MessageType, 'isHidden' | 'messageType' | 'content'>;
+
+const truncatePreviewText = (value: string, maxLength: number): string => {
+  if (maxLength <= 0 || value.length <= maxLength) {
+    return value;
+  }
+
+  return `${value.slice(0, maxLength)}...`;
+};
+
+export const getMessageSenderDisplayName = (sender: SenderPreview | undefined, fallback = 'Người dùng'): string => {
+  return sender?.fullName || sender?.username || fallback;
+};
+
+export const getMessageTypePreviewText = (messageType: MessageTypeEnum | null | undefined): string => {
+  if (messageType === MessageTypeEnum.IMAGE) {
+    return '[Hình ảnh]';
+  }
+
+  if (messageType === MessageTypeEnum.VIDEO) {
+    return '[Video]';
+  }
+
+  if (messageType === MessageTypeEnum.AUDIO) {
+    return '[Âm thanh]';
+  }
+
+  if (messageType === MessageTypeEnum.FILE) {
+    return '[Tệp đính kèm]';
+  }
+
+  return DEFAULT_TEXT_MESSAGE_PREVIEW;
+};
+
+export const getMessagePreviewText = (message: MessagePreviewSource, maxLength = 80): string => {
+  if (message.isHidden) {
+    return RECALLED_MESSAGE_PREVIEW;
+  }
+
+  if (message.messageType !== MessageTypeEnum.TEXT) {
+    return getMessageTypePreviewText(message.messageType);
+  }
+
+  const plainText = extractPlainTextFromHtml(message.content || '').trim();
+
+  if (!plainText) {
+    return DEFAULT_TEXT_MESSAGE_PREVIEW;
+  }
+
+  return truncatePreviewText(plainText, maxLength);
+};
+
+export const getReplyContextPreviewText = (replyContext: MessageReplyContext): string => {
+  if (replyContext.originalMessageUnavailable) {
+    return UNAVAILABLE_MESSAGE_PREVIEW;
+  }
+
+  if (replyContext.originalMessageHidden) {
+    return RECALLED_MESSAGE_PREVIEW;
+  }
+
+  const previewText = (replyContext.originalContentPreview || '').trim();
+
+  if (previewText) {
+    return previewText;
+  }
+
+  return getMessageTypePreviewText(replyContext.originalMessageType);
+};

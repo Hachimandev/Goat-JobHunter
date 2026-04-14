@@ -10,12 +10,11 @@ import { cn } from '@/lib/utils';
 import { MessageType } from '@/types/model';
 import { MessageTypeEnum } from '@/types/enum';
 import { useChatRooms } from '@/app/(chat)/messages/hooks/useChatRooms';
-import { extractPlainTextFromHtml } from '@/utils/extractPlainTextFromHtml';
 import type { ForwardMessageSubmitResult } from '@/hooks/useChatRoomAndMessageActions';
 import { Loader2, Search, X, ImageIcon, Video, Music, FileText } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { Badge } from '@/components/ui/badge';
-import { truncate } from 'lodash';
+import { getMessagePreviewText } from '@/utils/messageUtils';
 
 interface ForwardMessageModalProps {
   open: boolean;
@@ -67,45 +66,19 @@ export function ForwardMessageModal({
       };
     }
 
-    if (message.isHidden) {
-      return {
-        text: 'Tin nhắn đã được thu hồi',
-        Icon: FileText,
-      };
-    }
+    const Icon = message.isHidden
+      ? FileText
+      : message.messageType === MessageTypeEnum.IMAGE
+        ? ImageIcon
+        : message.messageType === MessageTypeEnum.VIDEO
+          ? Video
+          : message.messageType === MessageTypeEnum.AUDIO
+            ? Music
+            : FileText;
 
-    if (message.messageType === MessageTypeEnum.IMAGE) {
-      return {
-        text: '[Hình ảnh]',
-        Icon: ImageIcon,
-      };
-    }
-
-    if (message.messageType === MessageTypeEnum.VIDEO) {
-      return {
-        text: '[Video]',
-        Icon: Video,
-      };
-    }
-
-    if (message.messageType === MessageTypeEnum.AUDIO) {
-      return {
-        text: '[Âm thanh]',
-        Icon: Music,
-      };
-    }
-
-    if (message.messageType === MessageTypeEnum.FILE) {
-      return {
-        text: '[Tệp đính kèm]',
-        Icon: FileText,
-      };
-    }
-
-    const plainText = extractPlainTextFromHtml(message.content).trim();
     return {
-      text: truncate(plainText, { length: 60 }) || '[Tin nhắn văn bản]',
-      Icon: FileText,
+      text: getMessagePreviewText(message, 60),
+      Icon,
     };
   }, [message]);
 

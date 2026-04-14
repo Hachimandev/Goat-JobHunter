@@ -29,6 +29,7 @@ import { MessageEvent, MessageTypeEnum } from '@/types/enum';
 import { JSX, useMemo, useState } from 'react';
 import MarkdownDisplay from '@/components/common/MarkdownDisplay';
 import ConfirmDialog from '@/components/common/ConfirmDialog';
+import { getMessageSenderDisplayName, getReplyContextPreviewText } from '@/utils/messageUtils';
 
 interface MessageBubbleProps {
   message: MessageType;
@@ -217,44 +218,14 @@ export function MessageBubble({
     setIsDeleteDialogOpen(false);
   };
 
-  const getFallbackReplyPreviewByType = (messageType: MessageTypeEnum | null) => {
-    if (messageType === MessageTypeEnum.IMAGE) {
-      return '[Hình ảnh]';
-    }
-
-    if (messageType === MessageTypeEnum.VIDEO) {
-      return '[Video]';
-    }
-
-    if (messageType === MessageTypeEnum.AUDIO) {
-      return '[Âm thanh]';
-    }
-
-    if (messageType === MessageTypeEnum.FILE) {
-      return '[Tệp đính kèm]';
-    }
-
-    return '[Tin nhắn văn bản]';
-  };
-
   const renderReplyContext = () => {
     if (!message.replyToMessageId || !message.replyContext) {
       return null;
     }
 
     const replyContext = message.replyContext;
-    const originalSenderName =
-      replyContext.originalSender?.fullName || replyContext.originalSender?.username || 'Người dùng';
-
-    let previewText = replyContext.originalContentPreview || '';
-
-    if (replyContext.originalMessageUnavailable) {
-      previewText = 'Tin nhắn không khả dụng';
-    } else if (replyContext.originalMessageHidden) {
-      previewText = 'Tin nhắn đã được thu hồi';
-    } else if (!previewText.trim()) {
-      previewText = getFallbackReplyPreviewByType(replyContext.originalMessageType);
-    }
+    const originalSenderName = getMessageSenderDisplayName(replyContext.originalSender);
+    const previewText = getReplyContextPreviewText(replyContext);
 
     const canNavigate = Boolean(replyContext.originalMessageId && onNavigateToMessage);
 
