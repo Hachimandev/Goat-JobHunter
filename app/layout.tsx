@@ -4,6 +4,8 @@ import type { Metadata } from 'next';
 import { Geist, Geist_Mono } from 'next/font/google';
 import NotificationListener from '@/components/common/NotificationListener';
 import UserProfileRealtimeListener from '@/components/common/UserProfileRealtimeListener';
+import FriendshipRealtimeListener from '@/components/common/FriendshipRealtimeListener';
+import FriendshipInviteToastListener from '@/components/common/FriendshipInviteToastListener';
 import './globals.css';
 import 'react-photo-album/styles.css';
 
@@ -33,6 +35,8 @@ export default function RootLayout({
         <ReduxProvider>
           <NotificationListener />
           <UserProfileRealtimeListener />
+          <FriendshipRealtimeListener />
+          <FriendshipInviteToastListener />
           {children}
         </ReduxProvider>
         <Toaster position="top-right" duration={3000} />

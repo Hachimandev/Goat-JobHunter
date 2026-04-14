@@ -5,20 +5,27 @@ import { Separator } from '@/components/ui/separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ChatRoom } from '@/types/model';
 import { ChatRoomType } from '@/types/enum';
-import { Bell, ShieldBan, UserCircle, X, Users } from 'lucide-react';
+import { Bell, Loader2, ShieldBan, Undo2, UserCircle, X, Users } from 'lucide-react';
 import { SharedMediaGrid } from './SharedMediaGrid';
 import { SharedFilesList } from './SharedFilesList';
 import { Badge } from '@/components/ui/badge';
 import { useFetchFilesInChatRoomQuery, useFetchMediaInChatRoomQuery } from '@/services/chatRoom/chatRoomApi';
 import { useMemo } from 'react';
+import useFriendActions from '@/hooks/useFriendActions';
 
 interface ChatDetailsPanelProps {
   chatRoom: ChatRoom;
   isOpen: boolean;
   onClose: () => void;
+  onRelationshipChanged?: () => void;
 }
 
-export function ChatDetailsPanel({ chatRoom, isOpen, onClose }: Readonly<ChatDetailsPanelProps>) {
+export function ChatDetailsPanel({
+  chatRoom,
+  isOpen,
+  onClose,
+  onRelationshipChanged,
+}: Readonly<ChatDetailsPanelProps>) {
   const {
     data: filesData,
     isLoading: isLoadingFile,
@@ -30,8 +37,6 @@ export function ChatDetailsPanel({ chatRoom, isOpen, onClose }: Readonly<ChatDet
     isError: isErrorMedia,
   } = useFetchMediaInChatRoomQuery({ chatRoomId: chatRoom.roomId }, { skip: !isOpen || !chatRoom });
 
-  console.log({ filesData, mediaData });
-
   const media = useMemo(() => {
     return mediaData?.data || [];
   }, [mediaData]);
@@ -39,10 +44,31 @@ export function ChatDetailsPanel({ chatRoom, isOpen, onClose }: Readonly<ChatDet
   const files = useMemo(() => {
     return filesData?.data || [];
   }, [filesData]);
+  const { handleBlockUser, handleUnblockUser, isMutating } = useFriendActions();
 
   if (!isOpen) return null;
 
   const isGroup = chatRoom.type === ChatRoomType.GROUP;
+  const isDirectBlocked = !isGroup && Boolean(chatRoom.blocked);
+  const isBlockedByMe = isDirectBlocked && Boolean(chatRoom.blockedByMe);
+
+  const isBlockActionDisabled = isGroup || isMutating;
+
+  const canUnblock = isBlockedByMe;
+
+  const handleToggleBlock = async () => {
+    if (isGroup) {
+      return;
+    }
+
+    const success = canUnblock
+      ? await handleUnblockUser(chatRoom.counterpartAccountId)
+      : await handleBlockUser(chatRoom.counterpartAccountId);
+
+    if (success) {
+      onRelationshipChanged?.();
+    }
+  };
 
   return (
     <div className="w-[450px] border-l border-border bg-card shrink-0 flex flex-col h-full min-h-0">
@@ -85,11 +111,31 @@ export function ChatDetailsPanel({ chatRoom, isOpen, onClose }: Readonly<ChatDet
               <Bell className="h-5 w-5" />
               <span className="text-xs">Tắt thông báo</span>
             </Button>
-            <Button variant="outline" className="rounded-xl flex flex-col h-auto py-3 gap-1 bg-transparent" size="sm">
-              <ShieldBan className="h-5 w-5" />
-              <span className="text-xs">Chặn</span>
+            <Button
+              variant="outline"
+              className="rounded-xl flex flex-col h-auto py-3 gap-1 bg-transparent"
+              size="sm"
+              onClick={handleToggleBlock}
+              disabled={isBlockActionDisabled}
+            >
+              {isMutating ? (
+                <Loader2 className="h-5 w-5 animate-spin" />
+              ) : canUnblock ? (
+                <Undo2 className="h-5 w-5" />
+              ) : (
+                <ShieldBan className="h-5 w-5" />
+              )}
+              <span className="text-xs">{canUnblock ? 'Bỏ chặn' : 'Chặn'}</span>
             </Button>
           </div>
+
+          {!isGroup && isDirectBlocked && (
+            <p className="text-xs text-muted-foreground">
+              {isBlockedByMe
+                ? 'Bạn đã chặn người dùng này. Không thể gửi tin nhắn cho đến khi bỏ chặn.'
+                : 'Người dùng này đã chặn bạn. Bạn không thể nhắn tin ở thời điểm hiện tại.'}
+            </p>
+          )}
 
           <Separator />
 

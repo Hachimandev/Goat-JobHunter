@@ -9,11 +9,15 @@ import { subscribeToChatRoom, unsubscribeFromChatRoom } from '@/services/chatRoo
 import { useUser } from '@/hooks/useUser';
 import useChatRoomAndMessageActions from '@/hooks/useChatRoomAndMessageActions';
 import { MessageType } from '@/types/model';
+import { ChatRoomType } from '@/types/enum';
+import { useAppSelector } from '@/lib/hooks';
+import { selectLastFriendshipRealtimeEventAt } from '@/lib/features/friendshipSlice';
 
 export default function ChatRoomPage() {
   const params = useParams();
   const chatRoomId = params?.id as string;
   const { user } = useUser();
+  const lastFriendshipRealtimeEventAt = useAppSelector(selectLastFriendshipRealtimeEventAt);
   const [forwardMessage, setForwardMessage] = useState<MessageType | null>(null);
   const [forwardModalOpen, setForwardModalOpen] = useState(false);
 
@@ -47,9 +51,17 @@ export default function ChatRoomPage() {
     { skip: !chatRoomId || isNaN(Number(chatRoomId)) },
   );
 
-  const { data: chatRoomsData } = useFetchChatRoomsByIdQuery(Number(chatRoomId), {
+  const { data: chatRoomsData, refetch: refetchChatRoom } = useFetchChatRoomsByIdQuery(Number(chatRoomId), {
     skip: !chatRoomId || isNaN(Number(chatRoomId)),
   });
+
+  useEffect(() => {
+    if (!lastFriendshipRealtimeEventAt || !chatRoomId || isNaN(Number(chatRoomId))) {
+      return;
+    }
+
+    void refetchChatRoom();
+  }, [chatRoomId, lastFriendshipRealtimeEventAt, refetchChatRoom]);
 
   const currentChatRoom = useMemo(() => {
     return chatRoomsData?.data || null;
@@ -61,6 +73,12 @@ export default function ChatRoomPage() {
       (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
     );
   }, [messagesData]);
+
+  const isDirectBlocked = currentChatRoom?.type === ChatRoomType.DIRECT && Boolean(currentChatRoom?.blocked);
+  const isBlockedByMe = isDirectBlocked && Boolean(currentChatRoom?.blockedByMe);
+  const blockedReason = isBlockedByMe
+    ? 'Bạn đã chặn người này. Hãy bỏ chặn để tiếp tục nhắn tin.'
+    : 'Bạn không thể nhắn tin với người này.';
 
   if (isLoading) {
     return (
@@ -110,7 +128,16 @@ export default function ChatRoomPage() {
         chatRoom={currentChatRoom}
         messages={messages}
         currentUserId={user?.accountId?.toString()}
+        isChatBlocked={isDirectBlocked}
+        chatBlockedReason={blockedReason}
+        onDirectRelationshipChanged={() => {
+          void refetchChatRoom();
+        }}
         onSendMessage={async (text, files) => {
+          if (isDirectBlocked) {
+            return;
+          }
+
           await handleSendMessage(Number(chatRoomId), text, files);
         }}
         onForwardMessage={handleOpenForwardModal}

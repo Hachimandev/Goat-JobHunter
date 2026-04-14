@@ -13,10 +13,11 @@ import { usePendingMessages } from '@/contexts/PendingMessagesContext';
 import { useCallback, useState } from 'react';
 import { IBackendRes } from '@/types/api';
 import { Visibility } from '@/types/enum';
-import { extractApiErrorMessage, isAccountPrivateError } from '@/utils/apiError';
+import { extractApiErrorMessage, isAccountPrivateError, isBlockedInteractionError } from '@/utils/apiError';
 
 export const ACCOUNT_PRIVATE_MESSAGE =
   'Tài khoản này đang ở chế độ riêng tư. Bạn không thể bắt đầu cuộc trò chuyện mới.';
+export const BLOCKED_INTERACTION_MESSAGE = 'Bạn không thể nhắn tin với người này.';
 
 type ApiMutationError = {
   status?: number;
@@ -60,6 +61,16 @@ const useChatRoomAndMessageActions = () => {
     }
 
     return apiError?.data?.message || apiError?.data?.data?.message || 'Không thể xóa tin nhắn.';
+  };
+
+  const getSendMessageError = (error: unknown, fallbackMessage: string) => {
+    const apiError = error as ApiMutationError;
+
+    if (isBlockedInteractionError(error) || apiError?.status === 403) {
+      return BLOCKED_INTERACTION_MESSAGE;
+    }
+
+    return extractApiErrorMessage(error, fallbackMessage);
   };
 
   const getForwardMessageError = (error: unknown) => {
@@ -135,7 +146,7 @@ const useChatRoomAndMessageActions = () => {
       }
     } catch (error) {
       console.error('Error sending message:', error);
-      toast.error('Gửi tin nhắn thất bại.');
+      toast.error(getSendMessageError(error, 'Gửi tin nhắn thất bại.'));
     } finally {
       if (pendingId) {
         removePendingMessage(pendingId);
@@ -190,7 +201,7 @@ const useChatRoomAndMessageActions = () => {
         return;
       }
 
-      toast.error(extractApiErrorMessage(error, 'Gửi tin nhắn thất bại.'));
+      toast.error(getSendMessageError(error, 'Gửi tin nhắn thất bại.'));
     } finally {
       if (pendingId) {
         removePendingMessage(pendingId);
