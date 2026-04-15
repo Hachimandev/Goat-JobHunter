@@ -5,15 +5,24 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ChatRoom } from '@/types/model';
 import { ChatRoomType } from '@/types/enum';
-import { Info, Phone, Video, Users } from 'lucide-react';
+import { Info, Phone, Video, Users, Pin } from 'lucide-react';
+import { toast } from 'sonner';
 
 interface ChatHeaderProps {
   chatRoom: ChatRoom;
   onToggleDetails?: () => void;
   isDetailsOpen?: boolean;
+  onShowPinnedMessages?: () => void;
+  pinnedMessagesCount?: number;
 }
 
-export function ChatHeader({ chatRoom, onToggleDetails, isDetailsOpen }: Readonly<ChatHeaderProps>) {
+export function ChatHeader({
+  chatRoom,
+  onToggleDetails,
+  isDetailsOpen,
+  onShowPinnedMessages,
+  pinnedMessagesCount = 0,
+}: Readonly<ChatHeaderProps>) {
   const isGroup = chatRoom.type === ChatRoomType.GROUP;
 
   return (
@@ -41,6 +50,29 @@ export function ChatHeader({ chatRoom, onToggleDetails, isDetailsOpen }: Readonl
         </Button>
         <Button variant="ghost" size="icon" className="h-9 w-9 rounded-full">
           <Video className="h-5 w-5" />
+        </Button>
+
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-9 w-9 rounded-full relative"
+          onClick={() => {
+            if (pinnedMessagesCount == 0) {
+              toast.info('Không có tin nhắn nào được ghim trong cuộc trò chuyện này.');
+            }
+            onShowPinnedMessages?.();
+          }}
+          title={`${pinnedMessagesCount} tin nhắn được ghim`}
+        >
+          <Pin className="h-5 w-5" />
+          {pinnedMessagesCount > 0 && (
+            <Badge
+              className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center p-0 text-xs"
+              variant="destructive"
+            >
+              {pinnedMessagesCount}
+            </Badge>
+          )}
         </Button>
         <Button
           variant="ghost"

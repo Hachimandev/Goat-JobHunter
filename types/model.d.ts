@@ -379,6 +379,14 @@ export type MessageType = {
   role?: MessageTypeRole; // temporary field to avoid error for build in chat container
 };
 
+export type PinnedMessage = {
+  chatRoomId: string;
+  messageId: string;
+  pinnedBy: string;
+  pinnedAt: string;
+  message: MessageType;
+};
+
 export type Reaction = {
   id: string;
   icon: LucideIcon;

@@ -17,6 +17,7 @@ import {
   cascadeReplyContextForDeletedMessage,
   cascadeReplyContextForRecalledMessage,
 } from '@/utils/replyContextRealtime';
+import { pinnedMessageApi } from './pinned_message/pinnedMessageApi';
 
 export const chatRoomApi = api.injectEndpoints({
   endpoints: (builder) => ({
@@ -235,6 +236,10 @@ export const chatRoomApi = api.injectEndpoints({
           );
 
           dispatch(chatRoomApi.util.invalidateTags([{ type: 'ChatRoom', id: 'LIST' }]));
+
+          dispatch(
+            pinnedMessageApi.util.invalidateTags([{ type: 'PinnedMessage', id: `PINNED_MESSAGE_${chatRoomId}` }]),
+          );
         } catch (error) {
           console.error('Failed to permanently delete message:', error);
         }
@@ -297,6 +302,10 @@ export const chatRoomApi = api.injectEndpoints({
           );
 
           dispatch(chatRoomApi.util.invalidateTags([{ type: 'ChatRoom', id: 'LIST' }]));
+
+          dispatch(
+            pinnedMessageApi.util.invalidateTags([{ type: 'PinnedMessage', id: `PINNED_MESSAGE_${chatRoomId}` }]),
+          );
         } catch (error) {
           console.error('Failed to recall message:', error);
         }

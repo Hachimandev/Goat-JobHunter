@@ -23,13 +23,17 @@ import {
   Undo2,
   Loader2,
   Trash2,
+  Pin,
+  PinIcon,
+  PinOff,
 } from 'lucide-react';
 import Image from 'next/image';
 import { MessageEvent, MessageTypeEnum } from '@/types/enum';
-import { JSX, useMemo, useState } from 'react';
+import { JSX, use, useMemo, useState } from 'react';
 import MarkdownDisplay from '@/components/common/MarkdownDisplay';
 import ConfirmDialog from '@/components/common/ConfirmDialog';
 import { getMessageSenderDisplayName, getReplyContextPreviewText } from '@/utils/messageUtils';
+import { extractMessageContent, extractMessageEvent, extractMessageId } from '@/utils/slug';
 
 interface MessageBubbleProps {
   message: MessageType;
@@ -42,6 +46,10 @@ interface MessageBubbleProps {
   onForward?: (message: MessageType) => void;
   onRecall?: (messageId: string) => void | Promise<void>;
   onDelete?: (messageId: string) => void | Promise<void>;
+  onPin?: (messageId: string) => void | Promise<void>;
+  onUnpin?: (messageId: string) => void | Promise<void>;
+  isPinned?: boolean;
+  isPinning?: boolean;
   isForwarding?: boolean;
   isRecalling?: boolean;
   isDeleting?: boolean;
@@ -58,6 +66,10 @@ export function MessageBubble({
   onForward,
   onRecall,
   onDelete,
+  onPin,
+  onUnpin,
+  isPinned = false,
+  isPinning = false,
   isForwarding = false,
   isRecalling = false,
   isDeleting = false,
@@ -89,25 +101,31 @@ export function MessageBubble({
       type === MessageTypeEnum.FILE,
     [type],
   );
-  const disableReplyAction = isDeleting || isRecalling || isForwarding || !onReply;
+  const isPinMessage = useMemo(
+    () =>
+      extractMessageEvent(message.content) === MessageEvent.MESSAGE_PINNED ||
+      extractMessageEvent(message.content) === MessageEvent.MESSAGE_UNPINNED,
+    [message.content],
+  );
+  const disableReplyAction = isDeleting || isRecalling || isForwarding || isPinning || !onReply;
   const disableForwardAction = isForwarding || isRecalled || !onForward;
   const disableRecallAction = isRecalled || isRecalling || !onRecall;
   const disableDeleteAction = isDeleting || isRecalling || !onDelete;
+  const disablePinAction = isPinning || isRecalling || !onPin || !onUnpin;
   const canShowReplyAction = isReplyableType && !isSystem && !isRecalled && !!onReply;
   const canShowForwardAction = !isSystem && !isRecalled && !!onForward;
   const canShowRecallAction = isOwn && !isRecalled && !!onRecall;
   const canShowDeleteAction = isOwn && !!onDelete;
+  const canShowPinAction = !isSystem && !isRecalled && !!onPin && !!onUnpin;
   const canShowOwnerActions = isOwn && !isSystem && (canShowRecallAction || canShowDeleteAction);
   const canShowActionMenu = canShowReplyAction || canShowForwardAction || canShowOwnerActions;
 
   if (!message.content && !isRecalled) return null;
 
   const getSystemMessageContent = () => {
+    const finalContent = extractMessageContent(message.content) || 'Có một sự kiện hệ thống xảy ra';
     try {
-      const systemData = JSON.parse(message.content);
-      const event = systemData.event as MessageEvent;
-      const actor = systemData.actor || 'Ai đó';
-      const target = systemData.target;
+      const messageEvent = extractMessageEvent(message.content) as MessageEvent;
 
       const eventIcons: Record<MessageEvent, JSX.Element> = {
         [MessageEvent.MEMBER_ADDED]: <UserPlus className="h-3.5 w-3.5" />,
@@ -117,26 +135,18 @@ export function MessageBubble({
         [MessageEvent.GROUP_CREATED]: <Users className="h-3.5 w-3.5" />,
         [MessageEvent.GROUP_NAME_CHANGED]: <Users className="h-3.5 w-3.5" />,
         [MessageEvent.GROUP_AVATAR_CHANGED]: <ImageIcon className="h-3.5 w-3.5" />,
-      };
-
-      const eventMessages: Record<MessageEvent, string> = {
-        [MessageEvent.MEMBER_ADDED]: `${actor} đã thêm ${target} vào nhóm`,
-        [MessageEvent.MEMBER_REMOVED]: `${actor} đã xóa ${target} khỏi nhóm`,
-        [MessageEvent.MEMBER_LEFT]: `${actor} đã rời khỏi nhóm`,
-        [MessageEvent.ROLE_CHANGED]: `${actor} đã thay đổi vai trò của ${target} thành ${systemData.newRole || 'thành viên'}`,
-        [MessageEvent.GROUP_CREATED]: `${actor} đã tạo nhóm`,
-        [MessageEvent.GROUP_NAME_CHANGED]: `${actor} đã đổi tên nhóm thành "${target}"`,
-        [MessageEvent.GROUP_AVATAR_CHANGED]: `${actor} đã thay đổi ảnh nhóm`,
+        [MessageEvent.MESSAGE_PINNED]: <PinIcon className="h-3.5 w-3.5" />,
+        [MessageEvent.MESSAGE_UNPINNED]: <PinOff className="h-3.5 w-3.5" />,
       };
 
       return {
-        icon: eventIcons[event],
-        text: eventMessages[event] || message.content,
+        icon: eventIcons[messageEvent],
+        text: finalContent,
       };
     } catch {
       return {
         icon: <Users className="h-3.5 w-3.5" />,
-        text: message.content,
+        text: finalContent,
       };
     }
   };
@@ -191,6 +201,19 @@ export function MessageBubble({
         <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-muted/50 text-muted-foreground">
           {systemContent.icon}
           <span className="text-xs font-medium">{systemContent.text}</span>
+          {isPinMessage && (
+            <span
+              className="text-xs font-medium text-primary cursor-pointer"
+              onClick={() => {
+                const messageId = extractMessageId(message.content);
+                if (messageId && onNavigateToMessage) {
+                  onNavigateToMessage(messageId);
+                }
+              }}
+            >
+              Xem
+            </span>
+          )}
           <span className="text-xs opacity-70">• {timeAgo}</span>
         </div>
       </div>
@@ -210,6 +233,15 @@ export function MessageBubble({
   const handleReply = () => {
     if (!onReply || disableReplyAction) return;
     onReply(message);
+  };
+
+  const handlePin = async () => {
+    if (disablePinAction) return;
+    if (isPinned && onUnpin) {
+      await onUnpin(message.messageId);
+    } else if (!isPinned && onPin) {
+      await onPin(message.messageId);
+    }
   };
 
   const handleDelete = async () => {
@@ -311,27 +343,46 @@ export function MessageBubble({
                   variant="ghost"
                   size="icon"
                   className="h-7 w-7 rounded-full mt-0.5"
-                  disabled={isDeleting || isRecalling || isForwarding}
+                  disabled={isDeleting || isRecalling || isForwarding || isPinning}
                 >
-                  {isRecalling || isDeleting || isForwarding ? (
+                  {isRecalling || isDeleting || isForwarding || isPinning ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
                   ) : (
                     <MoreVertical className="h-4 w-4" />
                   )}
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="rounded-xl">
+              <DropdownMenuContent align="end" className="rounded-xl cursor-pointer">
                 {canShowReplyAction && (
-                  <DropdownMenuItem onClick={handleReply} disabled={disableReplyAction} className="rounded-xl">
+                  <DropdownMenuItem
+                    onClick={handleReply}
+                    disabled={disableReplyAction}
+                    className="rounded-xl cursor-pointer"
+                  >
                     <Reply className="h-4 w-4" />
                     Trả lời
                   </DropdownMenuItem>
                 )}
 
                 {canShowForwardAction && (
-                  <DropdownMenuItem onClick={handleForward} disabled={disableForwardAction} className="rounded-xl">
+                  <DropdownMenuItem
+                    onClick={handleForward}
+                    disabled={disableForwardAction}
+                    className="rounded-xl cursor-pointer"
+                  >
                     <Forward className="h-4 w-4" />
                     Chuyển tiếp
+                  </DropdownMenuItem>
+                )}
+
+                {canShowPinAction && (
+                  <DropdownMenuItem
+                    onClick={handlePin}
+                    disabled={disablePinAction}
+                    className="rounded-xl cursor-pointer"
+                  >
+                    <Pin className="h-4 w-4" />
+                    {isPinned ? 'Bỏ ghim' : 'Ghim tin nhắn'}
                   </DropdownMenuItem>
                 )}
 
@@ -339,7 +390,7 @@ export function MessageBubble({
                   <DropdownMenuItem
                     onClick={handleRecall}
                     disabled={disableRecallAction}
-                    className="rounded-xl text-destructive focus:text-destructive"
+                    className="rounded-xl text-destructive focus:text-destructive cursor-pointer"
                   >
                     <Undo2 className="h-4 w-4 text-destructive" />
                     Thu hồi tin nhắn
@@ -350,7 +401,7 @@ export function MessageBubble({
                   <DropdownMenuItem
                     onClick={() => setIsDeleteDialogOpen(true)}
                     disabled={disableDeleteAction}
-                    className="rounded-xl text-destructive focus:text-destructive"
+                    className="rounded-xl text-destructive focus:text-destructive cursor-pointer"
                   >
                     <Trash2 className="h-4 w-4 text-destructive" />
                     Xóa tin nhắn
