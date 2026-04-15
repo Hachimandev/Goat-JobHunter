@@ -1,16 +1,16 @@
 import { useRouter } from "expo-router";
 import React, { useState } from "react";
 import {
-    ActivityIndicator,
-    Alert,
-    KeyboardAvoidingView,
-    Platform,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useUser } from "../../hooks/useUser";
@@ -51,15 +51,18 @@ export default function SignInScreen() {
       const result = await signIn(email, password);
 
       if (result.success) {
-        // Navigate to chat
-        Alert.alert("Thành công", "Đăng nhập thành công!", [
-          {
-            text: "OK",
-            onPress: () => {
-              router.replace("/(tabs)/chat");
+        if (Platform.OS === "web") {
+          // Trên web, chuyển trang ngay lập tức, không dùng Alert
+          router.replace("/(tabs)/chat");
+        } else {
+          // Trên mobile, giữ nguyên Alert
+          Alert.alert("Thành công", "Đăng nhập thành công!", [
+            {
+              text: "OK",
+              onPress: () => router.replace("/(tabs)/chat"),
             },
-          },
-        ]);
+          ]);
+        }
       } else {
         // Handle specific errors
         if (result.error === "Bad credentials") {

@@ -2,32 +2,38 @@ import useChatActionsMobile from "@/hooks/useChatActionsMobile";
 import { useNotificationManager } from "@/hooks/useNotificationManager";
 import { useUser } from "@/hooks/useUser";
 import {
-    useDeleteMessagePermanentMutation,
-    useFetchMessagesInChatRoomQuery,
-    useFetchChatRoomsByIdQuery,
-    useRevokeMessageMutation,
+  useDeleteMessagePermanentMutation,
+  useFetchChatRoomsByIdQuery,
+  useFetchChatRoomsQuery,
+  useFetchMessagesInChatRoomQuery,
+  useForwardMessageBatchMutation,
+  useRevokeMessageMutation,
 } from "@/services/chatRoom/chatRoomApi";
-import { useBlockUserMutation, useUnblockUserMutation } from "@/services/friendship/friendshipApi";
-import { MessageType } from "@/types/model";
+import { usePinMessageMutation } from "@/services/chatRoom/pinned_message/pinnedMessageApi";
+import {
+  useBlockUserMutation,
+  useUnblockUserMutation,
+} from "@/services/friendship/friendshipApi";
 import { ChatRoomType } from "@/types/enum";
+import { MessageType } from "@/types/model";
 import { Ionicons } from "@expo/vector-icons";
 import BottomSheet, { BottomSheetView } from "@gorhom/bottom-sheet";
 import * as ImagePicker from "expo-image-picker";
 import { router, useLocalSearchParams } from "expo-router";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
-    ActivityIndicator,
-    Alert,
-    FlatList,
-    Image,
-    KeyboardAvoidingView,
-    Platform,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Alert,
+  FlatList,
+  Image,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import EmojiPicker from "rn-emoji-keyboard";
@@ -35,6 +41,7 @@ import EmojiPicker from "rn-emoji-keyboard";
 interface OptimisticMessage extends Partial<MessageType> {
   messageId: string;
   sending?: boolean;
+  replyContext?: MessageType["replyContext"];
 }
 
 export default function ChatDetail() {
@@ -47,6 +54,31 @@ export default function ChatDetail() {
   const [deleteMessagePermanent] = useDeleteMessagePermanentMutation();
   const [blockUser] = useBlockUserMutation();
   const [unblockUser] = useUnblockUserMutation();
+  const [replyTarget, setReplyTarget] = useState<MessageType | null>(null);
+  const [pinMessage] = usePinMessageMutation();
+
+  const [isForwardModalOpen, setIsForwardModalOpen] = useState(false);
+  const [forwardMessageBatch] = useForwardMessageBatchMutation();
+
+  // Lấy danh sách các phòng chat hiện có để chọn
+  const { data: roomsRes } = useFetchChatRoomsQuery({ page: 1, size: 20 });
+  const chatRooms = roomsRes?.data?.result || [];
+
+  const handleForwardSubmit = async (targetRoomId: number) => {
+    if (!selectedMessage) return;
+    try {
+      await forwardMessageBatch({
+        sourceChatRoomId: chatRoomId,
+        messageId: selectedMessage.messageId,
+        targetChatRoomIds: [targetRoomId],
+      }).unwrap();
+
+      setIsForwardModalOpen(false);
+      Alert.alert("Thành công", "Đã chuyển tiếp tin nhắn");
+    } catch (error) {
+      Alert.alert("Lỗi", "Không thể chuyển tiếp tin nhắn");
+    }
+  };
 
   // Notification manager
   const { setActiveChatRoom } = useNotificationManager();
@@ -73,7 +105,7 @@ export default function ChatDetail() {
   const [isEmojiOpen, setIsEmojiOpen] = useState(false);
 
   const bottomSheetRef = useRef<BottomSheet>(null);
-  const snapPoints = useMemo(() => ["20%"], []);
+  const snapPoints = useMemo(() => ["25%"], []);
   const [selectedMessage, setSelectedMessage] =
     useState<OptimisticMessage | null>(null);
   const [optimisticMessages, setOptimisticMessages] = useState<
@@ -112,11 +144,19 @@ export default function ChatDetail() {
   const onSend = async () => {
     if (!text.trim() && selectedImages.length === 0) return;
     const contentToSend = text.trim();
-    const imagesToSend = [...selectedImages];
+    const replyId = replyTarget?.messageId || null;
+
     setText("");
     setSelectedImages([]);
+    setReplyTarget(null);
+
     try {
-      await handleSendMessage(chatRoomId, contentToSend, imagesToSend);
+      await handleSendMessage(
+        chatRoomId,
+        contentToSend,
+        selectedImages,
+        replyId,
+      );
       refetch();
     } catch (e) {
       console.log("Send error", e);
@@ -164,11 +204,11 @@ export default function ChatDetail() {
     try {
       const counterpartId = chatRoom?.counterpartAccountId;
       if (!counterpartId) return;
-      
+
       await blockUser({
         targetUserId: counterpartId,
       }).unwrap();
-      
+
       Alert.alert("Thành công", "Đã chặn người dùng này");
     } catch (error: any) {
       Alert.alert("Lỗi", error?.data?.message || "Không thể chặn người dùng");
@@ -179,7 +219,7 @@ export default function ChatDetail() {
     try {
       const counterpartId = chatRoom?.counterpartAccountId;
       if (!counterpartId) return;
-      
+
       Alert.alert("Xác nhận", "Bỏ chặn người dùng này?", [
         {
           text: "Hủy",
@@ -196,8 +236,132 @@ export default function ChatDetail() {
         },
       ]);
     } catch (error: any) {
-      Alert.alert("Lỗi", error?.data?.message || "Không thể bỏ chặn người dùng");
+      Alert.alert(
+        "Lỗi",
+        error?.data?.message || "Không thể bỏ chặn người dùng",
+      );
     }
+  };
+
+  const renderMessageItem = ({
+    item,
+  }: {
+    item: MessageType | OptimisticMessage;
+  }) => {
+    const isMe = item.sender?.accountId === user?.accountId;
+    const isSystem = item.messageType === "SYSTEM";
+    const content = item.content || "";
+    const isS3Image = isS3ImageUrl(content);
+    const isSendingMsg = (item as OptimisticMessage).sending;
+    const isRevoked = !content && !isSystem;
+
+    // 1. RENDER TIN NHẮN HỆ THỐNG (Căn giữa)
+    if (isSystem) {
+      return (
+        <View style={styles.systemMessageContainer}>
+          <Text style={styles.systemMessageText}>{content}</Text>
+        </View>
+      );
+    }
+
+    return (
+      <View
+        style={[
+          styles.messageWrapper,
+          { alignItems: isMe ? "flex-end" : "flex-start" },
+        ]}
+      >
+        <TouchableOpacity
+          onLongPress={() => handleLongPress(item)}
+          activeOpacity={0.8}
+          style={{ maxWidth: "80%" }}
+          disabled={isRevoked}
+        >
+          {isS3Image ? (
+            <View>
+              {/* Hiển thị ngữ cảnh trả lời phía trên ảnh nếu có */}
+              {item.replyContext && (
+                <View
+                  style={[
+                    styles.replyInBubble,
+                    isMe ? { backgroundColor: "rgba(255,255,255,0.1)" } : null,
+                  ]}
+                >
+                  <Text style={styles.replyInBubbleName}>
+                    {item.replyContext.originalSender?.fullName}
+                  </Text>
+                  <Text numberOfLines={1} style={styles.replyInBubbleText}>
+                    {item.replyContext.contentPreview}
+                  </Text>
+                </View>
+              )}
+              <Image
+                source={{ uri: content }}
+                style={[styles.chatImage, isSendingMsg && { opacity: 0.7 }]}
+              />
+            </View>
+          ) : (
+            <View
+              style={[
+                styles.bubble,
+                isRevoked
+                  ? styles.revokedBubble
+                  : isMe
+                    ? styles.myBubble
+                    : styles.otherBubble,
+                isSendingMsg && { opacity: 0.7 },
+              ]}
+            >
+              {/* 2. HIỂN THỊ TIN NHẮN ĐANG TRẢ LỜI TRONG BONG BÓNG */}
+              {item.replyContext && !isRevoked && (
+                <View
+                  style={[
+                    styles.replyInBubble,
+                    isMe
+                      ? {
+                          borderLeftColor: "#fff",
+                          backgroundColor: "rgba(255,255,255,0.2)",
+                        }
+                      : null,
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.replyInBubbleName,
+                      isMe && { color: "#fff" },
+                    ]}
+                  >
+                    {item.replyContext.originalSender?.fullName}
+                  </Text>
+                  <Text
+                    numberOfLines={1}
+                    style={[
+                      styles.replyInBubbleText,
+                      isMe && { color: "#eee" },
+                    ]}
+                  >
+                    {item.replyContext.contentPreview}
+                  </Text>
+                </View>
+              )}
+
+              <Text
+                style={[
+                  styles.messageText,
+                  isRevoked
+                    ? styles.revokedText
+                    : { color: isMe ? "#fff" : "#000" },
+                ]}
+              >
+                {isRevoked ? "Tin nhắn đã được thu hồi" : content}
+              </Text>
+            </View>
+          )}
+        </TouchableOpacity>
+        {/* Hiển thị icon ghim nhỏ nếu tin nhắn được ghim (Tùy chọn) */}
+        {/* {item.isPinned && <Ionicons name="pin" size={12} color="#888" style={{ marginTop: 2 }} />} */}
+      </View>
+    );
   };
 
   if (isLoading && !messagesData)
@@ -239,61 +403,7 @@ export default function ChatDetail() {
           inverted
           keyExtractor={(item) => item.messageId}
           contentContainerStyle={styles.listContent}
-          renderItem={({ item }) => {
-            const isMe = item.sender?.accountId === user?.accountId;
-            const content = item.content || "";
-            const isS3Image = isS3ImageUrl(content);
-            const isSendingMsg = (item as OptimisticMessage).sending;
-            const isRevoked = !content;
-
-            return (
-              <View
-                style={[
-                  styles.messageWrapper,
-                  { alignItems: isMe ? "flex-end" : "flex-start" },
-                ]}
-              >
-                <TouchableOpacity
-                  onLongPress={() => handleLongPress(item)}
-                  activeOpacity={0.8}
-                  style={{ maxWidth: "80%" }}
-                >
-                  {isS3Image ? (
-                    <Image
-                      source={{ uri: content }}
-                      style={[
-                        styles.chatImage,
-                        isSendingMsg && { opacity: 0.7 },
-                      ]}
-                    />
-                  ) : (
-                    <View
-                      style={[
-                        styles.bubble,
-                        isRevoked
-                          ? styles.revokedBubble
-                          : isMe
-                            ? styles.myBubble
-                            : styles.otherBubble,
-                        isSendingMsg && { opacity: 0.7 },
-                      ]}
-                    >
-                      <Text
-                        style={[
-                          styles.messageText,
-                          isRevoked
-                            ? styles.revokedText
-                            : { color: isMe ? "#fff" : "#000" },
-                        ]}
-                      >
-                        {isRevoked ? "Tin nhắn đã được thu hồi" : content}
-                      </Text>
-                    </View>
-                  )}
-                </TouchableOpacity>
-              </View>
-            );
-          }}
+          renderItem={renderMessageItem}
         />
 
         {/* IMAGE PREVIEW */}
@@ -328,7 +438,9 @@ export default function ChatDetail() {
             <Ionicons name="lock-closed" size={20} color="#fff" />
             <View style={styles.blockedTextContainer}>
               <Text style={styles.blockedTitle}>
-                {isBlockedByMe ? "Bạn đã chặn người này" : "Bạn không thể nhắn tin với người này"}
+                {isBlockedByMe
+                  ? "Bạn đã chặn người này"
+                  : "Bạn không thể nhắn tin với người này"}
               </Text>
               <Text style={styles.blockedDescription}>
                 {isBlockedByMe
@@ -347,8 +459,27 @@ export default function ChatDetail() {
           </View>
         )}
 
+        {replyTarget && (
+          <View style={styles.replyPreviewContainer}>
+            <View style={styles.replyBarIndicator} />
+            <View style={styles.replyContentBox}>
+              <Text style={styles.replyTargetName}>
+                Đang trả lời: {replyTarget.sender?.fullName}
+              </Text>
+              <Text numberOfLines={1} style={styles.replyTargetText}>
+                {replyTarget.content || "[Hình ảnh]"}
+              </Text>
+            </View>
+            <TouchableOpacity onPress={() => setReplyTarget(null)}>
+              <Ionicons name="close-circle" size={24} color="#888" />
+            </TouchableOpacity>
+          </View>
+        )}
+
         {/* INPUT BAR */}
-        <View style={[styles.inputContainer, isDirectBlocked && { opacity: 0.5 }]}>
+        <View
+          style={[styles.inputContainer, isDirectBlocked && { opacity: 0.5 }]}
+        >
           <TouchableOpacity
             onPress={() => setIsEmojiOpen(true)}
             style={styles.iconBtn}
@@ -380,9 +511,12 @@ export default function ChatDetail() {
             onPress={onSend}
             style={[
               styles.sendBtn,
-              (!text.trim() && selectedImages.length === 0 || isDirectBlocked) && { opacity: 0.5 },
+              ((!text.trim() && selectedImages.length === 0) ||
+                isDirectBlocked) && { opacity: 0.5 },
             ]}
-            disabled={!text.trim() && selectedImages.length === 0 || isDirectBlocked}
+            disabled={
+              (!text.trim() && selectedImages.length === 0) || isDirectBlocked
+            }
           >
             {isSending ? (
               <ActivityIndicator size="small" color="#fff" />
@@ -396,10 +530,44 @@ export default function ChatDetail() {
       <BottomSheet
         ref={bottomSheetRef}
         index={-1}
-        snapPoints={snapPoints}
+        snapPoints={["28%"]}
         enablePanDownToClose
       >
         <BottomSheetView style={styles.sheetContainer}>
+          <TouchableOpacity
+            style={styles.sheetItem}
+            onPress={() => {
+              setReplyTarget(selectedMessage as any);
+              bottomSheetRef.current?.close();
+            }}
+          >
+            <Ionicons name="arrow-undo-outline" size={22} color="#475569" />
+            <Text style={styles.sheetTextNormal}>Trả lời</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.sheetItem}
+            onPress={() => {
+              bottomSheetRef.current?.close();
+              setIsForwardModalOpen(true);
+            }}
+          >
+            <Ionicons name="arrow-redo-outline" size={22} color="#475569" />
+            <Text style={styles.sheetTextNormal}>Chuyển tiếp</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.sheetItem}
+            onPress={() => {
+              /* Logic pin */ bottomSheetRef.current?.close();
+            }}
+          >
+            <Ionicons name="pin-outline" size={22} color="#475569" />
+            <Text style={styles.sheetTextNormal}>Ghim tin nhắn</Text>
+          </TouchableOpacity>
+
+          <View style={styles.separator} />
+
           <TouchableOpacity
             style={styles.sheetItem}
             onPress={() => {
@@ -407,8 +575,8 @@ export default function ChatDetail() {
               bottomSheetRef.current?.close();
             }}
           >
-            <Ionicons name="trash-outline" size={22} color="#FF3B30" />
-            <Text style={styles.sheetText}>Thu hồi tin nhắn</Text>
+            <Ionicons name="return-up-back" size={22} color="#ef4444" />
+            <Text style={styles.sheetTextDanger}>Thu hồi tin nhắn</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -417,8 +585,8 @@ export default function ChatDetail() {
               if (selectedMessage) handleDelete(selectedMessage);
             }}
           >
-            <Ionicons name="close-outline" size={22} color="#FF3B30" />
-            <Text style={styles.sheetText}>Xóa tin nhắn</Text>
+            <Ionicons name="trash-outline" size={22} color="#ef4444" />
+            <Text style={styles.sheetTextDanger}>Xóa tin nhắn</Text>
           </TouchableOpacity>
         </BottomSheetView>
       </BottomSheet>
@@ -429,6 +597,46 @@ export default function ChatDetail() {
         open={isEmojiOpen}
         onClose={() => setIsEmojiOpen(false)}
       />
+      {isForwardModalOpen && (
+        <View style={StyleSheet.absoluteFill}>
+          <TouchableOpacity
+            style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.5)" }}
+            onPress={() => setIsForwardModalOpen(false)}
+          />
+          <View style={styles.forwardModalContainer}>
+            <View style={styles.forwardHeader}>
+              <Text style={styles.forwardTitle}>Chuyển tiếp tới</Text>
+              <TouchableOpacity onPress={() => setIsForwardModalOpen(false)}>
+                <Ionicons name="close" size={24} color="#000" />
+              </TouchableOpacity>
+            </View>
+
+            <FlatList
+              data={chatRooms}
+              keyExtractor={(item) => item.roomId.toString()}
+              renderItem={({ item }) => (
+                <TouchableOpacity
+                  style={styles.forwardRoomItem}
+                  onPress={() => handleForwardSubmit(item.roomId)}
+                >
+                  <Image
+                    source={{
+                      uri: item.avatar || "https://via.placeholder.com/100",
+                    }}
+                    style={styles.miniAvatar}
+                  />
+                  <Text style={styles.forwardRoomName}>{item.name}</Text>
+                  <Ionicons
+                    name="paper-plane-outline"
+                    size={20}
+                    color="#0084FF"
+                  />
+                </TouchableOpacity>
+              )}
+            />
+          </View>
+        </View>
+      )}
     </SafeAreaView>
   );
 }
@@ -517,13 +725,16 @@ const styles = StyleSheet.create({
     backgroundColor: "#fff",
     borderRadius: 10,
   },
-
-  sheetContainer: { padding: 20 },
+  // Bottom Sheet
+  sheetContainer: { paddingHorizontal: 20, paddingVertical: 10 },
   sheetItem: {
     flexDirection: "row",
     alignItems: "center",
-    paddingVertical: 10,
+    paddingVertical: 12,
   },
+  sheetTextNormal: { fontSize: 16, marginLeft: 12, color: "#1e293b" },
+  sheetTextDanger: { fontSize: 16, marginLeft: 12, color: "#ef4444" },
+  separator: { height: 1, backgroundColor: "#EEE", marginVertical: 8 },
   sheetText: {
     color: "#FF3B30",
     fontSize: 16,
@@ -579,5 +790,89 @@ const styles = StyleSheet.create({
     color: "#dc2626",
     fontWeight: "bold",
     fontSize: 12,
+  },
+  replyPreviewContainer: {
+    flexDirection: "row",
+    padding: 10,
+    backgroundColor: "#f9f9f9",
+    borderTopWidth: 0.5,
+    borderTopColor: "#ddd",
+    alignItems: "center",
+  },
+  replyBarIndicator: {
+    width: 4,
+    backgroundColor: "#0084FF",
+    borderRadius: 2,
+    marginRight: 10,
+    height: "100%",
+  },
+  replyContentBox: { flex: 1 },
+  replyTargetName: { fontSize: 12, fontWeight: "bold", color: "#0084FF" },
+  replyTargetText: { fontSize: 13, color: "#666" },
+
+  // System Message (Thông báo hệ thống như Zalo)
+  systemMessageContainer: {
+    alignItems: "center",
+    marginVertical: 10,
+  },
+  systemMessageText: {
+    backgroundColor: "#E8E8E8",
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 12,
+    fontSize: 11,
+    color: "#666",
+    overflow: "hidden",
+  },
+
+  // Nội dung trả lời hiển thị bên trong Bong bóng chat
+  replyInBubble: {
+    backgroundColor: "rgba(0,0,0,0.05)",
+    borderLeftWidth: 3,
+    borderLeftColor: "#0084FF",
+    padding: 5,
+    borderRadius: 4,
+    marginBottom: 5,
+  },
+  replyInBubbleName: { fontSize: 11, fontWeight: "bold", color: "#0084FF" },
+  replyInBubbleText: { fontSize: 11, color: "#555" },
+  forwardModalContainer: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: "60%",
+    backgroundColor: "#fff",
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    padding: 16,
+  },
+  forwardHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 15,
+  },
+  forwardTitle: {
+    fontSize: 18,
+    fontWeight: "bold",
+  },
+  forwardRoomItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 12,
+    borderBottomWidth: 0.5,
+    borderBottomColor: "#EEE",
+  },
+  miniAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    marginRight: 12,
+  },
+  forwardRoomName: {
+    flex: 1,
+    fontSize: 15,
+    fontWeight: "500",
   },
 });

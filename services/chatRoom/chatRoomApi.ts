@@ -9,6 +9,7 @@ import {
 } from "@/services/chatRoom/chatRoomType";
 import { IBackendRes } from "@/types/api";
 import { ChatRoom, MessageType } from "@/types/model";
+import { pinnedMessageApi } from "./pinned_message/pinnedMessageApi";
 
 export const chatRoomApi = api.injectEndpoints({
   endpoints: (builder) => ({
@@ -213,7 +214,6 @@ export const chatRoomApi = api.injectEndpoints({
       },
     }),
 
-    // Check if chat room exists between two users, type of chat room is DIRECT
     checkExistingChatRoom: builder.query<IBackendRes<ChatRoom | null>, number>({
       query: (accountId) => ({
         url: `/chatrooms/direct/exists`,
@@ -225,25 +225,124 @@ export const chatRoomApi = api.injectEndpoints({
       ],
     }),
 
-    // revoke message
+    // 1. THU HỒI TIN NHẮN (Recall/Revoke)
     revokeMessage: builder.mutation<
-      any,
+      IBackendRes<null>,
       { chatRoomId: number; messageId: string }
     >({
       query: ({ chatRoomId, messageId }) => ({
         url: `/chatrooms/${chatRoomId}/messages/${messageId}`,
         method: "DELETE",
       }),
+      async onQueryStarted(
+        { chatRoomId, messageId },
+        { dispatch, queryFulfilled },
+      ) {
+        try {
+          await queryFulfilled;
+          // Cập nhật cache của tin nhắn trong phòng: Đổi content thành "Tin nhắn đã được thu hồi"
+          dispatch(
+            chatRoomApi.util.updateQueryData(
+              "fetchMessagesInChatRoom",
+              { chatRoomId, page: 0, size: 50 },
+              (draft) => {
+                const msg = draft?.data?.find((m) => m.messageId === messageId);
+                if (msg) {
+                  msg.isHidden = true;
+                  msg.content = "Tin nhắn đã được thu hồi";
+                }
+              },
+            ),
+          );
+          // Làm mới danh sách phòng chat bên ngoài
+          dispatch(
+            chatRoomApi.util.invalidateTags([{ type: "ChatRoom", id: "LIST" }]),
+          );
+        } catch (error) {
+          console.error("Failed to recall message:", error);
+        }
+      },
     }),
-    // delete permanently
+
+    // 2. XÓA VĨNH VIỄN (Delete Permanently)
     deleteMessagePermanent: builder.mutation<
-      any,
+      IBackendRes<null>,
       { chatRoomId: number; messageId: string }
     >({
       query: ({ chatRoomId, messageId }) => ({
         url: `/chatrooms/${chatRoomId}/messages/${messageId}/permanent`,
         method: "DELETE",
       }),
+      async onQueryStarted(
+        { chatRoomId, messageId },
+        { dispatch, queryFulfilled },
+      ) {
+        try {
+          await queryFulfilled;
+          // Xóa hẳn tin nhắn khỏi cache
+          dispatch(
+            chatRoomApi.util.updateQueryData(
+              "fetchMessagesInChatRoom",
+              { chatRoomId, page: 0, size: 50 },
+              (draft) => {
+                if (draft?.data) {
+                  draft.data = draft.data.filter(
+                    (m) => m.messageId !== messageId,
+                  );
+                }
+              },
+            ),
+          );
+          dispatch(
+            chatRoomApi.util.invalidateTags([{ type: "ChatRoom", id: "LIST" }]),
+          );
+          // Nếu có ghim, cũng invalidate tag ghim
+          dispatch(
+            pinnedMessageApi.util.invalidateTags([
+              { type: "PinnedMessage", id: `PINNED_MESSAGE_${chatRoomId}` },
+            ]),
+          );
+        } catch (error) {
+          console.error("Failed to delete message permanent:", error);
+        }
+      },
+    }),
+
+    // 3. CHUYỂN TIẾP TIN NHẮN (Forward Batch)
+    forwardMessageBatch: builder.mutation<
+      IBackendRes<any>,
+      {
+        sourceChatRoomId: number;
+        messageId: string;
+        targetChatRoomIds: number[];
+      }
+    >({
+      query: ({ sourceChatRoomId, messageId, targetChatRoomIds }) => ({
+        url: `/chatrooms/${sourceChatRoomId}/messages/${messageId}/forward`,
+        method: "POST",
+        data: { targetChatRoomIds },
+      }),
+      async onQueryStarted(
+        { targetChatRoomIds },
+        { dispatch, queryFulfilled },
+      ) {
+        try {
+          await queryFulfilled;
+          // Sau khi chuyển tiếp thành công, làm mới cache các phòng nhận được tin
+          const messageTags = targetChatRoomIds.map((id) => ({
+            type: "ChatRoom" as const,
+            id: `MESSAGES_${id}`,
+          }));
+          dispatch(
+            chatRoomApi.util.invalidateTags([
+              ...messageTags,
+              { type: "ChatRoom", id: "LIST" },
+            ]),
+          );
+        } catch (error) {
+          console.error("Failed to forward message batch:", error);
+        }
+      },
     }),
   }),
 });
@@ -259,4 +358,5 @@ export const {
   useLazyCheckExistingChatRoomQuery,
   useRevokeMessageMutation,
   useDeleteMessagePermanentMutation,
+  useForwardMessageBatchMutation,
 } = chatRoomApi;
