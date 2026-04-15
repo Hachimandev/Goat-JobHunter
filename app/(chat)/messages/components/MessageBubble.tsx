@@ -29,10 +29,11 @@ import {
 } from 'lucide-react';
 import Image from 'next/image';
 import { MessageEvent, MessageTypeEnum } from '@/types/enum';
-import { JSX, useMemo, useState } from 'react';
+import { JSX, use, useMemo, useState } from 'react';
 import MarkdownDisplay from '@/components/common/MarkdownDisplay';
 import ConfirmDialog from '@/components/common/ConfirmDialog';
 import { getMessageSenderDisplayName, getReplyContextPreviewText } from '@/utils/messageUtils';
+import { extractMessageContent, extractMessageEvent, extractMessageId } from '@/utils/slug';
 
 interface MessageBubbleProps {
   message: MessageType;
@@ -100,6 +101,12 @@ export function MessageBubble({
       type === MessageTypeEnum.FILE,
     [type],
   );
+  const isPinMessage = useMemo(
+    () =>
+      extractMessageEvent(message.content) === MessageEvent.MESSAGE_PINNED ||
+      extractMessageEvent(message.content) === MessageEvent.MESSAGE_UNPINNED,
+    [message.content],
+  );
   const disableReplyAction = isDeleting || isRecalling || isForwarding || isPinning || !onReply;
   const disableForwardAction = isForwarding || isRecalled || !onForward;
   const disableRecallAction = isRecalled || isRecalling || !onRecall;
@@ -116,11 +123,9 @@ export function MessageBubble({
   if (!message.content && !isRecalled) return null;
 
   const getSystemMessageContent = () => {
+    const finalContent = extractMessageContent(message.content) || 'Có một sự kiện hệ thống xảy ra';
     try {
-      const systemData = JSON.parse(message.content);
-      const event = systemData.event as MessageEvent;
-      const actor = systemData.actorName || 'Ai đó';
-      const target = systemData.target;
+      const messageEvent = extractMessageEvent(message.content) as MessageEvent;
 
       const eventIcons: Record<MessageEvent, JSX.Element> = {
         [MessageEvent.MEMBER_ADDED]: <UserPlus className="h-3.5 w-3.5" />,
@@ -134,29 +139,11 @@ export function MessageBubble({
         [MessageEvent.MESSAGE_UNPINNED]: <PinOff className="h-3.5 w-3.5" />,
       };
 
-      const eventMessages: Record<MessageEvent, string> = {
-        [MessageEvent.MEMBER_ADDED]: `${actor} đã thêm ${target} vào nhóm`,
-        [MessageEvent.MEMBER_REMOVED]: `${actor} đã xóa ${target} khỏi nhóm`,
-        [MessageEvent.MEMBER_LEFT]: `${actor} đã rời khỏi nhóm`,
-        [MessageEvent.ROLE_CHANGED]: `${actor} đã thay đổi vai trò của ${target} thành ${systemData.newRole || 'thành viên'}`,
-        [MessageEvent.GROUP_CREATED]: `${actor} đã tạo nhóm`,
-        [MessageEvent.GROUP_NAME_CHANGED]: `${actor} đã đổi tên nhóm thành "${target}"`,
-        [MessageEvent.GROUP_AVATAR_CHANGED]: `${actor} đã thay đổi ảnh nhóm`,
-        [MessageEvent.MESSAGE_PINNED]: `${actor} đã ghim một tin nhắn`,
-        [MessageEvent.MESSAGE_UNPINNED]: `${actor} đã bỏ ghim một tin nhắn`,
-      };
-
-      const isPinnedMessage = message.content.includes('(Xem');
-      const finalContent = isPinnedMessage
-        ? message.content.split('(Xem')[0].trim()
-        : eventMessages[event] || message.content;
       return {
-        icon: eventIcons[event],
+        icon: eventIcons[messageEvent],
         text: finalContent,
       };
     } catch {
-      const isPinnedMessage = message.content.includes('(Xem');
-      const finalContent = isPinnedMessage ? message.content.split('(Xem')[0].trim() : message.content;
       return {
         icon: <Users className="h-3.5 w-3.5" />,
         text: finalContent,
@@ -214,6 +201,19 @@ export function MessageBubble({
         <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-muted/50 text-muted-foreground">
           {systemContent.icon}
           <span className="text-xs font-medium">{systemContent.text}</span>
+          {isPinMessage && (
+            <span
+              className="text-xs font-medium text-primary cursor-pointer"
+              onClick={() => {
+                const messageId = extractMessageId(message.content);
+                if (messageId && onNavigateToMessage) {
+                  onNavigateToMessage(messageId);
+                }
+              }}
+            >
+              Xem
+            </span>
+          )}
           <span className="text-xs opacity-70">• {timeAgo}</span>
         </div>
       </div>
@@ -352,23 +352,35 @@ export function MessageBubble({
                   )}
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="rounded-xl">
+              <DropdownMenuContent align="end" className="rounded-xl cursor-pointer">
                 {canShowReplyAction && (
-                  <DropdownMenuItem onClick={handleReply} disabled={disableReplyAction} className="rounded-xl">
+                  <DropdownMenuItem
+                    onClick={handleReply}
+                    disabled={disableReplyAction}
+                    className="rounded-xl cursor-pointer"
+                  >
                     <Reply className="h-4 w-4" />
                     Trả lời
                   </DropdownMenuItem>
                 )}
 
                 {canShowForwardAction && (
-                  <DropdownMenuItem onClick={handleForward} disabled={disableForwardAction} className="rounded-xl">
+                  <DropdownMenuItem
+                    onClick={handleForward}
+                    disabled={disableForwardAction}
+                    className="rounded-xl cursor-pointer"
+                  >
                     <Forward className="h-4 w-4" />
                     Chuyển tiếp
                   </DropdownMenuItem>
                 )}
 
                 {canShowPinAction && (
-                  <DropdownMenuItem onClick={handlePin} disabled={disablePinAction} className="rounded-xl">
+                  <DropdownMenuItem
+                    onClick={handlePin}
+                    disabled={disablePinAction}
+                    className="rounded-xl cursor-pointer"
+                  >
                     <Pin className="h-4 w-4" />
                     {isPinned ? 'Bỏ ghim' : 'Ghim tin nhắn'}
                   </DropdownMenuItem>
@@ -378,7 +390,7 @@ export function MessageBubble({
                   <DropdownMenuItem
                     onClick={handleRecall}
                     disabled={disableRecallAction}
-                    className="rounded-xl text-destructive focus:text-destructive"
+                    className="rounded-xl text-destructive focus:text-destructive cursor-pointer"
                   >
                     <Undo2 className="h-4 w-4 text-destructive" />
                     Thu hồi tin nhắn
@@ -389,7 +401,7 @@ export function MessageBubble({
                   <DropdownMenuItem
                     onClick={() => setIsDeleteDialogOpen(true)}
                     disabled={disableDeleteAction}
-                    className="rounded-xl text-destructive focus:text-destructive"
+                    className="rounded-xl text-destructive focus:text-destructive cursor-pointer"
                   >
                     <Trash2 className="h-4 w-4 text-destructive" />
                     Xóa tin nhắn

@@ -365,6 +365,10 @@ export class WebSocketMessageService {
       // Detect GROUP_CREATED
       else if (content.includes('đã tạo nhóm')) {
         // Không cần xử lý gì vì user sẽ được redirect đến room mới
+      } else if (content.includes('đã ghim một tin nhắn')) {
+        this.dispatch(
+          pinnedMessageApi.util.invalidateTags([{ type: 'PinnedMessage', id: `PINNED_MESSAGE_${chatRoomId}` }]),
+        );
       }
     } catch (error) {
       console.error('Failed to parse system message:', error);

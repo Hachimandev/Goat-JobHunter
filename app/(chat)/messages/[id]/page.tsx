@@ -105,21 +105,95 @@ export default function ChatRoomPage() {
     : 'Bạn không thể nhắn tin với người này.';
 
   const handleNavigateToMessage = useCallback((targetMessageId: string) => {
-    if (!targetMessageId) {
-      return;
-    }
+    if (!targetMessageId) return;
 
-    const escapedId =
-      typeof CSS !== 'undefined' && typeof CSS.escape === 'function' ? CSS.escape(targetMessageId) : targetMessageId;
+    const rawId = targetMessageId;
 
-    const targetElement = document.querySelector(`[data-message-id="${escapedId}"]`) as HTMLElement | null;
+    const findMessageElement = (): HTMLElement | null => {
+      const nodes = document.querySelectorAll('[data-message-id]');
+      for (const n of Array.from(nodes)) {
+        try {
+          const val = (n as Element).getAttribute('data-message-id');
+          if (val === rawId) return n as HTMLElement;
+        } catch {
+          // ignore
+        }
+      }
+      return null;
+    };
 
-    if (!targetElement) {
-      return;
-    }
+    const findCollapsedButtonContainingId = (): HTMLElement | null => {
+      const nodes = document.querySelectorAll('[data-collapsed-ids]');
+      for (const n of Array.from(nodes)) {
+        try {
+          const attr = (n as Element).getAttribute('data-collapsed-ids') || '';
+          const parts = attr.split(/\s+/).filter(Boolean);
+          if (parts.includes(rawId)) return n as HTMLElement;
+        } catch {
+          // ignore
+        }
+      }
+      return null;
+    };
 
-    targetElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    targetElement.focus({ preventScroll: true });
+    const highlightAndScroll = (targetElement: HTMLElement) => {
+      targetElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      targetElement.focus({ preventScroll: true });
+
+      const highlightClass = 'message-highlight';
+      const bubbleElement = targetElement.querySelector(
+        '.rounded-2xl, .rounded-xl, img, video, audio',
+      ) as HTMLElement | null;
+      const elToHighlight = bubbleElement || targetElement;
+
+      elToHighlight.classList.remove(highlightClass);
+      // eslint-disable-next-line @typescript-eslint/no-unused-expressions
+      elToHighlight.offsetWidth;
+      elToHighlight.classList.add(highlightClass);
+
+      setTimeout(() => {
+        elToHighlight.classList.remove(highlightClass);
+      }, 2000);
+    };
+
+    void (async () => {
+      let targetElement = findMessageElement();
+
+      if (!targetElement) {
+        const collapsedButton = findCollapsedButtonContainingId();
+        if (collapsedButton) {
+          // Ask the MessageList to expand the group that contains this message
+          document.dispatchEvent(new CustomEvent('expand-system-group', { detail: rawId }));
+
+          // Wait for the message element to be rendered after expansion using MutationObserver
+          targetElement = await new Promise<HTMLElement | null>((resolve) => {
+            const existing = findMessageElement();
+            if (existing) {
+              resolve(existing);
+              return;
+            }
+
+            const observer = new MutationObserver(() => {
+              const found = findMessageElement();
+              if (found) {
+                observer.disconnect();
+                resolve(found);
+              }
+            });
+
+            observer.observe(document.body, { childList: true, subtree: true });
+
+            setTimeout(() => {
+              observer.disconnect();
+              resolve(null);
+            }, 5000);
+          });
+        }
+      }
+
+      if (!targetElement) return;
+      highlightAndScroll(targetElement);
+    })();
   }, []);
 
   const handlePinMessage = useCallback(
