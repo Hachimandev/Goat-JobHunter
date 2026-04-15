@@ -91,6 +91,7 @@ export enum MessageTypeEnum {
   VIDEO = 'VIDEO',
   AUDIO = 'AUDIO',
   FILE = 'FILE',
+  CONTACT_CARD = 'CONTACT_CARD',
   SYSTEM = 'SYSTEM',
 }
 

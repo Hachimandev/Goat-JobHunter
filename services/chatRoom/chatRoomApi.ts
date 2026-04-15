@@ -8,6 +8,7 @@ import {
   FetchMessagesInChatRoomRequest,
   FetchMessagesInChatRoomResponse,
   RecallMessageRequest,
+  SendContactCardsToChatRoomRequest,
   SendMessageToChatRoomRequest,
   SendMessageToNewChatRoomRequest,
 } from '@/services/chatRoom/chatRoomType';
@@ -17,6 +18,7 @@ import {
   cascadeReplyContextForDeletedMessage,
   cascadeReplyContextForRecalledMessage,
 } from '@/utils/replyContextRealtime';
+import { getMessagePreviewText } from '@/utils/messageUtils';
 
 export const chatRoomApi = api.injectEndpoints({
   endpoints: (builder) => ({
@@ -147,6 +149,77 @@ export const chatRoomApi = api.injectEndpoints({
           );
         } catch (error) {
           console.error('Failed to update cache after sending message:', error);
+        }
+      },
+    }),
+
+    sendContactCardsToChatRoom: builder.mutation<FetchMessagesInChatRoomResponse, SendContactCardsToChatRoomRequest>({
+      query: ({ chatRoomId, userIds }) => ({
+        url: `/chatrooms/${chatRoomId}/messages/contact`,
+        method: 'POST',
+        data: {
+          userIds,
+        },
+      }),
+      async onQueryStarted({ chatRoomId }, { dispatch, queryFulfilled }) {
+        try {
+          const { data: sendResponse } = await queryFulfilled;
+          const sentMessages = sendResponse?.data || [];
+
+          if (sentMessages.length === 0) {
+            return;
+          }
+
+          dispatch(
+            chatRoomApi.util.updateQueryData('fetchMessagesInChatRoom', { chatRoomId, page: 1, size: 50 }, (draft) => {
+              const draftMessages = draft?.data;
+
+              if (!draftMessages) {
+                return;
+              }
+
+              sentMessages.forEach((message) => {
+                const existingMessageIndex = draftMessages.findIndex((item) => item.messageId === message.messageId);
+
+                if (existingMessageIndex === -1) {
+                  draftMessages.push(message);
+                  return;
+                }
+
+                draftMessages[existingMessageIndex] = {
+                  ...draftMessages[existingMessageIndex],
+                  ...message,
+                };
+              });
+            }),
+          );
+
+          const latestMessage = sentMessages[sentMessages.length - 1];
+
+          dispatch(
+            chatRoomApi.util.updateQueryData('fetchChatRooms', { page: 1, size: 50 }, (draft) => {
+              if (!draft?.data?.result) {
+                return;
+              }
+
+              const chatRoomIndex = draft.data.result.findIndex((room) => room.roomId === chatRoomId);
+
+              if (chatRoomIndex === -1) {
+                return;
+              }
+
+              const chatRoom = draft.data.result[chatRoomIndex];
+              chatRoom.lastMessagePreview = getMessagePreviewText(latestMessage);
+              chatRoom.lastMessageTime = latestMessage.createdAt;
+
+              if (chatRoomIndex !== 0) {
+                draft.data.result.splice(chatRoomIndex, 1);
+                draft.data.result.unshift(chatRoom);
+              }
+            }),
+          );
+        } catch (error) {
+          console.error('Failed to update cache after sending contact cards:', error);
         }
       },
     }),
@@ -312,6 +385,7 @@ export const {
   useFetchFilesInChatRoomQuery,
   useFetchMediaInChatRoomQuery,
   useSendMessageToChatRoomMutation,
+  useSendContactCardsToChatRoomMutation,
   useSendMessageToNewChatRoomMutation,
   useLazyCheckExistingChatRoomQuery,
   useDeleteMessagePermanentMutation,

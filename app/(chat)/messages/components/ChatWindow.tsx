@@ -6,6 +6,7 @@ import { ChatDetailsPanel } from './ChatDetailsPanel';
 import { useDetailsPanelState } from '../hooks/useDetailsPanelState';
 import { ChatRoomType } from '@/types/enum';
 import { GroupDetailsPanel } from '@/app/(chat)/messages/components/GroupDetailsPanel';
+import type { SendContactCardsSubmitResult } from '@/services/chatRoom/chatRoomType';
 
 interface ChatWindowProps {
   chatRoom: ChatRoom;
@@ -15,6 +16,9 @@ interface ChatWindowProps {
   chatBlockedReason?: string;
   onDirectRelationshipChanged?: () => void;
   onSendMessage: (text?: string, files?: File[], replyToMessageId?: string | null) => void | Promise<void>;
+  onSendContactCards?:
+    | ((selectedUserIds: number[]) => Promise<SendContactCardsSubmitResult | null>)
+    | ((selectedUserIds: number[]) => SendContactCardsSubmitResult | null);
   replyTarget?: MessageResponse | null;
   onCancelReply?: () => void;
   onReplyMessage?: (message: MessageResponse) => void;
@@ -35,6 +39,7 @@ export function ChatWindow({
   chatBlockedReason = 'Bạn không thể nhắn tin với người này.',
   onDirectRelationshipChanged,
   onSendMessage,
+  onSendContactCards,
   replyTarget,
   onCancelReply,
   onReplyMessage,
@@ -74,6 +79,7 @@ export function ChatWindow({
         ) : (
           <MessageInput
             onSendMessage={onSendMessage}
+            onSendContactCards={onSendContactCards}
             replyTarget={replyTarget}
             onCancelReply={onCancelReply}
             disabled={isChatLocked}

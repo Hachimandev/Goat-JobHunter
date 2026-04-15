@@ -24,6 +24,7 @@ export default function ChatRoomPage() {
 
   const {
     handleSendMessage,
+    handleSendContactCards,
     handleDeleteMessage,
     handleForwardMessage,
     handleRecallMessage,
@@ -159,6 +160,13 @@ export default function ChatRoomPage() {
 
           await handleSendMessage(Number(chatRoomId), text, files, replyToMessageId);
           setReplyMessage(null);
+        }}
+        onSendContactCards={async (selectedUserIds) => {
+          if (isDirectBlocked) {
+            return null;
+          }
+
+          return await handleSendContactCards(Number(chatRoomId), selectedUserIds);
         }}
         replyTarget={replyMessage}
         onCancelReply={() => setReplyMessage(null)}

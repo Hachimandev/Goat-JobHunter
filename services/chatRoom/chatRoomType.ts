@@ -29,6 +29,11 @@ export type SendMessageToNewChatRoomRequest = {
   files?: File[];
 };
 
+export type SendContactCardsToChatRoomRequest = {
+  chatRoomId: number;
+  userIds: number[];
+};
+
 export type RecallMessageRequest = {
   chatRoomId: number;
   messageId: string;
@@ -55,4 +60,12 @@ export type ForwardMessageBatchResponse = {
   failedTargetChatRooms?: ForwardMessageFailureItem[];
   successCount?: number;
   failedCount?: number;
+};
+
+export type SendContactCardsSubmitResult = {
+  requestedCount: number;
+  successCount: number;
+  failedCount: number;
+  successfulUserIds: number[];
+  failedUserIds: number[];
 };

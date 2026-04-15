@@ -8,6 +8,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
+import type { SendContactCardsSubmitResult } from '@/services/chatRoom/chatRoomType';
 import { useLazyGetMyFriendshipsQuery } from '@/services/friendship/friendshipApi';
 import type { MyFriendResponse } from '@/services/friendship/friendshipType';
 import { getFriendUserDisplayName } from '@/utils/friendshipUtils';
@@ -25,7 +26,9 @@ type FriendRecipient = {
 interface BusinessCardModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSubmit: (selectedUserIds: number[]) => void | Promise<void>;
+  onSubmit: (
+    selectedUserIds: number[],
+  ) => Promise<SendContactCardsSubmitResult | null> | SendContactCardsSubmitResult | null;
 }
 
 const SEARCH_DEBOUNCE_MS = 500;
@@ -50,6 +53,7 @@ export function BusinessCardModal({ open, onOpenChange, onSubmit }: Readonly<Bus
   const [keyword, setKeyword] = useState('');
   const [selectedRecipients, setSelectedRecipients] = useState<FriendRecipient[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitFeedback, setSubmitFeedback] = useState<string | null>(null);
 
   const [triggerGetMyFriendships, { data: friendshipsResponse, isFetching, isError }] = useLazyGetMyFriendshipsQuery();
 
@@ -70,6 +74,7 @@ export function BusinessCardModal({ open, onOpenChange, onSubmit }: Readonly<Bus
     setKeyword('');
     setSelectedRecipients([]);
     setIsSubmitting(false);
+    setSubmitFeedback(null);
   }, []);
 
   const fetchFriendships = useCallback(
@@ -113,6 +118,7 @@ export function BusinessCardModal({ open, onOpenChange, onSubmit }: Readonly<Bus
 
   const handleKeywordChange = (value: string) => {
     setKeyword(value);
+    setSubmitFeedback(null);
     debouncedFetchFriendships(value);
   };
 
@@ -120,6 +126,8 @@ export function BusinessCardModal({ open, onOpenChange, onSubmit }: Readonly<Bus
     if (isSubmitting) {
       return;
     }
+
+    setSubmitFeedback(null);
 
     setSelectedRecipients((prev) => {
       const isSelected = prev.some((item) => item.accountId === recipient.accountId);
@@ -133,6 +141,7 @@ export function BusinessCardModal({ open, onOpenChange, onSubmit }: Readonly<Bus
   };
 
   const handleRemoveRecipient = (accountId: number) => {
+    setSubmitFeedback(null);
     setSelectedRecipients((prev) => prev.filter((recipient) => recipient.accountId !== accountId));
   };
 
@@ -146,9 +155,31 @@ export function BusinessCardModal({ open, onOpenChange, onSubmit }: Readonly<Bus
     }
 
     setIsSubmitting(true);
+    const requestedUserIds = selectedRecipients.map((recipient) => recipient.accountId);
 
     try {
-      await onSubmit(selectedRecipients.map((recipient) => recipient.accountId));
+      const result = await onSubmit(requestedUserIds);
+
+      if (!result) {
+        return;
+      }
+
+      if (result.failedCount > 0) {
+        setSubmitFeedback(
+          `Đã gửi ${result.successCount}/${result.requestedCount} danh thiếp. Vui lòng kiểm tra danh sách còn lại.`,
+        );
+
+        const failedIdSet = new Set(
+          result.failedUserIds.length > 0
+            ? result.failedUserIds
+            : requestedUserIds.filter((id) => !result.successfulUserIds.includes(id)),
+        );
+
+        setSelectedRecipients((prev) => prev.filter((recipient) => failedIdSet.has(recipient.accountId)));
+        return;
+      }
+
+      setSubmitFeedback(null);
       handleDialogOpenChange(false);
     } finally {
       setIsSubmitting(false);
@@ -176,6 +207,12 @@ export function BusinessCardModal({ open, onOpenChange, onSubmit }: Readonly<Bus
               disabled={isSubmitting}
             />
           </div>
+
+          {submitFeedback && (
+            <p className="rounded-lg border border-amber-300/70 bg-amber-100/70 px-3 py-2 text-xs text-amber-900">
+              {submitFeedback}
+            </p>
+          )}
 
           {selectedRecipients.length > 0 && (
             <div className="flex flex-wrap gap-2 rounded-xl border bg-muted/30 p-2">

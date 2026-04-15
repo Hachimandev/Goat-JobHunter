@@ -42,6 +42,10 @@ export const getMessageTypePreviewText = (messageType: MessageTypeEnum | null | 
     return '[Tệp đính kèm]';
   }
 
+  if (messageType === MessageTypeEnum.CONTACT_CARD) {
+    return '[Danh thiếp]';
+  }
+
   return DEFAULT_TEXT_MESSAGE_PREVIEW;
 };
 

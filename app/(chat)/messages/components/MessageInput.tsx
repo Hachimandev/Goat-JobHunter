@@ -8,6 +8,7 @@ import { MessageResponse } from '@/types/model';
 import { getMessagePreviewText, getMessageSenderDisplayName } from '@/utils/messageUtils';
 import EmojiPicker, { EmojiClickData } from 'emoji-picker-react';
 import { BusinessCardModal } from '@/app/(chat)/messages/components/BusinessCardModal';
+import type { SendContactCardsSubmitResult } from '@/services/chatRoom/chatRoomType';
 
 type RichTextSelection = {
   index: number;
@@ -27,6 +28,9 @@ type RichTextEditorInstance = {
 
 interface MessageInputProps {
   readonly onSendMessage: (text?: string, files?: File[], replyToMessageId?: string | null) => void | Promise<void>;
+  readonly onSendContactCards?:
+    | ((selectedUserIds: number[]) => Promise<SendContactCardsSubmitResult | null>)
+    | ((selectedUserIds: number[]) => SendContactCardsSubmitResult | null);
   readonly replyTarget?: MessageResponse | null;
   readonly onCancelReply?: () => void;
   readonly disabled?: boolean;
@@ -34,6 +38,7 @@ interface MessageInputProps {
 
 export function MessageInput({
   onSendMessage,
+  onSendContactCards,
   replyTarget = null,
   onCancelReply,
   disabled = false,
@@ -101,9 +106,16 @@ export function MessageInput({
     [insertEmojiToRichEditor, insertEmojiToSimpleInput, isEditorMode],
   );
 
-  const handleBusinessCardSubmit = useCallback((selectedUserIds: number[]) => {
-    console.log('Selected business card recipient userIds:', selectedUserIds);
-  }, []);
+  const handleBusinessCardSubmit = useCallback(
+    async (selectedUserIds: number[]): Promise<SendContactCardsSubmitResult | null> => {
+      if (!onSendContactCards) {
+        return null;
+      }
+
+      return await onSendContactCards(selectedUserIds);
+    },
+    [onSendContactCards],
+  );
 
   const handleSend = async () => {
     if (disabled) {
@@ -286,7 +298,7 @@ export function MessageInput({
               className={`h-8 w-8 rounded-full ${isBusinessCardModalOpen ? 'bg-accent' : ''}`}
               onClick={handleOpenBusinessCardModal}
               title="Gửi danh thiếp"
-              disabled={disabled}
+              disabled={disabled || !onSendContactCards}
             >
               <UserRound className="h-5 w-5" />
             </Button>
