@@ -47,7 +47,10 @@ const refreshToken = async (): Promise<boolean> => {
 
     // If tokens are returned in response body, save them
     if (response.data?.accessToken && response.data?.refreshToken) {
-      await tokenManager.saveTokens(response.data.accessToken, response.data.refreshToken);
+      await tokenManager.saveTokens(
+        response.data.accessToken,
+        response.data.refreshToken,
+      );
       console.log("[Axios] Tokens saved from refresh response");
     } else {
       // Tokens are in HTTP-only cookies (backend handles it)
