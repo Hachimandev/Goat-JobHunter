@@ -1,11 +1,11 @@
 import { RECALLED_MESSAGE_PREVIEW, UNAVAILABLE_MESSAGE_PREVIEW } from '@/utils/messageUtils';
-import type { MessageType } from '@/types/model';
+import type { MessageResponse } from '@/types/model';
 
-const isReplyingToMessage = (message: MessageType, originalMessageId: string): boolean => {
+const isReplyingToMessage = (message: MessageResponse, originalMessageId: string): boolean => {
   return message.replyToMessageId === originalMessageId && Boolean(message.replyContext);
 };
 
-export const cascadeReplyContextForRecalledMessage = (messages: MessageType[], originalMessageId: string): void => {
+export const cascadeReplyContextForRecalledMessage = (messages: MessageResponse[], originalMessageId: string): void => {
   if (!originalMessageId) {
     return;
   }
@@ -21,7 +21,7 @@ export const cascadeReplyContextForRecalledMessage = (messages: MessageType[], o
   });
 };
 
-export const cascadeReplyContextForDeletedMessage = (messages: MessageType[], originalMessageId: string): void => {
+export const cascadeReplyContextForDeletedMessage = (messages: MessageResponse[], originalMessageId: string): void => {
   if (!originalMessageId) {
     return;
   }

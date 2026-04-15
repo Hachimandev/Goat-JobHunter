@@ -4,7 +4,7 @@ import { UnknownAction } from 'redux';
 import SockJS from 'sockjs-client';
 import { store } from '@/lib/store';
 import { chatRoomApi } from '@/services/chatRoom/chatRoomApi';
-import { MessageType } from '@/types/model';
+import { MessageResponse } from '@/types/model';
 import { groupChatApi } from '@/services/chatRoom/groupChat/groupChatApi';
 import { pinnedMessageApi } from '@/services/chatRoom/pinned_message/pinnedMessageApi';
 import {
@@ -74,7 +74,7 @@ export class WebSocketMessageService {
           return;
         }
 
-        const message = payload as MessageType;
+        const message = payload as MessageResponse;
 
         if (message.messageType === 'SYSTEM') {
           this.handleGroupEvent(chatRoomId, message);
@@ -165,7 +165,7 @@ export class WebSocketMessageService {
     this.dispatch(chatRoomApi.util.invalidateTags([{ type: 'ChatRoom', id: 'LIST' }]));
   }
 
-  private handleMessage(chatRoomId: number, message: MessageType) {
+  private handleMessage(chatRoomId: number, message: MessageResponse) {
     console.log(`💬 Received message in chat room ${chatRoomId}:`, message);
 
     // Update messages list
@@ -234,7 +234,7 @@ export class WebSocketMessageService {
     // );
   }
 
-  private handleGroupEvent(chatRoomId: number, message: MessageType) {
+  private handleGroupEvent(chatRoomId: number, message: MessageResponse) {
     console.log(`🔔 Group event in ${chatRoomId}:`, message);
 
     // Thêm system message vào danh sách tin nhắn

@@ -1,19 +1,19 @@
 'use client';
 
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { MessageType } from '@/types/model';
+import { MessageResponse } from '@/types/model';
 import { MessageTypeEnum } from '@/types/enum';
 import { useEffect, useRef, useMemo, useState } from 'react';
 import { MessageBubble, MessageBubbleLoading } from './MessageBubble';
 import { usePendingMessages } from '@/contexts/PendingMessagesContext';
 
 interface MessageListProps {
-  messages: MessageType[];
+  messages: MessageResponse[];
   currentUserId?: string;
   isGroup?: boolean;
-  onReplyMessage?: (message: MessageType) => void;
+  onReplyMessage?: (message: MessageResponse) => void;
   onNavigateToMessage?: (messageId: string) => void;
-  onForwardMessage?: (message: MessageType) => void;
+  onForwardMessage?: (message: MessageResponse) => void;
   isForwardingMessage?: boolean;
   onDeleteMessage?: (messageId: string) => Promise<void> | void;
   isDeletingMessage?: (messageId: string) => boolean;
@@ -53,8 +53,8 @@ export function MessageList({
       kind: 'message' | 'collapsed';
       id?: number;
       count?: number;
-      messages?: MessageType[];
-      message?: MessageType;
+      messages?: MessageResponse[];
+      message?: MessageResponse;
     }> = [];
     const mapping: Record<string, number> = {};
     let i = 0;
@@ -142,7 +142,7 @@ export function MessageList({
         <div className="py-4 space-y-1">
           {renderedItems.map((item) => {
             if (item.kind === 'message') {
-              const message = item.message as MessageType;
+              const message = item.message as MessageResponse;
               return (
                 <div key={message.messageId} data-message-id={message.messageId} tabIndex={-1} className="outline-none">
                   <MessageBubble
@@ -168,7 +168,7 @@ export function MessageList({
               );
             }
 
-            const collapsed = item as { id: number; count: number; messages: MessageType[] };
+            const collapsed = item as { id: number; count: number; messages: MessageResponse[] };
             const isExpanded = expandedGroups.has(collapsed.id);
 
             if (isExpanded) {

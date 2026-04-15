@@ -342,6 +342,25 @@ export type Conversation = {
   updatedBy: string;
 };
 
+export type SenderInfo = {
+  accountId: number;
+  fullName: string;
+  username: string;
+  email: string;
+  avatar: string;
+};
+
+export type ContactCardContext = {
+  accountId: number;
+  fullName: string;
+  username: string;
+  avatar?: string | null;
+  headline?: string | null;
+  bio?: string | null;
+  coverPhoto?: string | null;
+  visibility?: Visibility | string | null;
+};
+
 export type MessageReplyContext = {
   originalMessageId: string;
   originalSender: {
@@ -374,9 +393,35 @@ export type MessageType = {
   isHidden: boolean;
   isForwarded?: boolean;
   originalMessageId?: string;
+  contactCard?: ContactCardContext | null;
   createdAt: string;
   updatedAt: string;
   role?: MessageTypeRole; // temporary field to avoid error for build in chat container
+};
+
+export type MessageResponse = {
+  messageId: string;
+  chatRoomId: string;
+  sender: SenderInfo;
+  content: string;
+  messageType: MessageTypeEnum;
+  replyToMessageId?: string | null;
+  replyContext?: ReplyContext | null;
+  isHidden: boolean;
+  isForwarded: boolean;
+  originalMessageId?: string | null;
+  contactCard?: ContactCardContext | null;
+  createdAt: string; // Instant -> ISO string
+  updatedAt: string; // Instant -> ISO string
+};
+
+export type ReplyContext = {
+  originalMessageId: string;
+  originalSender: SenderInfo;
+  originalMessageType: MessageTypeEnum | null;
+  originalContentPreview: string;
+  originalMessageUnavailable: boolean;
+  originalMessageHidden: boolean;
 };
 
 export type PinnedMessage = {

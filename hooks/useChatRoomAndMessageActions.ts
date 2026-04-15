@@ -2,10 +2,11 @@ import {
   useDeleteMessagePermanentMutation,
   useForwardMessageBatchMutation,
   useRecallMessageMutation,
+  useSendContactCardsToChatRoomMutation,
   useSendMessageToChatRoomMutation,
   useSendMessageToNewChatRoomMutation,
 } from '@/services/chatRoom/chatRoomApi';
-import { ForwardMessageBatchResponse } from '@/services/chatRoom/chatRoomType';
+import { ForwardMessageBatchResponse, SendContactCardsSubmitResult } from '@/services/chatRoom/chatRoomType';
 import { toast } from 'sonner';
 import { useUser } from '@/hooks/useUser';
 import { useRouter } from 'next/navigation';
@@ -13,6 +14,7 @@ import { usePendingMessages } from '@/contexts/PendingMessagesContext';
 import { useCallback, useState } from 'react';
 import { IBackendRes } from '@/types/api';
 import { Visibility } from '@/types/enum';
+import { MessageResponse } from '@/types/model';
 import { extractApiErrorMessage, isAccountPrivateError, isBlockedInteractionError } from '@/utils/apiError';
 
 export const ACCOUNT_PRIVATE_MESSAGE =
@@ -29,6 +31,46 @@ type ApiMutationError = {
   };
 };
 
+const toPositiveUserId = (value: unknown): number | null => {
+  const parsed = Number(value);
+
+  if (!Number.isInteger(parsed) || parsed <= 0) {
+    return null;
+  }
+
+  return parsed;
+};
+
+const normalizeRequestedUserIds = (userIds: number[]): number[] => {
+  return Array.from(new Set(userIds.map((id) => toPositiveUserId(id)).filter((id): id is number => id !== null)));
+};
+
+const normalizeContactCardSendResult = (
+  response: IBackendRes<MessageResponse[]>,
+  requestedUserIds: number[],
+): SendContactCardsSubmitResult => {
+  const normalizedRequestedUserIds = normalizeRequestedUserIds(requestedUserIds);
+
+  const successfulUserIds = Array.from(
+    new Set(
+      (response?.data || [])
+        .map((message) => toPositiveUserId(message.contactCard?.accountId) ?? toPositiveUserId(message.content))
+        .filter((id: number | null): id is number => id !== null),
+    ),
+  );
+
+  const successfulIdSet = new Set(successfulUserIds);
+  const failedUserIds = normalizedRequestedUserIds.filter((id) => !successfulIdSet.has(id));
+
+  return {
+    requestedCount: normalizedRequestedUserIds.length,
+    successCount: successfulUserIds.length,
+    failedCount: failedUserIds.length,
+    successfulUserIds,
+    failedUserIds,
+  };
+};
+
 export type ForwardMessageSubmitResult = {
   requestedCount: number;
   successCount: number;
@@ -42,6 +84,7 @@ const useChatRoomAndMessageActions = () => {
   const router = useRouter();
   const { addPendingMessage, removePendingMessage } = usePendingMessages();
   const [sendMessageToChatRoom, { isLoading: isSendingMessage }] = useSendMessageToChatRoomMutation();
+  const [sendContactCardsToChatRoom, { isLoading: isSendingContactCards }] = useSendContactCardsToChatRoomMutation();
   const [sendMessageToNewChatRoom, { isLoading: isSendingNewMessage }] = useSendMessageToNewChatRoomMutation();
   const [deleteMessagePermanent] = useDeleteMessagePermanentMutation();
   const [forwardMessageBatch, { isLoading: isForwardingMessage }] = useForwardMessageBatchMutation();
@@ -214,6 +257,52 @@ const useChatRoomAndMessageActions = () => {
     }
   };
 
+  const handleSendContactCards = async (
+    chatRoomId: number,
+    userIds: number[],
+  ): Promise<SendContactCardsSubmitResult | null> => {
+    try {
+      if (!isSignedIn || !user) {
+        toast.error('Vui lòng đăng nhập để gửi danh thiếp.');
+        return null;
+      }
+
+      if (!chatRoomId) {
+        toast.error('Không tìm thấy đoạn chat.');
+        return null;
+      }
+
+      const normalizedUserIds = normalizeRequestedUserIds(userIds);
+
+      if (normalizedUserIds.length === 0) {
+        toast.error('Vui lòng chọn ít nhất 1 người bạn hợp lệ.');
+        return null;
+      }
+
+      const response = await sendContactCardsToChatRoom({ chatRoomId, userIds: normalizedUserIds }).unwrap();
+
+      const result = normalizeContactCardSendResult(response, normalizedUserIds);
+
+      if (result.failedCount === 0) {
+        toast.success(
+          result.successCount > 1
+            ? `Đã gửi ${result.successCount} danh thiếp thành công.`
+            : 'Đã gửi danh thiếp thành công.',
+        );
+      } else if (result.successCount > 0) {
+        toast(`Đã gửi ${result.successCount}/${result.requestedCount} danh thiếp.`);
+      } else {
+        toast.error(response?.message || 'Không thể gửi danh thiếp.');
+      }
+
+      return result;
+    } catch (error) {
+      console.error('Error sending contact cards:', error);
+      toast.error(getSendMessageError(error, 'Gửi danh thiếp thất bại.'));
+      return null;
+    }
+  };
+
   const handleRecallMessage = async (chatRoomId: number, messageId: string) => {
     try {
       if (!isSignedIn || !user) {
@@ -340,6 +429,7 @@ const useChatRoomAndMessageActions = () => {
 
   return {
     handleSendMessage,
+    handleSendContactCards,
     handleSendMessageToNewChat,
     handleDeleteMessage,
     handleForwardMessage,
@@ -347,6 +437,7 @@ const useChatRoomAndMessageActions = () => {
     isDeletingMessage,
     isForwardingMessage,
     isRecallingMessage,
+    isSendingContactCards,
     isSendingMessage,
     isSendingNewMessage,
   };

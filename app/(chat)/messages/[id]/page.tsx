@@ -8,7 +8,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { subscribeToChatRoom, unsubscribeFromChatRoom } from '@/services/chatRoom/message/messageApi';
 import { useUser } from '@/hooks/useUser';
 import useChatRoomAndMessageActions from '@/hooks/useChatRoomAndMessageActions';
-import { MessageType, PinnedMessage } from '@/types/model';
+import { MessageResponse, PinnedMessage } from '@/types/model';
 import { ChatRoomType } from '@/types/enum';
 import { useAppSelector } from '@/lib/hooks';
 import { selectLastFriendshipRealtimeEventAt } from '@/lib/features/friendshipSlice';
@@ -25,14 +25,15 @@ export default function ChatRoomPage() {
   const chatRoomId = params?.id as string;
   const { user } = useUser();
   const lastFriendshipRealtimeEventAt = useAppSelector(selectLastFriendshipRealtimeEventAt);
-  const [forwardMessage, setForwardMessage] = useState<MessageType | null>(null);
-  const [replyMessage, setReplyMessage] = useState<MessageType | null>(null);
+  const [forwardMessage, setForwardMessage] = useState<MessageResponse | null>(null);
+  const [replyMessage, setReplyMessage] = useState<MessageResponse | null>(null);
   const [forwardModalOpen, setForwardModalOpen] = useState(false);
   const [pinnedMessageIds, setPinnedMessageIds] = useState<Set<string>>(new Set());
   const [pinningMessageIds, setPinningMessageIds] = useState<Set<string>>(new Set());
 
   const {
     handleSendMessage,
+    handleSendContactCards,
     handleDeleteMessage,
     handleForwardMessage,
     handleRecallMessage,
@@ -262,7 +263,7 @@ export default function ChatRoomPage() {
     );
   }
 
-  const handleOpenForwardModal = (message: MessageType) => {
+  const handleOpenForwardModal = (message: MessageResponse) => {
     setForwardMessage(message);
     setForwardModalOpen(true);
   };
@@ -306,6 +307,13 @@ export default function ChatRoomPage() {
 
           await handleSendMessage(Number(chatRoomId), text, files, replyToMessageId);
           setReplyMessage(null);
+        }}
+        onSendContactCards={async (selectedUserIds) => {
+          if (isDirectBlocked) {
+            return null;
+          }
+
+          return await handleSendContactCards(Number(chatRoomId), selectedUserIds);
         }}
         replyTarget={replyMessage}
         onCancelReply={() => setReplyMessage(null)}

@@ -1,4 +1,4 @@
-import { MessageType } from '@/types/model';
+import { MessageResponse } from '@/types/model';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import {
@@ -29,21 +29,22 @@ import {
 } from 'lucide-react';
 import Image from 'next/image';
 import { MessageEvent, MessageTypeEnum } from '@/types/enum';
-import { JSX, use, useMemo, useState } from 'react';
+import { JSX, useMemo, useState } from 'react';
 import MarkdownDisplay from '@/components/common/MarkdownDisplay';
 import ConfirmDialog from '@/components/common/ConfirmDialog';
 import { getMessageSenderDisplayName, getReplyContextPreviewText } from '@/utils/messageUtils';
 import { extractMessageContent, extractMessageEvent, extractMessageId } from '@/utils/slug';
+import FriendActionButtons from '@/components/common/FriendActionButtons';
 
 interface MessageBubbleProps {
-  message: MessageType;
+  message: MessageResponse;
   isOwn: boolean;
   showAvatar?: boolean;
   senderName?: string;
   senderAvatar?: string;
-  onReply?: (message: MessageType) => void;
+  onReply?: (message: MessageResponse) => void;
   onNavigateToMessage?: (messageId: string) => void;
-  onForward?: (message: MessageType) => void;
+  onForward?: (message: MessageResponse) => void;
   onRecall?: (messageId: string) => void | Promise<void>;
   onDelete?: (messageId: string) => void | Promise<void>;
   onPin?: (messageId: string) => void | Promise<void>;
@@ -90,6 +91,8 @@ export function MessageBubble({
       (type === MessageTypeEnum.IMAGE || type === MessageTypeEnum.VIDEO || type === MessageTypeEnum.AUDIO),
     [isRecalled, type],
   );
+  const isContactCard = useMemo(() => !isRecalled && type === MessageTypeEnum.CONTACT_CARD, [isRecalled, type]);
+  const shouldRenderDetachedBubble = isMedia || isContactCard;
 
   const isSystem = useMemo(() => type === MessageTypeEnum.SYSTEM, [type]);
   const isReplyableType = useMemo(
@@ -98,7 +101,8 @@ export function MessageBubble({
       type === MessageTypeEnum.IMAGE ||
       type === MessageTypeEnum.VIDEO ||
       type === MessageTypeEnum.AUDIO ||
-      type === MessageTypeEnum.FILE,
+      type === MessageTypeEnum.FILE ||
+      type === MessageTypeEnum.CONTACT_CARD,
     [type],
   );
   const isPinMessage = useMemo(
@@ -120,7 +124,7 @@ export function MessageBubble({
   const canShowOwnerActions = isOwn && !isSystem && (canShowRecallAction || canShowDeleteAction);
   const canShowActionMenu = canShowReplyAction || canShowForwardAction || canShowOwnerActions;
 
-  if (!message.content && !isRecalled) return null;
+  if (!message.content && !isRecalled && type !== MessageTypeEnum.CONTACT_CARD) return null;
 
   const getSystemMessageContent = () => {
     const finalContent = extractMessageContent(message.content) || 'Có một sự kiện hệ thống xảy ra';
@@ -183,6 +187,47 @@ export function MessageBubble({
           <FileIcon className="h-5 w-5" />
           <span className="text-sm truncate max-w-[200px]">{fileName}</span>
         </a>
+      );
+    }
+
+    if (type === MessageTypeEnum.CONTACT_CARD) {
+      const { contactCard } = message;
+      const accountId = contactCard?.accountId;
+      const displayName =
+        (contactCard?.fullName && contactCard.fullName.trim()) ||
+        (contactCard?.username && contactCard.username.trim()) ||
+        `Người dùng`;
+      const secondaryText =
+        (contactCard?.username && contactCard.username.trim() && `@${contactCard.username.trim()}`) ||
+        (contactCard?.headline && contactCard.headline.trim());
+      const showActionButton = !!accountId;
+      const fallbackInitial = displayName.charAt(0).toUpperCase();
+      return (
+        <div
+          className={cn(
+            'max-w-xs w-6xl rounded-xl border bg-card/90 p-3 shadow-sm',
+            isOwn ? 'border-primary/40' : 'border-border',
+          )}
+        >
+          <div className="flex items-start gap-3">
+            <Avatar className="h-12 w-12 border shrink-0">
+              <AvatarImage src={contactCard?.avatar || '/placeholder.svg'} alt={displayName} />
+              <AvatarFallback>{fallbackInitial}</AvatarFallback>
+            </Avatar>
+
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm font-semibold text-foreground">{displayName}</p>
+              <p className="truncate text-xs text-muted-foreground">{secondaryText}</p>
+            </div>
+          </div>
+
+          {!contactCard && (
+            <p className="mt-2 text-xs text-muted-foreground">
+              Thông tin danh thiếp không đầy đủ. Vui lòng thử lại sau.
+            </p>
+          )}
+          {showActionButton && <FriendActionButtons targetUserId={accountId} className="mt-3" />}
+        </div>
       );
     }
 
@@ -313,7 +358,7 @@ export function MessageBubble({
                 </span>
               )}
             </p>
-            {isMedia ? (
+            {shouldRenderDetachedBubble ? (
               <>
                 {renderReplyContext()}
                 {renderContent()}

@@ -1,6 +1,4 @@
-'use client';
-
-import { MessageType, ChatRoom, PinnedMessage } from '@/types/model';
+import { ChatRoom, MessageResponse, PinnedMessage } from '@/types/model';
 import { ChatHeader } from './ChatHeader';
 import { MessageInput } from './MessageInput';
 import { MessageList } from './MessageList';
@@ -9,21 +7,25 @@ import { PinnedMessagesPanel } from './PinnedMessagesPanel';
 import { useDetailsPanelState } from '../hooks/useDetailsPanelState';
 import { ChatRoomType } from '@/types/enum';
 import { GroupDetailsPanel } from '@/app/(chat)/messages/components/GroupDetailsPanel';
+import type { SendContactCardsSubmitResult } from '@/services/chatRoom/chatRoomType';
 import { useState } from 'react';
 
 interface ChatWindowProps {
   chatRoom: ChatRoom;
-  messages: MessageType[];
+  messages: MessageResponse[];
   currentUserId?: string;
   isChatBlocked?: boolean;
   chatBlockedReason?: string;
   onDirectRelationshipChanged?: () => void;
   onSendMessage: (text?: string, files?: File[], replyToMessageId?: string | null) => void | Promise<void>;
-  replyTarget?: MessageType | null;
+  onSendContactCards?:
+    | ((selectedUserIds: number[]) => Promise<SendContactCardsSubmitResult | null>)
+    | ((selectedUserIds: number[]) => SendContactCardsSubmitResult | null);
+  replyTarget?: MessageResponse | null;
   onCancelReply?: () => void;
-  onReplyMessage?: (message: MessageType) => void;
+  onReplyMessage?: (message: MessageResponse) => void;
   onNavigateToMessage?: (messageId: string) => void;
-  onForwardMessage?: (message: MessageType) => void;
+  onForwardMessage?: (message: MessageResponse) => void;
   isForwardingMessage?: boolean;
   onDeleteMessage?: (messageId: string) => Promise<void> | void;
   isDeletingMessage?: (messageId: string) => boolean;
@@ -45,6 +47,7 @@ export function ChatWindow({
   chatBlockedReason = 'Bạn không thể nhắn tin với người này.',
   onDirectRelationshipChanged,
   onSendMessage,
+  onSendContactCards,
   replyTarget,
   onCancelReply,
   onReplyMessage,
@@ -101,6 +104,7 @@ export function ChatWindow({
         ) : (
           <MessageInput
             onSendMessage={onSendMessage}
+            onSendContactCards={onSendContactCards}
             replyTarget={replyTarget}
             onCancelReply={onCancelReply}
             disabled={isChatLocked}

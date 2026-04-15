@@ -1,5 +1,5 @@
 import { IBackendRes, IModelPaginate } from '@/types/api';
-import { ChatRoom, MessageType } from '@/types/model';
+import { ChatRoom, MessageResponse } from '@/types/model';
 
 export type FetchChatRoomsRequest = {
   page?: number;
@@ -14,7 +14,7 @@ export type FetchMessagesInChatRoomRequest = {
 
 export type FetchChatRoomsResponse = IBackendRes<IModelPaginate<ChatRoom>>;
 
-export type FetchMessagesInChatRoomResponse = IBackendRes<MessageType[]>;
+export type FetchMessagesInChatRoomResponse = IBackendRes<MessageResponse[]>;
 
 export type SendMessageToChatRoomRequest = {
   chatRoomId: number;
@@ -27,6 +27,11 @@ export type SendMessageToNewChatRoomRequest = {
   accountId: number;
   content?: string;
   files?: File[];
+};
+
+export type SendContactCardsToChatRoomRequest = {
+  chatRoomId: number;
+  userIds: number[];
 };
 
 export type RecallMessageRequest = {
@@ -55,4 +60,12 @@ export type ForwardMessageBatchResponse = {
   failedTargetChatRooms?: ForwardMessageFailureItem[];
   successCount?: number;
   failedCount?: number;
+};
+
+export type SendContactCardsSubmitResult = {
+  requestedCount: number;
+  successCount: number;
+  failedCount: number;
+  successfulUserIds: number[];
+  failedUserIds: number[];
 };

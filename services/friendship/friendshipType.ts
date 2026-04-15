@@ -6,7 +6,7 @@ export const FRIENDSHIP_DEFAULT_SIZE = 10;
 export type FriendshipReadQueryParams = {
   page?: number;
   size?: number;
-  sort?: string | string[] | readonly string[];
+  sort?: string | string[];
 };
 
 export type FriendshipPaginationMeta = IModelPaginate<unknown>['meta'];
