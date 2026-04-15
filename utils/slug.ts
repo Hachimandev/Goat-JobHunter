@@ -29,3 +29,34 @@ export const normalizeWebsiteUrl = (website: string): string => {
 
   return `https://${website}`;
 };
+
+export const extractMessageEvent = (message: string): string | null => {
+  if (message == null) return null;
+
+  const match = message.match(/\(event:(.*?)\)/);
+  if (match) {
+    return match[1];
+  }
+
+  return null;
+};
+
+export const extractMessageId = (message: string): string | null => {
+  if (message == null) return null;
+
+  const match = message.match(/\(Xem\s+(.*?)\)/);
+  if (match) {
+    return match[1];
+  }
+
+  return null;
+};
+
+export const extractMessageContent = (message: string): string | null => {
+  if (message == null) return null;
+
+  return message
+    .replace(/\(event:.*?\)\s*/, '')
+    .replace(/\(Xem\s+.*?\)/, '')
+    .trim();
+};

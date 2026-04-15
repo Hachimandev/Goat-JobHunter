@@ -424,6 +424,14 @@ export type ReplyContext = {
   originalMessageHidden: boolean;
 };
 
+export type PinnedMessage = {
+  chatRoomId: string;
+  messageId: string;
+  pinnedBy: string;
+  pinnedAt: string;
+  message: MessageType;
+};
+
 export type Reaction = {
   id: string;
   icon: LucideIcon;

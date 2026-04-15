@@ -72,6 +72,7 @@ export const api = createApi({
     'LikedBlog',
     'SavedBlog',
     'Message',
+    'PinnedMessage',
     'Review',
     'ChatRoom',
     'ChatMember',
