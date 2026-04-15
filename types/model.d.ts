@@ -417,7 +417,7 @@ export type MessageResponse = {
 
 export type ReplyContext = {
   originalMessageId: string;
-  originalSender: SenderInfo;
+  originalSender: SenderInfo | null;
   originalMessageType: MessageTypeEnum | null;
   originalContentPreview: string;
   originalMessageUnavailable: boolean;
