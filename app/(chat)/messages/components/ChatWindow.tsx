@@ -72,7 +72,7 @@ export function ChatWindow({
 
   return (
     <>
-      <div className="flex-1 flex flex-col bg-background h-full overflow-hidden">
+      <div className="flex-1 flex flex-col bg-background h-full overflow-hidden relative">
         <ChatHeader
           chatRoom={chatRoom}
           onToggleDetails={toggle}
@@ -110,6 +110,16 @@ export function ChatWindow({
             disabled={isChatLocked}
           />
         )}
+
+        <PinnedMessagesPanel
+          open={isPinnedPanelOpen}
+          onOpenChange={setIsPinnedPanelOpen}
+          pinnedMessages={pinnedMessages}
+          isLoadingPinnedMessages={isLoadingPinnedMessages}
+          onUnpin={onUnpinMessage}
+          isUnpinning={isPinningMessage}
+          onNavigateToMessage={onNavigateToMessage}
+        />
       </div>
 
       {isDetailsOpen && !isGroup && (
@@ -122,16 +132,6 @@ export function ChatWindow({
       )}
 
       {isDetailsOpen && isGroup && <GroupDetailsPanel chatRoom={chatRoom} isOpen={isDetailsOpen} onClose={close} />}
-
-      <PinnedMessagesPanel
-        open={isPinnedPanelOpen}
-        onOpenChange={setIsPinnedPanelOpen}
-        pinnedMessages={pinnedMessages}
-        isLoadingPinnedMessages={isLoadingPinnedMessages}
-        onUnpin={onUnpinMessage}
-        isUnpinning={isPinningMessage}
-        onNavigateToMessage={onNavigateToMessage}
-      />
     </>
   );
 }
