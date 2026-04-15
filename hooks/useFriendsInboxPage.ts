@@ -25,8 +25,8 @@ import { FriendRequestCardViewModel, toFriendRequestCardViewModel } from '@/util
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 const FRIENDSHIP_PAGE_SIZE = 10;
-const FRIENDS_SORT = ['friendsSince,desc', 'relationshipId,desc'] as const;
-const FRIEND_REQUEST_SORT = ['requestedAt,desc', 'requestId,desc'] as const;
+const FRIENDS_SORT = ['friendsSince,desc', 'relationshipId,desc'];
+const FRIEND_REQUEST_SORT = ['requestedAt,desc', 'requestId,desc'];
 const EMPTY_REQUESTS: FriendRequest[] = [];
 const EMPTY_PAIRS: PairFriendshipState[] = [];
 
