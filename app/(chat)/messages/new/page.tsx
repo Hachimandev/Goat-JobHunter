@@ -68,6 +68,14 @@ export default function NewChatRoomPage() {
     );
   }
 
+  if (!user?.accountId) {
+    return (
+      <div className="flex-1 flex items-center justify-center bg-background">
+        <p className="text-lg text-muted-foreground">Có lỗi xảy ra. Vui lòng thử lại sau.</p>
+      </div>
+    );
+  }
+
   return (
     <ChatWindow
       chatRoom={chatRoom}

@@ -9,14 +9,15 @@ import { formatDateTime } from '@/utils/formatDate';
 import { getMessageTypePreviewText } from '@/utils/messageUtils';
 import { MessageTypeEnum } from '@/types/enum';
 import { truncate } from 'lodash';
+import { Empty, EmptyDescription, EmptyHeader, EmptyMedia } from '@/components/ui/empty';
 
 interface PinnedMessagesPanelProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   pinnedMessages: PinnedMessage[];
-  isLoadingPinnedMessages?: boolean;
-  onUnpin?: (messageId: string) => Promise<void> | void;
-  isUnpinning?: (messageId: string) => boolean;
+  isLoadingPinnedMessages: boolean;
+  onUnpin: (messageId: string) => Promise<void> | void;
+  isUnpinning: (messageId: string) => boolean;
   onNavigateToMessage?: (messageId: string) => void;
 }
 
@@ -29,8 +30,26 @@ export function PinnedMessagesPanel({
 }: Readonly<PinnedMessagesPanelProps>) {
   const [isExpanded, setIsExpanded] = useState(false);
   const firstMessage = pinnedMessages[0];
+  const shouldUseScrollableList = pinnedMessages.length > 3;
 
-  if (!open || !firstMessage) return null;
+  if (!open) return null;
+
+  if (pinnedMessages.length === 0) {
+    return (
+      <div className="absolute top-16 bg-card border-b p-4 left-0 right-0 z-40 animate-in slide-in-from-top-2 duration-200">
+        <Empty className="h-[50px]">
+          <EmptyHeader>
+            <EmptyMedia variant="icon" className="rounded-full">
+              <PinOff className="h-6 w-6 text-muted-foreground" />
+            </EmptyMedia>
+            <EmptyDescription className="max-w-xs text-pretty">
+              Không có tin nhắn nào được ghim trong cuộc trò chuyện này.
+            </EmptyDescription>
+          </EmptyHeader>
+        </Empty>
+      </div>
+    );
+  }
 
   return (
     <>
@@ -59,8 +78,8 @@ export function PinnedMessagesPanel({
               <div className="text-sm font-semibold">Danh sách ghim</div>
               <ChevronDown className="h-6 w-6" />
             </Button>
-            <ScrollArea className="h-fit max-h-48">
-              <div className="space-y-2">
+            <ScrollArea className={cn('w-full', shouldUseScrollableList ? 'h-48' : 'h-auto')}>
+              <div className={cn('space-y-2', shouldUseScrollableList && 'pr-2')}>
                 {pinnedMessages.map((message) => (
                   <PinnedMessageItem
                     key={message.messageId}

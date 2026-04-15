@@ -19,6 +19,7 @@ import {
 } from '@/services/chatRoom/pinned_message/pinnedMessageApi';
 import { toast } from 'sonner';
 import { IBackendError } from '@/types/api';
+import { Loader2 } from 'lucide-react';
 
 export default function ChatRoomPage() {
   const params = useParams();
@@ -247,22 +248,6 @@ export default function ChatRoomPage() {
     [chatRoomId, unpinMessage],
   );
 
-  if (isLoading) {
-    return (
-      <div className="flex-1 flex items-center justify-center bg-background">
-        <p className="text-muted-foreground">Đang tải...</p>
-      </div>
-    );
-  }
-
-  if (!currentChatRoom) {
-    return (
-      <div className="flex-1 flex items-center justify-center bg-background">
-        <p className="text-lg text-muted-foreground">Không tìm thấy đoạn chat</p>
-      </div>
-    );
-  }
-
   const handleOpenForwardModal = (message: MessageResponse) => {
     setForwardMessage(message);
     setForwardModalOpen(true);
@@ -288,6 +273,23 @@ export default function ChatRoomPage() {
 
     return result;
   };
+
+  if (isLoading) {
+    return (
+      <div className="flex-1 flex items-center justify-center bg-background">
+        <Loader2 className="animate-spin" />
+        <p className="text-muted-foreground">Đang tải...</p>
+      </div>
+    );
+  }
+
+  if (!currentChatRoom || !user?.accountId) {
+    return (
+      <div className="flex-1 flex items-center justify-center bg-background">
+        <p className="text-lg text-muted-foreground">Có lỗi xảy ra. Vui lòng thử lại sau.</p>
+      </div>
+    );
+  }
 
   return (
     <>

@@ -6,14 +6,13 @@ import { Button } from '@/components/ui/button';
 import { ChatRoom } from '@/types/model';
 import { ChatRoomType } from '@/types/enum';
 import { Info, Phone, Video, Users, Pin } from 'lucide-react';
-import { toast } from 'sonner';
 
 interface ChatHeaderProps {
   chatRoom: ChatRoom;
-  onToggleDetails?: () => void;
-  isDetailsOpen?: boolean;
-  onShowPinnedMessages?: () => void;
-  pinnedMessagesCount?: number;
+  onToggleDetails: () => void;
+  isDetailsOpen: boolean;
+  onShowPinnedMessages: () => void;
+  pinnedMessagesCount: number;
 }
 
 export function ChatHeader({
@@ -56,12 +55,7 @@ export function ChatHeader({
           variant="ghost"
           size="icon"
           className="h-9 w-9 rounded-full relative"
-          onClick={() => {
-            if (pinnedMessagesCount == 0) {
-              toast.info('Không có tin nhắn nào được ghim trong cuộc trò chuyện này.');
-            }
-            onShowPinnedMessages?.();
-          }}
+          onClick={onShowPinnedMessages}
           title={`${pinnedMessagesCount} tin nhắn được ghim`}
         >
           <Pin className="h-5 w-5" />

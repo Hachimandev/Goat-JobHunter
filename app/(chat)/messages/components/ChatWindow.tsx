@@ -116,8 +116,8 @@ export function ChatWindow({
           onOpenChange={setIsPinnedPanelOpen}
           pinnedMessages={pinnedMessages}
           isLoadingPinnedMessages={isLoadingPinnedMessages}
-          onUnpin={onUnpinMessage}
-          isUnpinning={isPinningMessage}
+          onUnpin={onUnpinMessage ? onUnpinMessage : () => {}}
+          isUnpinning={isPinningMessage ? isPinningMessage : () => false}
           onNavigateToMessage={onNavigateToMessage}
         />
       </div>
