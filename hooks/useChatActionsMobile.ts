@@ -19,8 +19,6 @@ export default function useChatActionsMobile() {
     useSendMessageToNewChatRoomMutation();
   const [revokeMessage] = useRevokeMessageMutation();
   const [deleteMessagePermanent] = useDeleteMessagePermanentMutation();
-
-  // State để quản lý UI loading cho từng tin nhắn cụ thể (giống setDeletingMessageIds bên web)
   const [actioningMessageIds, setActioningMessageIds] = useState<Set<string>>(
     new Set(),
   );
@@ -34,7 +32,6 @@ export default function useChatActionsMobile() {
     return !result.canceled ? result.assets : null;
   };
 
-  // Helper để đóng gói FormData (Dùng chung cho cả gửi mới và gửi vào phòng cũ)
   const createChatFormData = async (
     content?: string,
     images?: ImagePicker.ImagePickerAsset[],
@@ -43,7 +40,6 @@ export default function useChatActionsMobile() {
   ) => {
     const formData = new FormData();
 
-    // 1. Xử lý Files
     if (images && images.length > 0) {
       for (const img of images) {
         if (Platform.OS === "web") {
@@ -63,7 +59,6 @@ export default function useChatActionsMobile() {
       }
     }
 
-    // 2. Xử lý Request Payload (JSON Part)
     const payload: any = { content: content?.trim() || "" };
     if (replyToMessageId) payload.replyToMessageId = replyToMessageId;
     if (accountId) payload.accountId = accountId;
@@ -103,7 +98,7 @@ export default function useChatActionsMobile() {
       );
       await sendMessageToChatRoom({
         chatRoomId,
-        content: content, // Vẫn gửi content text để RTK Query làm Optimistic Update nếu cần
+        content: content,
         data: formData,
       } as any).unwrap();
 
@@ -149,7 +144,6 @@ export default function useChatActionsMobile() {
     }
   };
 
-  // Helper check trạng thái loading cho từng tin nhắn
   const isMessageLoading = useCallback(
     (messageId: string) => actioningMessageIds.has(messageId),
     [actioningMessageIds],

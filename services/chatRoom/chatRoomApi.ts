@@ -143,7 +143,6 @@ export const chatRoomApi = api.injectEndpoints({
       },
     }),
 
-    // Send message to a new chat room
     sendMessageToNewChatRoom: builder.mutation<
       IBackendRes<ChatRoom>,
       SendMessageToNewChatRoomRequest
@@ -151,7 +150,6 @@ export const chatRoomApi = api.injectEndpoints({
       query: ({ accountId, content, files }) => {
         const formData = new FormData();
 
-        // Add files nếu có
         if (files && files.length > 0) {
           files.forEach((file) => {
             formData.append("files", file);
@@ -165,7 +163,6 @@ export const chatRoomApi = api.injectEndpoints({
           requestData.content = content;
         }
 
-        // Add content nếu có (dưới dạng JSON part)
         const requestBlob = new Blob([JSON.stringify(requestData)], {
           type: "application/json",
         });
@@ -184,20 +181,17 @@ export const chatRoomApi = api.injectEndpoints({
           if (response?.data) {
             const newChatRoom = response.data;
 
-            // Update chat rooms list cache - add new chat room at the top
             dispatch(
               chatRoomApi.util.updateQueryData(
                 "fetchChatRooms",
                 { page: 1, size: 50 },
                 (draft) => {
                   if (draft?.data?.result) {
-                    // Check if chat room already exists
                     const exists = draft.data.result.some(
                       (room) => room.roomId === newChatRoom.roomId,
                     );
 
                     if (!exists) {
-                      // Add new chat room at the top
                       draft.data.result.unshift(newChatRoom);
                     }
                   }
@@ -225,7 +219,6 @@ export const chatRoomApi = api.injectEndpoints({
       ],
     }),
 
-    // 1. THU HỒI TIN NHẮN (Recall/Revoke)
     revokeMessage: builder.mutation<
       IBackendRes<null>,
       { chatRoomId: number; messageId: string }
@@ -240,7 +233,6 @@ export const chatRoomApi = api.injectEndpoints({
       ) {
         try {
           await queryFulfilled;
-          // Cập nhật cache của tin nhắn trong phòng: Đổi content thành "Tin nhắn đã được thu hồi"
           dispatch(
             chatRoomApi.util.updateQueryData(
               "fetchMessagesInChatRoom",
@@ -254,7 +246,6 @@ export const chatRoomApi = api.injectEndpoints({
               },
             ),
           );
-          // Làm mới danh sách phòng chat bên ngoài
           dispatch(
             chatRoomApi.util.invalidateTags([{ type: "ChatRoom", id: "LIST" }]),
           );
@@ -264,7 +255,6 @@ export const chatRoomApi = api.injectEndpoints({
       },
     }),
 
-    // 2. XÓA VĨNH VIỄN (Delete Permanently)
     deleteMessagePermanent: builder.mutation<
       IBackendRes<null>,
       { chatRoomId: number; messageId: string }
@@ -279,7 +269,6 @@ export const chatRoomApi = api.injectEndpoints({
       ) {
         try {
           await queryFulfilled;
-          // Xóa hẳn tin nhắn khỏi cache
           dispatch(
             chatRoomApi.util.updateQueryData(
               "fetchMessagesInChatRoom",
@@ -296,7 +285,6 @@ export const chatRoomApi = api.injectEndpoints({
           dispatch(
             chatRoomApi.util.invalidateTags([{ type: "ChatRoom", id: "LIST" }]),
           );
-          // Nếu có ghim, cũng invalidate tag ghim
           dispatch(
             pinnedMessageApi.util.invalidateTags([
               { type: "PinnedMessage", id: `PINNED_MESSAGE_${chatRoomId}` },
@@ -308,7 +296,6 @@ export const chatRoomApi = api.injectEndpoints({
       },
     }),
 
-    // 3. CHUYỂN TIẾP TIN NHẮN (Forward Batch)
     forwardMessageBatch: builder.mutation<
       IBackendRes<any>,
       {
@@ -328,7 +315,6 @@ export const chatRoomApi = api.injectEndpoints({
       ) {
         try {
           await queryFulfilled;
-          // Sau khi chuyển tiếp thành công, làm mới cache các phòng nhận được tin
           const messageTags = targetChatRoomIds.map((id) => ({
             type: "ChatRoom" as const,
             id: `MESSAGES_${id}`,
