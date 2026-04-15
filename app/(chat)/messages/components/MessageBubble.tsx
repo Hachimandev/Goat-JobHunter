@@ -29,7 +29,7 @@ import {
 } from 'lucide-react';
 import Image from 'next/image';
 import { MessageEvent, MessageTypeEnum } from '@/types/enum';
-import { JSX, use, useMemo, useState } from 'react';
+import { JSX, useMemo, useState } from 'react';
 import MarkdownDisplay from '@/components/common/MarkdownDisplay';
 import ConfirmDialog from '@/components/common/ConfirmDialog';
 import { getMessageSenderDisplayName, getReplyContextPreviewText } from '@/utils/messageUtils';
