@@ -97,7 +97,6 @@ export const chatRoomApi = api.injectEndpoints({
       query: ({ chatRoomId, ...args }) => {
         // @ts-ignore
         const bodyData = args.data || args;
-
         return {
           url: `/chatrooms/${chatRoomId}/messages`,
           method: "POST",
@@ -108,37 +107,69 @@ export const chatRoomApi = api.injectEndpoints({
         { type: "ChatRoom", id: `MESSAGES_${chatRoomId}` },
         { type: "ChatRoom", id: "LIST" },
       ],
-      async onQueryStarted({ chatRoomId }, { dispatch, queryFulfilled }) {
+      async onQueryStarted(
+        { chatRoomId, content, replyToMessageId },
+        { dispatch, queryFulfilled, getState },
+      ) {
+        const tempId = `temp-${Date.now()}`;
+        const state = getState() as any;
+
+        const messagesCache =
+          chatRoomApi.endpoints.fetchMessagesInChatRoom.select({
+            chatRoomId,
+            size: 50,
+            page: 1,
+          })(state);
+
+        const originalMsg = messagesCache?.data?.data?.find(
+          (m: any) => m.messageId === replyToMessageId,
+        );
+
+        const patchResult = dispatch(
+          chatRoomApi.util.updateQueryData(
+            "fetchMessagesInChatRoom",
+            { chatRoomId, size: 50, page: 1 },
+            (draft) => {
+              if (draft && draft.data) {
+                const optimisticMsg: any = {
+                  messageId: tempId,
+                  content: content || "",
+                  sender: state.auth?.user || {},
+                  createdAt: new Date().toISOString(),
+                  sending: true,
+                  replyContext: originalMsg
+                    ? {
+                        originalMessageId: originalMsg.messageId,
+                        originalSender: originalMsg.sender,
+                        contentPreview: originalMsg.content,
+                      }
+                    : null,
+                };
+                draft.data.unshift(optimisticMsg);
+              }
+            },
+          ),
+        );
+
         try {
           const { data: newMessage } = await queryFulfilled;
-
           dispatch(
             chatRoomApi.util.updateQueryData(
-              "fetchChatRooms",
-              { page: 1, size: 50 },
+              "fetchMessagesInChatRoom",
+              { chatRoomId, size: 50, page: 1 },
               (draft) => {
-                if (draft?.data?.result) {
-                  const chatRoomIndex = draft.data.result.findIndex(
-                    (room) => room.roomId === chatRoomId,
+                if (draft?.data) {
+                  const index = draft.data.findIndex(
+                    (m) => m.messageId === tempId,
                   );
-
-                  if (chatRoomIndex !== -1) {
-                    const chatRoom = draft.data.result[chatRoomIndex];
-
-                    chatRoom.lastMessagePreview = newMessage.content;
-                    chatRoom.lastMessageTime = newMessage.createdAt;
-
-                    if (chatRoomIndex !== 0) {
-                      draft.data.result.splice(chatRoomIndex, 1);
-                      draft.data.result.unshift(chatRoom);
-                    }
-                  }
+                  if (index !== -1) draft.data[index] = newMessage;
                 }
               },
             ),
           );
         } catch (error) {
-          console.error("Failed to update cache after sending message:", error);
+          patchResult.undo();
+          console.error("Gửi tin thất bại:", error);
         }
       },
     }),

@@ -23,6 +23,9 @@ interface ChatInputProps {
   selectedImages: any[];
   onRemoveImage: (idx: number) => void;
   disabled?: boolean;
+  selectedFiles: any[]; // Thêm prop này
+  onPickDocument: () => void; // Thêm prop này
+  onRemoveFile: (idx: number) => void;
 }
 
 export const ChatInput = ({
@@ -36,6 +39,9 @@ export const ChatInput = ({
   setReplyTarget,
   selectedImages,
   onRemoveImage,
+  selectedFiles,
+  onPickDocument,
+  onRemoveFile,
   disabled,
 }: ChatInputProps) => {
   return (
@@ -55,6 +61,27 @@ export const ChatInput = ({
           <TouchableOpacity onPress={() => setReplyTarget(null)}>
             <Ionicons name="close-circle" size={24} color="#888" />
           </TouchableOpacity>
+        </View>
+      )}
+
+      {selectedFiles.length > 0 && (
+        <View style={styles.filePreviewBar}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+            {selectedFiles.map((file, idx) => (
+              <View key={idx} style={styles.filePreviewItem}>
+                <Ionicons name="document-text" size={30} color="#0084FF" />
+                <Text numberOfLines={1} style={styles.fileNameText}>
+                  {file.name}
+                </Text>
+                <TouchableOpacity
+                  style={styles.removeFileBtn}
+                  onPress={() => onRemoveFile(idx)}
+                >
+                  <Ionicons name="close-circle" size={18} color="#FF3B30" />
+                </TouchableOpacity>
+              </View>
+            ))}
+          </ScrollView>
         </View>
       )}
 
@@ -90,6 +117,14 @@ export const ChatInput = ({
           <Ionicons name="image" size={26} color="#0084FF" />
         </TouchableOpacity>
 
+        <TouchableOpacity
+          onPress={onPickDocument}
+          disabled={disabled}
+          style={{ marginLeft: 10 }}
+        >
+          <Ionicons name="attach" size={28} color="#0084FF" />
+        </TouchableOpacity>
+
         <TextInput
           value={text}
           onChangeText={setText}
@@ -103,9 +138,16 @@ export const ChatInput = ({
           onPress={onSend}
           style={[
             styles.sendBtn,
-            !text.trim() && selectedImages.length === 0 && { opacity: 0.5 },
+            !text.trim() &&
+              selectedImages.length === 0 &&
+              selectedFiles.length === 0 && { opacity: 0.5 },
           ]}
-          disabled={(!text.trim() && selectedImages.length === 0) || disabled}
+          disabled={
+            (!text.trim() &&
+              selectedImages.length === 0 &&
+              selectedFiles.length === 0) ||
+            disabled
+          }
         >
           {isSending ? (
             <ActivityIndicator size="small" color="#fff" />
@@ -177,4 +219,20 @@ const styles = StyleSheet.create({
     backgroundColor: "#fff",
     borderRadius: 10,
   },
+  filePreviewBar: {
+    padding: 10,
+    backgroundColor: "#fff",
+    borderTopWidth: 0.5,
+    borderTopColor: "#EEE",
+  },
+  filePreviewItem: {
+    width: 100,
+    alignItems: "center",
+    marginRight: 10,
+    backgroundColor: "#F0F2F5",
+    padding: 8,
+    borderRadius: 10,
+  },
+  fileNameText: { fontSize: 10, marginTop: 4, color: "#444" },
+  removeFileBtn: { position: "absolute", top: -2, right: -2 },
 });

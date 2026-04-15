@@ -1,36 +1,53 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import React from "react";
-import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { Image, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 interface ChatHeaderProps {
   name: string;
+  avatar?: string;
   status?: string;
 }
 
 export const ChatHeader = ({
   name,
+  avatar,
   status = "Đang hoạt động",
 }: ChatHeaderProps) => {
   return (
     <View style={styles.header}>
-      <TouchableOpacity onPress={() => router.back()} style={styles.headerBtn}>
-        <Ionicons name="chevron-back" size={28} color="#fff" />
-      </TouchableOpacity>
+      <View style={styles.leftContainer}>
+        <TouchableOpacity
+          onPress={() => router.back()}
+          style={styles.headerBtn}
+        >
+          <Ionicons name="chevron-back" size={28} color="#0084FF" />
+        </TouchableOpacity>
 
-      <View style={styles.headerInfo}>
-        <Text style={styles.headerTitle} numberOfLines={1}>
-          {name}
-        </Text>
-        <Text style={styles.headerStatus}>{status}</Text>
+        <Image
+          source={{ uri: avatar || "https://via.placeholder.com/100" }}
+          style={styles.avatar}
+        />
+
+        <View style={styles.headerInfo}>
+          <Text style={styles.headerTitle} numberOfLines={1}>
+            {name}
+          </Text>
+          <Text style={styles.headerStatus}>{status}</Text>
+        </View>
       </View>
 
-      <TouchableOpacity style={styles.headerBtn}>
-        <Ionicons name="call-outline" size={24} color="#fff" />
-      </TouchableOpacity>
-      <TouchableOpacity style={styles.headerBtn}>
-        <Ionicons name="information-circle-outline" size={26} color="#fff" />
-      </TouchableOpacity>
+      <View style={styles.rightActions}>
+        <TouchableOpacity style={styles.headerBtn}>
+          <Ionicons name="videocam" size={24} color="#0084FF" />
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.headerBtn}>
+          <Ionicons name="call" size={22} color="#0084FF" />
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.headerBtn}>
+          <Ionicons name="information-circle" size={24} color="#0084FF" />
+        </TouchableOpacity>
+      </View>
     </View>
   );
 };
@@ -39,12 +56,18 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#0084FF",
+    justifyContent: "space-between",
+    backgroundColor: "#fff",
     height: 60,
-    paddingHorizontal: 10,
+    paddingHorizontal: 8,
+    borderBottomWidth: 0.5,
+    borderBottomColor: "#EEE",
   },
-  headerBtn: { padding: 5, marginLeft: 5 },
-  headerInfo: { flex: 1, marginLeft: 10 },
-  headerTitle: { color: "#fff", fontSize: 17, fontWeight: "bold" },
-  headerStatus: { color: "#E0E0E0", fontSize: 11 },
+  leftContainer: { flexDirection: "row", alignItems: "center", flex: 1 },
+  avatar: { width: 38, height: 38, borderRadius: 19, marginLeft: 4 },
+  headerInfo: { marginLeft: 10, flex: 1 },
+  headerTitle: { color: "#000", fontSize: 16, fontWeight: "bold" },
+  headerStatus: { color: "#888", fontSize: 11 },
+  rightActions: { flexDirection: "row", alignItems: "center" },
+  headerBtn: { padding: 6, marginHorizontal: 2 },
 });

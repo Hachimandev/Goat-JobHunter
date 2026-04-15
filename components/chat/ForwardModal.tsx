@@ -1,7 +1,4 @@
-import {
-  useFetchChatRoomsQuery,
-  useForwardMessageBatchMutation,
-} from "@/services/chatRoom/chatRoomApi";
+import { useFetchChatRoomsQuery } from "@/services/chatRoom/chatRoomApi";
 import { Ionicons } from "@expo/vector-icons";
 import React from "react";
 import {
@@ -17,32 +14,17 @@ import {
 interface ForwardModalProps {
   visible: boolean;
   onClose: () => void;
-  selectedMessage: any;
-  sourceChatRoomId: number;
+  // Hàm này sẽ được gọi khi người dùng nhấn vào một phòng chat
+  onForwardSelect: (targetRoomId: number) => void;
 }
 
 export const ForwardModal = ({
   visible,
   onClose,
-  selectedMessage,
-  sourceChatRoomId,
+  onForwardSelect,
 }: ForwardModalProps) => {
   const { data: roomsRes } = useFetchChatRoomsQuery({ page: 1, size: 20 });
-  const [forwardMessage] = useForwardMessageBatchMutation();
   const chatRooms = roomsRes?.data?.result || [];
-
-  const handleForward = async (targetRoomId: number) => {
-    try {
-      await forwardMessage({
-        sourceChatRoomId,
-        messageId: selectedMessage.messageId,
-        targetChatRoomIds: [targetRoomId],
-      }).unwrap();
-      onClose();
-    } catch (e) {
-      console.log("Forward error", e);
-    }
-  };
 
   return (
     <Modal visible={visible} animationType="slide" transparent>
@@ -51,7 +33,7 @@ export const ForwardModal = ({
           <View style={styles.header}>
             <Text style={styles.title}>Chuyển tiếp tới</Text>
             <TouchableOpacity onPress={onClose}>
-              <Ionicons name="close" size={26} />
+              <Ionicons name="close" size={26} color="#000" />
             </TouchableOpacity>
           </View>
 
@@ -61,7 +43,7 @@ export const ForwardModal = ({
             renderItem={({ item }) => (
               <TouchableOpacity
                 style={styles.roomItem}
-                onPress={() => handleForward(item.roomId)}
+                onPress={() => onForwardSelect(item.roomId)} // Gọi hàm từ file cha
               >
                 <Image
                   source={{

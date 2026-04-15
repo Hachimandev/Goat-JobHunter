@@ -211,6 +211,7 @@ export type MessageType = {
     originalSender: User;
     contentPreview: string;
   };
+  isForwarded?: boolean;
 };
 
 export type ChatRoom = {

@@ -1,12 +1,12 @@
 import {
   useDeleteMessagePermanentMutation,
-  useRevokeMessageMutation, // Ở web gọi là recallMessage, ở mobile bạn đang dùng revokeMessage
+  useRevokeMessageMutation,
   useSendMessageToChatRoomMutation,
   useSendMessageToNewChatRoomMutation,
 } from "@/services/chatRoom/chatRoomApi";
 import * as ImagePicker from "expo-image-picker";
 import { useCallback, useState } from "react";
-import { Alert, Platform } from "react-native";
+import { Alert } from "react-native";
 import { useUser } from "./useUser";
 
 export default function useChatActionsMobile() {
@@ -36,54 +36,53 @@ export default function useChatActionsMobile() {
     content?: string,
     images?: ImagePicker.ImagePickerAsset[],
     replyToMessageId?: string | null,
-    accountId?: number,
+    documents: any[] = [],
   ) => {
     const formData = new FormData();
 
     if (images && images.length > 0) {
-      for (const img of images) {
-        if (Platform.OS === "web") {
-          const response = await fetch(img.uri);
-          const blob = await response.blob();
-          formData.append("files", blob, img.fileName || "image.jpg");
-        } else {
-          formData.append("files", {
-            uri:
-              Platform.OS === "android"
-                ? img.uri
-                : img.uri.replace("file://", ""),
-            name: img.fileName || `img_${Date.now()}.jpg`,
-            type: img.mimeType || "image/jpeg",
-          } as any);
-        }
-      }
-    }
-
-    const payload: any = { content: content?.trim() || "" };
-    if (replyToMessageId) payload.replyToMessageId = replyToMessageId;
-    if (accountId) payload.accountId = accountId;
-
-    if (Platform.OS === "web") {
-      const jsonBlob = new Blob([JSON.stringify(payload)], {
-        type: "application/json",
+      images.forEach((img) => {
+        const fileName = img.fileName || `image_${Date.now()}.jpg`;
+        formData.append("files", {
+          uri: img.uri,
+          name: fileName,
+          type: img.type || "image/jpeg",
+        } as any);
       });
-      formData.append("request", jsonBlob);
-    } else {
-      formData.append("request", {
-        string: JSON.stringify(payload),
-        type: "application/json",
-      } as any);
     }
+
+    if (documents && documents.length > 0) {
+      documents.forEach((doc) => {
+        formData.append("files", {
+          uri: doc.uri,
+          name: doc.name || `file_${Date.now()}`,
+          type: doc.mimeType || "application/octet-stream",
+        } as any);
+      });
+    }
+
+    const requestPayload: any = {};
+    if (content && content.trim()) {
+      requestPayload.content = content;
+    }
+    if (replyToMessageId) {
+      requestPayload.replyToMessageId = replyToMessageId;
+    }
+
+    formData.append("request", {
+      string: JSON.stringify(requestPayload),
+      type: "application/json",
+    } as any);
 
     return formData;
   };
 
-  // --- HÀNH ĐỘNG GỬI TIN NHẮN (Cập nhật hỗ trợ Reply) ---
   const handleSendMessage = async (
     chatRoomId: number,
     content?: string,
     images?: ImagePicker.ImagePickerAsset[],
     replyToMessageId?: string | null,
+    documents: any[] = [],
   ) => {
     if (!isSignedIn || !user) {
       Alert.alert("Lỗi", "Vui lòng đăng nhập.");
@@ -95,10 +94,13 @@ export default function useChatActionsMobile() {
         content,
         images,
         replyToMessageId,
+        documents,
       );
+
       await sendMessageToChatRoom({
         chatRoomId,
         content: content,
+        replyToMessageId: replyToMessageId,
         data: formData,
       } as any).unwrap();
 
