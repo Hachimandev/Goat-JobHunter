@@ -2,6 +2,7 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { ChevronLeft, ChevronRight, X } from 'lucide-react';
 import Image from 'next/image';
+import { useEffect } from 'react';
 import { ChatMediaPhoto } from '@/utils/formatChatMediaForPhotoAlbum';
 
 interface ChatMediaLightboxProps {
@@ -19,20 +20,10 @@ export function ChatMediaLightbox({
   selectedIndex,
   onSelectedIndexChange,
 }: Readonly<ChatMediaLightboxProps>) {
-  if (photos.length === 0) {
-    return null;
-  }
-
   const selectedPhoto = photos[selectedIndex];
-
-  if (!selectedPhoto) {
-    return null;
-  }
-
-  const isSelectedVideo = selectedPhoto.mediaKind === 'video';
-
-  const hasPrevious = selectedIndex > 0;
-  const hasNext = selectedIndex < photos.length - 1;
+  const hasMedia = photos.length > 0 && Boolean(selectedPhoto);
+  const hasPrevious = hasMedia && selectedIndex > 0;
+  const hasNext = hasMedia && selectedIndex < photos.length - 1;
 
   const handlePrevious = () => {
     if (!hasPrevious) {
@@ -49,6 +40,36 @@ export function ChatMediaLightbox({
 
     onSelectedIndexChange(selectedIndex + 1);
   };
+
+  useEffect(() => {
+    if (!open || !hasMedia) {
+      return;
+    }
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'ArrowLeft' && hasPrevious) {
+        event.preventDefault();
+        onSelectedIndexChange(selectedIndex - 1);
+      }
+
+      if (event.key === 'ArrowRight' && hasNext) {
+        event.preventDefault();
+        onSelectedIndexChange(selectedIndex + 1);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [hasMedia, hasNext, hasPrevious, onSelectedIndexChange, open, selectedIndex]);
+
+  if (!selectedPhoto) {
+    return null;
+  }
+
+  const isSelectedVideo = selectedPhoto.mediaKind === 'video';
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -90,7 +111,7 @@ export function ChatMediaLightbox({
             className="absolute left-3 top-1/2 z-20 h-10 w-10 -translate-y-1/2 rounded-full bg-black/45 text-white hover:bg-black/65 hover:text-white disabled:cursor-not-allowed disabled:opacity-35"
             onClick={handlePrevious}
             disabled={!hasPrevious}
-            aria-label="Previous image"
+            aria-label="Previous media"
           >
             <ChevronLeft className="h-5 w-5" />
           </Button>
@@ -102,7 +123,7 @@ export function ChatMediaLightbox({
             className="absolute right-3 top-1/2 z-20 h-10 w-10 -translate-y-1/2 rounded-full bg-black/45 text-white hover:bg-black/65 hover:text-white disabled:cursor-not-allowed disabled:opacity-35"
             onClick={handleNext}
             disabled={!hasNext}
-            aria-label="Next image"
+            aria-label="Next media"
           >
             <ChevronRight className="h-5 w-5" />
           </Button>
