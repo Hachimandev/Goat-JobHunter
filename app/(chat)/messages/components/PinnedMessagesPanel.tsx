@@ -2,7 +2,7 @@ import { PinnedMessage } from '@/types/model';
 import { Button } from '@/components/ui/button';
 import { ChevronDown, EllipsisVertical, Loader2, PinOff } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { formatDateTime } from '@/utils/formatDate';
@@ -31,6 +31,12 @@ export function PinnedMessagesPanel({
   const [isExpanded, setIsExpanded] = useState(false);
   const firstMessage = pinnedMessages[0];
   const shouldUseScrollableList = pinnedMessages.length > 3;
+
+  useEffect(() => {
+    return () => {
+      setIsExpanded(false);
+    };
+  }, [open]);
 
   if (!open) return null;
 
