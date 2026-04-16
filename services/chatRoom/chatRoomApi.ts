@@ -8,12 +8,13 @@ import {
   FetchMessagesInChatRoomRequest,
   FetchMessagesInChatRoomResponse,
   RecallMessageRequest,
+  SearchMessagesInChatRoomRequest,
   SendContactCardsToChatRoomRequest,
   SendMessageToChatRoomRequest,
   SendMessageToNewChatRoomRequest,
 } from '@/services/chatRoom/chatRoomType';
-import { ChatRoom } from '@/types/model';
-import { IBackendRes } from '@/types/api';
+import { ChatRoom, MessageResponse } from '@/types/model';
+import { IBackendRes, IModelPaginate } from '@/types/api';
 import {
   cascadeReplyContextForDeletedMessage,
   cascadeReplyContextForRecalledMessage,
@@ -59,6 +60,21 @@ export const chatRoomApi = api.injectEndpoints({
         params: { size, page },
       }),
       providesTags: (_, __, { chatRoomId }) => [{ type: 'ChatRoom', id: `MESSAGES_${chatRoomId}` }],
+    }),
+
+    searchMessagesInChatRoom: builder.query<
+      IBackendRes<IModelPaginate<MessageResponse>>,
+      SearchMessagesInChatRoomRequest
+    >({
+      query: ({ chatRoomId, searchTerm, page = 1, size = 50 }) => ({
+        url: `/chatrooms/${chatRoomId}/messages/search`,
+        method: 'GET',
+        params: { searchTerm, size, page },
+      }),
+      keepUnusedDataFor: 30,
+      providesTags: (_, __, { chatRoomId, searchTerm }) => [
+        { type: 'ChatRoom', id: `MESSAGE_SEARCH_${chatRoomId}_${searchTerm.trim().toLowerCase()}` },
+      ],
     }),
 
     fetchFilesInChatRoom: builder.query<FetchMessagesInChatRoomResponse, { chatRoomId: number; page?: number }>({
@@ -391,6 +407,7 @@ export const {
   useFetchChatRoomsQuery,
   useFetchChatRoomsByIdQuery,
   useFetchMessagesInChatRoomQuery,
+  useLazySearchMessagesInChatRoomQuery,
   useFetchFilesInChatRoomQuery,
   useFetchMediaInChatRoomQuery,
   useSendMessageToChatRoomMutation,

@@ -5,13 +5,14 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ChatRoom } from '@/types/model';
 import { ChatRoomType } from '@/types/enum';
-import { Info, Phone, Video, Users, Pin } from 'lucide-react';
+import { Info, Phone, Pin, Search, Users, Video } from 'lucide-react';
 
 interface ChatHeaderProps {
   chatRoom: ChatRoom;
   onToggleDetails: () => void;
   isDetailsOpen: boolean;
   onShowPinnedMessages: () => void;
+  onOpenSearch: () => void;
   pinnedMessagesCount: number;
   readOnly?: boolean;
 }
@@ -21,6 +22,7 @@ export function ChatHeader({
   onToggleDetails,
   isDetailsOpen,
   onShowPinnedMessages,
+  onOpenSearch,
   pinnedMessagesCount = 0,
   readOnly = false,
 }: Readonly<ChatHeaderProps>) {
@@ -69,6 +71,15 @@ export function ChatHeader({
               {pinnedMessagesCount}
             </Badge>
           )}
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-9 w-9 rounded-full"
+          onClick={onOpenSearch}
+          title="Tìm kiếm tin nhắn"
+        >
+          <Search className="h-5 w-5" />
         </Button>
         <Button
           variant="ghost"
