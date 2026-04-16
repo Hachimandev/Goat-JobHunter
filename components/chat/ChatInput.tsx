@@ -1,8 +1,11 @@
 import { Ionicons } from "@expo/vector-icons";
 import React from "react";
 import {
+  ActionSheetIOS,
   ActivityIndicator,
+  Alert,
   Image,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -10,6 +13,8 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+
+import * as ImagePicker from "expo-image-picker";
 
 interface ChatInputProps {
   text: string;
@@ -23,9 +28,10 @@ interface ChatInputProps {
   selectedImages: any[];
   onRemoveImage: (idx: number) => void;
   disabled?: boolean;
-  selectedFiles: any[]; // Thêm prop này
-  onPickDocument: () => void; // Thêm prop này
+  selectedFiles: any[];
+  onPickDocument: () => void;
   onRemoveFile: (idx: number) => void;
+  onMediaCaptured: (assets: ImagePicker.ImagePickerAsset[]) => void;
 }
 
 export const ChatInput = ({
@@ -42,8 +48,52 @@ export const ChatInput = ({
   selectedFiles,
   onPickDocument,
   onRemoveFile,
+  onMediaCaptured,
   disabled,
 }: ChatInputProps) => {
+  const handleImageBtnPress = () => {
+    if (Platform.OS === "ios") {
+      ActionSheetIOS.showActionSheetWithOptions(
+        {
+          options: ["Hủy", "Thư viện ảnh & Video", "Chụp ảnh", "Quay phim"],
+          cancelButtonIndex: 0,
+          tintColor: "#0084FF",
+        },
+        (buttonIndex) => {
+          if (buttonIndex === 1) onPickImage();
+          else if (buttonIndex === 2) handleLaunchCamera("photo");
+          else if (buttonIndex === 3) handleLaunchCamera("video");
+        },
+      );
+    } else {
+      Alert.alert("Tùy chọn phương tiện", "Chọn hành động bạn muốn thực hiện", [
+        { text: "Thư viện", onPress: onPickImage },
+        { text: "Chụp ảnh", onPress: () => handleLaunchCamera("photo") },
+        { text: "Quay phim", onPress: () => handleLaunchCamera("video") },
+        { text: "Hủy", style: "cancel" },
+      ]);
+    }
+  };
+
+  const handleLaunchCamera = async (type: "photo" | "video") => {
+    const { status } = await ImagePicker.requestCameraPermissionsAsync();
+    if (status !== "granted") {
+      Alert.alert("Lỗi", "Ứng dụng cần quyền truy cập Camera");
+      return;
+    }
+
+    const result = await ImagePicker.launchCameraAsync({
+      mediaTypes: type === "photo" ? ["images"] : ["videos"],
+      quality: 0.4,
+      allowsEditing: type === "photo",
+      videoMaxDuration: 20,
+    });
+
+    if (!result.canceled) {
+      onMediaCaptured(result.assets);
+    }
+  };
+
   return (
     <View style={disabled && { opacity: 0.5 }}>
       {/* Reply Preview */}
@@ -110,7 +160,7 @@ export const ChatInput = ({
           <Ionicons name="happy-outline" size={26} color="#0084FF" />
         </TouchableOpacity>
         <TouchableOpacity
-          onPress={onPickImage}
+          onPress={handleImageBtnPress}
           disabled={disabled}
           style={{ marginLeft: 10 }}
         >

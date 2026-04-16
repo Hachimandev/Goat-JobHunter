@@ -1,5 +1,6 @@
 import { MessageType } from "@/types/model";
 import { Ionicons } from "@expo/vector-icons";
+import { useVideoPlayer, VideoView } from "expo-video";
 import React from "react";
 import {
   Image,
@@ -57,6 +58,10 @@ export const MessageItem = ({
   const isS3Video = isS3VideoUrl(content);
   const isS3File = isS3FileUrl(content);
   const isRevoked = !content && !isSystem;
+  const player = useVideoPlayer(content, (player) => {
+    player.loop = false;
+    player.muted = false;
+  });
 
   if (isSystem) {
     return (
@@ -116,14 +121,18 @@ export const MessageItem = ({
 
     if (isS3Video) {
       return (
-        <View style={styles.videoContainer}>
-          <Ionicons
-            name="play-circle"
-            size={48}
-            color="rgba(255,255,255,0.9)"
+        <TouchableOpacity
+          activeOpacity={0.9}
+          onLongPress={() => onLongPress(item)}
+          delayLongPress={200}
+        >
+          <VideoView
+            style={styles.videoPlayer}
+            player={player}
+            allowsFullscreen
+            allowsPictureInPicture
           />
-          <Text style={styles.videoLabel}>Video</Text>
-        </View>
+        </TouchableOpacity>
       );
     }
 
@@ -283,10 +292,17 @@ const styles = StyleSheet.create({
   },
 
   // File Styles
+  videoPlayer: {
+    width: 220,
+    height: 160,
+    borderRadius: 15,
+    backgroundColor: "#000",
+  },
+
   fileBox: {
     flexDirection: "row",
     alignItems: "center",
-    padding: 2,
+    padding: 8,
     minWidth: 160,
   },
   fileName: { fontSize: 14, fontWeight: "500" },

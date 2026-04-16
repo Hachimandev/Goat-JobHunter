@@ -174,14 +174,12 @@ export default function ChatDetailScreen() {
     const imagesToSend = [...selectedImages];
     const filesToSend = [...selectedFiles];
 
-    // Reset UI ngay lập tức
     setText("");
     setSelectedImages([]);
     setSelectedFiles([]);
     setReplyTarget(null);
 
     try {
-      // Đảm bảo hàm handleSendMessage trong hook của bạn đã nhận thêm đối số files
       await handleSendMessage(
         chatRoomId,
         contentToSend,
@@ -377,6 +375,9 @@ export default function ChatDetailScreen() {
           onPickImage={async () => {
             const imgs = await pickImage();
             if (imgs) setSelectedImages((prev) => [...prev, ...imgs]);
+          }}
+          onMediaCaptured={(assets) => {
+            setSelectedImages((prev) => [...prev, ...assets]);
           }}
           selectedFiles={selectedFiles}
           onPickDocument={pickDocument}
