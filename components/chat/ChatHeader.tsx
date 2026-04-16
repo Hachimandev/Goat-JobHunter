@@ -7,12 +7,14 @@ interface ChatHeaderProps {
   name: string;
   avatar?: string;
   status?: string;
+  onPressInfo?: () => void;
 }
 
 export const ChatHeader = ({
   name,
   avatar,
   status = "Đang hoạt động",
+  onPressInfo,
 }: ChatHeaderProps) => {
   return (
     <View style={styles.header}>
@@ -44,7 +46,7 @@ export const ChatHeader = ({
         <TouchableOpacity style={styles.headerBtn}>
           <Ionicons name="call" size={22} color="#0084FF" />
         </TouchableOpacity>
-        <TouchableOpacity style={styles.headerBtn}>
+        <TouchableOpacity style={styles.headerBtn} onPress={onPressInfo}>
           <Ionicons name="information-circle" size={24} color="#0084FF" />
         </TouchableOpacity>
       </View>

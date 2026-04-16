@@ -1,5 +1,5 @@
 import BottomSheet from "@gorhom/bottom-sheet";
-import { useLocalSearchParams } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -213,7 +213,23 @@ export default function ChatDetailScreen() {
         behavior={Platform.OS === "ios" ? "padding" : undefined}
         keyboardVerticalOffset={Platform.OS === "ios" ? 90 : 0}
       >
-        <ChatHeader name={name} avatar={avatar} status="Đang hoạt động" />
+        <ChatHeader
+          name={name}
+          avatar={avatar}
+          status="Đang hoạt động"
+          onPressInfo={() =>
+            router.push({
+              pathname: "/chat/detail",
+              params: {
+                id: chatRoomId.toString(),
+                name,
+                avatar,
+                messages: JSON.stringify(messagesData?.data || []),
+              },
+            })
+          }
+        />
+
         {pinnedMessage && (
           <View style={styles.pinnedContainer}>
             <Ionicons name="pin" size={16} color="#007AFF" />
@@ -236,14 +252,12 @@ export default function ChatDetailScreen() {
               </Text>
             </TouchableOpacity>
 
-            {/* 👉 mở list */}
             {(pinnedData?.data?.length ?? 0) > 1 && (
               <TouchableOpacity onPress={() => setIsPinnedListOpen(true)}>
                 <Ionicons name="chevron-forward" size={18} color="#999" />
               </TouchableOpacity>
             )}
 
-            {/* 👉 unpin */}
             <TouchableOpacity
               onPress={() => {
                 Alert.alert("Bỏ ghim", "Bạn có chắc muốn bỏ ghim?", [
