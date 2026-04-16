@@ -82,7 +82,35 @@ export function SignupForm({ className, ...props }: React.ComponentProps<'div'>)
             <Image src="/logo.png" alt="GOAT Logo" className="" width={120} height={80} />
           </Link>
           <CardTitle>Tạo tài khoản mới</CardTitle>
-          <CardDescription>Nhập thông tin của bạn bên dưới để tạo tài khoản mới.</CardDescription>
+          <CardDescription className="">
+            <FieldDescription className="text-start text-xs text-muted-foreground">
+              Khi tạo tài khoản, bạn đồng ý với{' '}
+              <Link
+                href="/legal/terms-of-service"
+                target="_blank"
+                className="text-primary hover:underline underline-offset-2"
+              >
+                Điều Khoản Dịch Vụ
+              </Link>
+              ,{' '}
+              <Link
+                href="/legal/user-policy"
+                target="_blank"
+                className="text-primary hover:underline underline-offset-2"
+              >
+                Chính Sách Người Dùng
+              </Link>{' '}
+              và{' '}
+              <Link
+                href="/legal/community-standards"
+                target="_blank"
+                className="text-primary hover:underline underline-offset-2"
+              >
+                Tiêu Chuẩn Cộng Đồng
+              </Link>{' '}
+              của chúng tôi.
+            </FieldDescription>
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <Form {...signUpForm}>
@@ -306,14 +334,15 @@ export function SignupForm({ className, ...props }: React.ComponentProps<'div'>)
               </FieldDescription>
 
               <FieldDescription className="text-center text-gray-400 mt-4">
-                Bạn đại diện cho doanh nghiệp?{' '}
                 <Link href="/company" className="text-primary hover:underline underline-offset-2">
-                  Đăng ký tài khoản công ty
-                </Link>
+                  Nhấp vào đây
+                </Link>{' '}
+                nếu bạn đại diện cho doanh nghiệp?
               </FieldDescription>
             </form>
           </Form>
         </CardContent>
+        ``
       </Card>
     </div>
   );

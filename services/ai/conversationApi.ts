@@ -1,119 +1,165 @@
-import { api } from "@/services/api";
+import { api } from '@/services/api';
 import {
-  ConversationIdsRequest,
+  ChatAIRequest,
+  CreateConversationRequest,
+  DeleteConversationRequest,
   ConversationPinnedResponse,
   ConversationResponse,
-  ConversationUpdateRequest,
+  GetConversationMessagesParams,
   GetConversationsParams,
-  GetConversationsResponse, GetMessageOfConversationResponse
-} from "@/services/ai/conversationType";
+  GetConversationsResponse,
+  GetMessageOfConversationResponse,
+  RenameConversationRequest,
+  UpdateConversationPinRequest,
+} from '@/services/ai/conversationType';
 
 export const conversationApi = api.injectEndpoints({
   endpoints: (builder) => ({
-    aiChat: builder.mutation<string, { message: string, conversationId?: number }>({
+    aiChat: builder.mutation<string, ChatAIRequest>({
       query: ({ message, conversationId }) => ({
-        url: "/ai/chat",
-        method: "POST",
-        data: { message, conversationId }
+        url: '/ai/chat',
+        method: 'POST',
+        data: { message, conversationId },
       }),
-      invalidatesTags: (result, error, { conversationId }) => [{ type: "Conversations", id: conversationId || "LIST" }, "Message"]
+      invalidatesTags: () => [{ type: 'AIConversation', id: 'LIST' }],
     }),
     // Get all conversations with filter
     getConversations: builder.query<GetConversationsResponse, GetConversationsParams>({
       query: (params) => ({
-        url: "/conversations",
-        method: "GET",
-        params
+        url: '/ai/conversations',
+        method: 'GET',
+        params,
       }),
-      providesTags: [{ type: "Conversations", id: "LIST" }]
+      serializeQueryArgs: ({ endpointName, queryArgs }) => {
+        const normalizedTitle = queryArgs?.title?.trim().toLowerCase() || '';
+        return `${endpointName}-${normalizedTitle}`;
+      },
+      merge: (currentCache, incomingCache, { arg }) => {
+        const currentPage = arg?.page ?? 1;
+        if (currentPage <= 1 || !currentCache.data) {
+          currentCache.statusCode = incomingCache.statusCode;
+          currentCache.message = incomingCache.message;
+          currentCache.error = incomingCache.error;
+          currentCache.data = incomingCache.data;
+          return;
+        }
+
+        if (!incomingCache.data) {
+          return;
+        }
+
+        const currentResult = currentCache.data.result || [];
+        const incomingResult = incomingCache.data.result || [];
+
+        const existingIds = new Set(currentResult.map((conversation) => conversation.conversationId));
+        const uniqueIncoming = incomingResult.filter((conversation) => !existingIds.has(conversation.conversationId));
+
+        currentCache.statusCode = incomingCache.statusCode;
+        currentCache.message = incomingCache.message;
+        currentCache.error = incomingCache.error;
+        currentCache.data = {
+          ...incomingCache.data,
+          meta: incomingCache.data.meta,
+          result: [...currentResult, ...uniqueIncoming],
+        };
+      },
+      forceRefetch: ({ currentArg, previousArg }) => {
+        return (
+          currentArg?.page !== previousArg?.page ||
+          currentArg?.size !== previousArg?.size ||
+          currentArg?.title !== previousArg?.title
+        );
+      },
+      providesTags: [{ type: 'AIConversation', id: 'LIST' }],
     }),
 
     // Get conversation by ID
     getConversationById: builder.query<ConversationResponse, number>({
       query: (id) => ({
-        url: `/conversations/${id}`
+        url: `/ai/conversations/${id}`,
       }),
-      providesTags: (result, error, id) => [{ type: "Conversations", id }]
+      providesTags: (result, error, id) => [{ type: 'AIConversation', id }],
     }),
 
     // Create conversation
-    createConversation: builder.mutation<ConversationResponse, void>({
-      query: () => ({
-        url: "/conversations",
-        method: "POST"
+    createConversation: builder.mutation<ConversationResponse, CreateConversationRequest | void>({
+      query: (body) => ({
+        url: '/ai/conversations',
+        method: 'POST',
+        data: body,
       }),
-      invalidatesTags: ["Conversations"]
+      invalidatesTags: [{ type: 'AIConversation', id: 'LIST' }],
     }),
 
-    // Update conversation
-    updateConversation: builder.mutation<ConversationResponse, ConversationUpdateRequest>({
-      query: (body) => ({
-        url: "/conversations",
-        method: "PUT",
-        data: body
+    // Rename conversation
+    renameConversation: builder.mutation<ConversationResponse, RenameConversationRequest>({
+      query: ({ conversationId, title }) => ({
+        url: `/ai/conversations/${conversationId}/title`,
+        method: 'PATCH',
+        data: { title },
       }),
       invalidatesTags: (result, error, arg) => [
-        { type: "Conversations", id: arg.conversationId },
-        { type: "Conversations", id: "LIST" }
-      ]
+        { type: 'AIConversation', id: arg.conversationId },
+        { type: 'AIConversation', id: 'LIST' },
+      ],
     }),
 
-    // Pin conversations
-    pinConversations: builder.mutation<ConversationPinnedResponse, ConversationIdsRequest>({
-      query: (body) => ({
-        url: "/conversations/pin",
-        method: "PATCH",
-        data: body
+    // Pin or unpin conversation
+    updateConversationPin: builder.mutation<ConversationPinnedResponse, UpdateConversationPinRequest>({
+      query: ({ conversationId, pinned }) => ({
+        url: `/ai/conversations/${conversationId}/pin`,
+        method: 'PATCH',
+        data: { pinned },
       }),
       invalidatesTags: (result, error, arg) => [
-        ...arg.conversationIds.map((id) => ({ type: "Conversations" as const, id })),
-        { type: "Conversations", id: "LIST" }
-      ]
+        { type: 'AIConversation', id: arg.conversationId },
+        { type: 'AIConversation', id: 'LIST' },
+      ],
     }),
 
-    // Unpin conversations
-    unpinConversations: builder.mutation<ConversationPinnedResponse, ConversationIdsRequest>({
-      query: (body) => ({
-        url: "/conversations/unpin",
-        method: "PATCH",
-        data: body
+    // Delete conversation
+    deleteConversation: builder.mutation<IBackendDeleteResponse, DeleteConversationRequest>({
+      query: ({ conversationId }) => ({
+        url: `/ai/conversations/${conversationId}`,
+        method: 'DELETE',
       }),
-      invalidatesTags: (result, error, arg) => [
-        ...arg.conversationIds.map((id) => ({ type: "Conversations" as const, id })),
-        { type: "Conversations", id: "LIST" }
-      ]
-    }),
-
-    // Delete conversations
-    deleteConversations: builder.mutation<void, ConversationIdsRequest>({
-      query: (body) => ({
-        url: "/conversations",
-        method: "DELETE",
-        data: body
-      }),
-      invalidatesTags: [{ type: "Conversations", id: "LIST" }]
+      invalidatesTags: [{ type: 'AIConversation', id: 'LIST' }],
     }),
 
     // get message of a conversation by id
-    getConversationMessages: builder.query<GetMessageOfConversationResponse, number>({
-      query: (id) => ({
-        url: `/conversations/${id}/messages`,
-        method: "GET"
+    getConversationMessages: builder.query<GetMessageOfConversationResponse, GetConversationMessagesParams>({
+      query: ({ conversationId, page = 1, size = 20 }) => ({
+        url: `/ai/conversations/${conversationId}/messages`,
+        method: 'GET',
+        params: {
+          page,
+          size,
+        },
       }),
-      providesTags: (result, error, id) => [{ type: "Conversations", id }, "Message"]
-    })
-  })
+      providesTags: (result, error, { conversationId }) => [
+        { type: 'AIConversation', id: conversationId },
+        { type: 'AIMessage', id: conversationId },
+      ],
+    }),
+  }),
 });
+
+type IBackendDeleteResponse = {
+  statusCode: number;
+  message: string;
+  data?: null;
+  error?: string | null;
+};
 
 export const {
   useAiChatMutation,
   useGetConversationsQuery,
+  useLazyGetConversationsQuery,
   useGetConversationByIdQuery,
   useCreateConversationMutation,
-  useUpdateConversationMutation,
-  usePinConversationsMutation,
-  useUnpinConversationsMutation,
-  useDeleteConversationsMutation,
+  useRenameConversationMutation,
+  useUpdateConversationPinMutation,
+  useDeleteConversationMutation,
 
-  useGetConversationMessagesQuery
+  useGetConversationMessagesQuery,
 } = conversationApi;

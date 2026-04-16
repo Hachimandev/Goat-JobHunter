@@ -1,10 +1,12 @@
-import { Loader2, Play } from 'lucide-react';
+import { Loader2, Music, Play } from 'lucide-react';
 import Image from 'next/image';
 import { useMemo, useState } from 'react';
-import { ColumnsPhotoAlbum, ClickHandlerProps, RenderPhotoContext, RenderPhotoProps } from 'react-photo-album';
+import { ClickHandlerProps, RenderPhotoContext, RenderPhotoProps, RowsPhotoAlbum } from 'react-photo-album';
 import { MessageResponse } from '@/types/model';
 import { ChatMediaLightbox } from './ChatMediaLightbox';
 import formatChatMediaForPhotoAlbum, { ChatMediaPhoto } from '@/utils/formatChatMediaForPhotoAlbum';
+import 'react-photo-album/rows.css';
+import 'react-photo-album/columns.css';
 
 interface SharedMediaGridProps {
   readonly media: MessageResponse[];
@@ -17,6 +19,8 @@ function RenderChatMediaPhoto(
   { photo, width, height }: RenderPhotoContext<ChatMediaPhoto>,
 ) {
   const isVideo = photo.mediaKind === 'video';
+  const isAudio = photo.mediaKind === 'audio';
+  const isImage = photo.mediaKind === 'image';
 
   return (
     <button
@@ -25,8 +29,8 @@ function RenderChatMediaPhoto(
       onClick={onClick}
       className="relative block w-full overflow-hidden rounded-lg bg-muted transition-opacity hover:opacity-90"
     >
-      <div className="relative w-full" style={{ aspectRatio: `${width} / ${height}` }}>
-        {isVideo ? (
+      <div className="relative w-full cursor-pointer" style={{ aspectRatio: `${width} / ${height}` }}>
+        {isVideo && (
           <>
             <video
               src={photo.src}
@@ -41,7 +45,16 @@ function RenderChatMediaPhoto(
               </div>
             </div>
           </>
-        ) : (
+        )}
+        {isAudio && (
+          <div className="relative flex h-full w-full items-center justify-center rounded-lg border bg-linear-to-br from-muted to-muted/70">
+            <div className="flex flex-col items-center gap-2 text-muted-foreground">
+              <Music className="h-7 w-7" />
+              <span className="text-[11px] font-medium uppercase tracking-wide">Audio</span>
+            </div>
+          </div>
+        )}
+        {isImage && (
           <Image
             src={photo.src}
             alt={photo.alt || 'Media'}
@@ -97,11 +110,14 @@ export function SharedMediaGrid({ media, isLoading, isError }: SharedMediaGridPr
 
   return (
     <>
-      <ColumnsPhotoAlbum
+      <RowsPhotoAlbum
         photos={mediaPhotos}
-        columns={3}
-        spacing={4}
+        spacing={0}
         padding={0}
+        rowConstraints={{
+          minPhotos: 1,
+          maxPhotos: 3,
+        }}
         onClick={handleOpenLightbox}
         render={{ photo: RenderChatMediaPhoto }}
       />

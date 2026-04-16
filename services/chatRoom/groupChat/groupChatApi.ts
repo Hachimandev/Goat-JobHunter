@@ -94,7 +94,7 @@ export const groupChatApi = api.injectEndpoints({
       }),
       invalidatesTags: (result, error, { chatroomId }) => [
         { type: 'ChatRoom', id: chatroomId },
-        { type: 'ChatMember' },
+        { type: 'ChatMember', id: chatroomId },
       ],
     }),
 
@@ -103,9 +103,9 @@ export const groupChatApi = api.injectEndpoints({
         url: `/chatrooms/group/${chatroomId}/member/${chatMemberId}`,
         method: 'DELETE',
       }),
-      invalidatesTags: (result, error, { chatroomId, chatMemberId }) => [
+      invalidatesTags: (result, error, { chatroomId }) => [
         { type: 'ChatRoom', id: chatroomId },
-        { type: 'ChatMember', id: chatMemberId },
+        { type: 'ChatMember', id: chatroomId },
       ],
     }),
 

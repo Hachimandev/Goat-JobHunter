@@ -1,6 +1,6 @@
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
-import { ChevronLeft, ChevronRight, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Music, X } from 'lucide-react';
 import Image from 'next/image';
 import { useEffect } from 'react';
 import { ChatMediaPhoto } from '@/utils/formatChatMediaForPhotoAlbum';
@@ -70,6 +70,7 @@ export function ChatMediaLightbox({
   }
 
   const isSelectedVideo = selectedPhoto.mediaKind === 'video';
+  const isSelectedAudio = selectedPhoto.mediaKind === 'audio';
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -81,6 +82,15 @@ export function ChatMediaLightbox({
           <div className="absolute inset-0">
             {isSelectedVideo ? (
               <video src={selectedPhoto.src} controls autoPlay playsInline className="h-full w-full object-contain" />
+            ) : isSelectedAudio ? (
+              <div className="flex h-full w-full items-center justify-center bg-black/80 px-6">
+                <div className="flex w-full max-w-xl flex-col items-center gap-5 rounded-2xl border border-white/15 bg-white/5 p-6">
+                  <div className="rounded-full bg-white/15 p-3">
+                    <Music className="h-7 w-7 text-white" />
+                  </div>
+                  <audio src={selectedPhoto.src} controls preload="metadata" className="w-full" />
+                </div>
+              </div>
             ) : (
               <Image
                 src={selectedPhoto.src}
