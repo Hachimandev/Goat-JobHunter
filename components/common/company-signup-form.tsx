@@ -98,11 +98,40 @@ export function CompanySignupForm({ className, ...props }: React.ComponentProps<
           </Link>
           <CardTitle>Đăng ký tài khoản công ty</CardTitle>
           <CardDescription>
-            {step === 1 ? 'Bước 1/2: Tạo tài khoản đăng nhập' : 'Bước 2/2: Nhập thông tin công ty của bạn'}
+            <FieldDescription className="text-start text-xs text-muted-foreground">
+              Khi tạo tài khoản, bạn đồng ý với{' '}
+              <Link
+                href="/legal/terms-of-service"
+                target="_blank"
+                className="text-primary hover:underline underline-offset-2"
+              >
+                Điều Khoản Dịch Vụ
+              </Link>
+              ,{' '}
+              <Link
+                href="/legal/user-policy"
+                target="_blank"
+                className="text-primary hover:underline underline-offset-2"
+              >
+                Chính Sách Người Dùng
+              </Link>{' '}
+              và{' '}
+              <Link
+                href="/legal/community-standards"
+                target="_blank"
+                className="text-primary hover:underline underline-offset-2"
+              >
+                Tiêu Chuẩn Cộng Đồng
+              </Link>
+              .
+            </FieldDescription>
           </CardDescription>
 
+          <p className="text-sm font-medium text-foreground mt-4">
+            {step === 1 ? 'Bước 1/2: Tạo tài khoản đăng nhập' : 'Bước 2/2: Nhập thông tin công ty của bạn'}
+          </p>
           {/* Progress indicator */}
-          <div className="flex gap-2 mt-4">
+          <div className="flex gap-2">
             <div className="h-2 flex-1 rounded-full bg-gray-200 overflow-hidden">
               <div
                 className={cn(
@@ -560,6 +589,12 @@ export function CompanySignupForm({ className, ...props }: React.ComponentProps<
                   className={`text-primary hover:underline underline underline-offset-2 ${isSubmitting ? 'pointer-events-none' : ''}`}
                 >
                   Đăng nhập
+                </Link>
+              </FieldDescription>
+              <FieldDescription className="text-center text-gray-400 mt-4">
+                Bạn là người dùng cá nhân?{' '}
+                <Link href="/signup" className="text-primary hover:underline underline-offset-2">
+                  Đăng ký tài khoản
                 </Link>
               </FieldDescription>
             </form>
