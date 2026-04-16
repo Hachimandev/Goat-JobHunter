@@ -7,6 +7,7 @@ import { PinnedMessagesPanel } from './PinnedMessagesPanel';
 import { useDetailsPanelState } from '../hooks/useDetailsPanelState';
 import { ChatRoomType } from '@/types/enum';
 import { GroupDetailsPanel } from '@/app/(chat)/messages/components/GroupDetailsPanel';
+import { SearchMessagesDialog } from '@/app/(chat)/messages/components/SearchMessagesDialog';
 import type { SendContactCardsSubmitResult } from '@/services/chatRoom/chatRoomType';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
@@ -78,8 +79,21 @@ export function ChatWindow({
   const isDissolved = Boolean(chatRoom.deletedAt && chatRoom.type === ChatRoomType.GROUP);
   const isChatLocked = !isGroup && isChatBlocked;
   const [clearDialogOpen, setClearDialogOpen] = useState(false);
+  const [searchDialogState, setSearchDialogState] = useState<{ roomId: number; open: boolean }>({
+    roomId: chatRoom.roomId,
+    open: false,
+  });
   const router = useRouter();
   const [leaveGroup, { isLoading: isLeavingGroup }] = useLeaveGroupChatMutation();
+  const searchDialogOpen = searchDialogState.roomId === chatRoom.roomId && searchDialogState.open;
+
+  const handleOpenSearch = () => {
+    setSearchDialogState({ roomId: chatRoom.roomId, open: true });
+  };
+
+  const handleSearchDialogOpenChange = (open: boolean) => {
+    setSearchDialogState({ roomId: chatRoom.roomId, open });
+  };
 
   const handleLeaveGroup = async () => {
     try {
@@ -99,6 +113,7 @@ export function ChatWindow({
           onToggleDetails={toggle}
           isDetailsOpen={isDetailsOpen}
           onShowPinnedMessages={() => setIsPinnedPanelOpen(!isPinnedPanelOpen)}
+          onOpenSearch={handleOpenSearch}
           pinnedMessagesCount={pinnedMessages.length}
           readOnly={isDissolved}
         />
@@ -168,6 +183,15 @@ export function ChatWindow({
           onNavigateToMessage={onNavigateToMessage}
           readOnly={isDissolved}
         />
+
+        {searchDialogOpen && (
+          <SearchMessagesDialog
+            open={searchDialogOpen}
+            onOpenChange={handleSearchDialogOpenChange}
+            chatRoomId={chatRoom.roomId}
+            onNavigateToMessage={onNavigateToMessage}
+          />
+        )}
       </div>
 
       {isDetailsOpen && !isGroup && (

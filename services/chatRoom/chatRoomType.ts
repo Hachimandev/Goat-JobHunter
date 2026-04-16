@@ -12,6 +12,13 @@ export type FetchMessagesInChatRoomRequest = {
   size?: number;
 };
 
+export type SearchMessagesInChatRoomRequest = {
+  chatRoomId: number;
+  searchTerm: string;
+  page?: number;
+  size?: number;
+};
+
 export type FetchChatRoomsResponse = IBackendRes<IModelPaginate<ChatRoom>>;
 
 export type FetchMessagesInChatRoomResponse = IBackendRes<MessageResponse[]>;
