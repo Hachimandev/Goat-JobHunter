@@ -6,7 +6,7 @@ import {
 } from "@/services/chatRoom/chatRoomApi";
 import * as ImagePicker from "expo-image-picker";
 import { useCallback, useState } from "react";
-import { Alert } from "react-native";
+import { Alert, Platform } from "react-native";
 import { useUser } from "./useUser";
 
 export default function useChatActionsMobile() {
@@ -25,11 +25,15 @@ export default function useChatActionsMobile() {
 
   const pickImage = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      mediaTypes: ["images", "videos"],
       allowsMultipleSelection: true,
-      quality: 0.8,
+      quality: 0.4,
     });
-    return !result.canceled ? result.assets : null;
+
+    if (!result.canceled) {
+      return result.assets;
+    }
+    return null;
   };
 
   const createChatFormData = async (
@@ -41,12 +45,21 @@ export default function useChatActionsMobile() {
     const formData = new FormData();
 
     if (images && images.length > 0) {
-      images.forEach((img) => {
-        const fileName = img.fileName || `image_${Date.now()}.jpg`;
+      images.forEach((asset) => {
+        const uri = asset.uri;
+        const fileExtension = uri.split(".").pop()?.toLowerCase();
+        const fileName =
+          asset.fileName || `media_${Date.now()}.${fileExtension}`;
+
+        const mimeType =
+          asset.uri.includes("video") || fileExtension === "mp4"
+            ? "video/mp4"
+            : "image/jpeg";
+
         formData.append("files", {
-          uri: img.uri,
+          uri: Platform.OS === "android" ? uri : uri.replace("file://", ""),
           name: fileName,
-          type: img.type || "image/jpeg",
+          type: mimeType,
         } as any);
       });
     }
