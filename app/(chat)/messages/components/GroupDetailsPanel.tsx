@@ -1,31 +1,22 @@
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { X, ChevronDown, UserPlus, Edit, Loader2, LogOut, Bell, PinIcon, Settings, Users } from 'lucide-react';
-import { X, ChevronDown, UserPlus, Edit, Loader2, LogOut } from 'lucide-react';
 import { SharedMediaGrid } from './SharedMediaGrid';
 import { SharedFilesList } from './SharedFilesList';
 import { useMemo, useState } from 'react';
 import { ChatRoom } from '@/types/model';
 import { useFetchFilesInChatRoomQuery, useFetchMediaInChatRoomQuery } from '@/services/chatRoom/chatRoomApi';
-import { useGetMemberInGroupChatQuery, useAddMemberToGroupMutation } from '@/services/chatRoom/groupChat/groupChatApi';
-import { ChatMemberItem } from '@/app/(chat)/messages/components/ChatMemberItem';
 import { ManageGroupPanel } from './ManageGroupPanel';
-import {
-  useGetMemberInGroupChatQuery,
-  useAddMemberToGroupMutation,
-  useLeaveGroupChatMutation,
-} from '@/services/chatRoom/groupChat/groupChatApi';
+import { useGetMemberInGroupChatQuery, useAddMemberToGroupMutation } from '@/services/chatRoom/groupChat/groupChatApi';
 import { ChatMemberItem } from '@/app/(chat)/messages/components/ChatMemberItem';
 import { useUser } from '@/hooks/useUser';
 import { SearchUsersModal } from './SearchUsersModal';
 import { User } from '@/types/model';
 import { toast } from 'sonner';
-import { useRouter } from 'next/navigation';
 import { EditGroupModal } from '@/app/(chat)/messages/components/EditGroupModal';
 import {
   AlertDialog,
@@ -55,7 +46,6 @@ export function GroupDetailsPanel({
   handleLeaveGroup,
   isLeavingGroup,
 }: Readonly<GroupDetailsPanelProps>) {
-export function GroupDetailsPanel({ chatRoom, isOpen, onClose }: Readonly<GroupDetailsPanelProps>) {
   const [isMembersOpen, setIsMembersOpen] = useState(true);
   const [addMemberModalOpen, setAddMemberModalOpen] = useState(false);
   const [editGroupModalOpen, setEditGroupModalOpen] = useState(false);
@@ -123,17 +113,6 @@ export function GroupDetailsPanel({ chatRoom, isOpen, onClose }: Readonly<GroupD
       toast.error('Không thể thêm thành viên vào nhóm');
 
       throw error;
-    }
-  };
-
-  const handleLeaveGroup = async () => {
-    try {
-      await leaveGroup(chatRoom.roomId.toString()).unwrap();
-      toast.success('Đã rời khỏi nhóm');
-      router.push('/messages');
-    } catch (error) {
-      console.error('Error leaving group:', error);
-      toast.error('Không thể rời khỏi nhóm');
     }
   };
 
