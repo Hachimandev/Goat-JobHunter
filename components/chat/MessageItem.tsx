@@ -1,5 +1,7 @@
 import { MessageType } from "@/types/model";
 import { Ionicons } from "@expo/vector-icons";
+import { formatDistanceToNow } from "date-fns";
+import { vi } from "date-fns/locale";
 import { useVideoPlayer, VideoView } from "expo-video";
 import React from "react";
 import {
@@ -43,6 +45,39 @@ const isS3FileUrl = (url: string) => {
     url.match(/\.(pdf|doc|docx|xls|xlsx|ppt|pptx|txt|zip|rar)$/i) != null
   );
 };
+enum MessageEvent {
+  MEMBER_ADDED = "MEMBER_ADDED",
+  MEMBER_REMOVED = "MEMBER_REMOVED",
+  MEMBER_LEFT = "MEMBER_LEFT",
+  ROLE_CHANGED = "ROLE_CHANGED",
+  GROUP_CREATED = "GROUP_CREATED",
+  GROUP_NAME_CHANGED = "GROUP_NAME_CHANGED",
+  GROUP_AVATAR_CHANGED = "GROUP_AVATAR_CHANGED",
+  MESSAGE_PINNED = "MESSAGE_PINNED",
+  MESSAGE_UNPINNED = "MESSAGE_UNPINNED",
+}
+
+const getEventIcon = (content: string) => {
+  if (content.includes("MESSAGE_PINNED")) return "pin";
+  if (content.includes("MESSAGE_UNPINNED")) return "pin-outline";
+  if (content.includes("MEMBER_ADDED")) return "person-add";
+  if (content.includes("MEMBER_REMOVED") || content.includes("MEMBER_LEFT"))
+    return "person-remove";
+  if (content.includes("GROUP")) return "people";
+  return "information-circle";
+};
+
+const extractSystemContent = (content: string) => {
+  return content
+    .replace(/\(event:.*?\)\s*/g, "")
+    .split("(Xem")[0]
+    .trim();
+};
+
+const extractMessageId = (content: string) => {
+  const match = content.match(/msg_([a-z0-9]+)/);
+  return match ? `msg_${match[1]}` : null;
+};
 
 export const MessageItem = ({
   item,
@@ -64,9 +99,39 @@ export const MessageItem = ({
   });
 
   if (isSystem) {
+    const iconName = getEventIcon(content) as any;
+    const displayBody = extractSystemContent(content);
+    const pinnedMsgId = extractMessageId(content);
+
+    const timeAgo = formatDistanceToNow(new Date(item.createdAt), {
+      addSuffix: true,
+      locale: vi,
+    }).replace("khoảng ", "");
+
     return (
       <View style={styles.systemMessageContainer}>
-        <Text style={styles.systemMessageText}>{content}</Text>
+        <View style={styles.systemMessageRow}>
+          <Ionicons
+            name={iconName}
+            size={13}
+            color="#666"
+            style={{ marginRight: 6 }}
+          />
+
+          <Text numberOfLines={2} style={styles.systemMessageText}>
+            <Text>{displayBody}</Text>
+            {content.includes("MESSAGE_PINNED") && pinnedMsgId && (
+              <Text
+                style={styles.viewPinnedBtn}
+                onPress={() => onNavigateToMessage?.(pinnedMsgId)}
+              >
+                {" "}
+                Xem
+              </Text>
+            )}
+            <Text style={styles.systemTimeText}> • {timeAgo}</Text>
+          </Text>
+        </View>
       </View>
     );
   }
@@ -345,16 +410,33 @@ const styles = StyleSheet.create({
   },
   revokedText: { color: "#999", fontStyle: "italic", fontSize: 14 },
   systemMessageContainer: {
+    width: "100%",
     alignItems: "center",
     marginVertical: 10,
-    width: "100%",
+    paddingHorizontal: 10,
+  },
+  systemMessageRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center", // Căn giữa nội dung
+    backgroundColor: "#F0F2F5",
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: 20,
+    maxWidth: "95%", // Cho phép nở rộng ra gần hết màn hình
   },
   systemMessageText: {
-    backgroundColor: "#E8E8E8",
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 12,
+    fontSize: 12,
+    color: "#4B5563",
+    textAlign: "center", // Căn giữa chữ bên trong
+    flexShrink: 1,
+  },
+  viewPinnedBtn: {
+    color: "#059669",
+    fontWeight: "bold",
+  },
+  systemTimeText: {
+    color: "#9CA3AF",
     fontSize: 11,
-    color: "#666",
   },
 });
