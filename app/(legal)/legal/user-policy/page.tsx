@@ -3,74 +3,78 @@ import Link from 'next/link';
 import { Separator } from '@/components/ui/separator';
 
 export const metadata: Metadata = {
-  title: 'User Policy | GOAT Job Hunter',
-  description: 'User data and privacy policy for GOAT Job Hunter social chat and job features.',
+  title: 'Chính sách người dùng | GOAT Job Hunter',
+  description: 'Chính sách dữ liệu và quyền riêng tư cho các tính năng mạng xã hội, trò chuyện và việc làm.',
 };
 
 export default function UserPolicyPage() {
   return (
     <article className="rounded-2xl border border-border bg-card p-6 sm:p-8">
       <header>
-        <p className="text-xs font-semibold uppercase tracking-wide text-primary">Legal Document</p>
-        <h1 className="mt-2 text-3xl font-bold text-foreground">User Policy</h1>
+        <p className="text-xs font-semibold uppercase tracking-wide text-primary">Tài liệu pháp lý</p>
+        <h1 className="mt-2 text-3xl font-bold text-foreground">Chính sách người dùng</h1>
         <p className="mt-3 text-sm leading-6 text-muted-foreground">
-          This policy explains how GOAT Job Hunter handles personal information across social interactions, chat,
-          applications, interviews, and company-user communication.
+          Chính sách này mô tả cách GOAT Job Hunter xử lý dữ liệu cá nhân trong các hoạt động tương tác xã hội, nhắn
+          tin, ứng tuyển, phỏng vấn và giao tiếp giữa doanh nghiệp với người dùng.
         </p>
-        <p className="mt-2 text-sm text-muted-foreground">Effective date: 2026-04-16</p>
+        <p className="mt-2 text-sm text-muted-foreground">Ngày hiệu lực: 2026-04-16</p>
       </header>
 
       <Separator className="my-6" />
 
       <section className="space-y-6 text-sm leading-6 text-foreground">
         <div>
-          <h2 className="text-lg font-semibold">1. Data We Collect</h2>
+          <h2 className="text-lg font-semibold">1. Dữ liệu chúng tôi thu thập</h2>
           <ul className="mt-2 list-disc space-y-1 pl-5 text-muted-foreground">
-            <li>Account data: name, email, profile media, and authentication records.</li>
-            <li>Professional data: resume, skills, job applications, interview scheduling and status.</li>
-            <li>Interaction data: chat messages, media files, social reactions, comments, and notifications.</li>
-            <li>Security data: device identifiers, session cookies, and abuse-prevention logs.</li>
+            <li>Dữ liệu tài khoản: họ tên, email, ảnh hồ sơ và bản ghi xác thực.</li>
+            <li>Dữ liệu nghề nghiệp: CV, kỹ năng, hồ sơ ứng tuyển, lịch phỏng vấn và trạng thái liên quan.</li>
+            <li>Dữ liệu tương tác: tin nhắn, tệp media, cảm xúc, bình luận và thông báo.</li>
+            <li>Dữ liệu bảo mật: định danh thiết bị, cookie phiên và nhật ký phòng chống lạm dụng.</li>
           </ul>
         </div>
 
         <div>
-          <h2 className="text-lg font-semibold">2. Why We Process Data</h2>
+          <h2 className="text-lg font-semibold">2. Mục đích xử lý dữ liệu</h2>
           <ul className="mt-2 list-disc space-y-1 pl-5 text-muted-foreground">
-            <li>Deliver hiring and messaging features requested by users.</li>
-            <li>Protect users against fraud, impersonation, harassment, and account abuse.</li>
-            <li>Improve product quality, recommendation relevance, and platform reliability.</li>
-            <li>Meet legal obligations for compliance, security, and law enforcement requests.</li>
+            <li>Cung cấp các tính năng việc làm và nhắn tin theo nhu cầu người dùng.</li>
+            <li>Bảo vệ người dùng trước hành vi lừa đảo, mạo danh, quấy rối và lạm dụng tài khoản.</li>
+            <li>Nâng cao chất lượng sản phẩm, độ phù hợp gợi ý và độ ổn định nền tảng.</li>
+            <li>Thực hiện nghĩa vụ pháp lý liên quan đến tuân thủ, bảo mật và yêu cầu của cơ quan có thẩm quyền.</li>
           </ul>
         </div>
 
         <div>
-          <h2 className="text-lg font-semibold">3. Sharing And Visibility Rules</h2>
+          <h2 className="text-lg font-semibold">3. Quy tắc chia sẻ và hiển thị</h2>
           <p className="text-muted-foreground">
-            We share only the minimum required data between applicants, recruiters, and companies based on user actions
-            and visibility settings.
+            Chúng tôi chỉ chia sẻ mức dữ liệu tối thiểu cần thiết giữa ứng viên, nhà tuyển dụng và doanh nghiệp dựa trên
+            hành động của người dùng và tùy chọn hiển thị.
           </p>
           <ul className="mt-2 list-disc space-y-1 pl-5 text-muted-foreground">
-            <li>Profile visibility controls influence who can discover and contact you.</li>
-            <li>Application data is shared with target recruiters and authorized company accounts only.</li>
-            <li>Moderation teams may access reports and related content for enforcement reviews.</li>
+            <li>Cài đặt hiển thị hồ sơ quyết định ai có thể tìm thấy và liên hệ với bạn.</li>
+            <li>
+              Dữ liệu ứng tuyển chỉ được chia sẻ với nhà tuyển dụng mục tiêu và tài khoản doanh nghiệp được ủy quyền.
+            </li>
+            <li>Đội ngũ kiểm duyệt có thể truy cập nội dung báo cáo để phục vụ quá trình xử lý vi phạm.</li>
           </ul>
         </div>
 
         <div>
-          <h2 className="text-lg font-semibold">4. Retention And Security</h2>
+          <h2 className="text-lg font-semibold">4. Lưu trữ và bảo mật</h2>
           <ul className="mt-2 list-disc space-y-1 pl-5 text-muted-foreground">
-            <li>We retain data only as needed for service operation, legal obligations, and dispute handling.</li>
-            <li>Encrypted transport, access controls, and monitoring help protect user data.</li>
-            <li>Users should protect credentials and enable secure account practices.</li>
+            <li>
+              Dữ liệu chỉ được lưu trữ trong thời gian cần thiết cho vận hành, nghĩa vụ pháp lý và xử lý tranh chấp.
+            </li>
+            <li>Mã hóa truyền tải, kiểm soát truy cập và giám sát hệ thống giúp bảo vệ dữ liệu người dùng.</li>
+            <li>Người dùng cần bảo mật thông tin đăng nhập và áp dụng thực hành an toàn cho tài khoản.</li>
           </ul>
         </div>
 
         <div>
-          <h2 className="text-lg font-semibold">5. User Rights</h2>
+          <h2 className="text-lg font-semibold">5. Quyền của người dùng</h2>
           <ul className="mt-2 list-disc space-y-1 pl-5 text-muted-foreground">
-            <li>Request access to your data and update inaccurate profile details.</li>
-            <li>Request deletion or restriction under applicable legal conditions.</li>
-            <li>Manage communication and visibility preferences from account settings.</li>
+            <li>Yêu cầu truy cập dữ liệu cá nhân và cập nhật thông tin hồ sơ chưa chính xác.</li>
+            <li>Yêu cầu xóa hoặc hạn chế xử lý dữ liệu theo điều kiện pháp luật áp dụng.</li>
+            <li>Quản lý tùy chọn liên lạc và hiển thị trong phần cài đặt tài khoản.</li>
           </ul>
         </div>
       </section>
@@ -78,13 +82,13 @@ export default function UserPolicyPage() {
       <Separator className="my-6" />
 
       <p className="text-sm text-muted-foreground">
-        Related:{' '}
+        Liên quan:{' '}
         <Link href="/legal/terms-of-service" className="text-primary hover:underline">
-          Terms of Service
+          Điều khoản dịch vụ
         </Link>{' '}
-        and{' '}
+        và{' '}
         <Link href="/legal/community-standards" className="text-primary hover:underline">
-          Community Standards
+          Tiêu chuẩn cộng đồng
         </Link>
       </p>
     </article>

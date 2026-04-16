@@ -5,40 +5,42 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 const LEGAL_PAGES = [
   {
     href: '/legal/terms-of-service',
-    title: 'Terms of Service',
+    title: 'Điều khoản dịch vụ',
     description:
-      'Rules for account usage, messaging safety, recruitment integrity, and service enforcement across the platform.',
+      'Quy định về sử dụng tài khoản, an toàn nhắn tin, tính minh bạch tuyển dụng và cơ chế thực thi trên nền tảng.',
   },
   {
     href: '/legal/user-policy',
-    title: 'User Policy',
+    title: 'Chính sách người dùng',
     description:
-      'How user data is collected, processed, shared, retained, and protected in social, chat, and job workflows.',
+      'Cách dữ liệu người dùng được thu thập, xử lý, chia sẻ, lưu trữ và bảo vệ trong các luồng social, chat và việc làm.',
   },
   {
     href: '/legal/community-standards',
-    title: 'Community Standards',
+    title: 'Tiêu chuẩn cộng đồng',
     description:
-      'Behavior and content standards to keep chat, social interactions, and job recruitment safe and professional.',
+      'Chuẩn hành vi và nội dung nhằm giữ môi trường trò chuyện, tương tác xã hội và tuyển dụng an toàn, chuyên nghiệp.',
   },
 ] as const;
 
 export const metadata: Metadata = {
-  title: 'Legal Center | GOAT Job Hunter',
-  description: 'Explore legal documents for GOAT Job Hunter social chat and job ecosystem.',
+  title: 'Trung tâm pháp lý | GOAT Job Hunter',
+  description: 'Tổng hợp tài liệu pháp lý cho hệ sinh thái mạng xã hội, trò chuyện và việc làm của GOAT Job Hunter.',
 };
 
 export default function LegalCenterPage() {
   return (
     <div className="space-y-8">
       <section className="rounded-2xl border border-border bg-card p-6 sm:p-8">
-        <p className="text-xs font-semibold uppercase tracking-wide text-primary">Legal Hub</p>
-        <h1 className="mt-2 text-3xl font-bold text-foreground sm:text-4xl">Platform Rules And User Protections</h1>
+        <p className="text-xs font-semibold uppercase tracking-wide text-primary">Trung tâm pháp lý</p>
+        <h1 className="mt-2 text-3xl font-bold text-foreground sm:text-4xl">
+          Quy định nền tảng và quyền lợi người dùng
+        </h1>
         <p className="mt-4 max-w-3xl text-sm leading-6 text-muted-foreground sm:text-base">
-          This legal center defines how GOAT Job Hunter operates across social networking, direct and group chat,
-          AI-assisted conversations, and hiring workflows.
+          Trung tâm pháp lý này quy định cách GOAT Job Hunter vận hành trên các tính năng mạng xã hội, chat cá nhân,
+          chat nhóm, hội thoại có hỗ trợ AI và quy trình tuyển dụng.
         </p>
-        <p className="mt-2 text-sm text-muted-foreground">Effective date: 2026-04-16</p>
+        <p className="mt-2 text-sm text-muted-foreground">Ngày hiệu lực: 2026-04-16</p>
       </section>
 
       <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -50,7 +52,7 @@ export default function LegalCenterPage() {
             </CardHeader>
             <CardContent>
               <Link href={page.href} className="text-sm font-medium text-primary hover:underline">
-                Read document
+                Xem tài liệu
               </Link>
             </CardContent>
           </Card>
