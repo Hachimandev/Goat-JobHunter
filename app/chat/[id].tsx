@@ -6,9 +6,11 @@ import {
   Alert,
   FlatList,
   KeyboardAvoidingView,
+  Modal,
   Platform,
   StyleSheet,
   Text,
+  TouchableOpacity,
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -28,10 +30,18 @@ import {
   useFetchMessagesInChatRoomQuery,
   useForwardMessageBatchMutation,
 } from "@/services/chatRoom/chatRoomApi";
-import { usePinMessageMutation } from "@/services/chatRoom/pinned_message/pinnedMessageApi";
+import {
+  useGetPinnedMessagesQuery,
+  usePinMessageMutation,
+  useUnpinMessageMutation,
+} from "@/services/chatRoom/pinned_message/pinnedMessageApi";
 import { MessageType } from "@/types/model";
 import { Ionicons } from "@expo/vector-icons";
 import * as DocumentPicker from "expo-document-picker";
+
+type PinnedMessage = {
+  message: MessageType;
+};
 
 export default function ChatDetailScreen() {
   const { id, name, avatar } = useLocalSearchParams<{
@@ -44,6 +54,16 @@ export default function ChatDetailScreen() {
   const { setActiveChatRoom } = useNotificationManager();
   const [forwardMessageBatch] = useForwardMessageBatchMutation();
   const [showForwardToast, setShowForwardToast] = useState(false);
+
+  const { data: pinnedData, refetch: refetchPinned } =
+    useGetPinnedMessagesQuery(
+      { chatRoomId },
+      { skip: !chatRoomId, pollingInterval: 5000 },
+    );
+  const pinnedMessage = pinnedData?.data?.[0] as PinnedMessage | undefined;
+
+  const [unpinMessage] = useUnpinMessageMutation();
+  const [isPinnedListOpen, setIsPinnedListOpen] = useState(false);
 
   const handleForwardSubmit = async (targetRoomId: number) => {
     if (!selectedMessage) return;
@@ -194,6 +214,117 @@ export default function ChatDetailScreen() {
         keyboardVerticalOffset={Platform.OS === "ios" ? 90 : 0}
       >
         <ChatHeader name={name} avatar={avatar} status="Đang hoạt động" />
+        {pinnedMessage && (
+          <View style={styles.pinnedContainer}>
+            <Ionicons name="pin" size={16} color="#007AFF" />
+
+            <TouchableOpacity
+              style={{ flex: 1 }}
+              onPress={() =>
+                handleNavigateToMessage(pinnedMessage.message.messageId)
+              }
+            >
+              <Text style={styles.pinnedLabel}>
+                Tin nhắn ghim{" "}
+                {pinnedData?.data?.length && pinnedData.data.length > 1
+                  ? `(1/${pinnedData.data.length})`
+                  : ""}
+              </Text>
+
+              <Text numberOfLines={1} style={styles.pinnedText}>
+                {pinnedMessage.message?.content || "[Tin nhắn đa phương tiện]"}
+              </Text>
+            </TouchableOpacity>
+
+            {/* 👉 mở list */}
+            {(pinnedData?.data?.length ?? 0) > 1 && (
+              <TouchableOpacity onPress={() => setIsPinnedListOpen(true)}>
+                <Ionicons name="chevron-forward" size={18} color="#999" />
+              </TouchableOpacity>
+            )}
+
+            {/* 👉 unpin */}
+            <TouchableOpacity
+              onPress={() => {
+                Alert.alert("Bỏ ghim", "Bạn có chắc muốn bỏ ghim?", [
+                  { text: "Hủy" },
+                  {
+                    text: "OK",
+                    onPress: async () => {
+                      await unpinMessage({
+                        chatRoomId,
+                        messageId: pinnedMessage.message.messageId,
+                      }).unwrap();
+                      await refetchPinned();
+                    },
+                  },
+                ]);
+              }}
+            >
+              <Ionicons name="close" size={18} color="#999" />
+            </TouchableOpacity>
+          </View>
+        )}
+        <Modal visible={isPinnedListOpen} transparent animationType="fade">
+          <View style={styles.overlay}>
+            <View style={styles.pinnedListBox}>
+              <Text style={styles.pinnedListTitle}>Tin nhắn đã ghim</Text>
+
+              <FlatList
+                data={pinnedData?.data || []}
+                keyExtractor={(item) => item.message.messageId}
+                renderItem={({ item }) => (
+                  <View style={styles.pinnedItemRow}>
+                    {/* nội dung */}
+                    <TouchableOpacity
+                      style={{ flex: 1 }}
+                      onPress={() => {
+                        setIsPinnedListOpen(false);
+                        handleNavigateToMessage(item.message.messageId);
+                      }}
+                    >
+                      <Text numberOfLines={1}>
+                        {item.message?.content || "[Tin nhắn đa phương tiện]"}
+                      </Text>
+                    </TouchableOpacity>
+
+                    {/* nút xóa ghim */}
+                    <TouchableOpacity
+                      onPress={() => {
+                        Alert.alert("Bỏ ghim", "Xóa ghim tin nhắn này?", [
+                          { text: "Hủy" },
+                          {
+                            text: "OK",
+                            onPress: async () => {
+                              try {
+                                await unpinMessage({
+                                  chatRoomId,
+                                  messageId: item.message.messageId,
+                                }).unwrap();
+
+                                await refetchPinned();
+                              } catch (e) {
+                                Alert.alert("Lỗi", "Không thể bỏ ghim");
+                              }
+                            },
+                          },
+                        ]);
+                      }}
+                    >
+                      <Ionicons name="close" size={18} color="#999" />
+                    </TouchableOpacity>
+                  </View>
+                )}
+              />
+
+              <TouchableOpacity onPress={() => setIsPinnedListOpen(false)}>
+                <Text style={{ textAlign: "center", color: "#007AFF" }}>
+                  Đóng
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
 
         <FlatList
           ref={flatListRef}
@@ -254,10 +385,16 @@ export default function ChatDetailScreen() {
           setIsForwardModalOpen(true);
           bottomSheetRef.current?.close();
         }}
-        onPin={() => {
+        onPin={async () => {
           if (selectedMessage) {
-            pinMessage({ chatRoomId, messageId: selectedMessage.messageId });
+            await pinMessage({
+              chatRoomId,
+              messageId: selectedMessage.messageId,
+            }).unwrap();
+
+            await refetchPinned();
           }
+
           bottomSheetRef.current?.close();
         }}
         onRevoke={() => {
@@ -335,4 +472,64 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   toastText: { color: "#fff", fontSize: 14, fontWeight: "600" },
+  pinnedContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    backgroundColor: "#F5F9FF",
+    borderBottomWidth: 1,
+    borderColor: "#E5E5E5",
+    gap: 10,
+  },
+
+  pinnedLabel: {
+    fontSize: 11,
+    color: "#007AFF",
+    fontWeight: "600",
+  },
+
+  pinnedText: {
+    fontSize: 13,
+    color: "#333",
+    marginTop: 2,
+  },
+  overlay: {
+    position: "absolute",
+    top: 0,
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: "rgba(0,0,0,0.3)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+
+  pinnedListBox: {
+    width: "85%",
+    maxHeight: "60%",
+    backgroundColor: "#fff",
+    borderRadius: 12,
+    padding: 15,
+  },
+
+  pinnedListTitle: {
+    fontSize: 16,
+    fontWeight: "600",
+    marginBottom: 10,
+  },
+
+  pinnedItem: {
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderColor: "#eee",
+  },
+  pinnedItemRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderColor: "#eee",
+  },
 });
