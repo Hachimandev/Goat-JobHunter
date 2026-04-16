@@ -1,6 +1,6 @@
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
-import { Check, MessageCirclePlus } from 'lucide-react';
+import { MessageCirclePlus } from 'lucide-react';
 import { User } from '@/types/model';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Visibility } from '@/types/enum';
@@ -59,19 +59,12 @@ export function UserSearchItem({ user, mode, isSelected, loading = false, onActi
           {!isPrivateAccount && mode === 'multi' && (
             <Button
               size="sm"
-              variant={isSelected ? 'default' : 'outline'}
+              variant={isSelected ? 'destructive' : 'default'}
               onClick={() => onAction(user)}
               disabled={loading}
               className="rounded-xl"
             >
-              {isSelected ? (
-                <>
-                  <Check className="h-4 w-4 mr-1" />
-                  Đã chọn
-                </>
-              ) : (
-                <>Chọn</>
-              )}
+              {isSelected ? 'Hủy' : 'Chọn'}
             </Button>
           )}
         </div>

@@ -159,8 +159,12 @@ export function SearchUsersModal({
               />
             </div>
 
-            {showMultiSelectUI && selectedUsers.length > 0 && (
-              <SelectedUsersList users={selectedUsers} onRemove={handleRemoveUser} />
+            {showMultiSelectUI && (
+              <SelectedUsersList
+                users={selectedUsers}
+                onRemove={handleRemoveUser}
+                emptyText={isAddToGroupMode ? 'Chưa chọn người dùng nào' : 'Chưa chọn thành viên nào'}
+              />
             )}
 
             <ScrollArea className="h-[400px]">

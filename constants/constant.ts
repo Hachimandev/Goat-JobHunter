@@ -94,6 +94,8 @@ export const RECRUITERFILTER_CONFIG = {
 };
 
 export const PAGINATION_PAGESIZE = [10, 20, 30, 40, 50];
+export const AI_CONVERSATION_PAGE_SIZE = 20;
+export const AI_MESSAGE_PAGE_SIZE = 20;
 
 export const METHOD_OPTIONS = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'];
 
