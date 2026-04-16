@@ -36,9 +36,10 @@ export default function LegalCenterPage() {
         <h1 className="mt-2 text-3xl font-bold text-foreground sm:text-4xl">
           Quy định nền tảng và quyền lợi người dùng
         </h1>
-        <p className="mt-4 max-w-3xl text-sm leading-6 text-muted-foreground sm:text-base">
+        <p className="mt-4 w-full text-sm leading-6 text-muted-foreground sm:text-base">
           Trung tâm pháp lý này quy định cách GOAT Job Hunter vận hành trên các tính năng mạng xã hội, chat cá nhân,
-          chat nhóm, hội thoại có hỗ trợ AI và quy trình tuyển dụng.
+          chat nhóm, hội thoại có hỗ trợ AI và quy trình tuyển dụng. Tài liệu pháp lý dành cho nền tảng mạng xã hội, trò
+          chuyện và tuyển dụng GOAT Job Hunter.
         </p>
         <p className="mt-2 text-sm text-muted-foreground">Ngày hiệu lực: 2026-04-16</p>
       </section>

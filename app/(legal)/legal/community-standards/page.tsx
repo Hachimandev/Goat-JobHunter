@@ -11,7 +11,6 @@ export default function CommunityStandardsPage() {
   return (
     <article className="rounded-2xl border border-border bg-card p-6 sm:p-8">
       <header>
-        <p className="text-xs font-semibold uppercase tracking-wide text-primary">Tài liệu pháp lý</p>
         <h1 className="mt-2 text-3xl font-bold text-foreground">Tiêu chuẩn cộng đồng</h1>
         <p className="mt-3 text-sm leading-6 text-muted-foreground">
           Các tiêu chuẩn này áp dụng cho hồ sơ cá nhân, nội dung việc làm, tin nhắn, thảo luận nhóm, bình luận và nội

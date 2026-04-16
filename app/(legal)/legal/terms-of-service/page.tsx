@@ -11,7 +11,6 @@ export default function TermsOfServicePage() {
   return (
     <article className="rounded-2xl border border-border bg-card p-6 sm:p-8">
       <header>
-        <p className="text-xs font-semibold uppercase tracking-wide text-primary">Tài liệu pháp lý</p>
         <h1 className="mt-2 text-3xl font-bold text-foreground">Điều khoản dịch vụ</h1>
         <p className="mt-3 text-sm leading-6 text-muted-foreground">
           Khi sử dụng GOAT Job Hunter, bạn đồng ý với các điều khoản áp dụng cho hoạt động tương tác xã hội, kết nối

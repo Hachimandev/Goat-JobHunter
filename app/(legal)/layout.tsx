@@ -24,10 +24,8 @@ export default function LegalLayout({
       <header className="sticky top-0 z-40 border-b border-border bg-card/95 backdrop-blur supports-backdrop-filter:bg-card/80">
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 sm:px-6 lg:px-8">
           <Link href="/" className="flex items-center gap-2">
-            <Image src="/logo.png" alt="GOAT Logo" width={56} height={56} />
-            <span className="text-sm font-semibold text-foreground">GOAT Pháp lý</span>
+            <Image src="/logo.png" alt="GOAT Logo" className="" width={80} height={80} />
           </Link>
-
           <nav className="hidden items-center gap-4 md:flex">
             {LEGAL_NAV_LINKS.map((link) => (
               <Link
@@ -43,13 +41,6 @@ export default function LegalLayout({
       </header>
 
       <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">{children}</main>
-
-      <footer className="border-t border-border bg-muted/30 py-6">
-        <div className="mx-auto flex max-w-6xl flex-col gap-2 px-4 text-sm text-muted-foreground sm:px-6 lg:px-8">
-          <p>Tài liệu pháp lý dành cho nền tảng mạng xã hội, trò chuyện và tuyển dụng GOAT Job Hunter.</p>
-          <p>Chu kỳ rà soát pháp lý gần nhất: 04/2026.</p>
-        </div>
-      </footer>
     </div>
   );
 }
