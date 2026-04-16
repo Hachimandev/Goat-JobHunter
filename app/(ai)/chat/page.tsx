@@ -8,6 +8,7 @@ import { useRef } from 'react';
 import { ChatContainer } from '@/app/(ai)/components/ChatContainer';
 import { Button } from '@/components/ui/button';
 import { SquarePen } from 'lucide-react';
+import { toast } from 'sonner';
 
 export default function NewChatPage() {
   const { isSignedIn } = useUser();
@@ -15,13 +16,14 @@ export default function NewChatPage() {
   const { handleCreateConversation } = useConversationActions();
   const isCreatingConversation = useRef(false);
 
-  const { inputMessage, setInputMessage, messagesEndRef, parseMarkdown, isLoading, handleChat, messages } = useAIChat();
+  const { inputMessage, setInputMessage, messagesEndRef, parseMarkdown, isLoading, messages } = useAIChat();
 
   const handleSendMessage = async () => {
     if (!inputMessage.trim()) return;
 
     if (!isSignedIn) {
-      await handleChat();
+      toast.error('Vui lòng đăng nhập để bắt đầu cuộc trò chuyện AI.');
+      router.push('/signin');
       return;
     }
 
@@ -51,6 +53,12 @@ export default function NewChatPage() {
   };
 
   const createConversation = async () => {
+    if (!isSignedIn) {
+      toast.error('Vui lòng đăng nhập để tạo cuộc trò chuyện mới.');
+      router.push('/signin');
+      return;
+    }
+
     try {
       const result = await handleCreateConversation();
 
