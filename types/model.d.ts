@@ -452,6 +452,7 @@ export type ChatRoom = {
   blocked: boolean;
   blockedByMe: boolean;
   counterpartAccountId: number;
+  deletedAt?: string | null;
 };
 
 export type Resume = {

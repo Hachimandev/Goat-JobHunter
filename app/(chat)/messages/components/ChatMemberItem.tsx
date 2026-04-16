@@ -31,6 +31,7 @@ interface ChatMemberItemProps {
   chatroomId: string;
   currentUserRole: "OWNER" | "MODERATOR" | "MEMBER";
   currentUserId: number;
+  readOnly?: boolean;
 }
 
 export function ChatMemberItem({
@@ -38,6 +39,7 @@ export function ChatMemberItem({
   chatroomId,
   currentUserRole,
   currentUserId,
+  readOnly = false,
 }: ChatMemberItemProps) {
   const [showRemoveDialog, setShowRemoveDialog] = useState(false);
   const [updateRole, { isLoading: isUpdatingRole }] = useUpdateMemberRoleMutation();
@@ -114,7 +116,7 @@ export function ChatMemberItem({
           <p className="text-xs text-muted-foreground truncate">{member.email}</p>
         </div>
 
-        {!isSelf && (canManageRole || canRemove) && (
+        {!isSelf && (canManageRole || canRemove) && !readOnly && (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0 rounded-full">

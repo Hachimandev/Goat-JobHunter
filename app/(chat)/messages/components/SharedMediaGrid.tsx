@@ -24,6 +24,7 @@ function RenderChatMediaPhoto(
 
   return (
     <button
+      key={photo.messageId}
       type="button"
       onClick={onClick}
       className="relative block w-full overflow-hidden rounded-lg bg-muted transition-opacity hover:opacity-90"

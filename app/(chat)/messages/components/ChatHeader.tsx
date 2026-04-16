@@ -13,6 +13,7 @@ interface ChatHeaderProps {
   isDetailsOpen: boolean;
   onShowPinnedMessages: () => void;
   pinnedMessagesCount: number;
+  readOnly?: boolean;
 }
 
 export function ChatHeader({
@@ -21,6 +22,7 @@ export function ChatHeader({
   isDetailsOpen,
   onShowPinnedMessages,
   pinnedMessagesCount = 0,
+  readOnly = false,
 }: Readonly<ChatHeaderProps>) {
   const isGroup = chatRoom.type === ChatRoomType.GROUP;
 
@@ -44,10 +46,10 @@ export function ChatHeader({
         </div>
       </div>
       <div className="flex items-center gap-1">
-        <Button variant="ghost" size="icon" className="h-9 w-9 rounded-full">
+        <Button variant="ghost" size="icon" className="h-9 w-9 rounded-full" disabled={readOnly}>
           <Phone className="h-5 w-5" />
         </Button>
-        <Button variant="ghost" size="icon" className="h-9 w-9 rounded-full">
+        <Button variant="ghost" size="icon" className="h-9 w-9 rounded-full" disabled={readOnly}>
           <Video className="h-5 w-5" />
         </Button>
 

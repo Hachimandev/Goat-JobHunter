@@ -72,7 +72,10 @@ export const groupChatApi = api.injectEndpoints({
         url: `/chatrooms/group/${chatroomId}`,
         method: 'DELETE',
       }),
-      invalidatesTags: (result, error, chatroomId) => [{ type: 'ChatRoom', id: chatroomId }],
+      invalidatesTags: (result, error, chatroomId) => [
+        { type: 'ChatRoom', id: chatroomId },
+        { type: 'ChatMember', id: chatroomId },
+      ],
     }),
 
     getMemberInGroupChat: builder.query<IBackendRes<ChatMemberResponse[]>, number>({
@@ -118,10 +121,19 @@ export const groupChatApi = api.injectEndpoints({
         method: 'PUT',
         data,
       }),
-      invalidatesTags: (result, error, { chatroomId }) => [
+      invalidatesTags: (result, error, { chatroomId, chatMemberId }) => [
         { type: 'ChatRoom', id: chatroomId },
-        { type: 'ChatMember', id: chatroomId },
+        { type: 'ChatMember', id: chatMemberId },
       ],
+    }),
+
+    dissolveGroupChat: builder.mutation<void, { chatRoomId: number; groupNameConfirmation: string }>({
+      query: ({ chatRoomId, groupNameConfirmation }) => ({
+        url: `/chatrooms/group/${chatRoomId}/dissolve`,
+        method: 'DELETE',
+        params: { groupNameConfirmation },
+      }),
+      invalidatesTags: (result, error, { chatRoomId }) => [{ type: 'ChatRoom', id: chatRoomId }],
     }),
   }),
 });
@@ -134,4 +146,5 @@ export const {
   useAddMemberToGroupMutation,
   useRemoveMemberFromGroupMutation,
   useUpdateMemberRoleMutation,
+  useDissolveGroupChatMutation,
 } = groupChatApi;

@@ -369,6 +369,8 @@ export class WebSocketMessageService {
         this.dispatch(
           pinnedMessageApi.util.invalidateTags([{ type: 'PinnedMessage', id: `PINNED_MESSAGE_${chatRoomId}` }]),
         );
+      } else if (content.includes('đã giải tán nhóm')) {
+        this.dispatch(chatRoomApi.util.invalidateTags([{ type: 'ChatRoom', id: chatRoomId }]));
       }
     } catch (error) {
       console.error('Failed to parse system message:', error);

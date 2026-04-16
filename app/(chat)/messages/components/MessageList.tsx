@@ -128,8 +128,7 @@ export function MessageList({
           });
         }
       } catch (err) {
-        // ignore
-        console.log('[MessageList] Failed to handle expand-system-group event', err);
+        console.error('Error handling expand-system-group event', err);
       }
     };
 

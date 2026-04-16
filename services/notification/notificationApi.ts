@@ -6,7 +6,7 @@ import {
   NotificationPaginationRequest,
   NotificationPaginationResponse
 } from "@/services/notification/notificationType";
-import { WebSocketNotificationService } from "@/services/WebSocketNotificationService";
+import { WebSocketNotificationService } from "@/services/socket/WebSocketNotificationService";
 
 export const notificationApi = api.injectEndpoints({
   overrideExisting: true,

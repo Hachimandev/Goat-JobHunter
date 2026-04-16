@@ -19,6 +19,7 @@ interface UserSearchModalProps {
   mode?: 'single' | 'multi' | 'add-to-group';
   onUserSelect?: (user: User) => void;
   existingMemberIds?: number[];
+  isAddingMember?: boolean;
 }
 
 export function SearchUsersModal({
@@ -27,6 +28,7 @@ export function SearchUsersModal({
   mode = 'single',
   onUserSelect,
   existingMemberIds = [],
+  isAddingMember = false,
 }: UserSearchModalProps) {
   const [selectedUsers, setSelectedUsers] = useState<User[]>([]);
   const [groupInfoModalOpen, setGroupInfoModalOpen] = useState(false);
@@ -201,7 +203,8 @@ export function SearchUsersModal({
                 disabled={
                   (isAddToGroupMode && selectedUsers.length === 0) ||
                   (!isAddToGroupMode && selectedUsers.length < 2) ||
-                  isCreatingChat
+                  isCreatingChat ||
+                  (isAddToGroupMode && isAddingMember)
                 }
               >
                 {getButtonText()}

@@ -11,7 +11,7 @@ import {
 } from '@/services/auth/authApi';
 import { SignInRequest, VerifyCodeRequest } from '@/services/auth/authType';
 import { useCreateUserMutation, useResetPasswordMutation, useUpdatePasswordMutation } from '@/services/user/userApi';
-import { connectWebSocketLogout, disconnectWebSocketLogout } from '@/services/WebSocketLogoutService';
+import { connectWebSocketLogout, disconnectWebSocketLogout } from '@/services/socket/WebSocketLogoutService';
 import { useRouter } from 'next/navigation';
 import { useCallback } from 'react';
 import { toast } from 'sonner';

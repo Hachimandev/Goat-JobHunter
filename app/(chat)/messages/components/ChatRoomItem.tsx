@@ -1,6 +1,6 @@
 import { ChatRoom } from '@/types/model';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Users } from 'lucide-react';
+import { Users, X } from 'lucide-react';
 import { ChatRoomType } from '@/types/enum';
 import { formatLastMessageTime } from '@/utils/formatDate';
 import { cn } from '@/lib/utils';
@@ -15,6 +15,7 @@ interface ConversationItemProps {
 
 export function ChatRoomItem({ chatRoom, active, onClick }: Readonly<ConversationItemProps>) {
   const isGroup = chatRoom.type === ChatRoomType.GROUP;
+  const isDissolved = Boolean(chatRoom.deletedAt && chatRoom.type === ChatRoomType.GROUP);
   const chatRoomTitle = chatRoom.name;
   const avatarFallback = chatRoomTitle.charAt(0).toUpperCase();
   const formattedTime = formatLastMessageTime(chatRoom.lastMessageTime);
@@ -53,19 +54,36 @@ export function ChatRoomItem({ chatRoom, active, onClick }: Readonly<Conversatio
           <AvatarImage src={chatRoom.avatar || undefined} alt={chatRoomTitle} />
           <AvatarFallback>{avatarFallback}</AvatarFallback>
         </Avatar>
-        {isGroup && (
+        {isGroup && !isDissolved && (
           <div className="absolute -bottom-1 -right-1 bg-primary rounded-full p-1">
             <Users className="h-3 w-3 text-primary-foreground" />
+          </div>
+        )}
+        {isDissolved && (
+          <div className="absolute -bottom-1 -right-1 bg-rose-600 rounded-full p-1" title="Nhóm đã giải tán">
+            <X className="h-3 w-3 text-white" />
           </div>
         )}
       </div>
 
       <div className="flex-1 min-w-0">
         <div className="flex items-center justify-between gap-2 mb-1">
-          <span className="font-medium truncate">{chatRoomTitle}</span>
+          <div className="flex items-center min-w-0 gap-2">
+            <span className="font-medium truncate">{chatRoomTitle}</span>
+            {isDissolved && (
+              <span className="text-xs text-rose-600 font-medium whitespace-nowrap">Nhóm đã giải tán</span>
+            )}
+          </div>
           {formattedTime && <span className="text-xs text-muted-foreground shrink-0">{formattedTime}</span>}
         </div>
-        <p className="text-sm text-muted-foreground truncate text-start">{truncate(chatRoomPreview, { length: 30 })}</p>
+        <p
+          className={cn(
+            'text-sm truncate text-start',
+            isDissolved ? 'text-muted-foreground italic' : 'text-muted-foreground',
+          )}
+        >
+          {truncate(chatRoomPreview, { length: 30 })}
+        </p>
       </div>
     </button>
   );

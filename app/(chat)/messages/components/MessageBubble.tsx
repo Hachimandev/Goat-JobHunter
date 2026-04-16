@@ -139,6 +139,7 @@ export function MessageBubble({
         [MessageEvent.GROUP_CREATED]: <Users className="h-3.5 w-3.5" />,
         [MessageEvent.GROUP_NAME_CHANGED]: <Users className="h-3.5 w-3.5" />,
         [MessageEvent.GROUP_AVATAR_CHANGED]: <ImageIcon className="h-3.5 w-3.5" />,
+        [MessageEvent.GROUP_DISSOLVED]: <Users className="h-3.5 w-3.5" />,
         [MessageEvent.MESSAGE_PINNED]: <PinIcon className="h-3.5 w-3.5" />,
         [MessageEvent.MESSAGE_UNPINNED]: <PinOff className="h-3.5 w-3.5" />,
       };
