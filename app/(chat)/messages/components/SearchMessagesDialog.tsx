@@ -7,6 +7,7 @@ import { useCallback } from 'react';
 import { useSearchMessages } from '@/app/(chat)/messages/hooks/useSearchMessages';
 import { formatDateTime } from '@/utils/formatDate';
 import { getMessagePreviewText, getMessageSenderDisplayName } from '@/utils/messageUtils';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
 interface SearchMessagesDialogProps {
   open: boolean;
@@ -100,14 +101,24 @@ export function SearchMessagesDialog({
                   key={message.messageId}
                   type="button"
                   onClick={() => handleSelectResult(message.messageId)}
-                  className="w-full text-left rounded-xl border border-border bg-card px-3 py-3 hover:bg-muted/30 transition-colors"
+                  className="w-full text-left rounded-xl border border-border bg-card px-3 py-3 hover:bg-muted/30 transition-colors flex items-start justify-between"
                 >
-                  <div className="flex items-start justify-between gap-3">
-                    <p className="text-sm font-medium truncate">{getMessageSenderDisplayName(message.sender)}</p>
-                    <span className="text-xs text-muted-foreground shrink-0">{formatDateTime(message.createdAt)}</span>
+                  <div className="flex items-center gap-3 mb-1">
+                    <Avatar className="h-12 w-12">
+                      <AvatarImage
+                        src={message.sender?.avatar || '/placeholder.svg'}
+                        alt={getMessageSenderDisplayName(message.sender)}
+                        className="border"
+                      />
+                      <AvatarFallback>{getMessageSenderDisplayName(message.sender).charAt(0)}</AvatarFallback>
+                    </Avatar>
+                    <div className="">
+                      <p className="text-base font-medium truncate">{getMessageSenderDisplayName(message.sender)}</p>
+                      <p className="text-sm text-muted-foreground">{getMessagePreviewText(message)}</p>
+                    </div>
                   </div>
-                  <p className="mt-1 text-sm text-muted-foreground line-clamp-2">
-                    {getMessagePreviewText(message, 200)}
+                  <p className="mt-1 text-base text-muted-foreground line-clamp-2">
+                    <span className="text-sm text-muted-foreground shrink-0">{formatDateTime(message.createdAt)}</span>
                   </p>
                 </button>
               ))}

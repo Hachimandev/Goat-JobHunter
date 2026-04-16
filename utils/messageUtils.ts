@@ -1,6 +1,7 @@
 import { MessageTypeEnum } from '@/types/enum';
 import type { MessageReplyContext, MessageResponse } from '@/types/model';
 import { extractPlainTextFromHtml } from '@/utils/extractPlainTextFromHtml';
+import { truncate } from 'lodash';
 
 export const RECALLED_MESSAGE_PREVIEW = 'Tin nhắn đã được thu hồi';
 export const UNAVAILABLE_MESSAGE_PREVIEW = 'Tin nhắn không khả dụng';
@@ -12,14 +13,6 @@ type SenderPreview = {
 } | null;
 
 type MessagePreviewSource = Pick<MessageResponse, 'isHidden' | 'messageType' | 'content'>;
-
-const truncatePreviewText = (value: string, maxLength: number): string => {
-  if (maxLength <= 0 || value.length <= maxLength) {
-    return value;
-  }
-
-  return `${value.slice(0, maxLength)}...`;
-};
 
 export const getMessageSenderDisplayName = (sender: SenderPreview | undefined, fallback = 'Người dùng'): string => {
   return sender?.fullName || sender?.username || fallback;
@@ -64,7 +57,7 @@ export const getMessagePreviewText = (message: MessagePreviewSource, maxLength =
     return DEFAULT_TEXT_MESSAGE_PREVIEW;
   }
 
-  return truncatePreviewText(plainText, maxLength);
+  return truncate(plainText, { length: maxLength });
 };
 
 export const getReplyContextPreviewText = (replyContext: MessageReplyContext): string => {

@@ -6,7 +6,7 @@ import { useEffect, useState } from 'react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { formatDateTime } from '@/utils/formatDate';
-import { getMessageTypePreviewText } from '@/utils/messageUtils';
+import { getMessageSenderDisplayName, getMessageTypePreviewText } from '@/utils/messageUtils';
 import { MessageTypeEnum } from '@/types/enum';
 import { truncate } from 'lodash';
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia } from '@/components/ui/empty';
@@ -169,9 +169,9 @@ const PinnedMessageItem = ({
       <Avatar className="h-10 w-10">
         <AvatarImage
           src={message.message.sender?.avatar || '/placeholder.svg'}
-          alt={message.message.sender?.fullName}
+          alt={getMessageSenderDisplayName(message.message.sender)}
         />
-        <AvatarFallback>{message.message.sender?.fullName.charAt(0)}</AvatarFallback>
+        <AvatarFallback>{getMessageSenderDisplayName(message.message.sender).charAt(0)}</AvatarFallback>
       </Avatar>
 
       <div className="flex-1 min-w-0">
@@ -180,7 +180,7 @@ const PinnedMessageItem = ({
             <p className="text-sm font-bold">Ghim lúc {formatDateTime(message.pinnedAt)}</p>
             <div className="text-sm text-muted-foreground truncate flex gap-1">
               <div>
-                {message.message.sender?.fullName || message.message.sender?.username || 'Người dùng'}
+                {getMessageSenderDisplayName(message.message.sender)}
                 {': '}
               </div>
               {renderMessageContent(message)}
