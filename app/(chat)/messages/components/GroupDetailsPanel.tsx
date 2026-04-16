@@ -243,8 +243,12 @@ export function GroupDetailsPanel({
 
               <Tabs defaultValue="media" className="w-full">
                 <TabsList className="grid w-full grid-cols-2">
-                  <TabsTrigger value="media">Phương tiện</TabsTrigger>
-                  <TabsTrigger value="files">Files</TabsTrigger>
+                  <TabsTrigger className="cursor-pointer" value="media">
+                    Phương tiện
+                  </TabsTrigger>
+                  <TabsTrigger className="cursor-pointer" value="files">
+                    Files
+                  </TabsTrigger>
                 </TabsList>
                 <TabsContent value="media" className="mt-4">
                   <SharedMediaGrid media={media} isLoading={isLoadingMedia} isError={isErrorMedia} />

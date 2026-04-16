@@ -94,39 +94,33 @@ export function ChatDetailsPanel({
               )}
             </div>
             <h3 className="font-semibold text-lg mt-3">{chatRoom.name}</h3>
-            {isGroup && (
-              <Badge variant="secondary" className="mt-2 flex items-center gap-1">
-                <Users className="h-3 w-3" />
-                {chatRoom.memberCount} thành viên
-              </Badge>
-            )}
           </div>
 
-          <div className="grid grid-cols-3 gap-2">
-            <Button variant="outline" className="rounded-xl flex flex-col h-auto py-3 gap-1 bg-transparent" size="sm">
-              <UserCircle className="h-5 w-5" />
-              <span className="text-xs">Profile</span>
-            </Button>
-            <Button variant="outline" className="rounded-xl flex flex-col h-auto py-3 gap-1 bg-transparent" size="sm">
-              <Bell className="h-5 w-5" />
+          <div className="grid grid-cols-[repeat(auto-fit,minmax(72px,auto))] justify-items-center">
+            <div className="flex flex-col items-center gap-1 cursor-pointer">
+              <div className="h-10 w-10 rounded-full bg-muted/10 flex items-center justify-center p-2 hover:bg-primary/50 transition-colors">
+                <UserCircle className="h-5 w-5" />
+              </div>
+              <span className="text-xs">Thông tin</span>
+            </div>
+            <div className="flex flex-col items-center gap-1 cursor-pointer">
+              <div className="h-10 w-10 rounded-full bg-muted/10 flex items-center justify-center p-2 hover:bg-primary/50 transition-colors">
+                <Bell className="h-5 w-5" />
+              </div>
               <span className="text-xs">Tắt thông báo</span>
-            </Button>
-            <Button
-              variant="outline"
-              className="rounded-xl flex flex-col h-auto py-3 gap-1 bg-transparent"
-              size="sm"
-              onClick={handleToggleBlock}
-              disabled={isBlockActionDisabled}
-            >
-              {isMutating ? (
-                <Loader2 className="h-5 w-5 animate-spin" />
-              ) : canUnblock ? (
-                <Undo2 className="h-5 w-5" />
-              ) : (
-                <ShieldBan className="h-5 w-5" />
-              )}
+            </div>
+            <div className="flex flex-col items-center gap-1 cursor-pointer" onClick={handleToggleBlock}>
+              <div className="h-10 w-10 rounded-full bg-muted/10 flex items-center justify-center p-2 hover:bg-primary/50 transition-colors">
+                {isMutating ? (
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                ) : canUnblock ? (
+                  <Undo2 className="h-5 w-5" />
+                ) : (
+                  <ShieldBan className="h-5 w-5" />
+                )}
+              </div>
               <span className="text-xs">{canUnblock ? 'Bỏ chặn' : 'Chặn'}</span>
-            </Button>
+            </div>
           </div>
 
           {!isGroup && isDirectBlocked && (
