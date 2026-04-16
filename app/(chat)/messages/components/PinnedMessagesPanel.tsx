@@ -19,6 +19,7 @@ interface PinnedMessagesPanelProps {
   onUnpin: (messageId: string) => Promise<void> | void;
   isUnpinning: (messageId: string) => boolean;
   onNavigateToMessage?: (messageId: string) => void;
+  readOnly?: boolean;
 }
 
 export function PinnedMessagesPanel({
@@ -27,6 +28,7 @@ export function PinnedMessagesPanel({
   onUnpin,
   isUnpinning,
   onNavigateToMessage,
+  readOnly = false,
 }: Readonly<PinnedMessagesPanelProps>) {
   const [isExpanded, setIsExpanded] = useState(false);
   const firstMessage = pinnedMessages[0];
@@ -48,7 +50,7 @@ export function PinnedMessagesPanel({
             <EmptyMedia variant="icon" className="rounded-full">
               <PinOff className="h-6 w-6 text-muted-foreground" />
             </EmptyMedia>
-            <EmptyDescription className="max-w-xs text-pretty">
+            <EmptyDescription className="max-w-md text-pretty">
               Không có tin nhắn nào được ghim trong cuộc trò chuyện này.
             </EmptyDescription>
           </EmptyHeader>
@@ -69,6 +71,7 @@ export function PinnedMessagesPanel({
                 onNavigateToMessage={onNavigateToMessage!}
                 isExpanded={isExpanded}
                 setIsExpanded={setIsExpanded}
+                readOnly={readOnly}
               />
             </div>
           )}
@@ -96,6 +99,7 @@ export function PinnedMessagesPanel({
                     isUnpinning={isUnpinning}
                     isExpanded={isExpanded}
                     setIsExpanded={setIsExpanded}
+                    readOnly={readOnly}
                   />
                 ))}
               </div>
@@ -127,6 +131,7 @@ interface PinnedMessageItemProps {
   // State to control whether the pinned messages list is expanded or not
   isExpanded: boolean;
   setIsExpanded: (expanded: boolean) => void;
+  readOnly?: boolean;
 }
 
 const PinnedMessageItem = ({
@@ -138,6 +143,7 @@ const PinnedMessageItem = ({
   isUnpinning,
   isExpanded,
   setIsExpanded,
+  readOnly = false,
 }: PinnedMessageItemProps) => {
   const showActionButtons = Boolean(onUnpin) || Boolean(isUnpinning);
 
@@ -205,7 +211,7 @@ const PinnedMessageItem = ({
                   onUnpin?.(message.messageId);
                 }}
                 aria-label="Bỏ ghim tin nhắn"
-                disabled={isUnpinning?.(message.messageId) ?? false}
+                disabled={isUnpinning?.(message.messageId) || readOnly}
               >
                 {isUnpinning?.(message.messageId) ? (
                   <Loader2 className="h-4 w-4 animate-spin" />

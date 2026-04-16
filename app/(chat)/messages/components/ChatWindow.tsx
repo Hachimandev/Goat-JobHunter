@@ -9,6 +9,12 @@ import { ChatRoomType } from '@/types/enum';
 import { GroupDetailsPanel } from '@/app/(chat)/messages/components/GroupDetailsPanel';
 import type { SendContactCardsSubmitResult } from '@/services/chatRoom/chatRoomType';
 import { useState } from 'react';
+import { Button } from '@/components/ui/button';
+import ConfirmDialog from '@/components/common/ConfirmDialog';
+import { toast } from 'sonner';
+import { useLeaveGroupChatMutation } from '@/services/chatRoom/groupChat/groupChatApi';
+import { IBackendError } from '@/types/api';
+import { useRouter } from 'next/navigation';
 
 interface ChatWindowProps {
   chatRoom: ChatRoom;
@@ -35,6 +41,7 @@ interface ChatWindowProps {
   onUnpinMessage?: (messageId: string) => Promise<void> | void;
   isPinnedMessage?: (messageId: string) => boolean;
   isPinningMessage?: (messageId: string) => boolean;
+  onClearChat?: () => Promise<void> | void;
   pinnedMessages?: PinnedMessage[];
   isLoadingPinnedMessages?: boolean;
 }
@@ -68,7 +75,21 @@ export function ChatWindow({
   const { isOpen: isDetailsOpen, toggle, close } = useDetailsPanelState();
   const [isPinnedPanelOpen, setIsPinnedPanelOpen] = useState(false);
   const isGroup = chatRoom.type === ChatRoomType.GROUP;
+  const isDissolved = Boolean(chatRoom.deletedAt && chatRoom.type === ChatRoomType.GROUP);
   const isChatLocked = !isGroup && isChatBlocked;
+  const [clearDialogOpen, setClearDialogOpen] = useState(false);
+  const router = useRouter();
+  const [leaveGroup, { isLoading: isLeavingGroup }] = useLeaveGroupChatMutation();
+
+  const handleLeaveGroup = async () => {
+    try {
+      await leaveGroup(chatRoom.roomId.toString()).unwrap();
+      toast.success('Đã rời khỏi nhóm');
+      router.push('/messages');
+    } catch (error) {
+      toast.error((error as IBackendError).data?.message || 'Có lỗi xảy ra khi rời nhóm');
+    }
+  };
 
   return (
     <>
@@ -79,25 +100,51 @@ export function ChatWindow({
           isDetailsOpen={isDetailsOpen}
           onShowPinnedMessages={() => setIsPinnedPanelOpen(!isPinnedPanelOpen)}
           pinnedMessagesCount={pinnedMessages.length}
+          readOnly={isDissolved}
         />
         <MessageList
           messages={messages}
           currentUserId={currentUserId}
           isGroup={isGroup}
-          onReplyMessage={onReplyMessage}
-          onNavigateToMessage={onNavigateToMessage}
-          onForwardMessage={onForwardMessage}
-          isForwardingMessage={isForwardingMessage}
-          onDeleteMessage={onDeleteMessage}
-          isDeletingMessage={isDeletingMessage}
-          onRecallMessage={onRecallMessage}
-          isRecallingMessage={isRecallingMessage}
-          onPinMessage={onPinMessage}
-          onUnpinMessage={onUnpinMessage}
-          isPinnedMessage={isPinnedMessage}
-          isPinningMessage={isPinningMessage}
+          onReplyMessage={isDissolved ? undefined : onReplyMessage}
+          onNavigateToMessage={isDissolved ? undefined : onNavigateToMessage}
+          onForwardMessage={isDissolved ? undefined : onForwardMessage}
+          isForwardingMessage={isDissolved ? false : isForwardingMessage}
+          onDeleteMessage={isDissolved ? undefined : onDeleteMessage}
+          isDeletingMessage={isDissolved ? undefined : isDeletingMessage}
+          onRecallMessage={isDissolved ? undefined : onRecallMessage}
+          isRecallingMessage={isDissolved ? undefined : isRecallingMessage}
+          onPinMessage={isDissolved ? undefined : onPinMessage}
+          onUnpinMessage={isDissolved ? undefined : onUnpinMessage}
+          isPinnedMessage={isDissolved ? undefined : isPinnedMessage}
+          isPinningMessage={isDissolved ? undefined : isPinningMessage}
         />
-        {isChatLocked ? (
+        {isDissolved ? (
+          <div className="border-t border-border bg-card px-4 py-3 text-sm text-muted-foreground text-center">
+            <div className="text-sm font-semibold text-rose-600">Bạn không thể gửi tin nhắn vào nhóm.</div>
+            <div className="text-sm text-muted-foreground mt-1">
+              Nhóm đã giải tán và bạn không thể gửi hoặc nhận cuộc gọi hoặc tin nhắn.
+            </div>
+            <div className="mt-3 flex justify-center">
+              <Button variant="destructive" onClick={() => setClearDialogOpen(true)} className="w-full rounded-2xl">
+                Xóa tin nhắn
+              </Button>
+            </div>
+            <ConfirmDialog
+              open={clearDialogOpen}
+              onOpenChange={setClearDialogOpen}
+              title="Xóa tất cả tin nhắn?"
+              description="Bạn có chắc chắn muốn xóa toàn bộ tin nhắn trong cuộc trò chuyện này? Hành động không thể hoàn tác."
+              confirmText="Xóa"
+              cancelText="Hủy"
+              confirmBtnClass="bg-destructive text-destructive-foreground hover:bg-destructive/90 rounded-xl text-white"
+              disableCancel={isLeavingGroup}
+              disableConfirm={isLeavingGroup}
+              isLoading={isLeavingGroup}
+              onConfirm={handleLeaveGroup}
+            />
+          </div>
+        ) : isChatLocked ? (
           <div className="border-t border-border bg-card px-4 py-3 text-sm text-muted-foreground text-center">
             {chatBlockedReason}
           </div>
@@ -119,6 +166,7 @@ export function ChatWindow({
           onUnpin={onUnpinMessage ? onUnpinMessage : () => {}}
           isUnpinning={isPinningMessage ? isPinningMessage : () => false}
           onNavigateToMessage={onNavigateToMessage}
+          readOnly={isDissolved}
         />
       </div>
 
@@ -131,7 +179,16 @@ export function ChatWindow({
         />
       )}
 
-      {isDetailsOpen && isGroup && <GroupDetailsPanel chatRoom={chatRoom} isOpen={isDetailsOpen} onClose={close} />}
+      {isDetailsOpen && isGroup && (
+        <GroupDetailsPanel
+          chatRoom={chatRoom}
+          isOpen={isDetailsOpen}
+          onClose={close}
+          readOnly={isDissolved}
+          handleLeaveGroup={handleLeaveGroup}
+          isLeavingGroup={isLeavingGroup}
+        />
+      )}
     </>
   );
 }

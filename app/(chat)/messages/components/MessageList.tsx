@@ -128,7 +128,7 @@ export function MessageList({
           });
         }
       } catch (err) {
-        // ignore
+        console.error('Error handling expand-system-group event', err);
       }
     };
 

@@ -1,4 +1,4 @@
-import { WebSocketFriendshipService } from '@/services/WebSocketFriendshipService';
+import { WebSocketFriendshipService } from '@/services/socket/WebSocketFriendshipService';
 import { api } from '@/services/api';
 
 export const friendshipRealtimeApi = api.injectEndpoints({
