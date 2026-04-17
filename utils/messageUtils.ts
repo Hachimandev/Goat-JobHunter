@@ -31,6 +31,10 @@ export const getMessageTypePreviewText = (messageType: MessageTypeEnum | null | 
     return '[Âm thanh]';
   }
 
+  if (messageType === MessageTypeEnum.MEDIA) {
+    return '[Phương tiện]';
+  }
+
   if (messageType === MessageTypeEnum.FILE) {
     return '[Tệp đính kèm]';
   }

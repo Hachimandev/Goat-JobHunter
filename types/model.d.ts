@@ -376,6 +376,14 @@ export type MessageReplyContext = {
   originalMessageHidden: boolean;
 };
 
+export type MessageMediaItem = {
+  url: string;
+  mediaType: 'image' | 'video' | 'audio';
+  mimeType: string;
+  sizeBytes: number;
+  displayOrder: number;
+};
+
 export type MessageType = {
   chatRoomId: string;
   messageId: string;
@@ -388,6 +396,7 @@ export type MessageType = {
   };
   content: string;
   messageType: MessageTypeEnum;
+  mediaItems?: MessageMediaItem[] | null;
   replyToMessageId?: string | null;
   replyContext?: MessageReplyContext | null;
   isHidden: boolean;
@@ -405,6 +414,7 @@ export type MessageResponse = {
   sender: SenderInfo;
   content: string;
   messageType: MessageTypeEnum;
+  mediaItems?: MessageMediaItem[] | null;
   replyToMessageId?: string | null;
   replyContext?: ReplyContext | null;
   isHidden: boolean;

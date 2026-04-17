@@ -141,6 +141,30 @@ export const chatRoomApi = api.injectEndpoints({
             return;
           }
 
+          dispatch(
+            chatRoomApi.util.updateQueryData('fetchMessagesInChatRoom', { chatRoomId, page: 1, size: 50 }, (draft) => {
+              const draftMessages = draft?.data;
+
+              if (!draftMessages) {
+                return;
+              }
+
+              sentMessages.forEach((message) => {
+                const existingMessageIndex = draftMessages.findIndex((item) => item.messageId === message.messageId);
+
+                if (existingMessageIndex === -1) {
+                  draftMessages.push(message);
+                  return;
+                }
+
+                draftMessages[existingMessageIndex] = {
+                  ...draftMessages[existingMessageIndex],
+                  ...message,
+                };
+              });
+            }),
+          );
+
           const latestMessage = sentMessages[sentMessages.length - 1];
 
           // Update chat rooms list cache
@@ -153,7 +177,7 @@ export const chatRoomApi = api.injectEndpoints({
                   const chatRoom = draft.data.result[chatRoomIndex];
 
                   // Update last message info
-                  chatRoom.lastMessagePreview = latestMessage.content;
+                  chatRoom.lastMessagePreview = getMessagePreviewText(latestMessage);
                   chatRoom.lastMessageTime = latestMessage.createdAt;
 
                   // Move to top if not already first

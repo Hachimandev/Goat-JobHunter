@@ -16,6 +16,7 @@ import { useMemo, useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { getMessagePreviewText } from '@/utils/messageUtils';
 import { useUser } from '@/hooks/useUser';
+import { getMessageMediaPhotos } from '@/utils/formatChatMediaForPhotoAlbum';
 
 interface ForwardMessageModalProps {
   open: boolean;
@@ -68,15 +69,24 @@ export function ForwardMessageModal({
       };
     }
 
+    const mediaPhotos = getMessageMediaPhotos(message);
+    const firstMediaKind = mediaPhotos[0]?.mediaKind;
+
     const Icon = message.isHidden
       ? FileText
-      : message.messageType === MessageTypeEnum.IMAGE
-        ? ImageIcon
-        : message.messageType === MessageTypeEnum.VIDEO
+      : message.messageType === MessageTypeEnum.MEDIA
+        ? firstMediaKind === 'video'
           ? Video
-          : message.messageType === MessageTypeEnum.AUDIO
+          : firstMediaKind === 'audio'
             ? Music
-            : FileText;
+            : ImageIcon
+        : message.messageType === MessageTypeEnum.IMAGE
+          ? ImageIcon
+          : message.messageType === MessageTypeEnum.VIDEO
+            ? Video
+            : message.messageType === MessageTypeEnum.AUDIO
+              ? Music
+              : FileText;
 
     return {
       text: getMessagePreviewText(message, 60),
