@@ -19,6 +19,9 @@ export function ChatRoomItem({ chatRoom, active, onClick }: Readonly<Conversatio
   const chatRoomTitle = chatRoom.name;
   const avatarFallback = chatRoomTitle.charAt(0).toUpperCase();
   const formattedTime = formatLastMessageTime(chatRoom.lastMessageTime);
+  const unreadCount = chatRoom.countUnreadMessages ?? 0;
+  const unreadBadgeText =
+    unreadCount <= 0 ? null : unreadCount === 1 ? '1' : unreadCount > 99 ? '99+' : `${unreadCount}+`;
 
   const chatRoomPreview = useMemo(() => {
     // Nếu không có lastMessagePreview
@@ -74,16 +77,28 @@ export function ChatRoomItem({ chatRoom, active, onClick }: Readonly<Conversatio
               <span className="text-xs text-rose-600 font-medium whitespace-nowrap">Nhóm đã giải tán</span>
             )}
           </div>
-          {formattedTime && <span className="text-xs text-muted-foreground shrink-0">{formattedTime}</span>}
+          <div className="flex items-center gap-2 shrink-0">
+            {formattedTime && <span className="text-xs text-muted-foreground">{formattedTime}</span>}
+          </div>
         </div>
-        <p
-          className={cn(
-            'text-sm truncate text-start',
-            isDissolved ? 'text-muted-foreground italic' : 'text-muted-foreground',
+        <div className="flex justify-between">
+          <p
+            className={cn(
+              'text-sm truncate text-start',
+              isDissolved ? 'text-muted-foreground italic' : 'text-muted-foreground',
+            )}
+          >
+            {truncate(chatRoomPreview, { length: 30 })}
+          </p>
+          {unreadBadgeText && (
+            <span
+              className="inline-flex items-center justify-center h-5 min-w-[1.25rem] px-2 rounded-full bg-rose-600 text-white text-xs font-medium"
+              aria-label={`${unreadCount} unread messages`}
+            >
+              {unreadBadgeText}
+            </span>
           )}
-        >
-          {truncate(chatRoomPreview, { length: 30 })}
-        </p>
+        </div>
       </div>
     </button>
   );

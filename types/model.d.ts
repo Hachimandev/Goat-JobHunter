@@ -452,6 +452,7 @@ export type ChatRoom = {
   blocked: boolean;
   blockedByMe: boolean;
   counterpartAccountId: number;
+  countUnreadMessages: number;
   deletedAt?: string | null;
 };
 

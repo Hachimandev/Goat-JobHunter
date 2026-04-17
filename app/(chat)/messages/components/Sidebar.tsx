@@ -9,6 +9,8 @@ import { ChatRoomItem } from '@/app/(chat)/messages/components/ChatRoomItem';
 import { SearchUsersModal } from '@/app/(chat)/messages/components/SearchUsersModal';
 import { useUser } from '@/hooks/useUser';
 import { useChatRooms } from '@/app/(chat)/messages/hooks/useChatRooms';
+import { useAppDispatch } from '@/lib/hooks';
+import { chatRoomApi } from '@/services/chatRoom/chatRoomApi';
 import { useRouter, useParams } from 'next/navigation';
 import ErrorMessage from '@/components/common/ErrorMessage';
 import { useState } from 'react';
@@ -18,9 +20,10 @@ import { MeResponse, CompanyResponse, ApplicantResponse, RecruiterResponse } fro
 
 export function Sidebar() {
   const { user: currentUser } = useUser();
-  const { chatRooms, isLoading, isError } = useChatRooms({ isSignedIn: !!currentUser });
+  const { chatRooms, isLoading, isError, refetch } = useChatRooms({ isSignedIn: !!currentUser });
   const router = useRouter();
   const params = useParams();
+  const dispatch = useAppDispatch();
   const activeChatRoomId = params?.id as string | undefined;
 
   const [directChatModalOpen, setDirectChatModalOpen] = useState(false);
@@ -29,7 +32,25 @@ export function Sidebar() {
   if (!currentUser) return null;
 
   const handleSelectConversation = (id: number) => {
+    try {
+      dispatch(
+        chatRoomApi.util.updateQueryData('fetchChatRooms', { page: 1, size: 50 }, (draft) => {
+          if (!draft?.data?.result) return;
+          const room = draft.data.result.find((r) => r.roomId === id);
+          if (room) {
+            room.countUnreadMessages = 0;
+          }
+        }),
+      );
+    } catch (e) {
+      console.error('Failed to update unread count for chat room', e);
+    }
+
     router.push(`/messages/${id}`);
+
+    if (refetch) {
+      void refetch();
+    }
   };
 
   const displayName =
