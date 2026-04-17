@@ -433,17 +433,6 @@ export function MessageBubble({
                   </DropdownMenuItem>
                 )}
 
-                {canShowHideAction && (
-                  <DropdownMenuItem
-                    onClick={handleHide}
-                    disabled={disableHideAction}
-                    className="rounded-xl cursor-pointer"
-                  >
-                    <EyeOff className="h-4 w-4" />
-                    Ẩn với tôi
-                  </DropdownMenuItem>
-                )}
-
                 {canShowPinAction && (
                   <DropdownMenuItem
                     onClick={handlePin}
@@ -452,6 +441,18 @@ export function MessageBubble({
                   >
                     <Pin className="h-4 w-4" />
                     {isPinned ? 'Bỏ ghim' : 'Ghim tin nhắn'}
+                  </DropdownMenuItem>
+                )}
+
+                {canShowHideAction && (
+                  <DropdownMenuItem
+                    onClick={handleHide}
+                    variant="destructive"
+                    disabled={disableHideAction}
+                    className="rounded-xl cursor-pointer"
+                  >
+                    <EyeOff className="h-4 w-4" />
+                    Ẩn với tôi
                   </DropdownMenuItem>
                 )}
 
