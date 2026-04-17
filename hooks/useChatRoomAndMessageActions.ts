@@ -1,6 +1,7 @@
 import {
   useDeleteMessagePermanentMutation,
   useForwardMessageBatchMutation,
+  useHideMessageMutation,
   useRecallMessageMutation,
   useSendContactCardsToChatRoomMutation,
   useSendMessageToChatRoomMutation,
@@ -88,8 +89,10 @@ const useChatRoomAndMessageActions = () => {
   const [sendMessageToNewChatRoom, { isLoading: isSendingNewMessage }] = useSendMessageToNewChatRoomMutation();
   const [deleteMessagePermanent] = useDeleteMessagePermanentMutation();
   const [forwardMessageBatch, { isLoading: isForwardingMessage }] = useForwardMessageBatchMutation();
+  const [hideMessage] = useHideMessageMutation();
   const [recallMessage] = useRecallMessageMutation();
   const [deletingMessageIds, setDeletingMessageIds] = useState<Set<string>>(new Set());
+  const [hidingMessageIds, setHidingMessageIds] = useState<Set<string>>(new Set());
   const [recallingMessageIds, setRecallingMessageIds] = useState<Set<string>>(new Set());
 
   const getDeleteMessageError = (error: unknown) => {
@@ -128,6 +131,20 @@ const useChatRoomAndMessageActions = () => {
     }
 
     return apiError?.data?.message || apiError?.data?.data?.message || 'Không thể chuyển tiếp tin nhắn.';
+  };
+
+  const getHideMessageError = (error: unknown) => {
+    const apiError = error as ApiMutationError;
+
+    if (apiError?.status === 403) {
+      return 'Bạn không có quyền ẩn tin nhắn này.';
+    }
+
+    if (apiError?.status === 404) {
+      return 'Tin nhắn không tồn tại hoặc đã bị xóa.';
+    }
+
+    return apiError?.data?.message || apiError?.data?.data?.message || 'Không thể ẩn tin nhắn.';
   };
 
   const normalizeForwardResult = (
@@ -373,6 +390,41 @@ const useChatRoomAndMessageActions = () => {
     }
   };
 
+  const handleHideMessage = async (chatRoomId: number, messageId: string) => {
+    try {
+      if (!isSignedIn || !user) {
+        toast.error('Vui lòng đăng nhập để ẩn tin nhắn.');
+        return;
+      }
+
+      if (!chatRoomId || !messageId) {
+        toast.error('Không thể ẩn tin nhắn.');
+        return;
+      }
+
+      if (hidingMessageIds.has(messageId)) {
+        return;
+      }
+
+      setHidingMessageIds((prev) => {
+        const next = new Set(prev);
+        next.add(messageId);
+        return next;
+      });
+
+      await hideMessage({ chatRoomId, messageId }).unwrap();
+    } catch (error) {
+      console.error('Error hiding message:', error);
+      toast.error(getHideMessageError(error));
+    } finally {
+      setHidingMessageIds((prev) => {
+        const next = new Set(prev);
+        next.delete(messageId);
+        return next;
+      });
+    }
+  };
+
   const handleForwardMessage = async (
     sourceChatRoomId: number,
     messageId: string,
@@ -425,6 +477,8 @@ const useChatRoomAndMessageActions = () => {
     [recallingMessageIds],
   );
 
+  const isHidingMessage = useCallback((messageId: string) => hidingMessageIds.has(messageId), [hidingMessageIds]);
+
   const isDeletingMessage = useCallback((messageId: string) => deletingMessageIds.has(messageId), [deletingMessageIds]);
 
   return {
@@ -433,9 +487,11 @@ const useChatRoomAndMessageActions = () => {
     handleSendMessageToNewChat,
     handleDeleteMessage,
     handleForwardMessage,
+    handleHideMessage,
     handleRecallMessage,
     isDeletingMessage,
     isForwardingMessage,
+    isHidingMessage,
     isRecallingMessage,
     isSendingContactCards,
     isSendingMessage,

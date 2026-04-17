@@ -46,6 +46,11 @@ export type RecallMessageRequest = {
   messageId: string;
 };
 
+export type HideMessageRequest = {
+  chatRoomId: number;
+  messageId: string;
+};
+
 export type DeleteMessagePermanentRequest = {
   chatRoomId: number;
   messageId: string;
