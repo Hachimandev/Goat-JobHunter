@@ -12,6 +12,8 @@ import {
   SendContactCardsToChatRoomRequest,
   SendMessageToChatRoomRequest,
   SendMessageToNewChatRoomRequest,
+  CountUnreadMessagesRequest,
+  CountUnreadMessagesResponse,
 } from '@/services/chatRoom/chatRoomType';
 import { ChatRoom, MessageResponse } from '@/types/model';
 import { IBackendRes, IModelPaginate } from '@/types/api';
@@ -400,6 +402,24 @@ export const chatRoomApi = api.injectEndpoints({
         }
       },
     }),
+
+    countUnreadMessagesByCurrentAccount: builder.query<CountUnreadMessagesResponse, CountUnreadMessagesRequest>({
+      query: ({ page = 1, size = 50 }) => ({
+        url: '/chatrooms/me/unread-count',
+        method: 'GET',
+        params: { page, size },
+      }),
+      providesTags: (result) =>
+        result?.data
+          ? [
+              ...result.data.map(({ chatRoomId }) => ({
+                type: 'ChatRoom' as const,
+                id: chatRoomId,
+              })),
+              { type: 'ChatRoom', id: 'LIST' },
+            ]
+          : [{ type: 'ChatRoom', id: 'LIST' }],
+    }),
   }),
 });
 
@@ -417,4 +437,5 @@ export const {
   useDeleteMessagePermanentMutation,
   useForwardMessageBatchMutation,
   useRecallMessageMutation,
+  useCountUnreadMessagesByCurrentAccountQuery,
 } = chatRoomApi;

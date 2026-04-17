@@ -9,48 +9,41 @@ import { ChatRoomItem } from '@/app/(chat)/messages/components/ChatRoomItem';
 import { SearchUsersModal } from '@/app/(chat)/messages/components/SearchUsersModal';
 import { useUser } from '@/hooks/useUser';
 import { useChatRooms } from '@/app/(chat)/messages/hooks/useChatRooms';
-import { useAppDispatch } from '@/lib/hooks';
-import { chatRoomApi } from '@/services/chatRoom/chatRoomApi';
 import { useRouter, useParams } from 'next/navigation';
 import ErrorMessage from '@/components/common/ErrorMessage';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { CreateChatTriggerButton } from '@/app/(chat)/messages/components/CreateChatTriggerButton';
 import { isCompanyResponse } from '@/utils/slug';
 import { MeResponse, CompanyResponse, ApplicantResponse, RecruiterResponse } from '@/types/dto';
+import { subscribeToChatRoom } from '@/services/chatRoom/message/messageApi';
 
 export function Sidebar() {
   const { user: currentUser } = useUser();
-  const { chatRooms, isLoading, isError, refetch } = useChatRooms({ isSignedIn: !!currentUser });
+  const { chatRooms, isLoading, isError, refetch, unreadCountsMap, refetchUnreadMessages } = useChatRooms({
+    isSignedIn: !!currentUser,
+  });
   const router = useRouter();
   const params = useParams();
-  const dispatch = useAppDispatch();
   const activeChatRoomId = params?.id as string | undefined;
 
   const [directChatModalOpen, setDirectChatModalOpen] = useState(false);
   const [groupChatModalOpen, setGroupChatModalOpen] = useState(false);
 
+  useEffect(() => {
+    if (currentUser && chatRooms) {
+      chatRooms.forEach((chatRoom) => {
+        subscribeToChatRoom(chatRoom.roomId);
+      });
+    }
+  }, [currentUser, chatRooms]);
+
   if (!currentUser) return null;
 
   const handleSelectConversation = (id: number) => {
-    try {
-      dispatch(
-        chatRoomApi.util.updateQueryData('fetchChatRooms', { page: 1, size: 50 }, (draft) => {
-          if (!draft?.data?.result) return;
-          const room = draft.data.result.find((r) => r.roomId === id);
-          if (room) {
-            room.countUnreadMessages = 0;
-          }
-        }),
-      );
-    } catch (e) {
-      console.error('Failed to update unread count for chat room', e);
-    }
-
     router.push(`/messages/${id}`);
 
-    if (refetch) {
-      void refetch();
-    }
+    if (refetch) void refetch();
+    if (refetchUnreadMessages) void refetchUnreadMessages();
   };
 
   const displayName =
@@ -121,6 +114,7 @@ export function Sidebar() {
               <ChatRoomItem
                 key={chatRoom.roomId}
                 chatRoom={chatRoom}
+                unreadMessagesCount={unreadCountsMap.get(chatRoom.roomId) || 0}
                 active={activeChatRoomId === String(chatRoom.roomId)}
                 onClick={() => handleSelectConversation(chatRoom.roomId)}
               />

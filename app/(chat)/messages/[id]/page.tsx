@@ -5,7 +5,6 @@ import { ForwardMessageModal } from '@/app/(chat)/messages/components/ForwardMes
 import { useParams } from 'next/navigation';
 import { useFetchChatRoomsByIdQuery, useFetchMessagesInChatRoomQuery } from '@/services/chatRoom/chatRoomApi';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { subscribeToChatRoom, unsubscribeFromChatRoom } from '@/services/chatRoom/message/messageApi';
 import { useUser } from '@/hooks/useUser';
 import useChatRoomAndMessageActions from '@/hooks/useChatRoomAndMessageActions';
 import { MessageResponse, PinnedMessage } from '@/types/model';
@@ -42,17 +41,6 @@ export default function ChatRoomPage() {
     isForwardingMessage,
     isRecallingMessage,
   } = useChatRoomAndMessageActions();
-
-  // Subscribe vào chat room khi component mount
-  useEffect(() => {
-    if (chatRoomId && !isNaN(Number(chatRoomId))) {
-      subscribeToChatRoom(Number(chatRoomId));
-
-      return () => {
-        unsubscribeFromChatRoom(Number(chatRoomId));
-      };
-    }
-  }, [chatRoomId]);
 
   const [pinMessage] = usePinMessageMutation();
   const [unpinMessage] = useUnpinMessageMutation();
