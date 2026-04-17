@@ -15,6 +15,8 @@ interface MessageListProps {
   onNavigateToMessage?: (messageId: string) => void;
   onForwardMessage?: (message: MessageResponse) => void;
   isForwardingMessage?: boolean;
+  onHideMessage?: (messageId: string) => Promise<void> | void;
+  isHidingMessage?: (messageId: string) => boolean;
   onDeleteMessage?: (messageId: string) => Promise<void> | void;
   isDeletingMessage?: (messageId: string) => boolean;
   onRecallMessage?: (messageId: string) => Promise<void> | void;
@@ -33,6 +35,8 @@ export function MessageList({
   onNavigateToMessage,
   onForwardMessage,
   isForwardingMessage = false,
+  onHideMessage,
+  isHidingMessage,
   onDeleteMessage,
   isDeletingMessage,
   onRecallMessage,
@@ -155,6 +159,8 @@ export function MessageList({
                     onNavigateToMessage={onNavigateToMessage}
                     onForward={onForwardMessage}
                     isForwarding={isForwardingMessage}
+                    onHide={onHideMessage}
+                    isHiding={isHidingMessage?.(message.messageId) ?? false}
                     onDelete={onDeleteMessage}
                     isDeleting={isDeletingMessage?.(message.messageId) ?? false}
                     onRecall={onRecallMessage}
@@ -186,6 +192,8 @@ export function MessageList({
                         onNavigateToMessage={onNavigateToMessage}
                         onForward={onForwardMessage}
                         isForwarding={isForwardingMessage}
+                        onHide={onHideMessage}
+                        isHiding={isHidingMessage?.(m.messageId) ?? false}
                         onDelete={onDeleteMessage}
                         isDeleting={isDeletingMessage?.(m.messageId) ?? false}
                         onRecall={onRecallMessage}

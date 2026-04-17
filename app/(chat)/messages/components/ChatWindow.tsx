@@ -34,6 +34,8 @@ interface ChatWindowProps {
   onNavigateToMessage?: (messageId: string) => void;
   onForwardMessage?: (message: MessageResponse) => void;
   isForwardingMessage?: boolean;
+  onHideMessage?: (messageId: string) => Promise<void> | void;
+  isHidingMessage?: (messageId: string) => boolean;
   onDeleteMessage?: (messageId: string) => Promise<void> | void;
   isDeletingMessage?: (messageId: string) => boolean;
   onRecallMessage?: (messageId: string) => Promise<void> | void;
@@ -62,6 +64,8 @@ export function ChatWindow({
   onNavigateToMessage,
   onForwardMessage,
   isForwardingMessage,
+  onHideMessage,
+  isHidingMessage,
   onDeleteMessage,
   isDeletingMessage,
   onRecallMessage,
@@ -125,6 +129,8 @@ export function ChatWindow({
           onNavigateToMessage={isDissolved ? undefined : onNavigateToMessage}
           onForwardMessage={isDissolved ? undefined : onForwardMessage}
           isForwardingMessage={isDissolved ? false : isForwardingMessage}
+          onHideMessage={isDissolved || chatRoom.type === ChatRoomType.AI ? undefined : onHideMessage}
+          isHidingMessage={isDissolved || chatRoom.type === ChatRoomType.AI ? undefined : isHidingMessage}
           onDeleteMessage={isDissolved ? undefined : onDeleteMessage}
           isDeletingMessage={isDissolved ? undefined : isDeletingMessage}
           onRecallMessage={isDissolved ? undefined : onRecallMessage}

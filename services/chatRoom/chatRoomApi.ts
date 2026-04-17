@@ -7,6 +7,7 @@ import {
   ForwardMessageBatchResponse,
   FetchMessagesInChatRoomRequest,
   FetchMessagesInChatRoomResponse,
+  HideMessageRequest,
   RecallMessageRequest,
   SearchMessagesInChatRoomRequest,
   SendContactCardsToChatRoomRequest,
@@ -366,6 +367,122 @@ export const chatRoomApi = api.injectEndpoints({
       },
     }),
 
+    hideMessage: builder.mutation<IBackendRes<null>, HideMessageRequest>({
+      query: ({ chatRoomId, messageId }) => ({
+        url: `/chatrooms/${chatRoomId}/messages/${messageId}/hide`,
+        method: 'POST',
+      }),
+      async onQueryStarted({ chatRoomId, messageId }, { dispatch, getState, queryFulfilled }) {
+        const patchResults: Array<{ undo: () => void }> = [];
+        const messageEndpointNames = new Set([
+          'fetchMessagesInChatRoom',
+          'fetchFilesInChatRoom',
+          'fetchMediaInChatRoom',
+        ]);
+
+        const activeMessageQueries = chatRoomApi.util
+          .selectInvalidatedBy(getState(), [{ type: 'ChatRoom', id: `MESSAGES_${chatRoomId}` }])
+          .filter(({ endpointName, originalArgs }) => {
+            if (!messageEndpointNames.has(endpointName)) {
+              return false;
+            }
+
+            if (!originalArgs || typeof originalArgs !== 'object') {
+              return false;
+            }
+
+            return (originalArgs as { chatRoomId?: number }).chatRoomId === chatRoomId;
+          });
+
+        activeMessageQueries.forEach(({ endpointName, originalArgs }) => {
+          if (!originalArgs || typeof originalArgs !== 'object') {
+            return;
+          }
+
+          if (endpointName === 'fetchMessagesInChatRoom') {
+            patchResults.push(
+              dispatch(
+                chatRoomApi.util.updateQueryData(
+                  'fetchMessagesInChatRoom',
+                  originalArgs as FetchMessagesInChatRoomRequest,
+                  (draft) => {
+                    if (!draft?.data) {
+                      return;
+                    }
+
+                    draft.data = draft.data.filter((message) => message.messageId !== messageId);
+                  },
+                ),
+              ),
+            );
+
+            return;
+          }
+
+          if (endpointName === 'fetchFilesInChatRoom') {
+            patchResults.push(
+              dispatch(
+                chatRoomApi.util.updateQueryData(
+                  'fetchFilesInChatRoom',
+                  originalArgs as { chatRoomId: number; page?: number },
+                  (draft) => {
+                    if (!draft?.data) {
+                      return;
+                    }
+
+                    draft.data = draft.data.filter((message) => message.messageId !== messageId);
+                  },
+                ),
+              ),
+            );
+
+            return;
+          }
+
+          if (endpointName === 'fetchMediaInChatRoom') {
+            patchResults.push(
+              dispatch(
+                chatRoomApi.util.updateQueryData(
+                  'fetchMediaInChatRoom',
+                  originalArgs as { chatRoomId: number; page?: number },
+                  (draft) => {
+                    if (!draft?.data) {
+                      return;
+                    }
+
+                    draft.data = draft.data.filter((message) => message.messageId !== messageId);
+                  },
+                ),
+              ),
+            );
+          }
+        });
+
+        patchResults.push(
+          dispatch(
+            pinnedMessageApi.util.updateQueryData('getPinnedMessages', { chatRoomId }, (draft) => {
+              if (!draft?.data) {
+                return;
+              }
+
+              draft.data = draft.data.filter((message) => message.messageId !== messageId);
+            }),
+          ),
+        );
+
+        try {
+          await queryFulfilled;
+          dispatch(chatRoomApi.util.invalidateTags([{ type: 'ChatRoom', id: 'LIST' }]));
+        } catch (error) {
+          patchResults
+            .slice()
+            .reverse()
+            .forEach((patchResult) => patchResult.undo());
+          console.error('Failed to hide message:', error);
+        }
+      },
+    }),
+
     recallMessage: builder.mutation<IBackendRes<null>, RecallMessageRequest>({
       query: ({ chatRoomId, messageId }) => ({
         url: `/chatrooms/${chatRoomId}/messages/${messageId}`,
@@ -416,5 +533,6 @@ export const {
   useLazyCheckExistingChatRoomQuery,
   useDeleteMessagePermanentMutation,
   useForwardMessageBatchMutation,
+  useHideMessageMutation,
   useRecallMessageMutation,
 } = chatRoomApi;

@@ -22,6 +22,7 @@ import {
   Reply,
   Undo2,
   Loader2,
+  EyeOff,
   Trash2,
   Pin,
   PinIcon,
@@ -45,6 +46,7 @@ interface MessageBubbleProps {
   onReply?: (message: MessageResponse) => void;
   onNavigateToMessage?: (messageId: string) => void;
   onForward?: (message: MessageResponse) => void;
+  onHide?: (messageId: string) => void | Promise<void>;
   onRecall?: (messageId: string) => void | Promise<void>;
   onDelete?: (messageId: string) => void | Promise<void>;
   onPin?: (messageId: string) => void | Promise<void>;
@@ -52,6 +54,7 @@ interface MessageBubbleProps {
   isPinned?: boolean;
   isPinning?: boolean;
   isForwarding?: boolean;
+  isHiding?: boolean;
   isRecalling?: boolean;
   isDeleting?: boolean;
 }
@@ -65,6 +68,7 @@ export function MessageBubble({
   onReply,
   onNavigateToMessage,
   onForward,
+  onHide,
   onRecall,
   onDelete,
   onPin,
@@ -72,6 +76,7 @@ export function MessageBubble({
   isPinned = false,
   isPinning = false,
   isForwarding = false,
+  isHiding = false,
   isRecalling = false,
   isDeleting = false,
 }: Readonly<MessageBubbleProps>) {
@@ -111,18 +116,20 @@ export function MessageBubble({
       extractMessageEvent(message.content) === MessageEvent.MESSAGE_UNPINNED,
     [message.content],
   );
-  const disableReplyAction = isDeleting || isRecalling || isForwarding || isPinning || !onReply;
-  const disableForwardAction = isForwarding || isRecalled || !onForward;
-  const disableRecallAction = isRecalled || isRecalling || !onRecall;
-  const disableDeleteAction = isDeleting || isRecalling || !onDelete;
-  const disablePinAction = isPinning || isRecalling || !onPin || !onUnpin;
+  const disableReplyAction = isDeleting || isRecalling || isForwarding || isHiding || isPinning || !onReply;
+  const disableForwardAction = isForwarding || isHiding || isRecalled || !onForward;
+  const disableHideAction = isHiding || !onHide;
+  const disableRecallAction = isRecalled || isRecalling || isHiding || !onRecall;
+  const disableDeleteAction = isDeleting || isRecalling || isHiding || !onDelete;
+  const disablePinAction = isPinning || isRecalling || isHiding || !onPin || !onUnpin;
   const canShowReplyAction = isReplyableType && !isSystem && !isRecalled && !!onReply;
   const canShowForwardAction = !isSystem && !isRecalled && !!onForward;
+  const canShowHideAction = !isSystem && !!onHide;
   const canShowRecallAction = isOwn && !isRecalled && !!onRecall;
   const canShowDeleteAction = isOwn && !!onDelete;
   const canShowPinAction = !isSystem && !isRecalled && !!onPin && !!onUnpin;
   const canShowOwnerActions = isOwn && !isSystem && (canShowRecallAction || canShowDeleteAction);
-  const canShowActionMenu = canShowReplyAction || canShowForwardAction || canShowOwnerActions;
+  const canShowActionMenu = canShowReplyAction || canShowForwardAction || canShowHideAction || canShowOwnerActions;
 
   if (!message.content && !isRecalled && type !== MessageTypeEnum.CONTACT_CARD) return null;
 
@@ -276,6 +283,11 @@ export function MessageBubble({
     onForward(message);
   };
 
+  const handleHide = async () => {
+    if (!onHide || disableHideAction) return;
+    await onHide(message.messageId);
+  };
+
   const handleReply = () => {
     if (!onReply || disableReplyAction) return;
     onReply(message);
@@ -389,9 +401,9 @@ export function MessageBubble({
                   variant="ghost"
                   size="icon"
                   className="h-7 w-7 rounded-full mt-0.5"
-                  disabled={isDeleting || isRecalling || isForwarding || isPinning}
+                  disabled={isDeleting || isRecalling || isForwarding || isHiding || isPinning}
                 >
-                  {isRecalling || isDeleting || isForwarding || isPinning ? (
+                  {isRecalling || isDeleting || isForwarding || isHiding || isPinning ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
                   ) : (
                     <MoreVertical className="h-4 w-4" />
@@ -429,6 +441,18 @@ export function MessageBubble({
                   >
                     <Pin className="h-4 w-4" />
                     {isPinned ? 'Bỏ ghim' : 'Ghim tin nhắn'}
+                  </DropdownMenuItem>
+                )}
+
+                {canShowHideAction && (
+                  <DropdownMenuItem
+                    onClick={handleHide}
+                    variant="destructive"
+                    disabled={disableHideAction}
+                    className="rounded-xl cursor-pointer"
+                  >
+                    <EyeOff className="h-4 w-4" />
+                    Ẩn với tôi
                   </DropdownMenuItem>
                 )}
 

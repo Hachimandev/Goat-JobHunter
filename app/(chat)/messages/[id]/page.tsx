@@ -37,9 +37,11 @@ export default function ChatRoomPage() {
     handleSendContactCards,
     handleDeleteMessage,
     handleForwardMessage,
+    handleHideMessage,
     handleRecallMessage,
     isDeletingMessage,
     isForwardingMessage,
+    isHidingMessage,
     isRecallingMessage,
   } = useChatRoomAndMessageActions();
 
@@ -323,6 +325,10 @@ export default function ChatRoomPage() {
         onNavigateToMessage={handleNavigateToMessage}
         onForwardMessage={handleOpenForwardModal}
         isForwardingMessage={isForwardingMessage}
+        onHideMessage={async (messageId) => {
+          await handleHideMessage(Number(chatRoomId), messageId);
+        }}
+        isHidingMessage={isHidingMessage}
         onDeleteMessage={async (messageId) => {
           await handleDeleteMessage(Number(chatRoomId), messageId);
         }}
