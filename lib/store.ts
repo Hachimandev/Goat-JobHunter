@@ -5,6 +5,7 @@ import storage from 'redux-persist/lib/storage';
 import authReducer from './features/authSlice';
 import sendMailReducer from './features/sendMailSlice';
 import blogDetailReducer from './features/blogDetailSlice';
+import friendshipReducer from './features/friendshipSlice';
 
 const persistConfig = {
   key: 'root',
@@ -18,6 +19,7 @@ const rootReducer = combineReducers({
   auth: authReducer,
   sendMail: sendMailReducer,
   blogDetail: blogDetailReducer,
+  friendship: friendshipReducer,
 });
 
 const persistedReducer = persistReducer(persistConfig, rootReducer);

@@ -1,14 +1,14 @@
-"use client";
+'use client';
 
-import { AIChatSidebar } from "./components/AIChatSidebar";
-import { AIChatHeader } from "./components/AIChatHeader";
-import { SidebarProvider } from "@/components/ui/sidebar";
-import { useUser } from "@/hooks/useUser";
-import { useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { AIChatSidebar } from './components/AIChatSidebar';
+import { AIChatHeader } from './components/AIChatHeader';
+import { SidebarProvider } from '@/components/ui/sidebar';
+import { useUser } from '@/hooks/useUser';
+import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 
 export default function AIChatLayout({
-  children
+  children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
@@ -16,13 +16,10 @@ export default function AIChatLayout({
   const { isSignedIn } = useUser();
 
   useEffect(() => {
-
     if (!isSignedIn) {
-      router.push("/chat");
+      router.push('/signin');
     }
-
   }, [isSignedIn, router]);
-
 
   return (
     <SidebarProvider defaultOpen={false}>

@@ -5,15 +5,27 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ChatRoom } from '@/types/model';
 import { ChatRoomType } from '@/types/enum';
-import { Info, Phone, Video, Users } from 'lucide-react';
+import { Info, Phone, Pin, Search, Users, Video } from 'lucide-react';
 
 interface ChatHeaderProps {
   chatRoom: ChatRoom;
-  onToggleDetails?: () => void;
-  isDetailsOpen?: boolean;
+  onToggleDetails: () => void;
+  isDetailsOpen: boolean;
+  onShowPinnedMessages: () => void;
+  onOpenSearch: () => void;
+  pinnedMessagesCount: number;
+  readOnly?: boolean;
 }
 
-export function ChatHeader({ chatRoom, onToggleDetails, isDetailsOpen }: Readonly<ChatHeaderProps>) {
+export function ChatHeader({
+  chatRoom,
+  onToggleDetails,
+  isDetailsOpen,
+  onShowPinnedMessages,
+  onOpenSearch,
+  pinnedMessagesCount = 0,
+  readOnly = false,
+}: Readonly<ChatHeaderProps>) {
   const isGroup = chatRoom.type === ChatRoomType.GROUP;
 
   return (
@@ -36,11 +48,38 @@ export function ChatHeader({ chatRoom, onToggleDetails, isDetailsOpen }: Readonl
         </div>
       </div>
       <div className="flex items-center gap-1">
-        <Button variant="ghost" size="icon" className="h-9 w-9 rounded-full">
+        <Button variant="ghost" size="icon" className="h-9 w-9 rounded-full" disabled={readOnly}>
           <Phone className="h-5 w-5" />
         </Button>
-        <Button variant="ghost" size="icon" className="h-9 w-9 rounded-full">
+        <Button variant="ghost" size="icon" className="h-9 w-9 rounded-full" disabled={readOnly}>
           <Video className="h-5 w-5" />
+        </Button>
+
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-9 w-9 rounded-full relative"
+          onClick={onShowPinnedMessages}
+          title={`${pinnedMessagesCount} tin nhắn được ghim`}
+        >
+          <Pin className="h-5 w-5" />
+          {pinnedMessagesCount > 0 && (
+            <Badge
+              className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center p-0 text-xs"
+              variant="destructive"
+            >
+              {pinnedMessagesCount}
+            </Badge>
+          )}
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-9 w-9 rounded-full"
+          onClick={onOpenSearch}
+          title="Tìm kiếm tin nhắn"
+        >
+          <Search className="h-5 w-5" />
         </Button>
         <Button
           variant="ghost"

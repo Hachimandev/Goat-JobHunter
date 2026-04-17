@@ -1,19 +1,16 @@
-import React, { useState } from "react";
-import { Button } from "@/components/ui/button";
-import { Ellipsis, MessageSquare, Pin, PinOff, Pencil, Trash2 } from "lucide-react";
-import { Conversation } from "@/types/model";
-import Link from "next/link";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger
-} from "@/components/ui/popover";
-import { Separator } from "@/components/ui/separator";
-import ConfirmDialog from "@/components/common/ConfirmDialog";
-import RenameConversationDialog from "@/app/(ai)/components/RenameConversationDialog";
+import React, { useState } from 'react';
+import { Button } from '@/components/ui/button';
+import { Ellipsis, MessageSquare, Pin, PinOff, Pencil, Trash2 } from 'lucide-react';
+import { AIConversation } from '@/services/ai/conversationType';
+import Link from 'next/link';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Separator } from '@/components/ui/separator';
+import ConfirmDialog from '@/components/common/ConfirmDialog';
+import RenameConversationDialog from '@/app/(ai)/components/RenameConversationDialog';
 
 interface ConversationCardProps {
-  conv: Conversation;
+  conv: AIConversation;
+  isActive?: boolean;
   handleTogglePin: (conversationId: number, isPinned: boolean) => void;
   handleRename: (conversationId: number, newName: string) => void;
   handleDelete: (conversationId: number) => void;
@@ -22,10 +19,11 @@ interface ConversationCardProps {
 
 const ConversationCard = ({
   conv,
+  isActive = false,
   handleTogglePin,
   handleRename,
   handleDelete,
-  isLoading
+  isLoading,
 }: ConversationCardProps) => {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [showRenameDialog, setShowRenameDialog] = useState(false);
@@ -46,11 +44,11 @@ const ConversationCard = ({
     <>
       <div
         key={conv.conversationId}
-        className="group relative flex items-center gap-2 px-3 py-2 rounded-xl hover:bg-muted/80 transition-colors"
+        className={`group relative flex items-center gap-2 px-3 py-2 rounded-xl transition-colors ${isActive ? 'bg-muted text-foreground' : 'hover:bg-muted/80'}`}
       >
-        <Link href={`/chat/conversation/${conv.conversationId}`} className={"flex items-center gap-2 flex-1 min-w-0"}>
-          {!conv.pinned && <MessageSquare className="w-4 h-4 flex-shrink-0 text-muted-foreground" />}
-          {conv.pinned && <Pin className="w-4 h-4 flex-shrink-0 text-muted-foreground" />}
+        <Link href={`/chat/conversation/${conv.conversationId}`} className={'flex items-center gap-2 flex-1 min-w-0'}>
+          {!conv.pinned && <MessageSquare className="w-4 h-4 shrink-0 text-muted-foreground" />}
+          {conv.pinned && <Pin className="w-4 h-4 shrink-0 text-muted-foreground" />}
           <span className="flex-1 truncate text-sm">{conv.title}</span>
         </Link>
         <Popover open={isPopoverOpen} onOpenChange={setIsPopoverOpen}>
@@ -58,7 +56,7 @@ const ConversationCard = ({
             <Button
               variant="ghost"
               size="icon"
-              className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
+              className={`h-6 w-6 transition-opacity ${isActive ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}
               disabled={isLoading}
             >
               <Ellipsis className="w-4 h-4" />

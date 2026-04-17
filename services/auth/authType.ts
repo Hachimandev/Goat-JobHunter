@@ -1,6 +1,6 @@
-import { IBackendRes } from "@/types/api";
-import { Applicant, Recruiter } from "@/types/model";
-import { ApplicantResponse, CompanyResponse, LoginResponseDto, RecruiterResponse } from "@/types/dto";
+import { IBackendRes } from '@/types/api';
+import { Applicant, Recruiter } from '@/types/model';
+import { ApplicantResponse, CompanyResponse, LoginResponseDto, RecruiterResponse } from '@/types/dto';
 
 // Base Types
 type ContactInfo = {
@@ -10,9 +10,9 @@ type ContactInfo = {
 
 // Sign Up
 export type ApplicantSignUpRequest = {
-  contact: Pick<ContactInfo, "email">;
+  contact: Pick<ContactInfo, 'email'>;
   password: string;
-  type: "applicant";
+  type: 'applicant';
 };
 
 export type RecruiterSignUpRequest = {
@@ -21,7 +21,7 @@ export type RecruiterSignUpRequest = {
   address: string;
   fullName: string;
   username: string;
-  type: "recruiter";
+  type: 'recruiter';
 };
 
 export type SignUpResponse = IBackendRes<Recruiter | Applicant>;
@@ -29,6 +29,11 @@ export type SignUpResponse = IBackendRes<Recruiter | Applicant>;
 // Sign In
 export type SignInRequest = {
   email: string;
+  password: string;
+};
+
+// Delete Account
+export type DeleteAccountRequest = {
   password: string;
 };
 

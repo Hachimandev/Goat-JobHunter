@@ -141,12 +141,4 @@ export type CheckReviewedCompaniesResponse = IBackendRes<
   }[]
 >;
 
-// User Status Responses
-export type UserStatusResponse = IBackendRes<
-  {
-    userId: number;
-    enabled: boolean;
-  }[]
->;
-
 export type UpdateMyVisibilityMutationResponse = IBackendRes<UserVisibilityResponse>;

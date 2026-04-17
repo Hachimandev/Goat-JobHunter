@@ -1,16 +1,17 @@
-"use client";
+'use client';
 
-import { createContext, useContext, useState, useCallback, ReactNode } from "react";
+import { createContext, useContext, useState, useCallback, ReactNode } from 'react';
 
 interface PendingMessage {
   id: string;
   content?: string;
   files?: File[];
+  replyToMessageId?: string | null;
 }
 
 interface PendingMessagesContextType {
   pendingMessages: PendingMessage[];
-  addPendingMessage: (content?: string, files?: File[]) => string;
+  addPendingMessage: (content?: string, files?: File[], replyToMessageId?: string | null) => string;
   removePendingMessage: (id: string) => void;
 }
 
@@ -19,9 +20,9 @@ const PendingMessagesContext = createContext<PendingMessagesContextType | null>(
 export function PendingMessagesProvider({ children }: { children: ReactNode }) {
   const [pendingMessages, setPendingMessages] = useState<PendingMessage[]>([]);
 
-  const addPendingMessage = useCallback((content?: string, files?: File[]) => {
+  const addPendingMessage = useCallback((content?: string, files?: File[], replyToMessageId?: string | null) => {
     const id = `pending-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-    setPendingMessages((prev) => [...prev, { id, content, files }]);
+    setPendingMessages((prev) => [...prev, { id, content, files, replyToMessageId }]);
     return id;
   }, []);
 
@@ -30,9 +31,7 @@ export function PendingMessagesProvider({ children }: { children: ReactNode }) {
   }, []);
 
   return (
-    <PendingMessagesContext.Provider
-      value={{ pendingMessages, addPendingMessage, removePendingMessage }}
-    >
+    <PendingMessagesContext.Provider value={{ pendingMessages, addPendingMessage, removePendingMessage }}>
       {children}
     </PendingMessagesContext.Provider>
   );
@@ -41,7 +40,7 @@ export function PendingMessagesProvider({ children }: { children: ReactNode }) {
 export function usePendingMessages() {
   const context = useContext(PendingMessagesContext);
   if (!context) {
-    throw new Error("usePendingMessages must be used within PendingMessagesProvider");
+    throw new Error('usePendingMessages must be used within PendingMessagesProvider');
   }
   return context;
 }

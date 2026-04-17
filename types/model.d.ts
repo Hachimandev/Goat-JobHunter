@@ -32,6 +32,7 @@ export type Account = {
   password: string;
   avatar?: string;
   enabled: boolean;
+  locked: boolean;
   visibility?: Visibility;
   addresses: Address[];
   createdAt: string;
@@ -318,6 +319,19 @@ export type NotificationType = {
   createdAt: string;
 };
 
+export type DeviceNotificationType = {
+  message: string;
+  deviceName: string;
+  time: string;
+};
+
+export type Device = {
+  deviceId: number;
+  name: string;
+  createdAt: string;
+  account: Account;
+};
+
 export type Conversation = {
   conversationId: number;
   title: string;
@@ -326,6 +340,40 @@ export type Conversation = {
   updatedAt: string;
   createdBy: string;
   updatedBy: string;
+};
+
+export type SenderInfo = {
+  accountId: number;
+  fullName: string;
+  username: string;
+  email: string;
+  avatar: string;
+};
+
+export type ContactCardContext = {
+  accountId: number;
+  fullName: string;
+  username: string;
+  avatar?: string | null;
+  headline?: string | null;
+  bio?: string | null;
+  coverPhoto?: string | null;
+  visibility?: Visibility | string | null;
+};
+
+export type MessageReplyContext = {
+  originalMessageId: string;
+  originalSender: {
+    accountId: number;
+    fullName: string;
+    username: string;
+    email: string;
+    avatar: string;
+  } | null;
+  originalMessageType: MessageTypeEnum | null;
+  originalContentPreview: string | null;
+  originalMessageUnavailable: boolean;
+  originalMessageHidden: boolean;
 };
 
 export type MessageType = {
@@ -340,13 +388,48 @@ export type MessageType = {
   };
   content: string;
   messageType: MessageTypeEnum;
-  replyTo?: string;
+  replyToMessageId?: string | null;
+  replyContext?: MessageReplyContext | null;
   isHidden: boolean;
   isForwarded?: boolean;
   originalMessageId?: string;
+  contactCard?: ContactCardContext | null;
   createdAt: string;
   updatedAt: string;
   role?: MessageTypeRole; // temporary field to avoid error for build in chat container
+};
+
+export type MessageResponse = {
+  messageId: string;
+  chatRoomId: string;
+  sender: SenderInfo;
+  content: string;
+  messageType: MessageTypeEnum;
+  replyToMessageId?: string | null;
+  replyContext?: ReplyContext | null;
+  isHidden: boolean;
+  isForwarded: boolean;
+  originalMessageId?: string | null;
+  contactCard?: ContactCardContext | null;
+  createdAt: string; // Instant -> ISO string
+  updatedAt: string; // Instant -> ISO string
+};
+
+export type ReplyContext = {
+  originalMessageId: string;
+  originalSender: SenderInfo | null;
+  originalMessageType: MessageTypeEnum | null;
+  originalContentPreview: string;
+  originalMessageUnavailable: boolean;
+  originalMessageHidden: boolean;
+};
+
+export type PinnedMessage = {
+  chatRoomId: string;
+  messageId: string;
+  pinnedBy: string;
+  pinnedAt: string;
+  message: MessageType;
 };
 
 export type Reaction = {
@@ -366,6 +449,10 @@ export type ChatRoom = {
   lastMessagePreview: string | null;
   lastMessageTime: string | null;
   currentUserSentLastMessage: boolean | null;
+  blocked: boolean;
+  blockedByMe: boolean;
+  counterpartAccountId: number;
+  deletedAt?: string | null;
 };
 
 export type Resume = {

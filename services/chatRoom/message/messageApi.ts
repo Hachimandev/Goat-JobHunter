@@ -1,5 +1,5 @@
 import { api } from '@/services/api';
-import { WebSocketMessageService } from '@/services/WebSocketMessageService';
+import { WebSocketMessageService } from '@/services/socket/WebSocketMessageService';
 
 let wsServiceInstance: WebSocketMessageService | null = null;
 let isConnected = false;
@@ -10,12 +10,9 @@ export const messageApi = api.injectEndpoints({
     subscribeToMessages: builder.query<null, void>({
       queryFn: () => ({ data: null }),
 
-      async onCacheEntryAdded(
-        _,
-        { cacheDataLoaded, cacheEntryRemoved, dispatch },
-      ) {
+      async onCacheEntryAdded(_, { cacheDataLoaded, cacheEntryRemoved, dispatch }) {
         try {
-          console.log("🔌 Setting up STOMP Message connection...");
+          console.log('🔌 Setting up STOMP Message connection...');
           await cacheDataLoaded;
 
           wsServiceInstance = new WebSocketMessageService(dispatch, () => {
@@ -42,9 +39,7 @@ export const messageApi = api.injectEndpoints({
   }),
 });
 
-export const {
-  useSubscribeToMessagesQuery,
-} = messageApi;
+export const { useSubscribeToMessagesQuery } = messageApi;
 
 // Export functions để subscribe/unsubscribe từ component
 export const subscribeToChatRoom = (chatRoomId: number) => {

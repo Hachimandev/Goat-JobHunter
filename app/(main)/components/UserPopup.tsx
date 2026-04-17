@@ -36,8 +36,6 @@ export default function UserPopup() {
     return null;
   }
 
-  console.log('User data in UserPopup:', user);
-
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>

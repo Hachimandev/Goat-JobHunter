@@ -1,5 +1,6 @@
 import { api } from '@/services/api';
 import type {
+  DeleteAccountRequest,
   FetchAccountResponse,
   LogoutResponse,
   ResendCodeRequest,
@@ -63,6 +64,15 @@ export const authApi = api.injectEndpoints({
       providesTags: ['User', 'Applicant', 'Recruiter', 'Company'],
       onQueryStarted: createUserSyncOnQueryStarted({ operation: 'fetch account' }),
     }),
+
+    deleteMyAccount: builder.mutation<IBackendRes<void>, DeleteAccountRequest>({
+      query: (deleteAccountRequest) => ({
+        url: '/auth/account',
+        method: 'DELETE',
+        data: deleteAccountRequest,
+      }),
+      invalidatesTags: ['User', 'Applicant', 'Recruiter', 'Company'],
+    }),
   }),
 });
 
@@ -74,4 +84,5 @@ export const {
   useVerifyCodeMutation,
   useResendCodeMutation,
   useGetMyAccountQuery,
+  useDeleteMyAccountMutation,
 } = authApi;

@@ -8,6 +8,7 @@ import { useGetMyAccountQuery } from '@/services/auth/authApi';
 import { useFetchUserByIdQuery } from '@/services/user/userApi';
 import { ProfileHeader } from '@/app/(social-hub)/hub/profile/components/ProfileHeader';
 import { ProfileInfo } from '@/app/(social-hub)/hub/profile/components/ProfileInfo';
+import FriendActionButtons from '@/components/common/FriendActionButtons';
 import { SocialBlogCard } from '@/app/(social-hub)/hub/fyp/component/SocialBlogCard';
 import { useInfiniteScrollUserBlogs } from '@/app/(social-hub)/hub/users/hooks/useInfiniteScrollUserBlogs';
 import { useUser } from '@/hooks/useUser';
@@ -27,14 +28,13 @@ export default function UserProfilePage() {
   const params = useParams<{ accountId: string }>();
   const accountIdParam = params?.accountId;
   const accountId = Number(accountIdParam);
-  const isValidAccountId = Number.isFinite(accountId) && accountId > 0;
 
   const {
     data: userResponse,
     isLoading: isLoadingUser,
     isError: isUserError,
   } = useFetchUserByIdQuery(accountIdParam || '', {
-    skip: !isAuthResolved || !isSignedIn || !accountIdParam || !isValidAccountId,
+    skip: !isAuthResolved || !isSignedIn || !accountIdParam,
   });
 
   const { blogs, isLoading, isError, isFetching, isSuccess, hasMore, savedBlogIds, reactedBlogIds, targetRef } =
@@ -45,10 +45,6 @@ export default function UserProfilePage() {
     if (!currentUser || !viewedUser) return false;
     return currentUser.accountId === viewedUser.accountId;
   }, [currentUser, viewedUser]);
-
-  if (!isValidAccountId) {
-    return <ErrorMessage message="ID tài khoản không hợp lệ." />;
-  }
 
   if (!isAuthResolved || !isSignedIn) {
     return <LoaderSpin />;
@@ -66,6 +62,11 @@ export default function UserProfilePage() {
     <div className="mx-auto max-w-4xl">
       <div className="bg-card rounded-xl border shadow-sm overflow-hidden p-4 mb-4">
         <ProfileHeader user={viewedUser} />
+        {!isOwnProfile && (
+          <div className="mt-20 mb-4">
+            <FriendActionButtons targetUserId={viewedUser.accountId} showBlockActions />
+          </div>
+        )}
         <ProfileInfo user={viewedUser} hideSensitiveContact={!isOwnProfile} />
       </div>
 

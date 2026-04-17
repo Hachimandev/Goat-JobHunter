@@ -3,6 +3,7 @@ import {
   ProfileInfo,
   ProfileNotifications,
   ProfilePassword,
+  ProfileDevices
 } from '@/app/(main)/profile/components';
 import { TabsContent } from '@/components/ui/tabs';
 
@@ -23,6 +24,10 @@ const ProfileTabContents = () => {
 
       <TabsContent value="info" className="space-y-4">
         <ProfileInfo />
+      </TabsContent>
+
+      <TabsContent value="devices" className="space-y-4">
+        <ProfileDevices />
       </TabsContent>
     </>
   );

@@ -5,20 +5,27 @@ import { Separator } from '@/components/ui/separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ChatRoom } from '@/types/model';
 import { ChatRoomType } from '@/types/enum';
-import { Bell, ShieldBan, UserCircle, X, Users } from 'lucide-react';
+import { Bell, Loader2, ShieldBan, Undo2, UserCircle, X, Users } from 'lucide-react';
 import { SharedMediaGrid } from './SharedMediaGrid';
 import { SharedFilesList } from './SharedFilesList';
 import { Badge } from '@/components/ui/badge';
 import { useFetchFilesInChatRoomQuery, useFetchMediaInChatRoomQuery } from '@/services/chatRoom/chatRoomApi';
 import { useMemo } from 'react';
+import useFriendActions from '@/hooks/useFriendActions';
 
 interface ChatDetailsPanelProps {
   chatRoom: ChatRoom;
   isOpen: boolean;
   onClose: () => void;
+  onRelationshipChanged?: () => void;
 }
 
-export function ChatDetailsPanel({ chatRoom, isOpen, onClose }: Readonly<ChatDetailsPanelProps>) {
+export function ChatDetailsPanel({
+  chatRoom,
+  isOpen,
+  onClose,
+  onRelationshipChanged,
+}: Readonly<ChatDetailsPanelProps>) {
   const {
     data: filesData,
     isLoading: isLoadingFile,
@@ -30,8 +37,6 @@ export function ChatDetailsPanel({ chatRoom, isOpen, onClose }: Readonly<ChatDet
     isError: isErrorMedia,
   } = useFetchMediaInChatRoomQuery({ chatRoomId: chatRoom.roomId }, { skip: !isOpen || !chatRoom });
 
-  console.log({ filesData, mediaData });
-
   const media = useMemo(() => {
     return mediaData?.data || [];
   }, [mediaData]);
@@ -39,10 +44,31 @@ export function ChatDetailsPanel({ chatRoom, isOpen, onClose }: Readonly<ChatDet
   const files = useMemo(() => {
     return filesData?.data || [];
   }, [filesData]);
+  const { handleBlockUser, handleUnblockUser, isMutating } = useFriendActions();
 
   if (!isOpen) return null;
 
   const isGroup = chatRoom.type === ChatRoomType.GROUP;
+  const isDirectBlocked = !isGroup && Boolean(chatRoom.blocked);
+  const isBlockedByMe = isDirectBlocked && Boolean(chatRoom.blockedByMe);
+
+  const isBlockActionDisabled = isGroup || isMutating;
+
+  const canUnblock = isBlockedByMe;
+
+  const handleToggleBlock = async () => {
+    if (isGroup) {
+      return;
+    }
+
+    const success = canUnblock
+      ? await handleUnblockUser(chatRoom.counterpartAccountId)
+      : await handleBlockUser(chatRoom.counterpartAccountId);
+
+    if (success) {
+      onRelationshipChanged?.();
+    }
+  };
 
   return (
     <div className="w-[450px] border-l border-border bg-card shrink-0 flex flex-col h-full min-h-0">
@@ -68,28 +94,42 @@ export function ChatDetailsPanel({ chatRoom, isOpen, onClose }: Readonly<ChatDet
               )}
             </div>
             <h3 className="font-semibold text-lg mt-3">{chatRoom.name}</h3>
-            {isGroup && (
-              <Badge variant="secondary" className="mt-2 flex items-center gap-1">
-                <Users className="h-3 w-3" />
-                {chatRoom.memberCount} thành viên
-              </Badge>
-            )}
           </div>
 
-          <div className="grid grid-cols-3 gap-2">
-            <Button variant="outline" className="rounded-xl flex flex-col h-auto py-3 gap-1 bg-transparent" size="sm">
-              <UserCircle className="h-5 w-5" />
-              <span className="text-xs">Profile</span>
-            </Button>
-            <Button variant="outline" className="rounded-xl flex flex-col h-auto py-3 gap-1 bg-transparent" size="sm">
-              <Bell className="h-5 w-5" />
+          <div className="grid grid-cols-[repeat(auto-fit,minmax(72px,auto))] justify-items-center">
+            <div className="flex flex-col items-center gap-1 cursor-pointer">
+              <div className="h-10 w-10 rounded-full bg-muted/10 flex items-center justify-center p-2 hover:bg-primary/50 transition-colors">
+                <UserCircle className="h-5 w-5" />
+              </div>
+              <span className="text-xs">Thông tin</span>
+            </div>
+            <div className="flex flex-col items-center gap-1 cursor-pointer">
+              <div className="h-10 w-10 rounded-full bg-muted/10 flex items-center justify-center p-2 hover:bg-primary/50 transition-colors">
+                <Bell className="h-5 w-5" />
+              </div>
               <span className="text-xs">Tắt thông báo</span>
-            </Button>
-            <Button variant="outline" className="rounded-xl flex flex-col h-auto py-3 gap-1 bg-transparent" size="sm">
-              <ShieldBan className="h-5 w-5" />
-              <span className="text-xs">Chặn</span>
-            </Button>
+            </div>
+            <div className="flex flex-col items-center gap-1 cursor-pointer" onClick={handleToggleBlock}>
+              <div className="h-10 w-10 rounded-full bg-muted/10 flex items-center justify-center p-2 hover:bg-primary/50 transition-colors">
+                {isMutating ? (
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                ) : canUnblock ? (
+                  <Undo2 className="h-5 w-5" />
+                ) : (
+                  <ShieldBan className="h-5 w-5" />
+                )}
+              </div>
+              <span className="text-xs">{canUnblock ? 'Bỏ chặn' : 'Chặn'}</span>
+            </div>
           </div>
+
+          {!isGroup && isDirectBlocked && (
+            <p className="text-xs text-muted-foreground">
+              {isBlockedByMe
+                ? 'Bạn đã chặn người dùng này. Không thể gửi tin nhắn cho đến khi bỏ chặn.'
+                : 'Người dùng này đã chặn bạn. Bạn không thể nhắn tin ở thời điểm hiện tại.'}
+            </p>
+          )}
 
           <Separator />
 

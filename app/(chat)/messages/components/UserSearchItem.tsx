@@ -1,9 +1,11 @@
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
-import { Check } from 'lucide-react';
+import { MessageCirclePlus } from 'lucide-react';
 import { User } from '@/types/model';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Visibility } from '@/types/enum';
+import { useFriendshipStatus } from '@/hooks/useFriendshipStatus';
+import FriendActionButtons from '@/components/common/FriendActionButtons';
 
 interface UserSearchItemProps {
   user: User;
@@ -15,6 +17,15 @@ interface UserSearchItemProps {
 
 export function UserSearchItem({ user, mode, isSelected, loading = false, onAction }: UserSearchItemProps) {
   const isPrivateAccount = user.visibility === Visibility.PRIVATE;
+  const { isBlockedAnyDirection } = useFriendshipStatus(user.accountId);
+
+  const isMessageDisabled = loading || isPrivateAccount || isBlockedAnyDirection;
+
+  const disableReason = isPrivateAccount
+    ? 'Tài khoản đang ở chế độ riêng tư.'
+    : isBlockedAnyDirection
+      ? 'Không thể nhắn tin khi đang ở trạng thái chặn.'
+      : null;
 
   return (
     <Tooltip>
@@ -31,39 +42,36 @@ export function UserSearchItem({ user, mode, isSelected, loading = false, onActi
           </div>
 
           {!isPrivateAccount && mode === 'single' && (
-            <Button
-              size="sm"
-              onClick={() => onAction(user)}
-              disabled={loading || isPrivateAccount}
-              className="rounded-xl"
-            >
-              Nhắn tin
-            </Button>
+            <>
+              <Button
+                size="icon-sm"
+                onClick={() => onAction(user)}
+                disabled={loading || isPrivateAccount}
+                className="rounded-xl"
+                title={isMessageDisabled ? disableReason || undefined : 'Nhắn tin'}
+              >
+                <MessageCirclePlus className="h-4 w-4" />
+              </Button>
+              <FriendActionButtons targetUserId={user.accountId} compact hideWhenFriendOrBlocked iconOnly />
+            </>
           )}
 
           {!isPrivateAccount && mode === 'multi' && (
             <Button
               size="sm"
-              variant={isSelected ? 'default' : 'outline'}
+              variant={isSelected ? 'destructive' : 'default'}
               onClick={() => onAction(user)}
               disabled={loading}
               className="rounded-xl"
             >
-              {isSelected ? (
-                <>
-                  <Check className="h-4 w-4 mr-1" />
-                  Đã chọn
-                </>
-              ) : (
-                <>Chọn</>
-              )}
+              {isSelected ? 'Hủy' : 'Chọn'}
             </Button>
           )}
         </div>
       </TooltipTrigger>
-      {isPrivateAccount && (
+      {disableReason && (
         <TooltipContent side="bottom">
-          <p>Tài khoản đang ở chế độ riêng tư.</p>
+          <p>{disableReason}</p>
         </TooltipContent>
       )}
     </Tooltip>

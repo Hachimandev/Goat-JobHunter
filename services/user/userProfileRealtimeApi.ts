@@ -1,4 +1,4 @@
-import { WebSocketUserProfileService } from '@/services/WebSocketUserProfileService';
+import { WebSocketUserProfileService } from '@/services/socket/WebSocketUserProfileService';
 import { api } from '@/services/api';
 
 export const userProfileRealtimeApi = api.injectEndpoints({
