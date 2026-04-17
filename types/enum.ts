@@ -90,6 +90,7 @@ export enum MessageTypeEnum {
   IMAGE = 'IMAGE',
   VIDEO = 'VIDEO',
   AUDIO = 'AUDIO',
+  MEDIA = 'MEDIA',
   FILE = 'FILE',
   CONTACT_CARD = 'CONTACT_CARD',
   SYSTEM = 'SYSTEM',

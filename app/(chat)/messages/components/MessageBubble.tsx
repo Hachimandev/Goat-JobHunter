@@ -36,6 +36,8 @@ import ConfirmDialog from '@/components/common/ConfirmDialog';
 import { getMessageSenderDisplayName, getReplyContextPreviewText } from '@/utils/messageUtils';
 import { extractMessageContent, extractMessageEvent, extractMessageId } from '@/utils/slug';
 import FriendActionButtons from '@/components/common/FriendActionButtons';
+import { getMessageMediaPhotos } from '@/utils/formatChatMediaForPhotoAlbum';
+import { MessageMediaGallery } from './MessageMediaGallery';
 
 interface MessageBubbleProps {
   message: MessageResponse;
@@ -89,11 +91,15 @@ export function MessageBubble({
   const type = useMemo(() => message.messageType, [message.messageType]);
   const isForwarded = useMemo(() => Boolean(message.isForwarded), [message.isForwarded]);
   const isRecalled = useMemo(() => message.isHidden, [message.isHidden]);
+  const mediaPhotos = useMemo(() => getMessageMediaPhotos(message), [message]);
 
   const isMedia = useMemo(
     () =>
       !isRecalled &&
-      (type === MessageTypeEnum.IMAGE || type === MessageTypeEnum.VIDEO || type === MessageTypeEnum.AUDIO),
+      (type === MessageTypeEnum.IMAGE ||
+        type === MessageTypeEnum.VIDEO ||
+        type === MessageTypeEnum.AUDIO ||
+        type === MessageTypeEnum.MEDIA),
     [isRecalled, type],
   );
   const isContactCard = useMemo(() => !isRecalled && type === MessageTypeEnum.CONTACT_CARD, [isRecalled, type]);
@@ -106,6 +112,7 @@ export function MessageBubble({
       type === MessageTypeEnum.IMAGE ||
       type === MessageTypeEnum.VIDEO ||
       type === MessageTypeEnum.AUDIO ||
+      type === MessageTypeEnum.MEDIA ||
       type === MessageTypeEnum.FILE ||
       type === MessageTypeEnum.CONTACT_CARD,
     [type],
@@ -131,7 +138,7 @@ export function MessageBubble({
   const canShowOwnerActions = isOwn && !isSystem && (canShowRecallAction || canShowDeleteAction);
   const canShowActionMenu = canShowReplyAction || canShowForwardAction || canShowHideAction || canShowOwnerActions;
 
-  if (!message.content && !isRecalled && type !== MessageTypeEnum.CONTACT_CARD) return null;
+  if (!message.content && !isRecalled && type !== MessageTypeEnum.CONTACT_CARD && mediaPhotos.length === 0) return null;
 
   const getSystemMessageContent = () => {
     const finalContent = extractMessageContent(message.content) || 'Có một sự kiện hệ thống xảy ra';
@@ -166,6 +173,14 @@ export function MessageBubble({
   const renderContent = () => {
     if (isRecalled) {
       return <span className="text-sm leading-relaxed italic text-muted-foreground">Tin nhắn đã được thu hồi</span>;
+    }
+
+    if (type === MessageTypeEnum.MEDIA) {
+      if (mediaPhotos.length > 0) {
+        return <MessageMediaGallery photos={mediaPhotos} />;
+      }
+
+      return <span className="text-sm leading-relaxed text-muted-foreground">Phương tiện không khả dụng</span>;
     }
 
     if (type === MessageTypeEnum.IMAGE) {
