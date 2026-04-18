@@ -81,3 +81,14 @@ export type SendContactCardsSubmitResult = {
   successfulUserIds: number[];
   failedUserIds: number[];
 };
+
+export type CountUnreadMessagesRequest = {
+  page?: number;
+  size?: number;
+};
+export type CountUnreadMessagesResponse = IBackendRes<
+  {
+    chatRoomId: number;
+    unreadCount: number;
+  }[]
+>;

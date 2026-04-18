@@ -11,14 +11,23 @@ interface ConversationItemProps {
   chatRoom: ChatRoom;
   active: boolean;
   onClick: () => void;
+  unreadMessagesCount: number;
 }
 
-export function ChatRoomItem({ chatRoom, active, onClick }: Readonly<ConversationItemProps>) {
+export function ChatRoomItem({ chatRoom, active, onClick, unreadMessagesCount }: Readonly<ConversationItemProps>) {
   const isGroup = chatRoom.type === ChatRoomType.GROUP;
   const isDissolved = Boolean(chatRoom.deletedAt && chatRoom.type === ChatRoomType.GROUP);
   const chatRoomTitle = chatRoom.name;
   const avatarFallback = chatRoomTitle.charAt(0).toUpperCase();
   const formattedTime = formatLastMessageTime(chatRoom.lastMessageTime);
+  const unreadBadgeText =
+    unreadMessagesCount <= 0
+      ? null
+      : unreadMessagesCount === 1
+        ? '1'
+        : unreadMessagesCount > 99
+          ? '99+'
+          : `${unreadMessagesCount}+`;
 
   const chatRoomPreview = useMemo(() => {
     // Nếu không có lastMessagePreview
@@ -74,16 +83,32 @@ export function ChatRoomItem({ chatRoom, active, onClick }: Readonly<Conversatio
               <span className="text-xs text-rose-600 font-medium whitespace-nowrap">Nhóm đã giải tán</span>
             )}
           </div>
-          {formattedTime && <span className="text-xs text-muted-foreground shrink-0">{formattedTime}</span>}
+          <div className="flex items-center gap-2 shrink-0">
+            {formattedTime && <span className="text-xs text-muted-foreground">{formattedTime}</span>}
+          </div>
         </div>
-        <p
-          className={cn(
-            'text-sm truncate text-start',
-            isDissolved ? 'text-muted-foreground italic' : 'text-muted-foreground',
+        <div className="flex justify-between">
+          <p
+            className={cn(
+              'text-sm truncate text-start',
+              isDissolved
+                ? 'text-muted-foreground italic'
+                :  unreadBadgeText
+                  ? 'text-primary font-bold'
+                  : 'text-muted-foreground',
+            )}
+          >
+            {truncate(chatRoomPreview, { length: 30 })}
+          </p>
+          {unreadBadgeText && (
+            <span
+              className="inline-flex items-center justify-center h-5 min-w-[1.25rem] px-2 rounded-full bg-rose-600 text-white text-xs font-medium"
+              aria-label={`${unreadMessagesCount} unread messages`}
+            >
+              {unreadBadgeText}
+            </span>
           )}
-        >
-          {truncate(chatRoomPreview, { length: 30 })}
-        </p>
+        </div>
       </div>
     </button>
   );
