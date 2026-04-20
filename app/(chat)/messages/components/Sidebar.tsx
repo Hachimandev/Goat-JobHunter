@@ -11,11 +11,12 @@ import { useUser } from '@/hooks/useUser';
 import { useChatRooms } from '@/app/(chat)/messages/hooks/useChatRooms';
 import { useRouter, useParams } from 'next/navigation';
 import ErrorMessage from '@/components/common/ErrorMessage';
-import { useEffect, useState, useRef, useMemo } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { CreateChatTriggerButton } from '@/app/(chat)/messages/components/CreateChatTriggerButton';
 import { isCompanyResponse } from '@/utils/slug';
 import { MeResponse, CompanyResponse, ApplicantResponse, RecruiterResponse } from '@/types/dto';
 import { subscribeToChatRoom } from '@/services/chatRoom/message/messageApi';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 export function Sidebar() {
   const { user: currentUser } = useUser();
@@ -39,29 +40,6 @@ export function Sidebar() {
     () => (activeTab === 'all' ? allChatRooms : unreadChatRoomsList),
     [activeTab, allChatRooms, unreadChatRoomsList],
   );
-
-  const tabsContainerRef = useRef<HTMLDivElement | null>(null);
-  const allBtnRef = useRef<HTMLDivElement | null>(null);
-  const unreadBtnRef = useRef<HTMLDivElement | null>(null);
-  const [indicatorStyle, setIndicatorStyle] = useState({ left: 0, width: 0 });
-
-  useEffect(() => {
-    const updateIndicator = () => {
-      const container = tabsContainerRef.current;
-      const activeBtn = activeTab === 'all' ? allBtnRef.current : unreadBtnRef.current;
-      if (!container || !activeBtn) return;
-      const containerRect = container.getBoundingClientRect();
-      const btnRect = activeBtn.getBoundingClientRect();
-      setIndicatorStyle({
-        left: btnRect.left - containerRect.left + container.scrollLeft,
-        width: btnRect.width,
-      });
-    };
-
-    requestAnimationFrame(updateIndicator);
-    window.addEventListener('resize', updateIndicator);
-    return () => window.removeEventListener('resize', updateIndicator);
-  }, [activeTab, allChatRooms.length, unreadChatRoomsList.length]);
 
   useEffect(() => {
     if (currentUser && chatRooms) {
@@ -110,29 +88,17 @@ export function Sidebar() {
         </div>
       </div>
 
-      <div className="px-3">
-        <div ref={tabsContainerRef} className="relative">
-          <div className="flex items-center gap-2 relative z-10">
-            <div
-              ref={allBtnRef}
-              onClick={() => setActiveTab('all')}
-              className={`px-3 py-1 cursor-pointer font-bold ${activeTab === 'all' ? 'text-primary' : ''}`}
-            >
+      <div className="px-3 my-3 w-full">
+        <Tabs defaultValue={activeTab} className="">
+          <TabsList className="w-full rounded-xl">
+            <TabsTrigger value="all" onClick={() => setActiveTab('all')} className="cursor-pointer rounded-xl">
               Tất cả
-            </div>
-            <div
-              ref={unreadBtnRef}
-              onClick={() => setActiveTab('unread')}
-              className={`px-3 py-1 cursor-pointer font-bold ${activeTab === 'unread' ? 'text-primary' : ''}`}
-            >
+            </TabsTrigger>
+            <TabsTrigger value="unread" onClick={() => setActiveTab('unread')} className="cursor-pointer rounded-xl">
               Chưa đọc
-            </div>
-          </div>
-          <div
-            className="absolute bottom-0 h-0.5 bg-primary rounded-full transition-all duration-200"
-            style={{ left: indicatorStyle.left + 'px', width: indicatorStyle.width + 'px' }}
-          />
-        </div>
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
       </div>
 
       <ScrollArea className="flex-1 min-h-0 px-2">
