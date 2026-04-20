@@ -1,5 +1,5 @@
 import { api } from '@/services/api';
-import { CHAT_MESSAGE_PAGE_SIZE } from '@/constants/constant';
+import { CHAT_MESSAGE_PAGE_SIZE, CHAT_ROOM_SIDEBAR_PAGE_SIZE } from '@/constants/constant';
 import {
   DeleteMessagePermanentRequest,
   FetchChatRoomsRequest,
@@ -80,7 +80,7 @@ export const chatRoomApi = api.injectEndpoints({
   endpoints: (builder) => ({
     // Fetch chat rooms of the current user
     fetchChatRooms: builder.query<FetchChatRoomsResponse, FetchChatRoomsRequest>({
-      query: ({ page = 1, size = 50 }) => ({
+      query: ({ page = 1, size = CHAT_ROOM_SIDEBAR_PAGE_SIZE }) => ({
         url: '/chatrooms/me',
         method: 'GET',
         params: { page, size },
@@ -225,25 +225,29 @@ export const chatRoomApi = api.injectEndpoints({
 
           // Update chat rooms list cache
           dispatch(
-            chatRoomApi.util.updateQueryData('fetchChatRooms', { page: 1, size: 50 }, (draft) => {
-              if (draft?.data?.result) {
-                const chatRoomIndex = draft.data.result.findIndex((room) => room.roomId === chatRoomId);
+            chatRoomApi.util.updateQueryData(
+              'fetchChatRooms',
+              { page: 1, size: CHAT_ROOM_SIDEBAR_PAGE_SIZE },
+              (draft) => {
+                if (draft?.data?.result) {
+                  const chatRoomIndex = draft.data.result.findIndex((room) => room.roomId === chatRoomId);
 
-                if (chatRoomIndex !== -1) {
-                  const chatRoom = draft.data.result[chatRoomIndex];
+                  if (chatRoomIndex !== -1) {
+                    const chatRoom = draft.data.result[chatRoomIndex];
 
-                  // Update last message info
-                  chatRoom.lastMessagePreview = getMessagePreviewText(latestMessage);
-                  chatRoom.lastMessageTime = latestMessage.createdAt;
+                    // Update last message info
+                    chatRoom.lastMessagePreview = getMessagePreviewText(latestMessage);
+                    chatRoom.lastMessageTime = latestMessage.createdAt;
 
-                  // Move to top if not already first
-                  if (chatRoomIndex !== 0) {
-                    draft.data.result.splice(chatRoomIndex, 1);
-                    draft.data.result.unshift(chatRoom);
+                    // Move to top if not already first
+                    if (chatRoomIndex !== 0) {
+                      draft.data.result.splice(chatRoomIndex, 1);
+                      draft.data.result.unshift(chatRoom);
+                    }
                   }
                 }
-              }
-            }),
+              },
+            ),
           );
         } catch (error) {
           console.error('Failed to update cache after sending message:', error);
@@ -298,26 +302,30 @@ export const chatRoomApi = api.injectEndpoints({
           const latestMessage = sentMessages[sentMessages.length - 1];
 
           dispatch(
-            chatRoomApi.util.updateQueryData('fetchChatRooms', { page: 1, size: 50 }, (draft) => {
-              if (!draft?.data?.result) {
-                return;
-              }
+            chatRoomApi.util.updateQueryData(
+              'fetchChatRooms',
+              { page: 1, size: CHAT_ROOM_SIDEBAR_PAGE_SIZE },
+              (draft) => {
+                if (!draft?.data?.result) {
+                  return;
+                }
 
-              const chatRoomIndex = draft.data.result.findIndex((room) => room.roomId === chatRoomId);
+                const chatRoomIndex = draft.data.result.findIndex((room) => room.roomId === chatRoomId);
 
-              if (chatRoomIndex === -1) {
-                return;
-              }
+                if (chatRoomIndex === -1) {
+                  return;
+                }
 
-              const chatRoom = draft.data.result[chatRoomIndex];
-              chatRoom.lastMessagePreview = getMessagePreviewText(latestMessage);
-              chatRoom.lastMessageTime = latestMessage.createdAt;
+                const chatRoom = draft.data.result[chatRoomIndex];
+                chatRoom.lastMessagePreview = getMessagePreviewText(latestMessage);
+                chatRoom.lastMessageTime = latestMessage.createdAt;
 
-              if (chatRoomIndex !== 0) {
-                draft.data.result.splice(chatRoomIndex, 1);
-                draft.data.result.unshift(chatRoom);
-              }
-            }),
+                if (chatRoomIndex !== 0) {
+                  draft.data.result.splice(chatRoomIndex, 1);
+                  draft.data.result.unshift(chatRoom);
+                }
+              },
+            ),
           );
         } catch (error) {
           console.error('Failed to update cache after sending contact cards:', error);
@@ -361,17 +369,21 @@ export const chatRoomApi = api.injectEndpoints({
 
             // Update chat rooms list cache - add new chat room at the top
             dispatch(
-              chatRoomApi.util.updateQueryData('fetchChatRooms', { page: 1, size: 50 }, (draft) => {
-                if (draft?.data?.result) {
-                  // Check if chat room already exists
-                  const exists = draft.data.result.some((room) => room.roomId === newChatRoom.roomId);
+              chatRoomApi.util.updateQueryData(
+                'fetchChatRooms',
+                { page: 1, size: CHAT_ROOM_SIDEBAR_PAGE_SIZE },
+                (draft) => {
+                  if (draft?.data?.result) {
+                    // Check if chat room already exists
+                    const exists = draft.data.result.some((room) => room.roomId === newChatRoom.roomId);
 
-                  if (!exists) {
-                    // Add new chat room at the top
-                    draft.data.result.unshift(newChatRoom);
+                    if (!exists) {
+                      // Add new chat room at the top
+                      draft.data.result.unshift(newChatRoom);
+                    }
                   }
-                }
-              }),
+                },
+              ),
             );
           }
         } catch (error) {
@@ -614,7 +626,7 @@ export const chatRoomApi = api.injectEndpoints({
     }),
 
     countUnreadMessagesByCurrentAccount: builder.query<CountUnreadMessagesResponse, CountUnreadMessagesRequest>({
-      query: ({ page = 1, size = 50 }) => ({
+      query: ({ page = 1, size = CHAT_ROOM_SIDEBAR_PAGE_SIZE }) => ({
         url: '/chatrooms/me/unread-count',
         method: 'GET',
         params: { page, size },
@@ -635,6 +647,7 @@ export const chatRoomApi = api.injectEndpoints({
 
 export const {
   useFetchChatRoomsQuery,
+  useLazyFetchChatRoomsQuery,
   useFetchChatRoomsByIdQuery,
   useFetchMessagesInChatRoomQuery,
   useLazyFetchMessagesInChatRoomQuery,
@@ -650,4 +663,5 @@ export const {
   useHideMessageMutation,
   useRecallMessageMutation,
   useCountUnreadMessagesByCurrentAccountQuery,
+  useLazyCountUnreadMessagesByCurrentAccountQuery,
 } = chatRoomApi;

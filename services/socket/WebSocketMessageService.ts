@@ -2,7 +2,7 @@ import { Client } from '@stomp/stompjs';
 import { ThunkDispatch } from 'redux-thunk';
 import { UnknownAction } from 'redux';
 import SockJS from 'sockjs-client';
-import { CHAT_MESSAGE_PAGE_SIZE } from '@/constants/constant';
+import { CHAT_MESSAGE_PAGE_SIZE, CHAT_ROOM_SIDEBAR_PAGE_SIZE } from '@/constants/constant';
 import { store } from '@/lib/store';
 import { chatRoomApi } from '@/services/chatRoom/chatRoomApi';
 import { FetchMessagesInChatRoomRequest } from '@/services/chatRoom/chatRoomType';
@@ -304,14 +304,18 @@ export class WebSocketMessageService {
 
         // Update member count in chat rooms list
         this.dispatch(
-          chatRoomApi.util.updateQueryData('fetchChatRooms', { page: 1, size: 50 }, (draft) => {
-            if (draft?.data?.result) {
-              const room = draft.data.result.find((r) => r.roomId === chatRoomId);
-              if (room && room.memberCount) {
-                room.memberCount -= 1;
+          chatRoomApi.util.updateQueryData(
+            'fetchChatRooms',
+            { page: 1, size: CHAT_ROOM_SIDEBAR_PAGE_SIZE },
+            (draft) => {
+              if (draft?.data?.result) {
+                const room = draft.data.result.find((r) => r.roomId === chatRoomId);
+                if (room && room.memberCount) {
+                  room.memberCount -= 1;
+                }
               }
-            }
-          }),
+            },
+          ),
         );
       } else if (content.includes('đã rời khỏi nhóm')) {
         // Extract actor name: "{actor} đã rời khỏi nhóm"
@@ -328,14 +332,18 @@ export class WebSocketMessageService {
 
         // Update member count
         this.dispatch(
-          chatRoomApi.util.updateQueryData('fetchChatRooms', { page: 1, size: 50 }, (draft) => {
-            if (draft?.data?.result) {
-              const room = draft.data.result.find((r) => r.roomId === chatRoomId);
-              if (room && room.memberCount) {
-                room.memberCount -= 1;
+          chatRoomApi.util.updateQueryData(
+            'fetchChatRooms',
+            { page: 1, size: CHAT_ROOM_SIDEBAR_PAGE_SIZE },
+            (draft) => {
+              if (draft?.data?.result) {
+                const room = draft.data.result.find((r) => r.roomId === chatRoomId);
+                if (room && room.memberCount) {
+                  room.memberCount -= 1;
+                }
               }
-            }
-          }),
+            },
+          ),
         );
       } else if (content.includes('bỏ ghim')) {
         this.dispatch(
@@ -375,14 +383,18 @@ export class WebSocketMessageService {
 
         // Update member count
         this.dispatch(
-          chatRoomApi.util.updateQueryData('fetchChatRooms', { page: 1, size: 50 }, (draft) => {
-            if (draft?.data?.result) {
-              const room = draft.data.result.find((r) => r.roomId === chatRoomId);
-              if (room) {
-                room.memberCount = (room.memberCount || 0) + 1;
+          chatRoomApi.util.updateQueryData(
+            'fetchChatRooms',
+            { page: 1, size: CHAT_ROOM_SIDEBAR_PAGE_SIZE },
+            (draft) => {
+              if (draft?.data?.result) {
+                const room = draft.data.result.find((r) => r.roomId === chatRoomId);
+                if (room) {
+                  room.memberCount = (room.memberCount || 0) + 1;
+                }
               }
-            }
-          }),
+            },
+          ),
         );
       }
       // Detect GROUP_NAME_CHANGED
@@ -392,14 +404,18 @@ export class WebSocketMessageService {
         const newName = match?.[1];
 
         this.dispatch(
-          chatRoomApi.util.updateQueryData('fetchChatRooms', { page: 1, size: 50 }, (draft) => {
-            if (draft?.data?.result && newName) {
-              const room = draft.data.result.find((r) => r.roomId === chatRoomId);
-              if (room) {
-                room.name = newName;
+          chatRoomApi.util.updateQueryData(
+            'fetchChatRooms',
+            { page: 1, size: CHAT_ROOM_SIDEBAR_PAGE_SIZE },
+            (draft) => {
+              if (draft?.data?.result && newName) {
+                const room = draft.data.result.find((r) => r.roomId === chatRoomId);
+                if (room) {
+                  room.name = newName;
+                }
               }
-            }
-          }),
+            },
+          ),
         );
       }
       // Detect GROUP_AVATAR_CHANGED
