@@ -41,7 +41,6 @@ import iuh.fit.goat.util.MessageHelper;
 import iuh.fit.goat.util.MessageMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Pageable;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
@@ -252,6 +251,7 @@ public class MessageServiceImpl implements MessageService {
         log.info("Saving message - chatRoomId: {}, SK: {}", chatRoomId, messageSk);
 
         Message savedMessage = messageRepository.saveMessage(message);
+        incrementUnreadCountForRecipients(chatRoomId, currentAccount.getAccountId());
 
         log.info("Message created: messageId={}, chatRoomId={}", messageId, chatRoomId);
 
@@ -335,6 +335,7 @@ public class MessageServiceImpl implements MessageService {
 
                             Message savedMessage = messageRepository.saveMessage(mediaMessage);
                             createdMessages.add(savedMessage);
+                            incrementUnreadCountForRecipients(chatRoomId, currentAccount.getAccountId());
                             sendMessageToUsers(chatRoomId, savedMessage);
 
                             mediaMessageCreated = true;
@@ -361,6 +362,7 @@ public class MessageServiceImpl implements MessageService {
 
                         Message savedMessage = messageRepository.saveMessage(fileMessage);
                         createdMessages.add(savedMessage);
+                        incrementUnreadCountForRecipients(chatRoomId, currentAccount.getAccountId());
                         sendMessageToUsers(chatRoomId, savedMessage);
 
                         log.info("Single media message created in legacy format: messageId={}, type={}, chatRoomId={}",
@@ -387,6 +389,7 @@ public class MessageServiceImpl implements MessageService {
 
                     Message savedMessage = messageRepository.saveMessage(fileMessage);
                     createdMessages.add(savedMessage);
+                    incrementUnreadCountForRecipients(chatRoomId, currentAccount.getAccountId());
                     sendMessageToUsers(chatRoomId, savedMessage);
 
                     log.info("File message created: messageId={}, type={}, chatRoomId={}",
@@ -459,6 +462,7 @@ public class MessageServiceImpl implements MessageService {
             Message contactCardMessage = this.createContactCardMessage(chatRoomId.toString(), userId, currentAccount);
             Message savedMessage = this.messageRepository.saveMessage(contactCardMessage);
             createdMessages.add(savedMessage);
+            incrementUnreadCountForRecipients(chatRoomId, currentAccount.getAccountId());
             sendMessageToUsers(chatRoomId, savedMessage);
         }
 
@@ -764,6 +768,7 @@ public class MessageServiceImpl implements MessageService {
             try {
                 Message forwardedMessage = createForwardedMessage(sourceMessage, targetChatRoomId, currentAccount);
                 Message savedMessage = this.messageRepository.saveMessage(forwardedMessage);
+                incrementUnreadCountForRecipients(targetChatRoomId, currentAccount.getAccountId());
                 sendMessageToUsers(targetChatRoomId, savedMessage);
 
                 successes.add(ForwardMessageSuccessResponse.builder()
@@ -908,6 +913,7 @@ public class MessageServiceImpl implements MessageService {
                 .build();
 
         Message savedMessage = messageRepository.saveMessage(systemMessage);
+        incrementUnreadCountForRecipients(chatRoomId, actor != null ? actor.getAccountId() : null);
         sendMessageToUsers(chatRoomId, savedMessage);
         log.info("System message created: type={}, chatRoomId={}", type, chatRoomId);
     }
@@ -1221,21 +1227,37 @@ public class MessageServiceImpl implements MessageService {
         String lastReadMessageSk = this.chatMemberService
                 .getLastReadMessageSk(chatRoomId, currentAccount.getAccountId());
 
-        Message currentLastReadMessage = pageMessages.stream()
-                .filter(message -> message.getMessageSk() != null
-                        && lastReadMessageSk != null
-                        && message.getMessageSk().equalsIgnoreCase(lastReadMessageSk))
-                .findFirst()
-                .orElse(null);
-
-        boolean isRead = this.chatMemberService.isMessageRead(latestMessage, currentLastReadMessage);
-        if (!isRead) {
-            this.chatMemberService.updateLastReadMessageId(
-                    chatRoomId,
-                    currentAccount.getAccountId(),
-                    latestMessage.getMessageSk()
-            );
+        String latestMessageSk = latestMessage.getMessageSk();
+        if (latestMessageSk == null || latestMessageSk.isBlank()) {
+            return;
         }
+
+        if (lastReadMessageSk != null && latestMessageSk.equalsIgnoreCase(lastReadMessageSk)) {
+            return;
+        }
+
+        this.chatMemberService.updateLastReadMessageId(
+                chatRoomId,
+                currentAccount.getAccountId(),
+                latestMessageSk
+        );
+        resetUnreadCountForMember(chatRoomId, currentAccount.getAccountId());
+    }
+
+    private void incrementUnreadCountForRecipients(Long chatRoomId, Long senderAccountId) {
+        if (chatRoomId == null || senderAccountId == null) {
+            return;
+        }
+
+        this.chatMemberRepository.incrementUnreadCountForRecipients(chatRoomId, senderAccountId, 1L);
+    }
+
+    private void resetUnreadCountForMember(Long chatRoomId, Long accountId) {
+        if (chatRoomId == null || accountId == null) {
+            return;
+        }
+
+        this.chatMemberRepository.resetUnreadCount(chatRoomId, accountId);
     }
 
     private List<Message> filterHiddenMessagesForUser(List<Message> messages, Long accountId) {

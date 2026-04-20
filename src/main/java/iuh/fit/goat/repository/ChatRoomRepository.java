@@ -16,6 +16,8 @@ public interface ChatRoomRepository extends JpaRepository<ChatRoom, Long> {
 
     Optional<ChatRoom> findByRoomId(Long chatRoomId);
 
+        boolean existsByRoomIdAndDeletedAtIsNull(Long chatRoomId);
+
     Optional<ChatRoom> findByRoomIdAndDeletedAtIsNull(Long chatRoomId);
 
     @Query("""

@@ -20,7 +20,6 @@ import iuh.fit.goat.repository.AccountRepository;
 import iuh.fit.goat.repository.ChatMemberRepository;
 import iuh.fit.goat.repository.ChatRoomRepository;
 import iuh.fit.goat.repository.UserRelationshipRepository;
-import iuh.fit.goat.service.ChatMemberService;
 import iuh.fit.goat.service.ChatRoomService;
 import iuh.fit.goat.service.MessageService;
 import iuh.fit.goat.service.NotificationService;
@@ -29,7 +28,6 @@ import iuh.fit.goat.util.MessageHelper;
 import iuh.fit.goat.util.SecurityUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -44,7 +42,6 @@ import java.util.*;
 @RequiredArgsConstructor
 public class ChatRoomServiceImpl implements ChatRoomService {
     private final MessageService messageService;
-    private final ChatMemberService chatMemberService;
     private final NotificationService notificationService;
 
     private final ChatRoomRepository chatRoomRepository;
@@ -96,15 +93,7 @@ public class ChatRoomServiceImpl implements ChatRoomService {
     @Override
     public ResultPaginationResponse getMessagesInChatRoom(Account account, Long chatRoomId, Pageable pageable)
             throws InvalidException {
-        // Check if user belong to chat room or not
-        ChatRoom chatRoom = this.chatRoomRepository.findByRoomId(chatRoomId).orElse(null);
-        if (chatRoom == null) {
-            throw new InvalidException("Chat room not found");
-        }
-
-        if (!this.isUserInChatRoom(chatRoom, account.getAccountId())) {
-            throw new InvalidException("User is not in chat room");
-        }
+        validateChatRoomAccess(chatRoomId, account.getAccountId());
 
         return this.messageService.getMessagesByChatRoom(chatRoomId, pageable, account);
     }
@@ -117,12 +106,7 @@ public class ChatRoomServiceImpl implements ChatRoomService {
             String searchTerm,
             Pageable pageable
     ) throws InvalidException {
-        ChatRoom chatRoom = this.chatRoomRepository.findByRoomId(chatRoomId)
-                .orElseThrow(() -> new InvalidException("Chat room not found"));
-
-        if (!this.isUserInChatRoom(chatRoom, account.getAccountId())) {
-            throw new InvalidException("User is not in chat room");
-        }
+        validateChatRoomAccess(chatRoomId, account.getAccountId());
 
         return this.messageService.searchMessagesByChatRoom(chatRoomId, searchTerm, pageable, account);
     }
@@ -138,13 +122,19 @@ public class ChatRoomServiceImpl implements ChatRoomService {
 
     @Override
     public boolean isUserInChatRoom(Long chatRoomId, Long accountId) throws InvalidException {
-        ChatRoom chatRoom = this.chatRoomRepository.findById(chatRoomId).orElse(null);
-
-        if (chatRoom == null) {
+        if (chatRoomId == null) {
             throw new InvalidException("Chat room not found");
         }
 
-        return this.isUserInChatRoom(chatRoom, accountId);
+        if (!this.chatRoomRepository.existsByRoomIdAndDeletedAtIsNull(chatRoomId)) {
+            throw new InvalidException("Chat room not found");
+        }
+
+        if (accountId == null) {
+            return false;
+        }
+
+        return this.chatMemberRepository.existsByRoomRoomIdAndAccountAccountIdAndDeletedAtIsNull(chatRoomId, accountId);
     }
 
     @Override
@@ -310,12 +300,7 @@ public class ChatRoomServiceImpl implements ChatRoomService {
     @Override
     public ResultPaginationResponse getMediaMessagesInChatRoom(Account account, Long chatRoomId, Pageable pageable)
             throws InvalidException {
-        ChatRoom chatRoom = this.chatRoomRepository.findByRoomId(chatRoomId)
-                .orElseThrow(() -> new InvalidException("Chat room not found"));
-
-        if (!this.isUserInChatRoom(chatRoom, account.getAccountId())) {
-            throw new InvalidException("User is not in chat room");
-        }
+        validateChatRoomAccess(chatRoomId, account.getAccountId());
 
         return this.messageService.getMediaMessagesByChatRoom(chatRoomId, pageable, account);
     }
@@ -323,12 +308,7 @@ public class ChatRoomServiceImpl implements ChatRoomService {
     @Override
     public ResultPaginationResponse getFileMessagesInChatRoom(Account account, Long chatRoomId, Pageable pageable)
             throws InvalidException {
-        ChatRoom chatRoom = this.chatRoomRepository.findByRoomId(chatRoomId)
-                .orElseThrow(() -> new InvalidException("Chat room not found"));
-
-        if (!this.isUserInChatRoom(chatRoom, account.getAccountId())) {
-            throw new InvalidException("User is not in chat room");
-        }
+        validateChatRoomAccess(chatRoomId, account.getAccountId());
 
         return this.messageService.getFileMessagesByChatRoom(chatRoomId, pageable, account);
     }
@@ -657,33 +637,42 @@ public class ChatRoomServiceImpl implements ChatRoomService {
         String currentUserEmail = SecurityUtil.getCurrentUserEmail();
         Account currentAccount = this.accountRepository.findByEmailAndDeletedAtIsNull(currentUserEmail)
                 .orElseThrow(() -> new InvalidException("Tài khoản không tồn tại"));
+        Pageable resolvedPageable = resolveChatRoomPageable(pageable);
 
-        Page<ChatRoom> chatRoomPage = this.chatRoomRepository.findChatRoomsByMemberAccountId(currentAccount.getAccountId(), pageable);
-
-        return chatRoomPage.getContent().stream()
-                    .map(chatRoom -> {
-                        ChatMember member = chatRoom.getMembers().stream()
-                                .filter(m -> m.getDeletedAt() == null &&
-                                        m.getAccount().getAccountId() == currentAccount.getAccountId())
-                                .findFirst()
-                                .orElse(null);
-
-                        if (member == null) {
-                            return null;
-                        }
-
-                        long unreadCount = this.chatMemberService.countUnreadMessages(chatRoom.getRoomId(), member);
-
-                        return new UnreadMessageResponse(
-                                chatRoom.getRoomId(),
-                                unreadCount
-                        );
-                    })
-                    .filter(Objects::nonNull)
-                    .toList();
-    }
+        return this.chatMemberRepository
+            .findPagedByAccountIdForUnread(currentAccount.getAccountId(), resolvedPageable)
+            .getContent()
+            .stream()
+            .filter(member -> member.getRoom() != null && member.getRoom().getRoomId() != null)
+            .map(member -> new UnreadMessageResponse(
+                member.getRoom().getRoomId(),
+                Math.max(member.getUnreadCount(), 0L)
+            ))
+            .toList();
+        }
 
     // =============== HELPER METHODS FOR GROUP CHAT ====================
+
+        private void validateChatRoomAccess(Long chatRoomId, Long accountId) throws InvalidException {
+            if (chatRoomId == null) {
+                throw new InvalidException("Chat room not found");
+            }
+
+            if (accountId == null) {
+                throw new InvalidException("User is not in chat room");
+            }
+
+        if (!this.chatRoomRepository.existsByRoomIdAndDeletedAtIsNull(chatRoomId)) {
+            throw new InvalidException("Chat room not found");
+        }
+
+        boolean isMember = this.chatMemberRepository
+            .existsByRoomRoomIdAndAccountAccountIdAndDeletedAtIsNull(chatRoomId, accountId);
+
+        if (!isMember) {
+            throw new InvalidException("User is not in chat room");
+        }
+        }
 
     private GroupMemberResponse mapToGroupMemberResponse(ChatMember member) {
         Account account = member.getAccount();
