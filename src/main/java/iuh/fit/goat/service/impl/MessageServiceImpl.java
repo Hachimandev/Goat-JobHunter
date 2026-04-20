@@ -84,11 +84,7 @@ public class MessageServiceImpl implements MessageService {
     private static final int MESSAGE_BATCH_QUERY_SIZE = 100;
     private static final int MAX_SEARCH_TOP_UP_ROUNDS = 2;
 
-    @Value("${chat.pagination.cursor.enabled:true}")
-    private boolean cursorBasedPaginationEnabled;
-
-    @Value("${chat.pagination.cursor.max-page-size:50}")
-    private int maxCursorPageSize;
+    private static final int maxCursorPageSize = 50;
 
     private final SimpMessagingTemplate messagingTemplate;
     private final ChatMemberService chatMemberService;
@@ -128,8 +124,7 @@ public class MessageServiceImpl implements MessageService {
                 currentAccount,
                 true,
                 null,
-                true,
-                "messages"
+                true
         );
     }
 
@@ -261,7 +256,6 @@ public class MessageServiceImpl implements MessageService {
         log.info("Message created: messageId={}, chatRoomId={}", messageId, chatRoomId);
 
         sendMessageToUsers(chatRoomId, savedMessage);
-        invalidatePaginationCaches(chatRoomId.toString());
 
         return savedMessage;
     }
@@ -417,8 +411,6 @@ public class MessageServiceImpl implements MessageService {
             log.info("Batch message creation completed: {} messages created in chatRoom {}",
                     createdMessages.size(), chatRoomId);
 
-            invalidatePaginationCaches(chatRoomId.toString());
-
             return createdMessages;
 
         } catch (BlockedInteractionException e) {
@@ -475,7 +467,6 @@ public class MessageServiceImpl implements MessageService {
         }
 
         log.info("CONTACT_CARD batch completed: {} cards sent in chatRoom {}", createdMessages.size(), chatRoomId);
-        invalidatePaginationCaches(chatRoomId.toString());
         return createdMessages;
     }
 
@@ -585,8 +576,7 @@ public class MessageServiceImpl implements MessageService {
                 currentAccount,
                 false,
                 message -> message != null && isMediaType(message.getMessageType()),
-                false,
-                "media"
+                false
         );
     }
 
@@ -599,8 +589,7 @@ public class MessageServiceImpl implements MessageService {
                 currentAccount,
                 false,
                 message -> message != null && message.getMessageType() == MessageType.FILE,
-                false,
-                "file"
+                false
         );
     }
 
@@ -639,8 +628,6 @@ public class MessageServiceImpl implements MessageService {
                 chatRoomId,
                 messageId,
                 currentAccount.getAccountId());
-
-        invalidatePaginationCaches(chatRoomId.toString());
     }
 
     @Override
@@ -707,10 +694,6 @@ public class MessageServiceImpl implements MessageService {
                 cascadeMessages.size(),
                 recalledMessages.size(),
                 affectedChatRoomIds);
-
-        for (String affectedChatRoomId : affectedChatRoomIds) {
-            invalidatePaginationCaches(affectedChatRoomId);
-        }
 
         return revokedMessage;
     }
@@ -799,12 +782,6 @@ public class MessageServiceImpl implements MessageService {
 
         log.info("Forward message completed: sourceChatRoomId={}, messageId={}, success={}, failed={}",
                 sourceChatRoomId, messageId, successes.size(), failures.size());
-
-        for (ForwardMessageSuccessResponse success : successes) {
-            if (success != null && success.getTargetChatRoomId() != null) {
-                invalidatePaginationCaches(success.getTargetChatRoomId().toString());
-            }
-        }
 
         return ForwardMessageResponse.builder()
                 .sourceChatRoomId(sourceChatRoomId)
@@ -897,10 +874,6 @@ public class MessageServiceImpl implements MessageService {
                 emittedEvents.size(),
                 affectedChatRoomIds);
 
-        for (String affectedChatRoomId : affectedChatRoomIds) {
-            invalidatePaginationCaches(affectedChatRoomId);
-        }
-
         return rootEvent;
     }
 
@@ -936,8 +909,6 @@ public class MessageServiceImpl implements MessageService {
 
         Message savedMessage = messageRepository.saveMessage(systemMessage);
         sendMessageToUsers(chatRoomId, savedMessage);
-        invalidatePaginationCaches(chatRoomId.toString());
-
         log.info("System message created: type={}, chatRoomId={}", type, chatRoomId);
     }
 
@@ -994,8 +965,7 @@ public class MessageServiceImpl implements MessageService {
             Account currentAccount,
             boolean includeGloballyHidden,
             Predicate<Message> messageFilter,
-            boolean updateLastReadMessage,
-            String endpointType
+            boolean updateLastReadMessage
     ) throws InvalidException {
         if (chatRoomId == null) {
             throw new InvalidException("Chat room ID cannot be null");
@@ -1009,18 +979,6 @@ public class MessageServiceImpl implements MessageService {
 
         int pageNumber = pageable != null ? Math.max(pageable.getPageNumber(), 0) : 0;
         int pageSize = resolveRequestedSize(pageable, DEFAULT_SEARCH_PAGE_SIZE);
-
-        if (!cursorBasedPaginationEnabled) {
-            return getOffsetPaginatedMessagesByChatRoom(
-                    chatRoomId,
-                    pageNumber,
-                    pageSize,
-                    currentAccount,
-                    includeGloballyHidden,
-                    messageFilter,
-                    updateLastReadMessage
-            );
-        }
 
         Long currentAccountId = currentAccount.getAccountId();
 
@@ -1059,62 +1017,17 @@ public class MessageServiceImpl implements MessageService {
         List<MessageResponse> result = toMessageResponses(pageMessages);
         long totalVisibleMessages = cursorResolution.reachedEndBeforePage()
                 ? resolveAndCacheTotalForEndPage(
-                        currentAccountId,
-                        chatRoomId,
-                    endpointType,
                         pageSize,
                         pageNumber,
                         cursorResolution.exactTotalWhenEnd()
                 )
                 : resolveAndCacheTotal(
-                        currentAccountId,
-                        chatRoomId,
-                    endpointType,
                         pageSize,
                         pageNumber,
                         pageMessages.size(),
                         hasMore
                 );
 
-        return buildPaginationResponse(result, pageNumber, pageSize, totalVisibleMessages);
-    }
-
-    private ResultPaginationResponse getOffsetPaginatedMessagesByChatRoom(
-            Long chatRoomId,
-            int pageNumber,
-            int pageSize,
-            Account currentAccount,
-            boolean includeGloballyHidden,
-            Predicate<Message> messageFilter,
-            boolean updateLastReadMessage
-    ) {
-        long offset = (long) pageNumber * pageSize;
-
-        long totalVisibleMessages = 0;
-        List<Message> pageMessages = new ArrayList<>(pageSize);
-
-        for (List<Message> batch : this.messageRepository
-                .iterateMessageBatchesByChatRoom(chatRoomId.toString(), MESSAGE_BATCH_QUERY_SIZE)) {
-            List<Message> visibleMessages = filterMessagesForPagination(
-                    batch,
-                    includeGloballyHidden,
-                    currentAccount.getAccountId(),
-                    messageFilter
-            );
-
-            for (Message message : visibleMessages) {
-                if (totalVisibleMessages >= offset && pageMessages.size() < pageSize) {
-                    pageMessages.add(message);
-                }
-                totalVisibleMessages++;
-            }
-        }
-
-        if (updateLastReadMessage) {
-            updateLastReadMessageOnFirstPage(chatRoomId, pageNumber, pageMessages, currentAccount);
-        }
-
-        List<MessageResponse> result = toMessageResponses(pageMessages);
         return buildPaginationResponse(result, pageNumber, pageSize, totalVisibleMessages);
     }
 
@@ -1237,9 +1150,6 @@ public class MessageServiceImpl implements MessageService {
     }
 
     private long resolveAndCacheTotal(
-            Long accountId,
-            Long chatRoomId,
-            String endpointType,
             int pageSize,
             int pageNumber,
             int currentPageItemCount,
@@ -1255,9 +1165,6 @@ public class MessageServiceImpl implements MessageService {
     }
 
     private long resolveAndCacheTotalForEndPage(
-            Long accountId,
-            Long chatRoomId,
-            String endpointType,
             int pageSize,
             int pageNumber,
             Long exactTotalWhenEnd
@@ -1267,10 +1174,6 @@ public class MessageServiceImpl implements MessageService {
         }
 
         return Math.max((long) pageNumber * pageSize, 0L);
-    }
-
-    private void invalidatePaginationCaches(String chatRoomId) {
-        // Redis-backed pagination cache has been removed.
     }
 
     private record FilteredPageSlice(List<Message> messages, String nextCursor, boolean hasMore) {
