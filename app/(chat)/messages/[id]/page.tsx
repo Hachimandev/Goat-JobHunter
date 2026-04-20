@@ -10,6 +10,7 @@ import { useUser } from '@/hooks/useUser';
 import useChatRoomAndMessageActions from '@/hooks/useChatRoomAndMessageActions';
 import { MessageResponse, PinnedMessage } from '@/types/model';
 import { ChatRoomType } from '@/types/enum';
+import { subscribeToChatRoom } from '@/services/chatRoom/message/messageApi';
 import { useAppSelector } from '@/lib/hooks';
 import { selectLastFriendshipRealtimeEventAt } from '@/lib/features/friendshipSlice';
 import {
@@ -64,6 +65,14 @@ export default function ChatRoomPage() {
   } = useFetchChatRoomsByIdQuery(parsedChatRoomId, {
     skip: isInvalidChatRoomId,
   });
+
+  useEffect(() => {
+    if (isInvalidChatRoomId) {
+      return;
+    }
+
+    subscribeToChatRoom(parsedChatRoomId);
+  }, [isInvalidChatRoomId, parsedChatRoomId]);
 
   useEffect(() => {
     if (!lastFriendshipRealtimeEventAt || isInvalidChatRoomId) {

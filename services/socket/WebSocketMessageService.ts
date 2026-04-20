@@ -2,13 +2,15 @@ import { Client } from '@stomp/stompjs';
 import { ThunkDispatch } from 'redux-thunk';
 import { UnknownAction } from 'redux';
 import SockJS from 'sockjs-client';
-import { CHAT_MESSAGE_PAGE_SIZE, CHAT_ROOM_SIDEBAR_PAGE_SIZE } from '@/constants/constant';
+import { CHAT_MESSAGE_PAGE_SIZE } from '@/constants/constant';
 import { store } from '@/lib/store';
 import { chatRoomApi } from '@/services/chatRoom/chatRoomApi';
 import { FetchMessagesInChatRoomRequest } from '@/services/chatRoom/chatRoomType';
 import { MessageResponse } from '@/types/model';
 import { groupChatApi } from '@/services/chatRoom/groupChat/groupChatApi';
 import { pinnedMessageApi } from '@/services/chatRoom/pinned_message/pinnedMessageApi';
+import { MessageEvent } from '@/types/enum';
+import { extractMessageContent, extractMessageEvent } from '@/utils/slug';
 import {
   cascadeReplyContextForDeletedMessage,
   cascadeReplyContextForRecalledMessage,
@@ -80,7 +82,10 @@ export class WebSocketMessageService {
 
         if (message.messageType === 'SYSTEM') {
           this.handleGroupEvent(chatRoomId, message);
+          this.handleMessage(chatRoomId, message);
+          return;
         }
+
         this.handleMessage(chatRoomId, message);
       } catch (err) {
         console.error('❌ Parse message error:', err);
@@ -279,83 +284,84 @@ export class WebSocketMessageService {
     // );
   }
 
+  private parseSystemEvent(messageContent: string): MessageEvent | null {
+    const event = extractMessageEvent(messageContent);
+
+    if (!event) {
+      return null;
+    }
+
+    return (Object.values(MessageEvent) as string[]).includes(event) ? (event as MessageEvent) : null;
+  }
+
+  private invalidateGroupMembershipState(chatRoomId: number) {
+    this.dispatch(groupChatApi.util.invalidateTags([{ type: 'ChatMember', id: chatRoomId }]));
+    this.dispatch(
+      chatRoomApi.util.invalidateTags([
+        { type: 'ChatRoom', id: chatRoomId },
+        { type: 'ChatRoom', id: 'LIST' },
+      ]),
+    );
+  }
+
   private handleGroupEvent(chatRoomId: number, message: MessageResponse) {
     console.log(`🔔 Group event in ${chatRoomId}:`, message);
 
-    // Thêm system message vào danh sách tin nhắn
-    this.handleMessage(chatRoomId, message);
-
     try {
-      const content = message.content;
+      const content = extractMessageContent(message.content) || message.content;
+      const event = this.parseSystemEvent(message.content);
+
+      const isMemberRemovedEvent =
+        event === MessageEvent.MEMBER_REMOVED || (content.includes('đã xóa') && content.includes('khỏi nhóm'));
+      const isMemberLeftEvent = event === MessageEvent.MEMBER_LEFT || content.includes('đã rời khỏi nhóm');
 
       // Detect MEMBER_REMOVED or MEMBER_LEFT or MESSAGE_UNPINNED
-      if (content.includes('đã xóa') && content.includes('khỏi nhóm')) {
+      if (isMemberRemovedEvent) {
         // Extract member name: "{actor} đã xóa {member} khỏi nhóm"
         const match = content.match(/đã xóa (.+?) khỏi nhóm/);
-        const memberName = match?.[1];
+        const memberName = match?.[1]?.trim();
 
-        this.dispatch(
-          groupChatApi.util.updateQueryData('getMemberInGroupChat', chatRoomId, (draft) => {
-            if (draft?.data && memberName) {
-              draft.data = draft.data.filter((m) => m.fullName !== memberName);
-            }
-          }),
-        );
-
-        // Update member count in chat rooms list
-        this.dispatch(
-          chatRoomApi.util.updateQueryData(
-            'fetchChatRooms',
-            { page: 1, size: CHAT_ROOM_SIDEBAR_PAGE_SIZE },
-            (draft) => {
-              if (draft?.data?.result) {
-                const room = draft.data.result.find((r) => r.roomId === chatRoomId);
-                if (room && room.memberCount) {
-                  room.memberCount -= 1;
-                }
+        if (memberName) {
+          this.dispatch(
+            groupChatApi.util.updateQueryData('getMemberInGroupChat', chatRoomId, (draft) => {
+              if (draft?.data) {
+                draft.data = draft.data.filter((m) => m.fullName !== memberName);
               }
-            },
-          ),
-        );
-      } else if (content.includes('đã rời khỏi nhóm')) {
+            }),
+          );
+        }
+
+        this.invalidateGroupMembershipState(chatRoomId);
+      } else if (isMemberLeftEvent) {
         // Extract actor name: "{actor} đã rời khỏi nhóm"
         const match = content.match(/(.+?) đã rời khỏi nhóm/);
-        const actorName = match?.[1];
+        const actorName = match?.[1]?.trim();
 
-        this.dispatch(
-          groupChatApi.util.updateQueryData('getMemberInGroupChat', chatRoomId, (draft) => {
-            if (draft?.data && actorName) {
-              draft.data = draft.data.filter((m) => m.fullName !== actorName);
-            }
-          }),
-        );
-
-        // Update member count
-        this.dispatch(
-          chatRoomApi.util.updateQueryData(
-            'fetchChatRooms',
-            { page: 1, size: CHAT_ROOM_SIDEBAR_PAGE_SIZE },
-            (draft) => {
-              if (draft?.data?.result) {
-                const room = draft.data.result.find((r) => r.roomId === chatRoomId);
-                if (room && room.memberCount) {
-                  room.memberCount -= 1;
-                }
+        if (actorName) {
+          this.dispatch(
+            groupChatApi.util.updateQueryData('getMemberInGroupChat', chatRoomId, (draft) => {
+              if (draft?.data) {
+                draft.data = draft.data.filter((m) => m.fullName !== actorName);
               }
-            },
-          ),
-        );
-      } else if (content.includes('bỏ ghim')) {
+            }),
+          );
+        }
+
+        this.invalidateGroupMembershipState(chatRoomId);
+      } else if (event === MessageEvent.MESSAGE_UNPINNED || content.includes('bỏ ghim')) {
         this.dispatch(
           pinnedMessageApi.util.invalidateTags([{ type: 'PinnedMessage', id: `PINNED_MESSAGE_${chatRoomId}` }]),
         );
       }
       // Detect ROLE_CHANGED
-      else if (content.includes('đã thay đổi vai trò của') && content.includes('thành')) {
+      else if (
+        event === MessageEvent.ROLE_CHANGED ||
+        (content.includes('đã thay đổi vai trò của') && content.includes('thành'))
+      ) {
         // Extract: "{actor} đã thay đổi vai trò của {member} thành {role}"
         const match = content.match(/đã thay đổi vai trò của (.+?) thành (.+?)$/);
-        const memberName = match?.[1];
-        const roleText = match?.[2];
+        const memberName = match?.[1]?.trim();
+        const roleText = match?.[2]?.trim();
 
         const roleMap: Record<string, 'OWNER' | 'MODERATOR' | 'MEMBER'> = {
           'Chủ nhóm': 'OWNER',
@@ -375,63 +381,45 @@ export class WebSocketMessageService {
             }
           }),
         );
+
+        this.dispatch(groupChatApi.util.invalidateTags([{ type: 'ChatMember', id: chatRoomId }]));
       }
       // Detect MEMBER_ADDED
-      else if (content.includes('đã thêm') && content.includes('vào nhóm')) {
-        // Vẫn cần invalidate vì cần fetch thông tin đầy đủ của member mới
-        this.dispatch(groupChatApi.util.invalidateTags([{ type: 'ChatMember', id: chatRoomId }]));
-
-        // Update member count
-        this.dispatch(
-          chatRoomApi.util.updateQueryData(
-            'fetchChatRooms',
-            { page: 1, size: CHAT_ROOM_SIDEBAR_PAGE_SIZE },
-            (draft) => {
-              if (draft?.data?.result) {
-                const room = draft.data.result.find((r) => r.roomId === chatRoomId);
-                if (room) {
-                  room.memberCount = (room.memberCount || 0) + 1;
-                }
-              }
-            },
-          ),
-        );
+      else if (event === MessageEvent.MEMBER_ADDED || (content.includes('đã thêm') && content.includes('vào nhóm'))) {
+        this.invalidateGroupMembershipState(chatRoomId);
       }
       // Detect GROUP_NAME_CHANGED
-      else if (content.includes('đã đổi tên nhóm từ')) {
-        // Extract: "{actor} đã đổi tên nhóm từ "{oldName}" thành "{newName}""
-        const match = content.match(/thành "(.+?)"$/);
-        const newName = match?.[1];
-
+      else if (event === MessageEvent.GROUP_NAME_CHANGED || content.includes('đã đổi tên nhóm từ')) {
         this.dispatch(
-          chatRoomApi.util.updateQueryData(
-            'fetchChatRooms',
-            { page: 1, size: CHAT_ROOM_SIDEBAR_PAGE_SIZE },
-            (draft) => {
-              if (draft?.data?.result && newName) {
-                const room = draft.data.result.find((r) => r.roomId === chatRoomId);
-                if (room) {
-                  room.name = newName;
-                }
-              }
-            },
-          ),
+          chatRoomApi.util.invalidateTags([
+            { type: 'ChatRoom', id: chatRoomId },
+            { type: 'ChatRoom', id: 'LIST' },
+          ]),
         );
       }
       // Detect GROUP_AVATAR_CHANGED
-      else if (content.includes('đã thay đổi ảnh đại diện nhóm')) {
-        // Vẫn cần invalidate vì cần fetch avatar URL mới từ server
-        this.dispatch(chatRoomApi.util.invalidateTags([{ type: 'ChatRoom', id: chatRoomId }]));
+      else if (event === MessageEvent.GROUP_AVATAR_CHANGED || content.includes('đã thay đổi ảnh đại diện nhóm')) {
+        this.dispatch(
+          chatRoomApi.util.invalidateTags([
+            { type: 'ChatRoom', id: chatRoomId },
+            { type: 'ChatRoom', id: 'LIST' },
+          ]),
+        );
       }
       // Detect GROUP_CREATED
-      else if (content.includes('đã tạo nhóm')) {
+      else if (event === MessageEvent.GROUP_CREATED || content.includes('đã tạo nhóm')) {
         // Không cần xử lý gì vì user sẽ được redirect đến room mới
-      } else if (content.includes('đã ghim một tin nhắn')) {
+      } else if (event === MessageEvent.MESSAGE_PINNED || content.includes('đã ghim một tin nhắn')) {
         this.dispatch(
           pinnedMessageApi.util.invalidateTags([{ type: 'PinnedMessage', id: `PINNED_MESSAGE_${chatRoomId}` }]),
         );
-      } else if (content.includes('đã giải tán nhóm')) {
-        this.dispatch(chatRoomApi.util.invalidateTags([{ type: 'ChatRoom', id: chatRoomId }]));
+      } else if (event === MessageEvent.GROUP_DISSOLVED || content.includes('đã giải tán nhóm')) {
+        this.dispatch(
+          chatRoomApi.util.invalidateTags([
+            { type: 'ChatRoom', id: chatRoomId },
+            { type: 'ChatRoom', id: 'LIST' },
+          ]),
+        );
       }
     } catch (error) {
       console.error('Failed to parse system message:', error);
