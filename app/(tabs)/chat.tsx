@@ -142,7 +142,10 @@ export default function ChatListScreen() {
             </TouchableOpacity>
           )}
         </View>
-        <TouchableOpacity style={styles.headerIconBtn}>
+        <TouchableOpacity 
+          style={styles.headerIconBtn}
+          onPress={() => router.push("/chat/create-group")}
+        >
           <MessageSquarePlus size={24} color="#fff" />
         </TouchableOpacity>
       </View>
