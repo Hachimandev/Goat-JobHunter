@@ -36,7 +36,6 @@ import iuh.fit.goat.repository.UserRelationshipRepository;
 import iuh.fit.goat.repository.UserRepository;
 import iuh.fit.goat.service.ChatMemberService;
 import iuh.fit.goat.service.MessageService;
-import iuh.fit.goat.service.RedisService;
 import iuh.fit.goat.service.StorageService;
 import iuh.fit.goat.util.MessageHelper;
 import iuh.fit.goat.util.MessageMapper;
@@ -53,7 +52,6 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.time.Instant;
 import java.util.*;
-import java.util.concurrent.TimeUnit;
 import java.util.function.Predicate;
 
 @Service
@@ -61,7 +59,6 @@ import java.util.function.Predicate;
 @RequiredArgsConstructor
 public class MessageServiceImpl implements MessageService {
     private final StorageService storageService;
-    private final RedisService redisService;
 
     private final MessageHiddenRepository messageHiddenRepository;
     private final MessageRepository messageRepository;
@@ -86,18 +83,9 @@ public class MessageServiceImpl implements MessageService {
     private static final int SEARCH_SCAN_LIMIT = 3000;
     private static final int MESSAGE_BATCH_QUERY_SIZE = 100;
     private static final int MAX_SEARCH_TOP_UP_ROUNDS = 2;
-    private static final String CURSOR_CACHE_PREFIX = "chat:pagination:cursor";
-    private static final String TOTAL_CACHE_PREFIX = "chat:pagination:total";
-    private static final String CURSOR_END_MARKER = "__END__";
 
     @Value("${chat.pagination.cursor.enabled:true}")
     private boolean cursorBasedPaginationEnabled;
-
-    @Value("${chat.pagination.cursor.page-cache-ttl-seconds:900}")
-    private long cursorPageCacheTtlSeconds;
-
-    @Value("${chat.pagination.cursor.total-cache-ttl-seconds:60}")
-    private long totalCacheTtlSeconds;
 
     @Value("${chat.pagination.cursor.max-page-size:50}")
     private int maxCursorPageSize;
@@ -1034,13 +1022,11 @@ public class MessageServiceImpl implements MessageService {
             );
         }
 
-        String normalizedEndpointType = normalizeEndpointType(endpointType);
         Long currentAccountId = currentAccount.getAccountId();
 
         CursorResolution cursorResolution = resolvePageStartCursor(
                 chatRoomId,
                 currentAccountId,
-                normalizedEndpointType,
                 pageSize,
                 pageNumber,
                 includeGloballyHidden,
@@ -1064,14 +1050,6 @@ public class MessageServiceImpl implements MessageService {
 
             pageMessages = pageSlice.messages();
             hasMore = pageSlice.hasMore();
-            cachePageStartCursor(
-                    currentAccountId,
-                    chatRoomId,
-                    normalizedEndpointType,
-                    pageSize,
-                    pageNumber + 1,
-                    pageSlice.nextCursor()
-            );
         }
 
         if (updateLastReadMessage) {
@@ -1083,7 +1061,7 @@ public class MessageServiceImpl implements MessageService {
                 ? resolveAndCacheTotalForEndPage(
                         currentAccountId,
                         chatRoomId,
-                        normalizedEndpointType,
+                    endpointType,
                         pageSize,
                         pageNumber,
                         cursorResolution.exactTotalWhenEnd()
@@ -1091,7 +1069,7 @@ public class MessageServiceImpl implements MessageService {
                 : resolveAndCacheTotal(
                         currentAccountId,
                         chatRoomId,
-                        normalizedEndpointType,
+                    endpointType,
                         pageSize,
                         pageNumber,
                         pageMessages.size(),
@@ -1226,7 +1204,6 @@ public class MessageServiceImpl implements MessageService {
     private CursorResolution resolvePageStartCursor(
             Long chatRoomId,
             Long accountId,
-            String endpointType,
             int pageSize,
             int pageNumber,
             boolean includeGloballyHidden,
@@ -1236,40 +1213,8 @@ public class MessageServiceImpl implements MessageService {
             return new CursorResolution(null, false, null);
         }
 
-        String cachedCursorForPage = getCachedPageStartCursor(accountId, chatRoomId, endpointType, pageSize, pageNumber);
-        if (cachedCursorForPage != null) {
-            if (CURSOR_END_MARKER.equals(cachedCursorForPage)) {
-                return new CursorResolution(null, true, null);
-            }
-            return new CursorResolution(cachedCursorForPage, false, null);
-        }
-
-        int knownPage = 0;
-        String knownCursor = null;
-        for (int candidatePage = pageNumber - 1; candidatePage > 0; candidatePage--) {
-            String candidateCursor = getCachedPageStartCursor(
-                    accountId,
-                    chatRoomId,
-                    endpointType,
-                    pageSize,
-                    candidatePage
-            );
-            if (candidateCursor == null) {
-                continue;
-            }
-
-            if (CURSOR_END_MARKER.equals(candidateCursor)) {
-                cachePageStartCursor(accountId, chatRoomId, endpointType, pageSize, pageNumber, null);
-                return new CursorResolution(null, true, null);
-            }
-
-            knownPage = candidatePage;
-            knownCursor = candidateCursor;
-            break;
-        }
-
-        String cursor = knownCursor;
-        for (int currentPage = knownPage; currentPage < pageNumber; currentPage++) {
+        String cursor = null;
+        for (int currentPage = 0; currentPage < pageNumber; currentPage++) {
             FilteredPageSlice pageSlice = fetchFilteredPageSlice(
                     chatRoomId.toString(),
                     cursor,
@@ -1280,15 +1225,6 @@ public class MessageServiceImpl implements MessageService {
             );
 
             String nextPageCursor = pageSlice.nextCursor();
-            cachePageStartCursor(
-                    accountId,
-                    chatRoomId,
-                    endpointType,
-                    pageSize,
-                    currentPage + 1,
-                    nextPageCursor
-            );
-
             if (nextPageCursor == null) {
                 long exactTotal = (long) currentPage * pageSize + pageSlice.messages().size();
                 return new CursorResolution(null, true, exactTotal);
@@ -1300,93 +1236,6 @@ public class MessageServiceImpl implements MessageService {
         return new CursorResolution(cursor, false, null);
     }
 
-    private String normalizeEndpointType(String endpointType) {
-        if (endpointType == null || endpointType.isBlank()) {
-            return "messages";
-        }
-
-        return endpointType.trim().toLowerCase(Locale.ROOT);
-    }
-
-    private String buildCursorPageCacheKey(
-            Long accountId,
-            Long chatRoomId,
-            String endpointType,
-            int pageSize,
-            int pageNumber
-    ) {
-        return CURSOR_CACHE_PREFIX
-                + ":" + accountId
-                + ":" + chatRoomId
-                + ":" + endpointType
-                + ":" + pageSize
-                + ":" + pageNumber;
-    }
-
-    private String buildTotalCacheKey(Long accountId, Long chatRoomId, String endpointType, int pageSize) {
-        return TOTAL_CACHE_PREFIX
-                + ":" + accountId
-                + ":" + chatRoomId
-                + ":" + endpointType
-                + ":" + pageSize;
-    }
-
-    private String getCachedPageStartCursor(
-            Long accountId,
-            Long chatRoomId,
-            String endpointType,
-            int pageSize,
-            int pageNumber
-    ) {
-        String cacheKey = buildCursorPageCacheKey(accountId, chatRoomId, endpointType, pageSize, pageNumber);
-        if (!this.redisService.hasKey(cacheKey)) {
-            return null;
-        }
-
-        String value = this.redisService.getValue(cacheKey);
-        if (value == null || value.isBlank()) {
-            return null;
-        }
-
-        return value;
-    }
-
-    private void cachePageStartCursor(
-            Long accountId,
-            Long chatRoomId,
-            String endpointType,
-            int pageSize,
-            int pageNumber,
-            String cursor
-    ) {
-        String cacheKey = buildCursorPageCacheKey(accountId, chatRoomId, endpointType, pageSize, pageNumber);
-        String value = (cursor == null || cursor.isBlank()) ? CURSOR_END_MARKER : cursor;
-        long ttl = Math.max(cursorPageCacheTtlSeconds, 1L);
-        this.redisService.saveWithTTL(cacheKey, value, ttl, TimeUnit.SECONDS);
-    }
-
-    private Long getCachedTotal(String cacheKey) {
-        if (!this.redisService.hasKey(cacheKey)) {
-            return null;
-        }
-
-        String value = this.redisService.getValue(cacheKey);
-        if (value == null || value.isBlank()) {
-            return null;
-        }
-
-        try {
-            return Long.parseLong(value);
-        } catch (NumberFormatException e) {
-            return null;
-        }
-    }
-
-    private void cacheTotal(String cacheKey, long total) {
-        long ttl = Math.max(totalCacheTtlSeconds, 1L);
-        this.redisService.saveWithTTL(cacheKey, String.valueOf(Math.max(total, 0L)), ttl, TimeUnit.SECONDS);
-    }
-
     private long resolveAndCacheTotal(
             Long accountId,
             Long chatRoomId,
@@ -1396,22 +1245,13 @@ public class MessageServiceImpl implements MessageService {
             int currentPageItemCount,
             boolean hasMore
     ) {
-        String totalCacheKey = buildTotalCacheKey(accountId, chatRoomId, endpointType, pageSize);
-        Long cachedTotal = getCachedTotal(totalCacheKey);
-
         long lowerBound = (long) pageNumber * pageSize + currentPageItemCount;
-        long resolvedTotal;
-
-        if (hasMore) {
-            long minimumForNextPage = ((long) pageNumber + 1) * pageSize + 1;
-            long candidate = Math.max(lowerBound, minimumForNextPage);
-            resolvedTotal = cachedTotal != null ? Math.max(cachedTotal, candidate) : candidate;
-        } else {
-            resolvedTotal = lowerBound;
+        if (!hasMore) {
+            return lowerBound;
         }
 
-        cacheTotal(totalCacheKey, resolvedTotal);
-        return resolvedTotal;
+        long minimumForNextPage = ((long) pageNumber + 1) * pageSize + 1;
+        return Math.max(lowerBound, minimumForNextPage);
     }
 
     private long resolveAndCacheTotalForEndPage(
@@ -1422,33 +1262,15 @@ public class MessageServiceImpl implements MessageService {
             int pageNumber,
             Long exactTotalWhenEnd
     ) {
-        String totalCacheKey = buildTotalCacheKey(accountId, chatRoomId, endpointType, pageSize);
         if (exactTotalWhenEnd != null) {
-            cacheTotal(totalCacheKey, exactTotalWhenEnd);
             return exactTotalWhenEnd;
         }
 
-        Long cachedTotal = getCachedTotal(totalCacheKey);
-        if (cachedTotal != null) {
-            return cachedTotal;
-        }
-
-        long fallbackTotal = (long) pageNumber * pageSize;
-        cacheTotal(totalCacheKey, fallbackTotal);
-        return fallbackTotal;
+        return Math.max((long) pageNumber * pageSize, 0L);
     }
 
     private void invalidatePaginationCaches(String chatRoomId) {
-        if (chatRoomId == null || chatRoomId.isBlank()) {
-            return;
-        }
-
-        try {
-            this.redisService.deleteByPattern(CURSOR_CACHE_PREFIX + ":*:" + chatRoomId + ":*");
-            this.redisService.deleteByPattern(TOTAL_CACHE_PREFIX + ":*:" + chatRoomId + ":*");
-        } catch (Exception e) {
-            log.warn("Failed to invalidate pagination cache for chatRoomId={}", chatRoomId, e);
-        }
+        // Redis-backed pagination cache has been removed.
     }
 
     private record FilteredPageSlice(List<Message> messages, String nextCursor, boolean hasMore) {
