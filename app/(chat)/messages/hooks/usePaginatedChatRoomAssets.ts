@@ -7,9 +7,10 @@ import {
   useLazyFetchFilesInChatRoomQuery,
   useLazyFetchMediaInChatRoomQuery,
 } from '@/services/chatRoom/chatRoomApi';
-import type { FetchChatRoomAssetsRequest, FetchMessagesInChatRoomResponse } from '@/services/chatRoom/chatRoomType';
+import type { FetchChatRoomAssetsRequest } from '@/services/chatRoom/chatRoomType';
 import type { MessageResponse } from '@/types/model';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { getPaginatedResult, getPaginatedTotalPages, useLoadMorePaginationState } from './paginationHelpers';
 
 type ChatRoomAssetType = 'media' | 'files';
 
@@ -27,14 +28,6 @@ type UsePaginatedChatRoomAssetsResult = {
   isFetchingNext: boolean;
   isError: boolean;
   loadMore: () => Promise<void>;
-};
-
-const getAssetBatch = (response?: FetchMessagesInChatRoomResponse): MessageResponse[] => {
-  return response?.data?.result || [];
-};
-
-const getTotalPages = (response?: FetchMessagesInChatRoomResponse): number => {
-  return response?.data?.meta?.pages || 1;
 };
 
 const mergeUniqueAssets = (messages: MessageResponse[]): MessageResponse[] => {
@@ -57,13 +50,17 @@ export function usePaginatedChatRoomAssets({
   const shouldSkip = !enabled || chatRoomId === null || Number.isNaN(chatRoomId);
 
   const [olderAssets, setOlderAssets] = useState<MessageResponse[]>([]);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [hasMore, setHasMore] = useState(false);
-  const [isFetchingNext, setIsFetchingNext] = useState(false);
-
-  const requestedPagesRef = useRef<Set<number>>(new Set([1]));
-  const requestInFlightRef = useRef(false);
-  const currentPageRef = useRef(1);
+  const {
+    currentPage,
+    hasMore,
+    isFetchingNext,
+    resetPagination,
+    syncHasMoreFromTotalPages,
+    startNextPageFetch,
+    completeNextPageFetch,
+    cancelNextPageFetch,
+    finishNextPageFetch,
+  } = useLoadMorePaginationState();
 
   const filesPageOneQuery = useFetchFilesInChatRoomQuery(
     {
@@ -93,18 +90,12 @@ export function usePaginatedChatRoomAssets({
   const activePageOneQuery = assetType === 'media' ? mediaPageOneQuery : filesPageOneQuery;
 
   useEffect(() => {
-    requestedPagesRef.current = new Set([1]);
-    requestInFlightRef.current = false;
-    currentPageRef.current = 1;
-
-    setCurrentPage(1);
-    setHasMore(false);
+    resetPagination();
     setOlderAssets([]);
-    setIsFetchingNext(false);
-  }, [assetType, chatRoomId, enabled]);
+  }, [assetType, chatRoomId, enabled, resetPagination]);
 
   const liveAssets = useMemo(() => {
-    return getAssetBatch(activePageOneQuery.data);
+    return getPaginatedResult(activePageOneQuery.data);
   }, [activePageOneQuery.data]);
 
   const assets = useMemo(() => {
@@ -116,24 +107,18 @@ export function usePaginatedChatRoomAssets({
       return;
     }
 
-    const totalPages = getTotalPages(activePageOneQuery.data);
-    setHasMore(currentPageRef.current < totalPages);
-  }, [activePageOneQuery.data, shouldSkip]);
+    syncHasMoreFromTotalPages(getPaginatedTotalPages(activePageOneQuery.data));
+  }, [activePageOneQuery.data, shouldSkip, syncHasMoreFromTotalPages]);
 
   const loadMore = useCallback(async () => {
-    if (shouldSkip || !chatRoomId || !hasMore || requestInFlightRef.current) {
+    if (shouldSkip || !chatRoomId) {
       return;
     }
 
-    const nextPage = currentPageRef.current + 1;
-
-    if (requestedPagesRef.current.has(nextPage)) {
+    const nextPage = startNextPageFetch({ shouldSkip });
+    if (nextPage === null) {
       return;
     }
-
-    requestedPagesRef.current.add(nextPage);
-    requestInFlightRef.current = true;
-    setIsFetchingNext(true);
 
     const nextQueryArgs: FetchChatRoomAssetsRequest = {
       chatRoomId,
@@ -147,23 +132,30 @@ export function usePaginatedChatRoomAssets({
           ? await triggerFetchMedia(nextQueryArgs, true).unwrap()
           : await triggerFetchFiles(nextQueryArgs, true).unwrap();
 
-      const nextBatch = getAssetBatch(response);
+      const nextBatch = getPaginatedResult(response);
 
       if (nextBatch.length > 0) {
         setOlderAssets((previousAssets) => mergeUniqueAssets([...previousAssets, ...nextBatch]));
       }
 
-      setCurrentPage(nextPage);
-      currentPageRef.current = nextPage;
-      setHasMore(nextPage < getTotalPages(response));
+      completeNextPageFetch(nextPage, getPaginatedTotalPages(response));
     } catch (error) {
-      requestedPagesRef.current.delete(nextPage);
+      cancelNextPageFetch(nextPage);
       console.error(`Failed to load ${assetType} page in chat detail panel:`, error);
     } finally {
-      requestInFlightRef.current = false;
-      setIsFetchingNext(false);
+      finishNextPageFetch();
     }
-  }, [assetType, chatRoomId, hasMore, shouldSkip, triggerFetchFiles, triggerFetchMedia]);
+  }, [
+    assetType,
+    cancelNextPageFetch,
+    chatRoomId,
+    completeNextPageFetch,
+    finishNextPageFetch,
+    shouldSkip,
+    startNextPageFetch,
+    triggerFetchFiles,
+    triggerFetchMedia,
+  ]);
 
   return {
     assets,

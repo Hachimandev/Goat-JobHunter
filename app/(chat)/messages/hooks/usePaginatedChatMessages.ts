@@ -2,9 +2,9 @@
 
 import { CHAT_MESSAGE_PAGE_SIZE } from '@/constants/constant';
 import { useFetchMessagesInChatRoomQuery, useLazyFetchMessagesInChatRoomQuery } from '@/services/chatRoom/chatRoomApi';
-import type { FetchMessagesInChatRoomResponse } from '@/services/chatRoom/chatRoomType';
 import type { MessageResponse } from '@/types/model';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { getPaginatedResult, getPaginatedTotalPages, useLoadMorePaginationState } from './paginationHelpers';
 
 type UsePaginatedChatMessagesResult = {
   messages: MessageResponse[];
@@ -15,14 +15,6 @@ type UsePaginatedChatMessagesResult = {
   isFetchingPageOne: boolean;
   isErrorInitialMessages: boolean;
   loadOlderMessages: () => Promise<void>;
-};
-
-const getMessageBatch = (response?: FetchMessagesInChatRoomResponse): MessageResponse[] => {
-  return response?.data?.result || [];
-};
-
-const getTotalPages = (response?: FetchMessagesInChatRoomResponse): number => {
-  return response?.data?.meta?.pages || 1;
 };
 
 const deduplicateAndSortMessages = (messages: MessageResponse[]): MessageResponse[] => {
@@ -41,13 +33,17 @@ export function usePaginatedChatMessages(chatRoomId: number | null): UsePaginate
   const shouldSkip = chatRoomId === null || Number.isNaN(chatRoomId);
 
   const [olderMessages, setOlderMessages] = useState<MessageResponse[]>([]);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [hasOlderMessages, setHasOlderMessages] = useState(false);
-  const [isLoadingOlderMessages, setIsLoadingOlderMessages] = useState(false);
-
-  const requestedPagesRef = useRef<Set<number>>(new Set([1]));
-  const requestInFlightRef = useRef(false);
-  const currentPageRef = useRef(1);
+  const {
+    currentPage,
+    hasMore: hasOlderMessages,
+    isFetchingNext: isLoadingOlderMessages,
+    resetPagination,
+    syncHasMoreFromTotalPages,
+    startNextPageFetch,
+    completeNextPageFetch,
+    cancelNextPageFetch,
+    finishNextPageFetch,
+  } = useLoadMorePaginationState();
 
   const {
     data: pageOneData,
@@ -68,18 +64,12 @@ export function usePaginatedChatMessages(chatRoomId: number | null): UsePaginate
   const [triggerFetchMessages] = useLazyFetchMessagesInChatRoomQuery();
 
   useEffect(() => {
-    requestedPagesRef.current = new Set([1]);
-    requestInFlightRef.current = false;
-    currentPageRef.current = 1;
-
-    setCurrentPage(1);
+    resetPagination();
     setOlderMessages([]);
-    setHasOlderMessages(false);
-    setIsLoadingOlderMessages(false);
-  }, [chatRoomId]);
+  }, [chatRoomId, resetPagination]);
 
   const liveMessages = useMemo(() => {
-    return deduplicateAndSortMessages(getMessageBatch(pageOneData));
+    return deduplicateAndSortMessages(getPaginatedResult(pageOneData));
   }, [pageOneData]);
 
   useEffect(() => {
@@ -87,28 +77,22 @@ export function usePaginatedChatMessages(chatRoomId: number | null): UsePaginate
       return;
     }
 
-    const totalPages = getTotalPages(pageOneData);
-    setHasOlderMessages(currentPageRef.current < totalPages);
-  }, [pageOneData]);
+    syncHasMoreFromTotalPages(getPaginatedTotalPages(pageOneData));
+  }, [pageOneData, syncHasMoreFromTotalPages]);
 
   const messages = useMemo(() => {
     return deduplicateAndSortMessages([...olderMessages, ...liveMessages]);
   }, [olderMessages, liveMessages]);
 
   const loadOlderMessages = useCallback(async () => {
-    if (shouldSkip || !chatRoomId || !hasOlderMessages || requestInFlightRef.current) {
+    if (shouldSkip || !chatRoomId) {
       return;
     }
 
-    const nextPage = currentPageRef.current + 1;
-
-    if (requestedPagesRef.current.has(nextPage)) {
+    const nextPage = startNextPageFetch({ shouldSkip });
+    if (nextPage === null) {
       return;
     }
-
-    requestedPagesRef.current.add(nextPage);
-    requestInFlightRef.current = true;
-    setIsLoadingOlderMessages(true);
 
     try {
       const response = await triggerFetchMessages(
@@ -120,25 +104,28 @@ export function usePaginatedChatMessages(chatRoomId: number | null): UsePaginate
         true,
       ).unwrap();
 
-      const nextBatch = getMessageBatch(response);
+      const nextBatch = getPaginatedResult(response);
 
       if (nextBatch.length > 0) {
         setOlderMessages((previousMessages) => deduplicateAndSortMessages([...nextBatch, ...previousMessages]));
       }
 
-      setCurrentPage(nextPage);
-      currentPageRef.current = nextPage;
-
-      const totalPages = getTotalPages(response);
-      setHasOlderMessages(nextPage < totalPages);
+      completeNextPageFetch(nextPage, getPaginatedTotalPages(response));
     } catch (error) {
-      requestedPagesRef.current.delete(nextPage);
+      cancelNextPageFetch(nextPage);
       console.error('Failed to load older chat messages:', error);
     } finally {
-      requestInFlightRef.current = false;
-      setIsLoadingOlderMessages(false);
+      finishNextPageFetch();
     }
-  }, [chatRoomId, hasOlderMessages, shouldSkip, triggerFetchMessages]);
+  }, [
+    cancelNextPageFetch,
+    chatRoomId,
+    completeNextPageFetch,
+    finishNextPageFetch,
+    shouldSkip,
+    startNextPageFetch,
+    triggerFetchMessages,
+  ]);
 
   return {
     messages,

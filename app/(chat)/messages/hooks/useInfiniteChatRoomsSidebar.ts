@@ -9,7 +9,8 @@ import {
 } from '@/services/chatRoom/chatRoomApi';
 import type { CountUnreadMessagesResponse, FetchChatRoomsResponse } from '@/services/chatRoom/chatRoomType';
 import type { ChatRoom } from '@/types/model';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { getPaginatedResult, getPaginatedTotalPages, useLoadMorePaginationState } from './paginationHelpers';
 
 type UseInfiniteChatRoomsSidebarOptions = {
   isSignedIn?: boolean;
@@ -30,11 +31,7 @@ type UseInfiniteChatRoomsSidebarResult = {
 };
 
 const getChatRoomsBatch = (response?: FetchChatRoomsResponse): ChatRoom[] => {
-  return response?.data?.result || [];
-};
-
-const getTotalPages = (response?: FetchChatRoomsResponse): number => {
-  return response?.data?.meta?.pages || 1;
+  return getPaginatedResult(response);
 };
 
 const getUnreadCountsMap = (response?: CountUnreadMessagesResponse): Map<number, number> => {
@@ -71,12 +68,16 @@ export function useInfiniteChatRoomsSidebar(
 
   const [olderChatRooms, setOlderChatRooms] = useState<ChatRoom[]>([]);
   const [olderUnreadCountsMap, setOlderUnreadCountsMap] = useState<Map<number, number>>(new Map());
-  const [hasMore, setHasMore] = useState(false);
-  const [isFetchingNext, setIsFetchingNext] = useState(false);
-
-  const requestedPagesRef = useRef<Set<number>>(new Set([1]));
-  const requestInFlightRef = useRef(false);
-  const currentPageRef = useRef(1);
+  const {
+    hasMore,
+    isFetchingNext,
+    resetPagination,
+    syncHasMoreFromTotalPages,
+    startNextPageFetch,
+    completeNextPageFetch,
+    cancelNextPageFetch,
+    finishNextPageFetch,
+  } = useLoadMorePaginationState();
 
   const {
     data: pageOneChatRoomsResponse,
@@ -108,15 +109,10 @@ export function useInfiniteChatRoomsSidebar(
   const [triggerFetchUnreadCounts] = useLazyCountUnreadMessagesByCurrentAccountQuery();
 
   useEffect(() => {
-    requestedPagesRef.current = new Set([1]);
-    requestInFlightRef.current = false;
-    currentPageRef.current = 1;
-
-    setHasMore(false);
+    resetPagination();
     setOlderChatRooms([]);
     setOlderUnreadCountsMap(new Map());
-    setIsFetchingNext(false);
-  }, [accountId, isSignedIn]);
+  }, [accountId, isSignedIn, resetPagination]);
 
   const liveChatRooms = useMemo(() => getChatRoomsBatch(pageOneChatRoomsResponse), [pageOneChatRoomsResponse]);
   const liveUnreadCountsMap = useMemo(
@@ -141,23 +137,18 @@ export function useInfiniteChatRoomsSidebar(
       return;
     }
 
-    setHasMore(currentPageRef.current < getTotalPages(pageOneChatRoomsResponse));
-  }, [pageOneChatRoomsResponse, shouldSkip]);
+    syncHasMoreFromTotalPages(getPaginatedTotalPages(pageOneChatRoomsResponse));
+  }, [pageOneChatRoomsResponse, shouldSkip, syncHasMoreFromTotalPages]);
 
   const loadMoreChatRooms = useCallback(async () => {
-    if (shouldSkip || !hasMore || requestInFlightRef.current) {
+    if (shouldSkip) {
       return;
     }
 
-    const nextPage = currentPageRef.current + 1;
-
-    if (requestedPagesRef.current.has(nextPage)) {
+    const nextPage = startNextPageFetch({ shouldSkip });
+    if (nextPage === null) {
       return;
     }
-
-    requestedPagesRef.current.add(nextPage);
-    requestInFlightRef.current = true;
-    setIsFetchingNext(true);
 
     try {
       const nextPageChatRoomsResponse = await triggerFetchChatRooms(
@@ -200,16 +191,22 @@ export function useInfiniteChatRoomsSidebar(
         console.error('Failed to load unread counts for sidebar page:', error);
       }
 
-      currentPageRef.current = nextPage;
-      setHasMore(nextPage < getTotalPages(nextPageChatRoomsResponse));
+      completeNextPageFetch(nextPage, getPaginatedTotalPages(nextPageChatRoomsResponse));
     } catch (error) {
-      requestedPagesRef.current.delete(nextPage);
+      cancelNextPageFetch(nextPage);
       console.error('Failed to load next sidebar chat rooms page:', error);
     } finally {
-      requestInFlightRef.current = false;
-      setIsFetchingNext(false);
+      finishNextPageFetch();
     }
-  }, [hasMore, shouldSkip, triggerFetchChatRooms, triggerFetchUnreadCounts]);
+  }, [
+    cancelNextPageFetch,
+    completeNextPageFetch,
+    finishNextPageFetch,
+    shouldSkip,
+    startNextPageFetch,
+    triggerFetchChatRooms,
+    triggerFetchUnreadCounts,
+  ]);
 
   const refetch = useCallback(async () => {
     return await refetchPageOneChatRooms();
