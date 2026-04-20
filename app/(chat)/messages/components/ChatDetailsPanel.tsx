@@ -2,14 +2,11 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ChatRoom } from '@/types/model';
 import { ChatRoomType } from '@/types/enum';
 import { Bell, Loader2, ShieldBan, Undo2, UserCircle, X, Users } from 'lucide-react';
-import { SharedMediaGrid } from './SharedMediaGrid';
-import { SharedFilesList } from './SharedFilesList';
 import useFriendActions from '@/hooks/useFriendActions';
-import { usePaginatedChatRoomAssets } from '@/app/(chat)/messages/hooks/usePaginatedChatRoomAssets';
+import AssetTabSection from '@/app/(chat)/messages/components/AssetTabSection';
 
 interface ChatDetailsPanelProps {
   chatRoom: ChatRoom;
@@ -24,32 +21,6 @@ export function ChatDetailsPanel({
   onClose,
   onRelationshipChanged,
 }: Readonly<ChatDetailsPanelProps>) {
-  const {
-    assets: media,
-    isLoadingInitial: isLoadingMedia,
-    isError: isErrorMedia,
-    hasMore: hasMoreMedia,
-    isFetchingNext: isFetchingNextMedia,
-    loadMore: loadMoreMedia,
-  } = usePaginatedChatRoomAssets({
-    chatRoomId: chatRoom?.roomId ?? null,
-    assetType: 'media',
-    enabled: isOpen && Boolean(chatRoom),
-  });
-
-  const {
-    assets: files,
-    isLoadingInitial: isLoadingFile,
-    isError: isErrorFile,
-    hasMore: hasMoreFile,
-    isFetchingNext: isFetchingNextFile,
-    loadMore: loadMoreFile,
-  } = usePaginatedChatRoomAssets({
-    chatRoomId: chatRoom?.roomId ?? null,
-    assetType: 'files',
-    enabled: isOpen && Boolean(chatRoom),
-  });
-
   const { handleBlockUser, handleUnblockUser, isMutating } = useFriendActions();
 
   if (!isOpen) return null;
@@ -137,36 +108,7 @@ export function ChatDetailsPanel({
 
           <Separator />
 
-          <Tabs defaultValue="media" className="w-full">
-            <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger className="cursor-pointer" value="media">
-                Phương tiện
-              </TabsTrigger>
-              <TabsTrigger className="cursor-pointer" value="files">
-                Files
-              </TabsTrigger>
-            </TabsList>
-            <TabsContent value="media" className="mt-4">
-              <SharedMediaGrid
-                media={media}
-                isLoading={isLoadingMedia}
-                isError={isErrorMedia}
-                hasMore={hasMoreMedia}
-                isFetchingNext={isFetchingNextMedia}
-                onLoadMore={loadMoreMedia}
-              />
-            </TabsContent>
-            <TabsContent value="files" className="mt-4">
-              <SharedFilesList
-                files={files}
-                isLoading={isLoadingFile}
-                isError={isErrorFile}
-                hasMore={hasMoreFile}
-                isFetchingNext={isFetchingNextFile}
-                onLoadMore={loadMoreFile}
-              />
-            </TabsContent>
-          </Tabs>
+          <AssetTabSection isDetailPanelOpen={isOpen} chatRoom={chatRoom} />
         </div>
       </ScrollArea>
     </div>

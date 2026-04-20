@@ -512,7 +512,7 @@ export function MessageBubble({
         description="Tin nhắn sẽ bị xóa vĩnh viễn và không thể khôi phục."
         confirmText="Xóa"
         cancelText="Hủy"
-        confirmBtnClass="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+        confirmBtnClass="bg-destructive hover:bg-destructive/90"
         disableCancel={isDeleting}
         disableConfirm={disableDeleteAction}
         isLoading={isDeleting}
