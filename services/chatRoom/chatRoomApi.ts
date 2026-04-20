@@ -99,7 +99,7 @@ export const chatRoomApi = api.injectEndpoints({
     }),
 
     // Send message to a existed chat room
-    sendMessageToChatRoom: builder.mutation<FetchMessagesInChatRoomResponse, SendMessageToChatRoomRequest>({
+    sendMessageToChatRoom: builder.mutation<IBackendRes<MessageResponse[]>, SendMessageToChatRoomRequest>({
       query: ({ chatRoomId, content, files, replyToMessageId }) => {
         const formData = new FormData();
         const normalizedContent = content?.trim();
@@ -145,7 +145,7 @@ export const chatRoomApi = api.injectEndpoints({
 
           dispatch(
             chatRoomApi.util.updateQueryData('fetchMessagesInChatRoom', { chatRoomId, page: 1, size: 50 }, (draft) => {
-              const draftMessages = draft?.data;
+              const draftMessages = draft?.data?.result;
 
               if (!draftMessages) {
                 return;
@@ -197,7 +197,7 @@ export const chatRoomApi = api.injectEndpoints({
       },
     }),
 
-    sendContactCardsToChatRoom: builder.mutation<FetchMessagesInChatRoomResponse, SendContactCardsToChatRoomRequest>({
+    sendContactCardsToChatRoom: builder.mutation<IBackendRes<MessageResponse[]>, SendContactCardsToChatRoomRequest>({
       query: ({ chatRoomId, userIds }) => ({
         url: `/chatrooms/${chatRoomId}/messages/contact`,
         method: 'POST',
@@ -216,7 +216,7 @@ export const chatRoomApi = api.injectEndpoints({
 
           dispatch(
             chatRoomApi.util.updateQueryData('fetchMessagesInChatRoom', { chatRoomId, page: 1, size: 50 }, (draft) => {
-              const draftMessages = draft?.data;
+              const draftMessages = draft?.data?.result;
 
               if (!draftMessages) {
                 return;
@@ -346,8 +346,8 @@ export const chatRoomApi = api.injectEndpoints({
             chatRoomApi.util.updateQueryData('fetchMessagesInChatRoom', { chatRoomId, page: 1, size: 50 }, (draft) => {
               if (!draft?.data) return;
 
-              cascadeReplyContextForDeletedMessage(draft.data, messageId);
-              draft.data = draft.data.filter((message) => message.messageId !== messageId);
+              cascadeReplyContextForDeletedMessage(draft.data.result, messageId);
+              draft.data.result = draft.data.result.filter((message) => message.messageId !== messageId);
             }),
           );
 
@@ -432,11 +432,11 @@ export const chatRoomApi = api.injectEndpoints({
                   'fetchMessagesInChatRoom',
                   originalArgs as FetchMessagesInChatRoomRequest,
                   (draft) => {
-                    if (!draft?.data) {
+                    if (!draft?.data?.result) {
                       return;
                     }
 
-                    draft.data = draft.data.filter((message) => message.messageId !== messageId);
+                    draft.data.result = draft.data.result.filter((message) => message.messageId !== messageId);
                   },
                 ),
               ),
@@ -452,11 +452,11 @@ export const chatRoomApi = api.injectEndpoints({
                   'fetchFilesInChatRoom',
                   originalArgs as { chatRoomId: number; page?: number },
                   (draft) => {
-                    if (!draft?.data) {
+                    if (!draft?.data?.result) {
                       return;
                     }
 
-                    draft.data = draft.data.filter((message) => message.messageId !== messageId);
+                    draft.data.result = draft.data.result.filter((message) => message.messageId !== messageId);
                   },
                 ),
               ),
@@ -472,11 +472,11 @@ export const chatRoomApi = api.injectEndpoints({
                   'fetchMediaInChatRoom',
                   originalArgs as { chatRoomId: number; page?: number },
                   (draft) => {
-                    if (!draft?.data) {
+                    if (!draft?.data?.result) {
                       return;
                     }
 
-                    draft.data = draft.data.filter((message) => message.messageId !== messageId);
+                    draft.data.result = draft.data.result.filter((message) => message.messageId !== messageId);
                   },
                 ),
               ),
@@ -520,16 +520,16 @@ export const chatRoomApi = api.injectEndpoints({
 
           dispatch(
             chatRoomApi.util.updateQueryData('fetchMessagesInChatRoom', { chatRoomId, page: 1, size: 50 }, (draft) => {
-              if (!draft?.data) return;
+              if (!draft?.data?.result) return;
 
-              const recalledMessage = draft.data.find((message) => message.messageId === messageId);
+              const recalledMessage = draft.data.result.find((message) => message.messageId === messageId);
 
               if (recalledMessage) {
                 recalledMessage.isHidden = true;
                 recalledMessage.content = 'Tin nhắn đã được thu hồi';
               }
 
-              cascadeReplyContextForRecalledMessage(draft.data, messageId);
+              cascadeReplyContextForRecalledMessage(draft.data.result, messageId);
             }),
           );
 

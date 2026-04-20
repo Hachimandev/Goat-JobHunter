@@ -21,7 +21,7 @@ export type SearchMessagesInChatRoomRequest = {
 
 export type FetchChatRoomsResponse = IBackendRes<IModelPaginate<ChatRoom>>;
 
-export type FetchMessagesInChatRoomResponse = IBackendRes<MessageResponse[]>;
+export type FetchMessagesInChatRoomResponse = IBackendRes<IModelPaginate<MessageResponse>>;
 
 export type SendMessageToChatRoomRequest = {
   chatRoomId: number;
