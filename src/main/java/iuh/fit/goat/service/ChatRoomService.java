@@ -18,7 +18,8 @@ public interface ChatRoomService {
 
     ChatRoomResponse getDetailChatRoomInformation(Account currentAccount, Long chatRoomId) throws InvalidException;
 
-    List<Message> getMessagesInChatRoom(Account account, Long chatRoomId, Pageable pageable) throws InvalidException;
+    ResultPaginationResponse getMessagesInChatRoom(Account account, Long chatRoomId, Pageable pageable)
+            throws InvalidException;
 
     ResultPaginationResponse searchMessagesInChatRoom(
             Account account,
@@ -37,9 +38,11 @@ public interface ChatRoomService {
 
     ChatRoom existsDirectChatRoom(Long currentUserId, Long otherUserId);
 
-    List<Message> getMediaMessagesInChatRoom(Account account, Long chatRoomId, Pageable pageable) throws InvalidException;
+    ResultPaginationResponse getMediaMessagesInChatRoom(Account account, Long chatRoomId, Pageable pageable)
+            throws InvalidException;
 
-    List<Message> getFileMessagesInChatRoom(Account account, Long chatRoomId, Pageable pageable) throws InvalidException;
+    ResultPaginationResponse getFileMessagesInChatRoom(Account account, Long chatRoomId, Pageable pageable)
+            throws InvalidException;
 
     ChatRoom createGroupChat(Account currentAccount, CreateGroupChatRequest request) throws InvalidException;
 
