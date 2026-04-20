@@ -1,29 +1,31 @@
-import { combineReducers, configureStore } from '@reduxjs/toolkit';
-import { setupListeners } from '@reduxjs/toolkit/query';
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { combineReducers, configureStore } from "@reduxjs/toolkit";
+import { setupListeners } from "@reduxjs/toolkit/query";
 import {
-  FLUSH,
-  PAUSE,
-  PERSIST,
-  persistReducer,
-  persistStore,
-  PURGE,
-  REGISTER,
-  REHYDRATE,
-} from 'redux-persist';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { api } from '../services/api';
-import authReducer from './authSlice';
+    FLUSH,
+    PAUSE,
+    PERSIST,
+    persistReducer,
+    persistStore,
+    PURGE,
+    REGISTER,
+    REHYDRATE,
+} from "redux-persist";
+import { api } from "../services/api";
+import authReducer from "./authSlice";
+import chatNotificationReducer from "./chatNotificationSlice";
 
 const persistConfig = {
-  key: 'root',
+  key: "root",
   version: 1,
   storage: AsyncStorage,
-  whitelist: ['auth'], // Only persist auth state
+  whitelist: ["auth", "chatNotification"], // Persist chat notification to remember lastSeenTimestamps
 };
 
 const rootReducer = combineReducers({
   [api.reducerPath]: api.reducer,
   auth: authReducer,
+  chatNotification: chatNotificationReducer,
 });
 
 const persistedReducer = persistReducer(persistConfig, rootReducer);
@@ -44,5 +46,3 @@ setupListeners(store.dispatch);
 
 export type RootState = ReturnType<typeof store.getState>;
 export type AppDispatch = typeof store.dispatch;
-
-

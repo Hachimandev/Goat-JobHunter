@@ -1,6 +1,6 @@
 import type { AxiosError, InternalAxiosRequestConfig } from "axios";
 import axios from "axios";
-import { tokenStorage } from "./tokenStorage";
+import { tokenManager } from "../lib/tokenManager";
 
 // ============================================================
 // Cấu hình mặc định cho các request
@@ -14,7 +14,6 @@ const axiosClient = axios.create({
 // ============================================================
 // Biến để track trạng thái refresh token
 // ============================================================
-let isRefreshing = false;
 let isLoggingOut = false;
 let failedQueue: {
   resolve: (value?: any) => void;
@@ -37,7 +36,7 @@ const processQueue = (error: any, success: boolean = false) => {
 };
 
 // ============================================================
-// Hàm refresh token
+// Hàm refresh token - Now saves tokens and notifies tokenManager
 // ============================================================
 const refreshToken = async (): Promise<boolean> => {
   try {
@@ -46,7 +45,21 @@ const refreshToken = async (): Promise<boolean> => {
 
     console.log("Refresh token success");
 
-    // New tokens are automatically saved via Set-Cookie headers
+    // If tokens are returned in response body, save them
+    if (response.data?.accessToken && response.data?.refreshToken) {
+      await tokenManager.saveTokens(
+        response.data.accessToken,
+        response.data.refreshToken,
+      );
+      console.log("[Axios] Tokens saved from refresh response");
+    } else {
+      // Tokens are in HTTP-only cookies (backend handles it)
+      // Just mark this in tokenManager
+      // Notify listeners that tokens were refreshed
+      console.log("[Axios] Tokens refreshed (HTTP-only cookies)");
+    }
+
+    // New tokens are automatically saved via Set-Cookie headers (HTTP-only)
     return response.status === 200;
   } catch (error) {
     console.error("Refresh token failed:", error);
@@ -72,14 +85,11 @@ const performLogout = async () => {
     const { store } = await import("../lib/store");
     const { clearUser } = await import("../lib/authSlice");
 
-    // Clear tokens từ storage
-    await tokenStorage.clearTokens();
+    // Clear tokens using tokenManager (handles AsyncStorage + memory)
+    await tokenManager.clearTokens();
 
     // Clear Redux state
     store.dispatch(clearUser());
-
-    // Clear refresh flag
-    isRefreshing = false;
 
     // Note: Navigation sẽ được handle bởi component khi detect isAuthenticated = false
   } catch (error) {
@@ -124,15 +134,32 @@ axiosClient.interceptors.response.use(
     const isUnauthorized = error.response?.status === 401;
     const isRefreshEndpoint = originalRequest.url?.includes("/auth/refresh");
     const isLogoutEndpoint = originalRequest.url?.includes("/auth/logout");
+    const isLoginEndpoint = originalRequest.url?.includes("/auth/login");
+    const isSignupEndpoint = originalRequest.url?.includes("/auth/register");
 
-    // Skip refresh token cho logout endpoint
+    // Logout endpoint failed - still perform logout Redux state
     if (isLogoutEndpoint) {
+      console.log("Logout endpoint failed, performing logout anyway...");
+      await performLogout();
+      return Promise.reject(error);
+    }
+
+    // Skip refresh token cho auth endpoints (không cần token để authenticate)
+    if (isLoginEndpoint || isSignupEndpoint) {
+      console.log("Auth endpoint failed, not retrying...");
       return Promise.reject(error);
     }
 
     // Nếu refresh token endpoint bị 401, logout ngay
     if (isUnauthorized && isRefreshEndpoint) {
       console.log("Refresh token endpoint returned 401, logging out...");
+      await performLogout();
+      return Promise.reject(error);
+    }
+
+    // Nếu refresh token endpoint bị 5xx error, logout ngay (server error)
+    if (isRefreshEndpoint && error.response?.status === 500) {
+      console.log("Refresh token endpoint returned 500, logging out...");
       await performLogout();
       return Promise.reject(error);
     }
@@ -145,6 +172,12 @@ axiosClient.interceptors.response.use(
         "Refresh token is invalid or expired";
 
     if (isUnauthorized && !originalRequest._retry && !isRefreshEndpoint) {
+      // Nếu user chưa đăng nhập, just reject (không cố refresh, không spam log)
+      const hasToken = await tokenManager.hasValidToken();
+      if (!hasToken) {
+        return Promise.reject(error);
+      }
+
       // Nếu refresh token đã hết hạn, logout ngay
       if (isRefreshTokenExpired) {
         console.log("Refresh token expired, logging out...");
@@ -155,7 +188,7 @@ axiosClient.interceptors.response.use(
       // Đánh dấu request này đã retry để tránh infinite loop
       originalRequest._retry = true;
 
-      if (isRefreshing) {
+      if (tokenManager.isRefreshing()) {
         // Nếu đang refresh, đưa request vào queue
         console.log("Adding request to queue...");
         return new Promise((resolve, reject) => {
@@ -171,7 +204,7 @@ axiosClient.interceptors.response.use(
       }
 
       console.log("Access token expired, refreshing...");
-      isRefreshing = true;
+      tokenManager.setRefreshing(true);
 
       try {
         // Gọi API refresh token
@@ -198,7 +231,7 @@ axiosClient.interceptors.response.use(
 
         return Promise.reject(refreshError);
       } finally {
-        isRefreshing = false;
+        tokenManager.setRefreshing(false);
       }
     }
 

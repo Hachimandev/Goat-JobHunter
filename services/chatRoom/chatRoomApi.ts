@@ -9,6 +9,7 @@ import {
 } from "@/services/chatRoom/chatRoomType";
 import { IBackendRes } from "@/types/api";
 import { ChatRoom, MessageType } from "@/types/model";
+import { pinnedMessageApi } from "./pinned_message/pinnedMessageApi";
 
 export const chatRoomApi = api.injectEndpoints({
   endpoints: (builder) => ({
@@ -96,7 +97,6 @@ export const chatRoomApi = api.injectEndpoints({
       query: ({ chatRoomId, ...args }) => {
         // @ts-ignore
         const bodyData = args.data || args;
-
         return {
           url: `/chatrooms/${chatRoomId}/messages`,
           method: "POST",
@@ -107,42 +107,73 @@ export const chatRoomApi = api.injectEndpoints({
         { type: "ChatRoom", id: `MESSAGES_${chatRoomId}` },
         { type: "ChatRoom", id: "LIST" },
       ],
-      async onQueryStarted({ chatRoomId }, { dispatch, queryFulfilled }) {
+      async onQueryStarted(
+        { chatRoomId, content, replyToMessageId },
+        { dispatch, queryFulfilled, getState },
+      ) {
+        const tempId = `temp-${Date.now()}`;
+        const state = getState() as any;
+
+        const messagesCache =
+          chatRoomApi.endpoints.fetchMessagesInChatRoom.select({
+            chatRoomId,
+            size: 50,
+            page: 1,
+          })(state);
+
+        const originalMsg = messagesCache?.data?.data?.find(
+          (m: any) => m.messageId === replyToMessageId,
+        );
+
+        const patchResult = dispatch(
+          chatRoomApi.util.updateQueryData(
+            "fetchMessagesInChatRoom",
+            { chatRoomId, size: 50, page: 1 },
+            (draft) => {
+              if (draft && draft.data) {
+                const optimisticMsg: any = {
+                  messageId: tempId,
+                  content: content || "",
+                  sender: state.auth?.user || {},
+                  createdAt: new Date().toISOString(),
+                  sending: true,
+                  replyContext: originalMsg
+                    ? {
+                        originalMessageId: originalMsg.messageId,
+                        originalSender: originalMsg.sender,
+                        contentPreview: originalMsg.content,
+                      }
+                    : null,
+                };
+                draft.data.unshift(optimisticMsg);
+              }
+            },
+          ),
+        );
+
         try {
           const { data: newMessage } = await queryFulfilled;
-
           dispatch(
             chatRoomApi.util.updateQueryData(
-              "fetchChatRooms",
-              { page: 1, size: 50 },
+              "fetchMessagesInChatRoom",
+              { chatRoomId, size: 50, page: 1 },
               (draft) => {
-                if (draft?.data?.result) {
-                  const chatRoomIndex = draft.data.result.findIndex(
-                    (room) => room.roomId === chatRoomId,
+                if (draft?.data) {
+                  const index = draft.data.findIndex(
+                    (m) => m.messageId === tempId,
                   );
-
-                  if (chatRoomIndex !== -1) {
-                    const chatRoom = draft.data.result[chatRoomIndex];
-
-                    chatRoom.lastMessagePreview = newMessage.content;
-                    chatRoom.lastMessageTime = newMessage.createdAt;
-
-                    if (chatRoomIndex !== 0) {
-                      draft.data.result.splice(chatRoomIndex, 1);
-                      draft.data.result.unshift(chatRoom);
-                    }
-                  }
+                  if (index !== -1) draft.data[index] = newMessage;
                 }
               },
             ),
           );
         } catch (error) {
-          console.error("Failed to update cache after sending message:", error);
+          patchResult.undo();
+          console.error("Gửi tin thất bại:", error);
         }
       },
     }),
 
-    // Send message to a new chat room
     sendMessageToNewChatRoom: builder.mutation<
       IBackendRes<ChatRoom>,
       SendMessageToNewChatRoomRequest
@@ -150,7 +181,6 @@ export const chatRoomApi = api.injectEndpoints({
       query: ({ accountId, content, files }) => {
         const formData = new FormData();
 
-        // Add files nếu có
         if (files && files.length > 0) {
           files.forEach((file) => {
             formData.append("files", file);
@@ -164,7 +194,6 @@ export const chatRoomApi = api.injectEndpoints({
           requestData.content = content;
         }
 
-        // Add content nếu có (dưới dạng JSON part)
         const requestBlob = new Blob([JSON.stringify(requestData)], {
           type: "application/json",
         });
@@ -183,20 +212,17 @@ export const chatRoomApi = api.injectEndpoints({
           if (response?.data) {
             const newChatRoom = response.data;
 
-            // Update chat rooms list cache - add new chat room at the top
             dispatch(
               chatRoomApi.util.updateQueryData(
                 "fetchChatRooms",
                 { page: 1, size: 50 },
                 (draft) => {
                   if (draft?.data?.result) {
-                    // Check if chat room already exists
                     const exists = draft.data.result.some(
                       (room) => room.roomId === newChatRoom.roomId,
                     );
 
                     if (!exists) {
-                      // Add new chat room at the top
                       draft.data.result.unshift(newChatRoom);
                     }
                   }
@@ -213,7 +239,6 @@ export const chatRoomApi = api.injectEndpoints({
       },
     }),
 
-    // Check if chat room exists between two users, type of chat room is DIRECT
     checkExistingChatRoom: builder.query<IBackendRes<ChatRoom | null>, number>({
       query: (accountId) => ({
         url: `/chatrooms/direct/exists`,
@@ -225,25 +250,116 @@ export const chatRoomApi = api.injectEndpoints({
       ],
     }),
 
-    // revoke message
     revokeMessage: builder.mutation<
-      any,
+      IBackendRes<null>,
       { chatRoomId: number; messageId: string }
     >({
       query: ({ chatRoomId, messageId }) => ({
         url: `/chatrooms/${chatRoomId}/messages/${messageId}`,
         method: "DELETE",
       }),
+      async onQueryStarted(
+        { chatRoomId, messageId },
+        { dispatch, queryFulfilled },
+      ) {
+        try {
+          await queryFulfilled;
+          dispatch(
+            chatRoomApi.util.updateQueryData(
+              "fetchMessagesInChatRoom",
+              { chatRoomId, page: 0, size: 50 },
+              (draft) => {
+                const msg = draft?.data?.find((m) => m.messageId === messageId);
+                if (msg) {
+                  msg.isHidden = true;
+                  msg.content = "Tin nhắn đã được thu hồi";
+                }
+              },
+            ),
+          );
+          dispatch(
+            chatRoomApi.util.invalidateTags([{ type: "ChatRoom", id: "LIST" }]),
+          );
+        } catch (error) {
+          console.error("Failed to recall message:", error);
+        }
+      },
     }),
-    // delete permanently
+
     deleteMessagePermanent: builder.mutation<
-      any,
+      IBackendRes<null>,
       { chatRoomId: number; messageId: string }
     >({
       query: ({ chatRoomId, messageId }) => ({
         url: `/chatrooms/${chatRoomId}/messages/${messageId}/permanent`,
         method: "DELETE",
       }),
+      async onQueryStarted(
+        { chatRoomId, messageId },
+        { dispatch, queryFulfilled },
+      ) {
+        try {
+          await queryFulfilled;
+          dispatch(
+            chatRoomApi.util.updateQueryData(
+              "fetchMessagesInChatRoom",
+              { chatRoomId, page: 0, size: 50 },
+              (draft) => {
+                if (draft?.data) {
+                  draft.data = draft.data.filter(
+                    (m) => m.messageId !== messageId,
+                  );
+                }
+              },
+            ),
+          );
+          dispatch(
+            chatRoomApi.util.invalidateTags([{ type: "ChatRoom", id: "LIST" }]),
+          );
+          dispatch(
+            pinnedMessageApi.util.invalidateTags([
+              { type: "PinnedMessage", id: `PINNED_MESSAGE_${chatRoomId}` },
+            ]),
+          );
+        } catch (error) {
+          console.error("Failed to delete message permanent:", error);
+        }
+      },
+    }),
+
+    forwardMessageBatch: builder.mutation<
+      IBackendRes<any>,
+      {
+        sourceChatRoomId: number;
+        messageId: string;
+        targetChatRoomIds: number[];
+      }
+    >({
+      query: ({ sourceChatRoomId, messageId, targetChatRoomIds }) => ({
+        url: `/chatrooms/${sourceChatRoomId}/messages/${messageId}/forward`,
+        method: "POST",
+        data: { targetChatRoomIds },
+      }),
+      async onQueryStarted(
+        { targetChatRoomIds },
+        { dispatch, queryFulfilled },
+      ) {
+        try {
+          await queryFulfilled;
+          const messageTags = targetChatRoomIds.map((id) => ({
+            type: "ChatRoom" as const,
+            id: `MESSAGES_${id}`,
+          }));
+          dispatch(
+            chatRoomApi.util.invalidateTags([
+              ...messageTags,
+              { type: "ChatRoom", id: "LIST" },
+            ]),
+          );
+        } catch (error) {
+          console.error("Failed to forward message batch:", error);
+        }
+      },
     }),
   }),
 });
@@ -259,4 +375,5 @@ export const {
   useLazyCheckExistingChatRoomQuery,
   useRevokeMessageMutation,
   useDeleteMessagePermanentMutation,
+  useForwardMessageBatchMutation,
 } = chatRoomApi;

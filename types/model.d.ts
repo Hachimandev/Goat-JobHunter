@@ -206,6 +206,12 @@ export type MessageType = {
   createdAt: string;
   updatedAt: string;
   role?: MessageTypeRole; // temporary field to avoid error for build in chat container
+  replyContext?: {
+    originalMessageId: string;
+    originalSender: User;
+    contentPreview: string;
+  };
+  isForwarded?: boolean;
 };
 
 export type ChatRoom = {
@@ -217,6 +223,9 @@ export type ChatRoom = {
   lastMessagePreview: string | null;
   lastMessageTime: string | null;
   currentUserSentLastMessage: boolean | null;
+  blocked?: boolean;
+  blockedByMe?: boolean;
+  counterpartAccountId?: number;
 };
 
 export type Application = {
@@ -251,4 +260,12 @@ export type Applicant = User & {
   availableStatus: boolean;
   education: Education;
   level: Level;
+};
+
+export type PinnedMessage = {
+  chatRoomId: string;
+  messageId: string;
+  pinnedBy: string;
+  pinnedAt: string;
+  message: MessageType;
 };

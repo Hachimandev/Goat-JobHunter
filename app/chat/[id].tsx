@@ -1,66 +1,147 @@
-import useChatActionsMobile from "@/hooks/useChatActionsMobile";
-import { useUser } from "@/hooks/useUser";
-import {
-  useDeleteMessagePermanentMutation,
-  useFetchMessagesInChatRoomQuery,
-  useRevokeMessageMutation,
-} from "@/services/chatRoom/chatRoomApi";
-import { MessageType } from "@/types/model";
-import { Ionicons } from "@expo/vector-icons";
-import BottomSheet, { BottomSheetView } from "@gorhom/bottom-sheet";
-import * as ImagePicker from "expo-image-picker";
+import BottomSheet from "@gorhom/bottom-sheet";
 import { router, useLocalSearchParams } from "expo-router";
-import React, { useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   FlatList,
-  Image,
   KeyboardAvoidingView,
+  Modal,
   Platform,
-  ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import EmojiPicker from "rn-emoji-keyboard";
 
-interface OptimisticMessage extends Partial<MessageType> {
-  messageId: string;
-  sending?: boolean;
-}
+import { ChatHeader } from "@/components/chat/ChatHeader";
+import { ChatInput } from "@/components/chat/ChatInput";
+import { ForwardModal } from "@/components/chat/ForwardModal";
+import { MessageActionsSheet } from "@/components/chat/MessageActionsSheet";
+import { MessageItem } from "@/components/chat/MessageItem";
 
-export default function ChatDetail() {
-  const { id, name } = useLocalSearchParams<{ id: string; name: string }>();
+import useChatActionsMobile from "@/hooks/useChatActionsMobile";
+import { useNotificationManager } from "@/hooks/useNotificationManager";
+import { useUser } from "@/hooks/useUser";
+import {
+  useFetchChatRoomsByIdQuery,
+  useFetchMessagesInChatRoomQuery,
+  useForwardMessageBatchMutation,
+} from "@/services/chatRoom/chatRoomApi";
+import {
+  useGetPinnedMessagesQuery,
+  usePinMessageMutation,
+  useUnpinMessageMutation,
+} from "@/services/chatRoom/pinned_message/pinnedMessageApi";
+import { MessageType } from "@/types/model";
+import { Ionicons } from "@expo/vector-icons";
+import * as DocumentPicker from "expo-document-picker";
+
+type PinnedMessage = {
+  message: MessageType;
+};
+
+export default function ChatDetailScreen() {
+  const { id, name, avatar } = useLocalSearchParams<{
+    id: string;
+    name: string;
+    avatar: string;
+  }>();
   const chatRoomId = Number(id);
   const { user } = useUser();
-  const [text, setText] = useState("");
-  const { handleSendMessage, pickImage, isSending } = useChatActionsMobile();
-  const [revokeMessage] = useRevokeMessageMutation();
-  const [deleteMessagePermanent] = useDeleteMessagePermanentMutation();
+  const { setActiveChatRoom } = useNotificationManager();
+  const [forwardMessageBatch] = useForwardMessageBatchMutation();
+  const [showForwardToast, setShowForwardToast] = useState(false);
 
+  const { data: pinnedData, refetch: refetchPinned } =
+    useGetPinnedMessagesQuery(
+      { chatRoomId },
+      { skip: !chatRoomId, pollingInterval: 5000 },
+    );
+  const pinnedMessage = pinnedData?.data?.[0] as PinnedMessage | undefined;
+
+  const [unpinMessage] = useUnpinMessageMutation();
+  const [isPinnedListOpen, setIsPinnedListOpen] = useState(false);
+
+  const handleForwardSubmit = async (targetRoomId: number) => {
+    if (!selectedMessage) return;
+
+    try {
+      await forwardMessageBatch({
+        sourceChatRoomId: chatRoomId,
+        messageId: selectedMessage.messageId,
+        targetChatRoomIds: [targetRoomId],
+      }).unwrap();
+
+      setIsForwardModalOpen(false);
+
+      setShowForwardToast(true);
+      setTimeout(() => setShowForwardToast(false), 2000);
+    } catch (error) {
+      Alert.alert("Lỗi", "Không thể chuyển tiếp tin nhắn");
+      console.error(error);
+    }
+  };
+
+  const [selectedFiles, setSelectedFiles] = useState<
+    DocumentPicker.DocumentPickerAsset[]
+  >([]);
+  const pickDocument = async () => {
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: "*/*",
+        multiple: true,
+      });
+
+      if (!result.canceled) {
+        setSelectedFiles((prev) => [...prev, ...result.assets]);
+      }
+    } catch (err) {
+      console.log("Lỗi chọn tài liệu:", err);
+    }
+  };
+
+  const [text, setText] = useState("");
+  const [replyTarget, setReplyTarget] = useState<MessageType | null>(null);
+  const [selectedMessage, setSelectedMessage] = useState<MessageType | null>(
+    null,
+  );
+  const [selectedImages, setSelectedImages] = useState<any[]>([]);
   const [isEmojiOpen, setIsEmojiOpen] = useState(false);
+  const [isForwardModalOpen, setIsForwardModalOpen] = useState(false);
+
+  const flatListRef = useRef<FlatList>(null);
+
+  const handleNavigateToMessage = (messageId: string) => {
+    if (!messagesData?.data) return;
+
+    const index = messagesData.data.findIndex((m) => m.messageId === messageId);
+
+    if (index !== -1) {
+      flatListRef.current?.scrollToIndex({
+        index: index,
+        animated: true,
+        viewPosition: 0.5,
+      });
+    } else {
+      Alert.alert(
+        "Thông báo",
+        "Tin nhắn gốc đã quá cũ hoặc không còn tồn tại.",
+      );
+    }
+  };
 
   const bottomSheetRef = useRef<BottomSheet>(null);
-  const snapPoints = useMemo(() => ["20%"], []);
-  const [selectedMessage, setSelectedMessage] =
-    useState<OptimisticMessage | null>(null);
-  const [optimisticMessages, setOptimisticMessages] = useState<
-    OptimisticMessage[]
-  >([]);
-  const [selectedImages, setSelectedImages] = useState<
-    ImagePicker.ImagePickerAsset[]
-  >([]);
-
-  const isS3ImageUrl = (url: string) => {
-    return (
-      typeof url === "string" &&
-      url.includes("amazonaws.com") &&
-      url.match(/\.(jpeg|jpg|gif|png)$/i) != null
-    );
-  };
+  const {
+    handleSendMessage,
+    handleRecallMessage,
+    handleDeleteMessage,
+    pickImage,
+    isSending,
+  } = useChatActionsMobile();
+  const [pinMessage] = usePinMessageMutation();
 
   const {
     data: messagesData,
@@ -71,382 +152,399 @@ export default function ChatDetail() {
     { skip: !chatRoomId, pollingInterval: 5000 },
   );
 
-  const processedMessages = useMemo(() => {
-    const serverMsgs = messagesData?.data ? [...messagesData.data] : [];
-    const combined = [...optimisticMessages, ...serverMsgs];
-    return combined.sort(
-      (a, b) =>
-        new Date(b.createdAt!).getTime() - new Date(a.createdAt!).getTime(),
-    );
-  }, [messagesData, optimisticMessages]);
+  const { data: chatRoomData } = useFetchChatRoomsByIdQuery(chatRoomId, {
+    skip: !chatRoomId,
+  });
+
+  useEffect(() => {
+    setActiveChatRoom(chatRoomId);
+    return () => setActiveChatRoom(null);
+  }, [chatRoomId]);
 
   const onSend = async () => {
-    if (!text.trim() && selectedImages.length === 0) return;
-    const contentToSend = text.trim();
+    if (
+      !text.trim() &&
+      selectedImages.length === 0 &&
+      selectedFiles.length === 0
+    )
+      return;
+
+    const replyId = replyTarget?.messageId || null;
+    const contentToSend = text;
     const imagesToSend = [...selectedImages];
+    const filesToSend = [...selectedFiles];
+
     setText("");
     setSelectedImages([]);
-    try {
-      await handleSendMessage(chatRoomId, contentToSend, imagesToSend);
-      refetch();
-    } catch (e) {
-      console.log("Send error", e);
-    }
-  };
+    setSelectedFiles([]);
+    setReplyTarget(null);
 
-  //revoke
-  const handleRevoke = async (message: OptimisticMessage) => {
     try {
-      await revokeMessage({
+      await handleSendMessage(
         chatRoomId,
-        messageId: message.messageId!,
-      }).unwrap();
-      refetch();
-    } catch (err) {
-      console.log("Revoke error", err);
-    }
-  };
-
-  //delete
-
-  const handleDelete = async (message: OptimisticMessage) => {
-    try {
-      await deleteMessagePermanent({
-        chatRoomId,
-        messageId: message.messageId!,
-      }).unwrap();
-      // Xóa local optimistic message nếu cần
-      setOptimisticMessages((prev) =>
-        prev.filter((msg) => msg.messageId !== message.messageId),
+        contentToSend,
+        imagesToSend,
+        replyId,
+        filesToSend,
       );
       refetch();
-      bottomSheetRef.current?.close();
-    } catch (err) {
-      console.log("Delete error", err);
+    } catch (e) {
+      console.error("Gửi tin thất bại:", e);
     }
   };
 
-  const handleLongPress = (message: OptimisticMessage) => {
+  const handleLongPress = useCallback((message: MessageType) => {
     setSelectedMessage(message);
     bottomSheetRef.current?.expand();
-  };
+  }, []);
 
-  if (isLoading && !messagesData)
-    return <ActivityIndicator style={{ flex: 1 }} />;
+  const isDirectBlocked = chatRoomData?.data?.blocked || false;
+
+  if (isLoading && !messagesData) {
+    return <ActivityIndicator style={styles.loadingCenter} color="#0084FF" />;
+  }
 
   return (
     <SafeAreaView style={styles.container}>
       <KeyboardAvoidingView
-        style={{ flex: 1 }}
+        style={styles.flex1}
         behavior={Platform.OS === "ios" ? "padding" : undefined}
         keyboardVerticalOffset={Platform.OS === "ios" ? 90 : 0}
       >
-        {/* HEADER */}
-        <View style={styles.header}>
-          <TouchableOpacity
-            onPress={() => router.back()}
-            style={styles.headerBtn}
-          >
-            <Ionicons name="chevron-back" size={28} color="#fff" />
-          </TouchableOpacity>
-          <View style={styles.headerInfo}>
-            <Text style={styles.headerTitle} numberOfLines={1}>
-              {name}
-            </Text>
-            <Text style={styles.headerStatus}>Đang hoạt động</Text>
-          </View>
-          <TouchableOpacity style={styles.headerBtn}>
-            <Ionicons
-              name="information-circle-outline"
-              size={26}
-              color="#fff"
-            />
-          </TouchableOpacity>
-        </View>
+        <ChatHeader
+          name={name}
+          avatar={avatar}
+          status="Đang hoạt động"
+          onPressInfo={() =>
+            router.push({
+              pathname: "/chat/detail",
+              params: {
+                id: chatRoomId.toString(),
+                name,
+                avatar,
+                messages: JSON.stringify(messagesData?.data || []),
+              },
+            })
+          }
+        />
 
-        {/* CHAT LIST */}
+        {pinnedMessage && (
+          <View style={styles.pinnedContainer}>
+            <Ionicons name="pin" size={16} color="#007AFF" />
+
+            <TouchableOpacity
+              style={{ flex: 1 }}
+              onPress={() =>
+                handleNavigateToMessage(pinnedMessage.message.messageId)
+              }
+            >
+              <Text style={styles.pinnedLabel}>
+                Tin nhắn ghim{" "}
+                {pinnedData?.data?.length && pinnedData.data.length > 1
+                  ? `(1/${pinnedData.data.length})`
+                  : ""}
+              </Text>
+
+              <Text numberOfLines={1} style={styles.pinnedText}>
+                {pinnedMessage.message?.content || "[Tin nhắn đa phương tiện]"}
+              </Text>
+            </TouchableOpacity>
+
+            {(pinnedData?.data?.length ?? 0) > 1 && (
+              <TouchableOpacity onPress={() => setIsPinnedListOpen(true)}>
+                <Ionicons name="chevron-forward" size={18} color="#999" />
+              </TouchableOpacity>
+            )}
+
+            <TouchableOpacity
+              onPress={() => {
+                Alert.alert("Bỏ ghim", "Bạn có chắc muốn bỏ ghim?", [
+                  { text: "Hủy" },
+                  {
+                    text: "OK",
+                    onPress: async () => {
+                      await unpinMessage({
+                        chatRoomId,
+                        messageId: pinnedMessage.message.messageId,
+                      }).unwrap();
+                      await refetchPinned();
+                    },
+                  },
+                ]);
+              }}
+            >
+              <Ionicons name="close" size={18} color="#999" />
+            </TouchableOpacity>
+          </View>
+        )}
+        <Modal visible={isPinnedListOpen} transparent animationType="fade">
+          <View style={styles.overlay}>
+            <View style={styles.pinnedListBox}>
+              <Text style={styles.pinnedListTitle}>Tin nhắn đã ghim</Text>
+
+              <FlatList
+                data={pinnedData?.data || []}
+                keyExtractor={(item) => item.message.messageId}
+                renderItem={({ item }) => (
+                  <View style={styles.pinnedItemRow}>
+                    {/* nội dung */}
+                    <TouchableOpacity
+                      style={{ flex: 1 }}
+                      onPress={() => {
+                        setIsPinnedListOpen(false);
+                        handleNavigateToMessage(item.message.messageId);
+                      }}
+                    >
+                      <Text numberOfLines={1}>
+                        {item.message?.content || "[Tin nhắn đa phương tiện]"}
+                      </Text>
+                    </TouchableOpacity>
+
+                    {/* nút xóa ghim */}
+                    <TouchableOpacity
+                      onPress={() => {
+                        Alert.alert("Bỏ ghim", "Xóa ghim tin nhắn này?", [
+                          { text: "Hủy" },
+                          {
+                            text: "OK",
+                            onPress: async () => {
+                              try {
+                                await unpinMessage({
+                                  chatRoomId,
+                                  messageId: item.message.messageId,
+                                }).unwrap();
+
+                                await refetchPinned();
+                              } catch (e) {
+                                Alert.alert("Lỗi", "Không thể bỏ ghim");
+                              }
+                            },
+                          },
+                        ]);
+                      }}
+                    >
+                      <Ionicons name="close" size={18} color="#999" />
+                    </TouchableOpacity>
+                  </View>
+                )}
+              />
+
+              <TouchableOpacity onPress={() => setIsPinnedListOpen(false)}>
+                <Text style={{ textAlign: "center", color: "#007AFF" }}>
+                  Đóng
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
+
         <FlatList
-          data={processedMessages}
+          ref={flatListRef}
+          data={messagesData?.data || []}
           inverted
           keyExtractor={(item) => item.messageId}
           contentContainerStyle={styles.listContent}
-          renderItem={({ item }) => {
-            const isMe = item.sender?.accountId === user?.accountId;
-            const content = item.content || "";
-            const isS3Image = isS3ImageUrl(content);
-            const isSendingMsg = (item as OptimisticMessage).sending;
-            const isRevoked = !content;
-
-            return (
-              <View
-                style={[
-                  styles.messageWrapper,
-                  { alignItems: isMe ? "flex-end" : "flex-start" },
-                ]}
-              >
-                <TouchableOpacity
-                  onLongPress={() => handleLongPress(item)}
-                  activeOpacity={0.8}
-                  style={{ maxWidth: "80%" }}
-                >
-                  {isS3Image ? (
-                    <Image
-                      source={{ uri: content }}
-                      style={[
-                        styles.chatImage,
-                        isSendingMsg && { opacity: 0.7 },
-                      ]}
-                    />
-                  ) : (
-                    <View
-                      style={[
-                        styles.bubble,
-                        isRevoked
-                          ? styles.revokedBubble
-                          : isMe
-                            ? styles.myBubble
-                            : styles.otherBubble,
-                        isSendingMsg && { opacity: 0.7 },
-                      ]}
-                    >
-                      <Text
-                        style={[
-                          styles.messageText,
-                          isRevoked
-                            ? styles.revokedText
-                            : { color: isMe ? "#fff" : "#000" },
-                        ]}
-                      >
-                        {isRevoked ? "Tin nhắn đã được thu hồi" : content}
-                      </Text>
-                    </View>
-                  )}
-                </TouchableOpacity>
-              </View>
-            );
+          renderItem={({ item }) => (
+            <MessageItem
+              item={item}
+              isMe={item.sender?.accountId === user?.accountId}
+              currentUser={user}
+              onLongPress={handleLongPress}
+              onNavigateToMessage={handleNavigateToMessage}
+            />
+          )}
+          onScrollToIndexFailed={(info) => {
+            flatListRef.current?.scrollToOffset({
+              offset: info.averageItemLength * info.index,
+              animated: true,
+            });
           }}
         />
 
-        {/* IMAGE PREVIEW */}
-        {selectedImages.length > 0 && (
-          <View style={styles.imagePreviewBar}>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-              {selectedImages.map((img, idx) => (
-                <View key={idx} style={styles.previewItem}>
-                  <Image
-                    source={{ uri: img.uri }}
-                    style={styles.previewImage}
-                  />
-                  <TouchableOpacity
-                    style={styles.removeImgBtn}
-                    onPress={() =>
-                      setSelectedImages((prev) =>
-                        prev.filter((_, i) => i !== idx),
-                      )
-                    }
-                  >
-                    <Ionicons name="close-circle" size={20} color="#FF3B30" />
-                  </TouchableOpacity>
-                </View>
-              ))}
-            </ScrollView>
-          </View>
-        )}
-
-        {/* INPUT BAR */}
-        <View style={styles.inputContainer}>
-          <TouchableOpacity
-            onPress={() => setIsEmojiOpen(true)}
-            style={styles.iconBtn}
-          >
-            <Ionicons name="happy-outline" size={26} color="#0084FF" />
-          </TouchableOpacity>
-          <TouchableOpacity
-            onPress={async () => {
-              const imgs = await pickImage();
-              if (imgs) setSelectedImages((prev) => [...prev, ...imgs]);
-            }}
-            style={styles.iconBtn}
-          >
-            <Ionicons name="image" size={26} color="#0084FF" />
-          </TouchableOpacity>
-
-          <TextInput
-            value={text}
-            onChangeText={setText}
-            placeholder="Tin nhắn"
-            style={styles.input}
-            multiline
-          />
-
-          <TouchableOpacity
-            onPress={onSend}
-            style={[
-              styles.sendBtn,
-              !text.trim() && selectedImages.length === 0 && { opacity: 0.5 },
-            ]}
-            disabled={!text.trim() && selectedImages.length === 0}
-          >
-            {isSending ? (
-              <ActivityIndicator size="small" color="#fff" />
-            ) : (
-              <Ionicons name="send" size={20} color="#fff" />
-            )}
-          </TouchableOpacity>
-        </View>
+        <ChatInput
+          text={text}
+          setText={setText}
+          onSend={onSend}
+          isSending={isSending}
+          replyTarget={replyTarget}
+          setReplyTarget={setReplyTarget}
+          selectedImages={selectedImages}
+          onRemoveImage={(idx) =>
+            setSelectedImages((prev) => prev.filter((_, i) => i !== idx))
+          }
+          onPickImage={async () => {
+            const imgs = await pickImage();
+            if (imgs) setSelectedImages((prev) => [...prev, ...imgs]);
+          }}
+          onMediaCaptured={(assets) => {
+            setSelectedImages((prev) => [...prev, ...assets]);
+          }}
+          selectedFiles={selectedFiles}
+          onPickDocument={pickDocument}
+          onRemoveFile={(idx) =>
+            setSelectedFiles((prev) => prev.filter((_, i) => i !== idx))
+          }
+          onOpenEmoji={() => setIsEmojiOpen(true)}
+          disabled={isDirectBlocked}
+        />
       </KeyboardAvoidingView>
 
-      <BottomSheet
+      <MessageActionsSheet
         ref={bottomSheetRef}
-        index={-1}
-        snapPoints={snapPoints}
-        enablePanDownToClose
-      >
-        <BottomSheetView style={styles.sheetContainer}>
-          <TouchableOpacity
-            style={styles.sheetItem}
-            onPress={() => {
-              if (selectedMessage) handleRevoke(selectedMessage);
-              bottomSheetRef.current?.close();
-            }}
-          >
-            <Ionicons name="trash-outline" size={22} color="#FF3B30" />
-            <Text style={styles.sheetText}>Thu hồi tin nhắn</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.sheetItem}
-            onPress={() => {
-              if (selectedMessage) handleDelete(selectedMessage);
-            }}
-          >
-            <Ionicons name="close-outline" size={22} color="#FF3B30" />
-            <Text style={styles.sheetText}>Xóa tin nhắn</Text>
-          </TouchableOpacity>
-        </BottomSheetView>
-      </BottomSheet>
-      <EmojiPicker
-        onEmojiSelected={(emoji) => {
-          setText((prev) => prev + emoji.emoji);
+        selectedMessage={selectedMessage}
+        onReply={() => {
+          setReplyTarget(selectedMessage);
+          bottomSheetRef.current?.close();
         }}
+        onForward={() => {
+          setIsForwardModalOpen(true);
+          bottomSheetRef.current?.close();
+        }}
+        onPin={async () => {
+          if (selectedMessage) {
+            await pinMessage({
+              chatRoomId,
+              messageId: selectedMessage.messageId,
+            }).unwrap();
+
+            await refetchPinned();
+          }
+
+          bottomSheetRef.current?.close();
+        }}
+        onRevoke={() => {
+          if (selectedMessage) {
+            handleRecallMessage(chatRoomId, selectedMessage.messageId);
+            bottomSheetRef.current?.close();
+          }
+        }}
+        onDelete={() => {
+          if (selectedMessage) {
+            handleDeleteMessage(chatRoomId, selectedMessage.messageId);
+            bottomSheetRef.current?.close();
+          }
+        }}
+      />
+
+      <ForwardModal
+        visible={isForwardModalOpen}
+        onClose={() => setIsForwardModalOpen(false)}
+        onForwardSelect={handleForwardSubmit}
+      />
+
+      <EmojiPicker
         open={isEmojiOpen}
         onClose={() => setIsEmojiOpen(false)}
+        onEmojiSelected={(emoji) => setText((prev) => prev + emoji.emoji)}
       />
+      {showForwardToast && (
+        <View style={styles.toastOverlay} pointerEvents="none">
+          <View style={styles.toastBox}>
+            <Ionicons name="checkmark-circle" size={20} color="#fff" />
+            <Text style={styles.toastText}>Đã chuyển tiếp</Text>
+          </View>
+        </View>
+      )}
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#fff" },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#0084FF",
-    height: 60,
-    paddingHorizontal: 10,
-  },
-  headerBtn: { padding: 5 },
-  headerInfo: { flex: 1, marginLeft: 10 },
-  headerTitle: { color: "#fff", fontSize: 17, fontWeight: "bold" },
-  headerStatus: { color: "#E0E0E0", fontSize: 11 },
-
-  listContent: { padding: 15 },
-  messageWrapper: { marginVertical: 4, width: "100%" },
-  bubble: {
-    paddingVertical: 8,
-    paddingHorizontal: 15,
-    borderRadius: 20,
-    minHeight: 35,
-    justifyContent: "center",
-  },
-  myBubble: {
-    backgroundColor: "#0084FF",
-    borderBottomRightRadius: 4,
-  },
-  otherBubble: {
-    backgroundColor: "#F0F0F0",
-    borderBottomLeftRadius: 4,
-    borderWidth: 0.5,
-    borderColor: "#E8E8E8",
-  },
-  chatImage: {
-    width: 220,
-    height: 160,
-    borderRadius: 15,
-    marginVertical: 4,
-    resizeMode: "cover",
-  },
-
-  inputContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    padding: 10,
-    backgroundColor: "#fff",
-    borderTopWidth: 0.5,
-    borderTopColor: "#EEE",
-  },
-  input: {
-    flex: 1,
-    backgroundColor: "#F0F2F5",
-    borderRadius: 20,
-    paddingHorizontal: 15,
-    paddingVertical: 8,
-    marginHorizontal: 10,
-    maxHeight: 100,
-    fontSize: 16,
-  },
-  iconBtn: { padding: 4 },
-  sendBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: "#0084FF",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-
-  imagePreviewBar: {
-    padding: 10,
-    backgroundColor: "#fff",
-    borderTopWidth: 0.5,
-    borderTopColor: "#EEE",
-  },
-  previewItem: { marginRight: 12, position: "relative" },
-  previewImage: { width: 60, height: 60, borderRadius: 10 },
-  removeImgBtn: {
+  flex1: { flex: 1 },
+  listContent: { paddingHorizontal: 15, paddingBottom: 10 },
+  loadingCenter: { flex: 1, justifyContent: "center", alignItems: "center" },
+  toastContainer: {
     position: "absolute",
-    top: -5,
-    right: -5,
-    backgroundColor: "#fff",
-    borderRadius: 10,
+    bottom: 100,
+    left: "25%",
+    right: "25%",
+    backgroundColor: "rgba(0,0,0,0.7)",
+    paddingVertical: 10,
+    borderRadius: 25,
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 9999,
   },
-
-  sheetContainer: { padding: 20 },
-  sheetItem: {
+  toastOverlay: {
+    position: "absolute",
+    top: 0,
+    bottom: 0,
+    left: 0,
+    right: 0,
+    justifyContent: "center",
+    alignItems: "center",
+    zIndex: 9999,
+    elevation: 10,
+  },
+  toastBox: {
     flexDirection: "row",
     alignItems: "center",
-    paddingVertical: 10,
+    backgroundColor: "rgba(0,0,0,0.85)",
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 30,
+    gap: 10,
   },
-  sheetText: {
-    color: "#FF3B30",
+  toastText: { color: "#fff", fontSize: 14, fontWeight: "600" },
+  pinnedContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    backgroundColor: "#F5F9FF",
+    borderBottomWidth: 1,
+    borderColor: "#E5E5E5",
+    gap: 10,
+  },
+
+  pinnedLabel: {
+    fontSize: 11,
+    color: "#007AFF",
+    fontWeight: "600",
+  },
+
+  pinnedText: {
+    fontSize: 13,
+    color: "#333",
+    marginTop: 2,
+  },
+  overlay: {
+    position: "absolute",
+    top: 0,
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: "rgba(0,0,0,0.3)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+
+  pinnedListBox: {
+    width: "85%",
+    maxHeight: "60%",
+    backgroundColor: "#fff",
+    borderRadius: 12,
+    padding: 15,
+  },
+
+  pinnedListTitle: {
     fontSize: 16,
     fontWeight: "600",
-    marginLeft: 10,
+    marginBottom: 10,
   },
-  revokedBubble: {
-    backgroundColor: "#FFFFFF", // Nền trắng
-    borderWidth: 1,
-    borderColor: "#E0E0E0", // Viền xám
-    borderRadius: 20,
-    // Bạn có thể tùy chỉnh bo góc cho chuẩn hơn:
-    // borderBottomRightRadius: 20,
-    // borderBottomLeftRadius: 20,
+
+  pinnedItem: {
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderColor: "#eee",
   },
-  messageText: { fontSize: 16, lineHeight: 22 },
-  // Chữ xám in nghiêng cho tin thu hồi
-  revokedText: {
-    color: "#999999",
-    fontStyle: "italic",
-    fontSize: 14,
+  pinnedItemRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderColor: "#eee",
   },
 });

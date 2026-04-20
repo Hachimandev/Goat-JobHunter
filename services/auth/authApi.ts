@@ -1,6 +1,6 @@
 import { api } from '../api';
 import { setUser } from '@/lib/authSlice';
-import { tokenStorage } from '@/services/tokenStorage';
+import { tokenManager } from '@/lib/tokenManager';
 import type {
   FetchAccountResponse,
   LogoutResponse,
@@ -14,6 +14,8 @@ import type {
   VerifyCodeResponse,
   CompanySignUpRequest,
   CompanySignUpResponse,
+  DeleteAccountRequest,
+  DeleteAccountResponse,
 } from './authType';
 
 export const authApi = api.injectEndpoints({
@@ -45,8 +47,8 @@ export const authApi = api.injectEndpoints({
           const { data } = await queryFulfilled;
           
           // Tokens are automatically saved via Set-Cookie headers (withCredentials: true)
-          // We save a dummy token to AsyncStorage as a flag for hasToken() checks
-          await tokenStorage.saveToken('cookie-authenticated');
+          // We save tokens to tokenManager as a flag for hasValidToken() checks
+          await tokenManager.saveTokens('cookie-authenticated', 'cookie-authenticated');
           
           // Lưu user data vào Redux
           if (data?.data) {
@@ -101,7 +103,25 @@ export const authApi = api.injectEndpoints({
         } catch (error) {
           console.error('Get my account error:', error);
           // Clear token if fetch failed
-          await tokenStorage.clearTokens();
+          await tokenManager.clearTokens();
+        }
+      },
+    }),
+
+    deleteMyAccount: builder.mutation<DeleteAccountResponse, DeleteAccountRequest>({
+      query: (args) => ({
+        url: '/auth/account',
+        method: 'DELETE',
+        data: args,
+      }),
+      async onQueryStarted(_, { dispatch, queryFulfilled }) {
+        try {
+          await queryFulfilled;
+          // Clear user data on successful deletion
+          dispatch(setUser({ user: undefined, roles: [] }));
+          await tokenManager.clearTokens();
+        } catch (error) {
+          console.error('Delete account error:', error);
         }
       },
     }),
@@ -117,5 +137,6 @@ export const {
   useResendCodeMutation,
   useGetMyAccountQuery,
   useLazyGetMyAccountQuery,
+  useDeleteMyAccountMutation,
 } = authApi;
 

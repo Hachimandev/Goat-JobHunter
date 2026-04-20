@@ -1,28 +1,28 @@
 import { useRouter } from "expo-router";
 import {
-  Bell,
-  Bookmark,
-  Building,
-  Clipboard,
-  FileText,
-  HardDrive,
-  Settings,
-  User,
+    Bell,
+    Bookmark,
+    Building,
+    Clipboard,
+    FileText,
+    HardDrive,
+    Settings,
+    User,
 } from "lucide-react-native";
 import React from "react";
 import {
-  Image,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
+    Image,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { clearUser } from "../../lib/authSlice";
 import { useAppDispatch, useAppSelector } from "../../lib/hooks";
+import { tokenManager } from "../../lib/tokenManager";
 import { useLogoutMutation } from "../../services/auth/authApi";
-import { tokenStorage } from "../../services/tokenStorage";
 
 export default function ProfileScreen() {
   const router = useRouter();
@@ -40,7 +40,7 @@ export default function ProfileScreen() {
 
   const handleLogout = async () => {
     try {
-      await tokenStorage.clearTokens();
+      await tokenManager.clearTokens();
 
       dispatch(clearUser());
 
@@ -50,13 +50,13 @@ export default function ProfileScreen() {
         console.log("Logout API failed (ignored):", apiError);
       }
 
-      router.replace("/");
+      router.replace("/(auth)/signin");
     } catch (error) {
       console.error("Logout error:", error);
 
-      await tokenStorage.clearTokens();
+      await tokenManager.clearTokens();
       dispatch(clearUser());
-      router.replace("/");
+      router.replace("/(auth)/signin");
     }
   };
 
