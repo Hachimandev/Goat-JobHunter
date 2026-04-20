@@ -9,7 +9,6 @@ import { SharedMediaGrid } from './SharedMediaGrid';
 import { SharedFilesList } from './SharedFilesList';
 import { useMemo, useState } from 'react';
 import { ChatRoom } from '@/types/model';
-import { useFetchFilesInChatRoomQuery, useFetchMediaInChatRoomQuery } from '@/services/chatRoom/chatRoomApi';
 import { ManageGroupPanel } from './ManageGroupPanel';
 import { useGetMemberInGroupChatQuery, useAddMemberToGroupMutation } from '@/services/chatRoom/groupChat/groupChatApi';
 import { ChatMemberItem } from '@/app/(chat)/messages/components/ChatMemberItem';
@@ -28,6 +27,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import { usePaginatedChatRoomAssets } from '@/app/(chat)/messages/hooks/usePaginatedChatRoomAssets';
 
 interface GroupDetailsPanelProps {
   chatRoom: ChatRoom;
@@ -53,16 +53,30 @@ export function GroupDetailsPanel({
   const [managePanelOpen, setManagePanelOpen] = useState(false);
 
   const {
-    data: filesData,
-    isLoading: isLoadingFile,
-    isError: isErrorFile,
-  } = useFetchFilesInChatRoomQuery({ chatRoomId: chatRoom.roomId }, { skip: !isOpen || !chatRoom });
+    assets: media,
+    isLoadingInitial: isLoadingMedia,
+    isError: isErrorMedia,
+    hasMore: hasMoreMedia,
+    isFetchingNext: isFetchingNextMedia,
+    loadMore: loadMoreMedia,
+  } = usePaginatedChatRoomAssets({
+    chatRoomId: chatRoom?.roomId ?? null,
+    assetType: 'media',
+    enabled: isOpen && Boolean(chatRoom),
+  });
 
   const {
-    data: mediaData,
-    isLoading: isLoadingMedia,
-    isError: isErrorMedia,
-  } = useFetchMediaInChatRoomQuery({ chatRoomId: chatRoom.roomId }, { skip: !isOpen || !chatRoom });
+    assets: files,
+    isLoadingInitial: isLoadingFile,
+    isError: isErrorFile,
+    hasMore: hasMoreFile,
+    isFetchingNext: isFetchingNextFile,
+    loadMore: loadMoreFile,
+  } = usePaginatedChatRoomAssets({
+    chatRoomId: chatRoom?.roomId ?? null,
+    assetType: 'files',
+    enabled: isOpen && Boolean(chatRoom),
+  });
 
   const {
     data: memberData,
@@ -77,14 +91,6 @@ export function GroupDetailsPanel({
   const members = useMemo(() => {
     return memberData?.data || [];
   }, [memberData]);
-
-  const media = useMemo(() => {
-    return mediaData?.data || [];
-  }, [mediaData]);
-
-  const files = useMemo(() => {
-    return filesData?.data || [];
-  }, [filesData]);
 
   const { currentUserRole, currentUserId } = useMemo(() => {
     const currentMember = members.find((member) => member.accountId === user?.accountId);
@@ -251,10 +257,24 @@ export function GroupDetailsPanel({
                   </TabsTrigger>
                 </TabsList>
                 <TabsContent value="media" className="mt-4">
-                  <SharedMediaGrid media={media} isLoading={isLoadingMedia} isError={isErrorMedia} />
+                  <SharedMediaGrid
+                    media={media}
+                    isLoading={isLoadingMedia}
+                    isError={isErrorMedia}
+                    hasMore={hasMoreMedia}
+                    isFetchingNext={isFetchingNextMedia}
+                    onLoadMore={loadMoreMedia}
+                  />
                 </TabsContent>
                 <TabsContent value="files" className="mt-4">
-                  <SharedFilesList files={files} isLoading={isLoadingFile} isError={isErrorFile} />
+                  <SharedFilesList
+                    files={files}
+                    isLoading={isLoadingFile}
+                    isError={isErrorFile}
+                    hasMore={hasMoreFile}
+                    isFetchingNext={isFetchingNextFile}
+                    onLoadMore={loadMoreFile}
+                  />
                 </TabsContent>
               </Tabs>
 

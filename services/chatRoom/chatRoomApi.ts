@@ -1,11 +1,12 @@
 import { api } from '@/services/api';
-import { CHAT_MESSAGE_PAGE_SIZE, CHAT_ROOM_SIDEBAR_PAGE_SIZE } from '@/constants/constant';
+import { CHAT_DETAIL_ASSET_PAGE_SIZE, CHAT_MESSAGE_PAGE_SIZE, CHAT_ROOM_SIDEBAR_PAGE_SIZE } from '@/constants/constant';
 import {
   DeleteMessagePermanentRequest,
   FetchChatRoomsRequest,
   FetchChatRoomsResponse,
   ForwardMessageBatchRequest,
   ForwardMessageBatchResponse,
+  FetchChatRoomAssetsRequest,
   FetchMessagesInChatRoomRequest,
   FetchMessagesInChatRoomResponse,
   HideMessageRequest,
@@ -131,20 +132,20 @@ export const chatRoomApi = api.injectEndpoints({
       ],
     }),
 
-    fetchFilesInChatRoom: builder.query<FetchMessagesInChatRoomResponse, { chatRoomId: number; page?: number }>({
-      query: ({ chatRoomId, page = 1 }) => ({
+    fetchFilesInChatRoom: builder.query<FetchMessagesInChatRoomResponse, FetchChatRoomAssetsRequest>({
+      query: ({ chatRoomId, page = 1, size = CHAT_DETAIL_ASSET_PAGE_SIZE }) => ({
         url: `/chatrooms/${chatRoomId}/file`,
         method: 'GET',
-        params: { page },
+        params: { page, size },
       }),
       providesTags: (_, __, { chatRoomId }) => [{ type: 'ChatRoom', id: `MESSAGES_${chatRoomId}` }],
     }),
 
-    fetchMediaInChatRoom: builder.query<FetchMessagesInChatRoomResponse, { chatRoomId: number; page?: number }>({
-      query: ({ chatRoomId, page = 1 }) => ({
+    fetchMediaInChatRoom: builder.query<FetchMessagesInChatRoomResponse, FetchChatRoomAssetsRequest>({
+      query: ({ chatRoomId, page = 1, size = CHAT_DETAIL_ASSET_PAGE_SIZE }) => ({
         url: `/chatrooms/${chatRoomId}/media`,
         method: 'GET',
-        params: { page },
+        params: { page, size },
       }),
       providesTags: (_, __, { chatRoomId }) => [{ type: 'ChatRoom', id: `MESSAGES_${chatRoomId}` }],
     }),
@@ -525,7 +526,7 @@ export const chatRoomApi = api.injectEndpoints({
               dispatch(
                 chatRoomApi.util.updateQueryData(
                   'fetchFilesInChatRoom',
-                  originalArgs as { chatRoomId: number; page?: number },
+                  originalArgs as FetchChatRoomAssetsRequest,
                   (draft) => {
                     if (!draft?.data?.result) {
                       return;
@@ -545,7 +546,7 @@ export const chatRoomApi = api.injectEndpoints({
               dispatch(
                 chatRoomApi.util.updateQueryData(
                   'fetchMediaInChatRoom',
-                  originalArgs as { chatRoomId: number; page?: number },
+                  originalArgs as FetchChatRoomAssetsRequest,
                   (draft) => {
                     if (!draft?.data?.result) {
                       return;
@@ -653,7 +654,9 @@ export const {
   useLazyFetchMessagesInChatRoomQuery,
   useLazySearchMessagesInChatRoomQuery,
   useFetchFilesInChatRoomQuery,
+  useLazyFetchFilesInChatRoomQuery,
   useFetchMediaInChatRoomQuery,
+  useLazyFetchMediaInChatRoomQuery,
   useSendMessageToChatRoomMutation,
   useSendContactCardsToChatRoomMutation,
   useSendMessageToNewChatRoomMutation,

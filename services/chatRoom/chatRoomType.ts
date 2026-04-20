@@ -12,6 +12,12 @@ export type FetchMessagesInChatRoomRequest = {
   size?: number;
 };
 
+export type FetchChatRoomAssetsRequest = {
+  chatRoomId: number;
+  page?: number;
+  size?: number;
+};
+
 export type SearchMessagesInChatRoomRequest = {
   chatRoomId: number;
   searchTerm: string;
