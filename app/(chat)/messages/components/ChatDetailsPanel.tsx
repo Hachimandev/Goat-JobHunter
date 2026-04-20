@@ -2,16 +2,11 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ChatRoom } from '@/types/model';
 import { ChatRoomType } from '@/types/enum';
 import { Bell, Loader2, ShieldBan, Undo2, UserCircle, X, Users } from 'lucide-react';
-import { SharedMediaGrid } from './SharedMediaGrid';
-import { SharedFilesList } from './SharedFilesList';
-import { Badge } from '@/components/ui/badge';
-import { useFetchFilesInChatRoomQuery, useFetchMediaInChatRoomQuery } from '@/services/chatRoom/chatRoomApi';
-import { useMemo } from 'react';
 import useFriendActions from '@/hooks/useFriendActions';
+import AssetTabSection from '@/app/(chat)/messages/components/AssetTabSection';
 
 interface ChatDetailsPanelProps {
   chatRoom: ChatRoom;
@@ -26,24 +21,6 @@ export function ChatDetailsPanel({
   onClose,
   onRelationshipChanged,
 }: Readonly<ChatDetailsPanelProps>) {
-  const {
-    data: filesData,
-    isLoading: isLoadingFile,
-    isError: isErrorFile,
-  } = useFetchFilesInChatRoomQuery({ chatRoomId: chatRoom.roomId }, { skip: !isOpen || !chatRoom });
-  const {
-    data: mediaData,
-    isLoading: isLoadingMedia,
-    isError: isErrorMedia,
-  } = useFetchMediaInChatRoomQuery({ chatRoomId: chatRoom.roomId }, { skip: !isOpen || !chatRoom });
-
-  const media = useMemo(() => {
-    return mediaData?.data || [];
-  }, [mediaData]);
-
-  const files = useMemo(() => {
-    return filesData?.data || [];
-  }, [filesData]);
   const { handleBlockUser, handleUnblockUser, isMutating } = useFriendActions();
 
   if (!isOpen) return null;
@@ -51,8 +28,6 @@ export function ChatDetailsPanel({
   const isGroup = chatRoom.type === ChatRoomType.GROUP;
   const isDirectBlocked = !isGroup && Boolean(chatRoom.blocked);
   const isBlockedByMe = isDirectBlocked && Boolean(chatRoom.blockedByMe);
-
-  const isBlockActionDisabled = isGroup || isMutating;
 
   const canUnblock = isBlockedByMe;
 
@@ -133,22 +108,7 @@ export function ChatDetailsPanel({
 
           <Separator />
 
-          <Tabs defaultValue="media" className="w-full">
-            <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger className="cursor-pointer" value="media">
-                Phương tiện
-              </TabsTrigger>
-              <TabsTrigger className="cursor-pointer" value="files">
-                Files
-              </TabsTrigger>
-            </TabsList>
-            <TabsContent value="media" className="mt-4">
-              <SharedMediaGrid media={media} isLoading={isLoadingMedia} isError={isErrorMedia} />
-            </TabsContent>
-            <TabsContent value="files" className="mt-4">
-              <SharedFilesList files={files} isLoading={isLoadingFile} isError={isErrorFile} />
-            </TabsContent>
-          </Tabs>
+          <AssetTabSection isDetailPanelOpen={isOpen} chatRoom={chatRoom} />
         </div>
       </ScrollArea>
     </div>

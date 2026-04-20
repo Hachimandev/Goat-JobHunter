@@ -21,6 +21,9 @@ import {
   getDisplayName,
   getDisplayUsername,
 } from '@/app/(social-hub)/hub/hooks/useDisplay';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { isCompanyResponse } from '@/utils/slug';
+import { ApplicantResponse, CompanyResponse, MeResponse, RecruiterResponse } from '@/types/dto';
 
 export default function UserPopup() {
   const { user, signOut, isSigningOut, isSignedIn } = useUser();
@@ -32,6 +35,15 @@ export default function UserPopup() {
 
   const hasAvatar = getDisplayImage(user!) && !imageError;
 
+  const displayName =
+    user && isCompanyResponse(user as MeResponse)
+      ? (user as CompanyResponse).name
+      : (user as ApplicantResponse | RecruiterResponse)?.fullName || 'User';
+  const displayImage =
+    user && isCompanyResponse(user as MeResponse)
+      ? (user as CompanyResponse).logo
+      : (user as ApplicantResponse | RecruiterResponse)?.avatar;
+
   if (!user || !isSignedIn) {
     return null;
   }
@@ -41,16 +53,10 @@ export default function UserPopup() {
       <DropdownMenuTrigger asChild>
         <Button variant="ghost" className="relative h-10 w-10 rounded-full p-0">
           {hasAvatar ? (
-            <div className="h-10 w-10 rounded-full overflow-hidden bg-muted flex items-center justify-center">
-              <Image
-                src={getDisplayImage(user!)}
-                alt={getDisplayImageAlt(user!)}
-                width={40}
-                height={40}
-                className="h-full w-full object-cover"
-                onError={() => setImageError(true)}
-              />
-            </div>
+            <Avatar className="h-10 w-10 border">
+              <AvatarImage src={displayImage || '/placeholder.svg'} alt={displayName} />
+              <AvatarFallback>{displayName.charAt(0)}</AvatarFallback>
+            </Avatar>
           ) : (
             <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center">
               <User className="h-5 w-5 text-muted-foreground" />

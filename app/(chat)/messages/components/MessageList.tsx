@@ -1,9 +1,11 @@
 'use client';
 
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { CHAT_MESSAGE_SCROLL_TOP_THRESHOLD } from '@/constants/constant';
 import { MessageResponse } from '@/types/model';
 import { MessageTypeEnum } from '@/types/enum';
-import { useEffect, useRef, useMemo, useState } from 'react';
+import { Loader2 } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { MessageBubble, MessageBubbleLoading } from './MessageBubble';
 import { usePendingMessages } from '@/contexts/PendingMessagesContext';
 
@@ -11,6 +13,9 @@ interface MessageListProps {
   messages: MessageResponse[];
   currentUserId?: string;
   isGroup?: boolean;
+  onLoadOlderMessages?: () => Promise<void> | void;
+  hasOlderMessages?: boolean;
+  isLoadingOlderMessages?: boolean;
   onReplyMessage?: (message: MessageResponse) => void;
   onNavigateToMessage?: (messageId: string) => void;
   onForwardMessage?: (message: MessageResponse) => void;
@@ -31,6 +36,9 @@ export function MessageList({
   messages,
   currentUserId,
   isGroup = false,
+  onLoadOlderMessages,
+  hasOlderMessages = false,
+  isLoadingOlderMessages = false,
   onReplyMessage,
   onNavigateToMessage,
   onForwardMessage,
@@ -47,10 +55,59 @@ export function MessageList({
   isPinningMessage,
 }: Readonly<MessageListProps>) {
   const bottomRef = useRef<HTMLDivElement>(null);
+  const scrollAreaContainerRef = useRef<HTMLDivElement>(null);
+  const viewportRef = useRef<HTMLDivElement | null>(null);
+  const topLoadAnchorRef = useRef<{ scrollHeight: number; scrollTop: number; messageCount: number } | null>(null);
+  const hasTriggeredTopLoadRef = useRef(false);
+  const isNearBottomRef = useRef(true);
+  const lastTailMessageIdRef = useRef<string | null>(null);
   const { pendingMessages } = usePendingMessages();
   const collapsedMapRef = useRef<Record<string, number>>({});
 
   const [expandedGroups, setExpandedGroups] = useState<Set<number>>(new Set());
+
+  const resolveViewport = useCallback(() => {
+    return scrollAreaContainerRef.current?.querySelector('[data-slot="scroll-area-viewport"]') as HTMLDivElement | null;
+  }, []);
+
+  const updateNearBottom = useCallback(() => {
+    const viewport = viewportRef.current;
+
+    if (!viewport) {
+      return;
+    }
+
+    const distanceToBottom = viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight;
+    isNearBottomRef.current = distanceToBottom <= 120;
+  }, []);
+
+  const handleScroll = useCallback(() => {
+    const viewport = viewportRef.current;
+
+    if (!viewport) {
+      return;
+    }
+
+    updateNearBottom();
+
+    if (viewport.scrollTop > CHAT_MESSAGE_SCROLL_TOP_THRESHOLD) {
+      hasTriggeredTopLoadRef.current = false;
+      return;
+    }
+
+    if (!onLoadOlderMessages || !hasOlderMessages || isLoadingOlderMessages || hasTriggeredTopLoadRef.current) {
+      return;
+    }
+
+    hasTriggeredTopLoadRef.current = true;
+    topLoadAnchorRef.current = {
+      scrollHeight: viewport.scrollHeight,
+      scrollTop: viewport.scrollTop,
+      messageCount: messages.length,
+    };
+
+    void Promise.resolve(onLoadOlderMessages());
+  }, [hasOlderMessages, isLoadingOlderMessages, messages.length, onLoadOlderMessages, updateNearBottom]);
 
   const renderedItems = useMemo(() => {
     const items: Array<{
@@ -107,8 +164,63 @@ export function MessageList({
   }, [messages]);
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+    const viewport = resolveViewport();
+
+    if (!viewport) {
+      return;
+    }
+
+    viewportRef.current = viewport;
+    updateNearBottom();
+    viewport.addEventListener('scroll', handleScroll, { passive: true });
+
+    return () => {
+      viewport.removeEventListener('scroll', handleScroll);
+    };
+  }, [handleScroll, resolveViewport, updateNearBottom]);
+
+  useEffect(() => {
+    if (isLoadingOlderMessages) {
+      return;
+    }
+
+    const viewport = viewportRef.current;
+    const topLoadAnchor = topLoadAnchorRef.current;
+
+    if (!viewport || !topLoadAnchor) {
+      return;
+    }
+
+    if (messages.length > topLoadAnchor.messageCount) {
+      const nextScrollTop = viewport.scrollHeight - topLoadAnchor.scrollHeight + topLoadAnchor.scrollTop;
+      viewport.scrollTop = Math.max(0, nextScrollTop);
+    }
+
+    topLoadAnchorRef.current = null;
+    hasTriggeredTopLoadRef.current = false;
+    updateNearBottom();
+  }, [isLoadingOlderMessages, messages.length, updateNearBottom]);
+
+  const latestMessageId = messages[messages.length - 1]?.messageId ?? null;
+
+  useEffect(() => {
+    if (!latestMessageId) {
+      lastTailMessageIdRef.current = null;
+      return;
+    }
+
+    const previousTailMessageId = lastTailMessageIdRef.current;
+
+    if (previousTailMessageId === latestMessageId) {
+      return;
+    }
+
+    if (!previousTailMessageId || isNearBottomRef.current) {
+      bottomRef.current?.scrollIntoView({ behavior: previousTailMessageId ? 'smooth' : 'auto' });
+    }
+
+    lastTailMessageIdRef.current = latestMessageId;
+  }, [latestMessageId]);
 
   // Listen for external expand requests (detail = messageId)
   useEffect(() => {
@@ -141,9 +253,14 @@ export function MessageList({
   }, []);
 
   return (
-    <div className="flex-1 overflow-hidden">
+    <div className="flex-1 overflow-hidden" ref={scrollAreaContainerRef}>
       <ScrollArea className="h-full px-4">
         <div className="py-4 space-y-1">
+          {isLoadingOlderMessages && (
+            <div className="flex justify-center py-2 text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin" />
+            </div>
+          )}
           {renderedItems.map((item) => {
             if (item.kind === 'message') {
               const message = item.message as MessageResponse;

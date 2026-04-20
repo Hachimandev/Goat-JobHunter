@@ -2,8 +2,10 @@ import { Client } from '@stomp/stompjs';
 import { ThunkDispatch } from 'redux-thunk';
 import { UnknownAction } from 'redux';
 import SockJS from 'sockjs-client';
+import { CHAT_MESSAGE_PAGE_SIZE, CHAT_ROOM_SIDEBAR_PAGE_SIZE } from '@/constants/constant';
 import { store } from '@/lib/store';
 import { chatRoomApi } from '@/services/chatRoom/chatRoomApi';
+import { FetchMessagesInChatRoomRequest } from '@/services/chatRoom/chatRoomType';
 import { MessageResponse } from '@/types/model';
 import { groupChatApi } from '@/services/chatRoom/groupChat/groupChatApi';
 import { pinnedMessageApi } from '@/services/chatRoom/pinned_message/pinnedMessageApi';
@@ -141,26 +143,71 @@ export class WebSocketMessageService {
     return hasValidMessageId && hasValidChatRoomId && !hasSender;
   }
 
+  private getActiveMessageQueryArgs(chatRoomId: number): FetchMessagesInChatRoomRequest[] {
+    const activeMessageQueries = chatRoomApi.util
+      .selectInvalidatedBy(store.getState(), [{ type: 'ChatRoom', id: `MESSAGES_${chatRoomId}` }])
+      .filter(({ endpointName, originalArgs }) => {
+        if (endpointName !== 'fetchMessagesInChatRoom') {
+          return false;
+        }
+
+        if (!originalArgs || typeof originalArgs !== 'object') {
+          return false;
+        }
+
+        return (originalArgs as { chatRoomId?: number }).chatRoomId === chatRoomId;
+      });
+
+    const queryArgsByKey = new Map<string, FetchMessagesInChatRoomRequest>();
+
+    activeMessageQueries.forEach(({ originalArgs }) => {
+      const args = originalArgs as Partial<FetchMessagesInChatRoomRequest>;
+      const normalizedArgs: FetchMessagesInChatRoomRequest = {
+        chatRoomId,
+        page: args.page ?? 1,
+        size: args.size ?? CHAT_MESSAGE_PAGE_SIZE,
+      };
+
+      queryArgsByKey.set(`${normalizedArgs.page}-${normalizedArgs.size}`, normalizedArgs);
+    });
+
+    if (queryArgsByKey.size === 0) {
+      return [{ chatRoomId, page: 1, size: CHAT_MESSAGE_PAGE_SIZE }];
+    }
+
+    return Array.from(queryArgsByKey.values()).sort((a, b) => (a.page ?? 1) - (b.page ?? 1));
+  }
+
+  private getFirstPageMessageQueryArg(chatRoomId: number): FetchMessagesInChatRoomRequest {
+    const activeQueryArgs = this.getActiveMessageQueryArgs(chatRoomId);
+
+    return (
+      activeQueryArgs.find((queryArg) => (queryArg.page ?? 1) === 1) ?? {
+        chatRoomId,
+        page: 1,
+        size: CHAT_MESSAGE_PAGE_SIZE,
+      }
+    );
+  }
+
   private handleDeleteMessageEvent(subscribedChatRoomId: number, payload: DeleteMessageRealtimeEvent) {
     const parsedChatRoomId = Number(payload.chatRoomId);
     const targetChatRoomId = Number.isNaN(parsedChatRoomId) ? subscribedChatRoomId : parsedChatRoomId;
 
-    this.dispatch(
-      chatRoomApi.util.updateQueryData(
-        'fetchMessagesInChatRoom',
-        {
-          chatRoomId: targetChatRoomId,
-          page: 1,
-          size: 50,
-        },
-        (draft) => {
-          if (!draft?.data) return;
+    const activeMessageQueryArgs = this.getActiveMessageQueryArgs(targetChatRoomId);
 
-          cascadeReplyContextForDeletedMessage(draft.data, payload.messageId);
-          draft.data = draft.data.filter((message) => message.messageId !== payload.messageId);
-        },
-      ),
-    );
+    activeMessageQueryArgs.forEach((queryArg) => {
+      this.dispatch(
+        chatRoomApi.util.updateQueryData('fetchMessagesInChatRoom', queryArg, (draft) => {
+          if (!draft?.data?.result) {
+            return;
+          }
+
+          cascadeReplyContextForDeletedMessage(draft.data.result, payload.messageId);
+          draft.data.result = draft.data.result.filter((message) => message.messageId !== payload.messageId);
+        }),
+      );
+    });
 
     this.dispatch(chatRoomApi.util.invalidateTags([{ type: 'ChatRoom', id: 'LIST' }]));
   }
@@ -169,33 +216,31 @@ export class WebSocketMessageService {
     console.log(`💬 Received message in chat room ${chatRoomId}:`, message);
 
     // Update messages list
+    const firstPageQueryArg = this.getFirstPageMessageQueryArg(chatRoomId);
+
     this.dispatch(
-      chatRoomApi.util.updateQueryData(
-        'fetchMessagesInChatRoom',
-        {
-          chatRoomId,
-          page: 1,
-          size: 50,
-        },
-        (draft) => {
-          if (draft?.data) {
-            const existingMessageIndex = draft.data.findIndex((m) => m.messageId === message.messageId);
+      chatRoomApi.util.updateQueryData('fetchMessagesInChatRoom', firstPageQueryArg, (draft) => {
+        const draftMessages = draft?.data?.result;
 
-            if (existingMessageIndex === -1) {
-              draft.data.push(message);
-            } else {
-              draft.data[existingMessageIndex] = {
-                ...draft.data[existingMessageIndex],
-                ...message,
-              };
-            }
+        if (!draftMessages) {
+          return;
+        }
 
-            if (message.isHidden) {
-              cascadeReplyContextForRecalledMessage(draft.data, message.messageId);
-            }
-          }
-        },
-      ),
+        const existingMessageIndex = draftMessages.findIndex((item) => item.messageId === message.messageId);
+
+        if (existingMessageIndex === -1) {
+          draftMessages.push(message);
+        } else {
+          draftMessages[existingMessageIndex] = {
+            ...draftMessages[existingMessageIndex],
+            ...message,
+          };
+        }
+
+        if (message.isHidden) {
+          cascadeReplyContextForRecalledMessage(draftMessages, message.messageId);
+        }
+      }),
     );
 
     // Update sidebar: last message preview & move to top
@@ -259,14 +304,18 @@ export class WebSocketMessageService {
 
         // Update member count in chat rooms list
         this.dispatch(
-          chatRoomApi.util.updateQueryData('fetchChatRooms', { page: 1, size: 50 }, (draft) => {
-            if (draft?.data?.result) {
-              const room = draft.data.result.find((r) => r.roomId === chatRoomId);
-              if (room && room.memberCount) {
-                room.memberCount -= 1;
+          chatRoomApi.util.updateQueryData(
+            'fetchChatRooms',
+            { page: 1, size: CHAT_ROOM_SIDEBAR_PAGE_SIZE },
+            (draft) => {
+              if (draft?.data?.result) {
+                const room = draft.data.result.find((r) => r.roomId === chatRoomId);
+                if (room && room.memberCount) {
+                  room.memberCount -= 1;
+                }
               }
-            }
-          }),
+            },
+          ),
         );
       } else if (content.includes('đã rời khỏi nhóm')) {
         // Extract actor name: "{actor} đã rời khỏi nhóm"
@@ -283,14 +332,18 @@ export class WebSocketMessageService {
 
         // Update member count
         this.dispatch(
-          chatRoomApi.util.updateQueryData('fetchChatRooms', { page: 1, size: 50 }, (draft) => {
-            if (draft?.data?.result) {
-              const room = draft.data.result.find((r) => r.roomId === chatRoomId);
-              if (room && room.memberCount) {
-                room.memberCount -= 1;
+          chatRoomApi.util.updateQueryData(
+            'fetchChatRooms',
+            { page: 1, size: CHAT_ROOM_SIDEBAR_PAGE_SIZE },
+            (draft) => {
+              if (draft?.data?.result) {
+                const room = draft.data.result.find((r) => r.roomId === chatRoomId);
+                if (room && room.memberCount) {
+                  room.memberCount -= 1;
+                }
               }
-            }
-          }),
+            },
+          ),
         );
       } else if (content.includes('bỏ ghim')) {
         this.dispatch(
@@ -330,14 +383,18 @@ export class WebSocketMessageService {
 
         // Update member count
         this.dispatch(
-          chatRoomApi.util.updateQueryData('fetchChatRooms', { page: 1, size: 50 }, (draft) => {
-            if (draft?.data?.result) {
-              const room = draft.data.result.find((r) => r.roomId === chatRoomId);
-              if (room) {
-                room.memberCount = (room.memberCount || 0) + 1;
+          chatRoomApi.util.updateQueryData(
+            'fetchChatRooms',
+            { page: 1, size: CHAT_ROOM_SIDEBAR_PAGE_SIZE },
+            (draft) => {
+              if (draft?.data?.result) {
+                const room = draft.data.result.find((r) => r.roomId === chatRoomId);
+                if (room) {
+                  room.memberCount = (room.memberCount || 0) + 1;
+                }
               }
-            }
-          }),
+            },
+          ),
         );
       }
       // Detect GROUP_NAME_CHANGED
@@ -347,14 +404,18 @@ export class WebSocketMessageService {
         const newName = match?.[1];
 
         this.dispatch(
-          chatRoomApi.util.updateQueryData('fetchChatRooms', { page: 1, size: 50 }, (draft) => {
-            if (draft?.data?.result && newName) {
-              const room = draft.data.result.find((r) => r.roomId === chatRoomId);
-              if (room) {
-                room.name = newName;
+          chatRoomApi.util.updateQueryData(
+            'fetchChatRooms',
+            { page: 1, size: CHAT_ROOM_SIDEBAR_PAGE_SIZE },
+            (draft) => {
+              if (draft?.data?.result && newName) {
+                const room = draft.data.result.find((r) => r.roomId === chatRoomId);
+                if (room) {
+                  room.name = newName;
+                }
               }
-            }
-          }),
+            },
+          ),
         );
       }
       // Detect GROUP_AVATAR_CHANGED

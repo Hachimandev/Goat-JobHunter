@@ -1,10 +1,11 @@
 import { Loader2, Music, Play } from 'lucide-react';
 import Image from 'next/image';
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { ClickHandlerProps, RenderPhotoContext, RenderPhotoProps, RowsPhotoAlbum } from 'react-photo-album';
 import { MessageResponse } from '@/types/model';
 import { ChatMediaLightbox } from './ChatMediaLightbox';
 import formatChatMediaForPhotoAlbum, { ChatMediaPhoto } from '@/utils/formatChatMediaForPhotoAlbum';
+import { useInfiniteScroll } from '@/hooks/useInfiniteScroll';
 import 'react-photo-album/rows.css';
 import 'react-photo-album/columns.css';
 
@@ -12,6 +13,9 @@ interface SharedMediaGridProps {
   readonly media: MessageResponse[];
   readonly isLoading: boolean;
   readonly isError: boolean;
+  readonly hasMore?: boolean;
+  readonly isFetchingNext?: boolean;
+  readonly onLoadMore?: () => Promise<void>;
 }
 
 function RenderChatMediaPhoto(
@@ -68,9 +72,32 @@ function RenderChatMediaPhoto(
   );
 }
 
-export function SharedMediaGrid({ media, isLoading, isError }: SharedMediaGridProps) {
+export function SharedMediaGrid({
+  media,
+  isLoading,
+  isError,
+  hasMore = false,
+  isFetchingNext = false,
+  onLoadMore,
+}: SharedMediaGridProps) {
   const [isLightboxOpen, setIsLightboxOpen] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(0);
+
+  const handleLoadMore = useCallback(() => {
+    if (!onLoadMore) {
+      return;
+    }
+
+    void onLoadMore();
+  }, [onLoadMore]);
+
+  const { targetRef } = useInfiniteScroll({
+    onLoadMore: handleLoadMore,
+    hasMore: Boolean(onLoadMore) && hasMore,
+    isLoading: isFetchingNext,
+    threshold: 0,
+    rootMargin: '240px',
+  });
 
   const mediaPhotos = useMemo(() => formatChatMediaForPhotoAlbum(media), [media]);
   const selectedPhotoIndex = mediaPhotos.length === 0 ? 0 : Math.min(selectedIndex, mediaPhotos.length - 1);
@@ -121,6 +148,14 @@ export function SharedMediaGrid({ media, isLoading, isError }: SharedMediaGridPr
         onClick={handleOpenLightbox}
         render={{ photo: RenderChatMediaPhoto }}
       />
+
+      {hasMore && !isFetchingNext && <div ref={targetRef} className="h-2 w-full" />}
+
+      {isFetchingNext && (
+        <div className="flex items-center justify-center py-4">
+          <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+        </div>
+      )}
 
       <ChatMediaLightbox
         open={isLightboxOpen}
