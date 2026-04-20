@@ -32,6 +32,9 @@ interface ChatWindowProps {
   onCancelReply?: () => void;
   onReplyMessage?: (message: MessageResponse) => void;
   onNavigateToMessage?: (messageId: string) => void;
+  onLoadOlderMessages?: () => Promise<void> | void;
+  hasOlderMessages?: boolean;
+  isLoadingOlderMessages?: boolean;
   onForwardMessage?: (message: MessageResponse) => void;
   isForwardingMessage?: boolean;
   onHideMessage?: (messageId: string) => Promise<void> | void;
@@ -62,6 +65,9 @@ export function ChatWindow({
   onCancelReply,
   onReplyMessage,
   onNavigateToMessage,
+  onLoadOlderMessages,
+  hasOlderMessages = false,
+  isLoadingOlderMessages = false,
   onForwardMessage,
   isForwardingMessage,
   onHideMessage,
@@ -125,6 +131,9 @@ export function ChatWindow({
           messages={messages}
           currentUserId={currentUserId}
           isGroup={isGroup}
+          onLoadOlderMessages={onLoadOlderMessages}
+          hasOlderMessages={hasOlderMessages}
+          isLoadingOlderMessages={isLoadingOlderMessages}
           onReplyMessage={isDissolved ? undefined : onReplyMessage}
           onNavigateToMessage={isDissolved ? undefined : onNavigateToMessage}
           onForwardMessage={isDissolved ? undefined : onForwardMessage}

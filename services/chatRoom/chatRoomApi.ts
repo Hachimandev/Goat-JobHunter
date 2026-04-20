@@ -1,4 +1,5 @@
 import { api } from '@/services/api';
+import { CHAT_MESSAGE_PAGE_SIZE } from '@/constants/constant';
 import {
   DeleteMessagePermanentRequest,
   FetchChatRoomsRequest,
@@ -24,6 +25,56 @@ import {
 } from '@/utils/replyContextRealtime';
 import { getMessagePreviewText } from '@/utils/messageUtils';
 import { pinnedMessageApi } from './pinned_message/pinnedMessageApi';
+
+type ApiState = Parameters<typeof api.util.selectInvalidatedBy>[0];
+
+function getActiveMessageQueryArgs(getState: () => ApiState, chatRoomId: number): FetchMessagesInChatRoomRequest[] {
+  const activeMessageQueries = chatRoomApi.util
+    .selectInvalidatedBy(getState(), [{ type: 'ChatRoom', id: `MESSAGES_${chatRoomId}` }])
+    .filter(({ endpointName, originalArgs }) => {
+      if (endpointName !== 'fetchMessagesInChatRoom') {
+        return false;
+      }
+
+      if (!originalArgs || typeof originalArgs !== 'object') {
+        return false;
+      }
+
+      return (originalArgs as { chatRoomId?: number }).chatRoomId === chatRoomId;
+    });
+
+  const queryArgsByKey = new Map<string, FetchMessagesInChatRoomRequest>();
+
+  activeMessageQueries.forEach(({ originalArgs }) => {
+    const args = originalArgs as Partial<FetchMessagesInChatRoomRequest>;
+    const normalizedArgs: FetchMessagesInChatRoomRequest = {
+      chatRoomId,
+      page: args.page ?? 1,
+      size: args.size ?? CHAT_MESSAGE_PAGE_SIZE,
+    };
+
+    queryArgsByKey.set(`${normalizedArgs.page}-${normalizedArgs.size}`, normalizedArgs);
+  });
+
+  if (queryArgsByKey.size === 0) {
+    return [{ chatRoomId, page: 1, size: CHAT_MESSAGE_PAGE_SIZE }];
+  }
+
+  return Array.from(queryArgsByKey.values()).sort((a, b) => (a.page ?? 1) - (b.page ?? 1));
+}
+
+function getFirstPageMessageQueryArg(
+  queryArgs: FetchMessagesInChatRoomRequest[],
+  chatRoomId: number,
+): FetchMessagesInChatRoomRequest {
+  return (
+    queryArgs.find((queryArg) => (queryArg.page ?? 1) === 1) ?? {
+      chatRoomId,
+      page: 1,
+      size: CHAT_MESSAGE_PAGE_SIZE,
+    }
+  );
+}
 
 export const chatRoomApi = api.injectEndpoints({
   endpoints: (builder) => ({
@@ -57,7 +108,7 @@ export const chatRoomApi = api.injectEndpoints({
 
     // Fetch messages in a specific chat room
     fetchMessagesInChatRoom: builder.query<FetchMessagesInChatRoomResponse, FetchMessagesInChatRoomRequest>({
-      query: ({ chatRoomId, page = 1, size = 50 }) => ({
+      query: ({ chatRoomId, page = 1, size = CHAT_MESSAGE_PAGE_SIZE }) => ({
         url: `/chatrooms/${chatRoomId}/messages`,
         method: 'GET',
         params: { size, page },
@@ -69,7 +120,7 @@ export const chatRoomApi = api.injectEndpoints({
       IBackendRes<IModelPaginate<MessageResponse>>,
       SearchMessagesInChatRoomRequest
     >({
-      query: ({ chatRoomId, searchTerm, page = 1, size = 50 }) => ({
+      query: ({ chatRoomId, searchTerm, page = 1, size = CHAT_MESSAGE_PAGE_SIZE }) => ({
         url: `/chatrooms/${chatRoomId}/messages/search`,
         method: 'GET',
         params: { searchTerm, size, page },
@@ -134,7 +185,7 @@ export const chatRoomApi = api.injectEndpoints({
           data: formData,
         };
       },
-      async onQueryStarted({ chatRoomId }, { dispatch, queryFulfilled }) {
+      async onQueryStarted({ chatRoomId }, { dispatch, getState, queryFulfilled }) {
         try {
           const { data: sendResponse } = await queryFulfilled;
           const sentMessages = sendResponse?.data || [];
@@ -143,8 +194,11 @@ export const chatRoomApi = api.injectEndpoints({
             return;
           }
 
+          const activeMessageQueryArgs = getActiveMessageQueryArgs(getState, chatRoomId);
+          const firstPageQueryArg = getFirstPageMessageQueryArg(activeMessageQueryArgs, chatRoomId);
+
           dispatch(
-            chatRoomApi.util.updateQueryData('fetchMessagesInChatRoom', { chatRoomId, page: 1, size: 50 }, (draft) => {
+            chatRoomApi.util.updateQueryData('fetchMessagesInChatRoom', firstPageQueryArg, (draft) => {
               const draftMessages = draft?.data?.result;
 
               if (!draftMessages) {
@@ -205,7 +259,7 @@ export const chatRoomApi = api.injectEndpoints({
           userIds,
         },
       }),
-      async onQueryStarted({ chatRoomId }, { dispatch, queryFulfilled }) {
+      async onQueryStarted({ chatRoomId }, { dispatch, getState, queryFulfilled }) {
         try {
           const { data: sendResponse } = await queryFulfilled;
           const sentMessages = sendResponse?.data || [];
@@ -214,8 +268,11 @@ export const chatRoomApi = api.injectEndpoints({
             return;
           }
 
+          const activeMessageQueryArgs = getActiveMessageQueryArgs(getState, chatRoomId);
+          const firstPageQueryArg = getFirstPageMessageQueryArg(activeMessageQueryArgs, chatRoomId);
+
           dispatch(
-            chatRoomApi.util.updateQueryData('fetchMessagesInChatRoom', { chatRoomId, page: 1, size: 50 }, (draft) => {
+            chatRoomApi.util.updateQueryData('fetchMessagesInChatRoom', firstPageQueryArg, (draft) => {
               const draftMessages = draft?.data?.result;
 
               if (!draftMessages) {
@@ -338,18 +395,24 @@ export const chatRoomApi = api.injectEndpoints({
         url: `/chatrooms/${chatRoomId}/messages/${messageId}/permanent`,
         method: 'DELETE',
       }),
-      async onQueryStarted({ chatRoomId, messageId }, { dispatch, queryFulfilled }) {
+      async onQueryStarted({ chatRoomId, messageId }, { dispatch, getState, queryFulfilled }) {
         try {
           await queryFulfilled;
 
-          dispatch(
-            chatRoomApi.util.updateQueryData('fetchMessagesInChatRoom', { chatRoomId, page: 1, size: 50 }, (draft) => {
-              if (!draft?.data) return;
+          const activeMessageQueryArgs = getActiveMessageQueryArgs(getState, chatRoomId);
 
-              cascadeReplyContextForDeletedMessage(draft.data.result, messageId);
-              draft.data.result = draft.data.result.filter((message) => message.messageId !== messageId);
-            }),
-          );
+          activeMessageQueryArgs.forEach((queryArg) => {
+            dispatch(
+              chatRoomApi.util.updateQueryData('fetchMessagesInChatRoom', queryArg, (draft) => {
+                if (!draft?.data?.result) {
+                  return;
+                }
+
+                cascadeReplyContextForDeletedMessage(draft.data.result, messageId);
+                draft.data.result = draft.data.result.filter((message) => message.messageId !== messageId);
+              }),
+            );
+          });
 
           dispatch(chatRoomApi.util.invalidateTags([{ type: 'ChatRoom', id: 'LIST' }]));
 
@@ -514,24 +577,30 @@ export const chatRoomApi = api.injectEndpoints({
         url: `/chatrooms/${chatRoomId}/messages/${messageId}`,
         method: 'DELETE',
       }),
-      async onQueryStarted({ chatRoomId, messageId }, { dispatch, queryFulfilled }) {
+      async onQueryStarted({ chatRoomId, messageId }, { dispatch, getState, queryFulfilled }) {
         try {
           await queryFulfilled;
 
-          dispatch(
-            chatRoomApi.util.updateQueryData('fetchMessagesInChatRoom', { chatRoomId, page: 1, size: 50 }, (draft) => {
-              if (!draft?.data?.result) return;
+          const activeMessageQueryArgs = getActiveMessageQueryArgs(getState, chatRoomId);
 
-              const recalledMessage = draft.data.result.find((message) => message.messageId === messageId);
+          activeMessageQueryArgs.forEach((queryArg) => {
+            dispatch(
+              chatRoomApi.util.updateQueryData('fetchMessagesInChatRoom', queryArg, (draft) => {
+                if (!draft?.data?.result) {
+                  return;
+                }
 
-              if (recalledMessage) {
-                recalledMessage.isHidden = true;
-                recalledMessage.content = 'Tin nhắn đã được thu hồi';
-              }
+                const recalledMessage = draft.data.result.find((message) => message.messageId === messageId);
 
-              cascadeReplyContextForRecalledMessage(draft.data.result, messageId);
-            }),
-          );
+                if (recalledMessage) {
+                  recalledMessage.isHidden = true;
+                  recalledMessage.content = 'Tin nhắn đã được thu hồi';
+                }
+
+                cascadeReplyContextForRecalledMessage(draft.data.result, messageId);
+              }),
+            );
+          });
 
           dispatch(chatRoomApi.util.invalidateTags([{ type: 'ChatRoom', id: 'LIST' }]));
 
@@ -568,6 +637,7 @@ export const {
   useFetchChatRoomsQuery,
   useFetchChatRoomsByIdQuery,
   useFetchMessagesInChatRoomQuery,
+  useLazyFetchMessagesInChatRoomQuery,
   useLazySearchMessagesInChatRoomQuery,
   useFetchFilesInChatRoomQuery,
   useFetchMediaInChatRoomQuery,
