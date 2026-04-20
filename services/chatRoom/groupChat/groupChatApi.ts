@@ -47,8 +47,12 @@ export interface ChatMemberResponse {
   username: string;
 }
 
-export const groupChatApi = api.injectEndpoints({
-  endpoints: (builder) => ({
+export const groupChatApi = api
+  .enhanceEndpoints({
+    addTagTypes: ["ChatMember"],
+  })
+  .injectEndpoints({
+    endpoints: (builder) => ({
     createGroupChat: builder.mutation<IBackendRes<ChatRoomResponse>, CreateGroupChatRequest>({
       query: (data) => ({
         url: "/chatrooms/group",
@@ -125,6 +129,17 @@ export const groupChatApi = api.injectEndpoints({
         { type: "ChatRoom", id: chatroomId },
         { type: "ChatMember", id: chatMemberId }
       ]
+    }),
+
+    dissolveGroupChat: builder.mutation<void, { chatRoomId: number; groupNameConfirmation: string }>({
+      query: ({ chatRoomId, groupNameConfirmation }) => ({
+        url: `/chatrooms/group/${chatRoomId}/dissolve`,
+        method: "DELETE",
+        params: { groupNameConfirmation }
+      }),
+      invalidatesTags: (result, error, { chatRoomId }) => [
+        { type: "ChatRoom", id: chatRoomId }
+      ]
     })
   })
 });
@@ -136,5 +151,6 @@ export const {
   useGetMemberInGroupChatQuery,
   useAddMemberToGroupMutation,
   useRemoveMemberFromGroupMutation,
-  useUpdateMemberRoleMutation
+  useUpdateMemberRoleMutation,
+  useDissolveGroupChatMutation
 } = groupChatApi;
