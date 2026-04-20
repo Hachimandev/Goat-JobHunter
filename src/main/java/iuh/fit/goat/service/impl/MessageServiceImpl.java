@@ -251,6 +251,7 @@ public class MessageServiceImpl implements MessageService {
         log.info("Saving message - chatRoomId: {}, SK: {}", chatRoomId, messageSk);
 
         Message savedMessage = messageRepository.saveMessage(message);
+        updateChatRoomSummaryFromMessage(savedMessage);
         incrementUnreadCountForRecipients(chatRoomId, currentAccount.getAccountId());
 
         log.info("Message created: messageId={}, chatRoomId={}", messageId, chatRoomId);
@@ -334,6 +335,7 @@ public class MessageServiceImpl implements MessageService {
                             );
 
                             Message savedMessage = messageRepository.saveMessage(mediaMessage);
+                            updateChatRoomSummaryFromMessage(savedMessage);
                             createdMessages.add(savedMessage);
                             incrementUnreadCountForRecipients(chatRoomId, currentAccount.getAccountId());
                             sendMessageToUsers(chatRoomId, savedMessage);
@@ -361,6 +363,7 @@ public class MessageServiceImpl implements MessageService {
                         );
 
                         Message savedMessage = messageRepository.saveMessage(fileMessage);
+                        updateChatRoomSummaryFromMessage(savedMessage);
                         createdMessages.add(savedMessage);
                         incrementUnreadCountForRecipients(chatRoomId, currentAccount.getAccountId());
                         sendMessageToUsers(chatRoomId, savedMessage);
@@ -388,6 +391,7 @@ public class MessageServiceImpl implements MessageService {
                     );
 
                     Message savedMessage = messageRepository.saveMessage(fileMessage);
+                    updateChatRoomSummaryFromMessage(savedMessage);
                     createdMessages.add(savedMessage);
                     incrementUnreadCountForRecipients(chatRoomId, currentAccount.getAccountId());
                     sendMessageToUsers(chatRoomId, savedMessage);
@@ -461,6 +465,7 @@ public class MessageServiceImpl implements MessageService {
 
             Message contactCardMessage = this.createContactCardMessage(chatRoomId.toString(), userId, currentAccount);
             Message savedMessage = this.messageRepository.saveMessage(contactCardMessage);
+            updateChatRoomSummaryFromMessage(savedMessage);
             createdMessages.add(savedMessage);
             incrementUnreadCountForRecipients(chatRoomId, currentAccount.getAccountId());
             sendMessageToUsers(chatRoomId, savedMessage);
@@ -691,6 +696,8 @@ public class MessageServiceImpl implements MessageService {
                 .findFirst()
                 .orElse(message);
 
+            refreshChatRoomSummaries(affectedChatRoomIds);
+
         log.info("Cascade message revoke completed: messageId={}, rootChatRoomId={}, byAccountId={}, totalCandidates={}, totalRecalled={}, affectedChatRooms={}",
                 messageId,
                 chatRoomId,
@@ -768,6 +775,7 @@ public class MessageServiceImpl implements MessageService {
             try {
                 Message forwardedMessage = createForwardedMessage(sourceMessage, targetChatRoomId, currentAccount);
                 Message savedMessage = this.messageRepository.saveMessage(forwardedMessage);
+                updateChatRoomSummaryFromMessage(savedMessage);
                 incrementUnreadCountForRecipients(targetChatRoomId, currentAccount.getAccountId());
                 sendMessageToUsers(targetChatRoomId, savedMessage);
 
@@ -870,6 +878,8 @@ public class MessageServiceImpl implements MessageService {
                 affectedChatRoomIds.add(event.getChatRoomId());
             }
         }
+
+        refreshChatRoomSummaries(affectedChatRoomIds);
 
         log.info("Cascade permanent delete completed: messageId={}, rootChatRoomId={}, byAccountId={}, totalCandidates={}, totalDeleted={}, affectedChatRooms={}",
                 messageId,
@@ -1258,6 +1268,68 @@ public class MessageServiceImpl implements MessageService {
         }
 
         this.chatMemberRepository.resetUnreadCount(chatRoomId, accountId);
+    }
+
+    private void updateChatRoomSummaryFromMessage(Message message) {
+        if (message == null || message.getMessageType() == MessageType.SYSTEM) {
+            return;
+        }
+
+        Long roomId = parseChatRoomId(message.getChatRoomId());
+        if (roomId == null) {
+            return;
+        }
+
+        Long senderAccountId = message.getSender() != null ? message.getSender().getAccountId() : null;
+        String preview = Boolean.TRUE.equals(message.getIsHidden())
+                ? REVOKED_MESSAGE_PREVIEW
+                : MessageHelper.formatMessageContent(message);
+
+        this.chatRoomRepository.updateLastMessageSummary(
+                roomId,
+                message.getMessageId(),
+                senderAccountId,
+                preview,
+                message.getCreatedAt()
+        );
+    }
+
+    private void refreshChatRoomSummaries(Collection<String> chatRoomIds) {
+        if (chatRoomIds == null || chatRoomIds.isEmpty()) {
+            return;
+        }
+
+        for (String chatRoomId : chatRoomIds) {
+            refreshChatRoomSummary(chatRoomId);
+        }
+    }
+
+    private void refreshChatRoomSummary(String chatRoomId) {
+        Long roomId = parseChatRoomId(chatRoomId);
+        if (roomId == null) {
+            return;
+        }
+
+        Optional<Message> latestMessage = this.messageRepository.findLastMessageByConversation(chatRoomId);
+        if (latestMessage.isEmpty()) {
+            this.chatRoomRepository.clearLastMessageSummary(roomId);
+            return;
+        }
+
+        updateChatRoomSummaryFromMessage(latestMessage.get());
+    }
+
+    private Long parseChatRoomId(String chatRoomId) {
+        if (chatRoomId == null || chatRoomId.isBlank()) {
+            return null;
+        }
+
+        try {
+            return Long.parseLong(chatRoomId);
+        } catch (NumberFormatException e) {
+            log.warn("Invalid chatRoomId format for summary update: {}", chatRoomId);
+            return null;
+        }
     }
 
     private List<Message> filterHiddenMessagesForUser(List<Message> messages, Long accountId) {

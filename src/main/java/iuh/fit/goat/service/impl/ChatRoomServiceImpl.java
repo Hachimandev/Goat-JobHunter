@@ -28,6 +28,7 @@ import iuh.fit.goat.util.MessageHelper;
 import iuh.fit.goat.util.SecurityUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -53,25 +54,14 @@ public class ChatRoomServiceImpl implements ChatRoomService {
     @Transactional(readOnly = true)
     public ResultPaginationResponse getMyChatRooms(Long accountId, Pageable pageable) {
         Pageable resolvedPageable = resolveChatRoomPageable(pageable);
-
-        List<ChatRoomResponse> sortedChatRooms = this.chatRoomRepository.findAllChatRoomsByMemberAccountId(accountId).stream()
-                .map(this::mapToChatRoomResponse)
-                .sorted(chatRoomResponseComparator())
-                .toList();
-
-        int total = sortedChatRooms.size();
-        int start = Math.min((int) resolvedPageable.getOffset(), total);
-        int end = Math.min(start + resolvedPageable.getPageSize(), total);
-
-        List<ChatRoomResponse> chatRooms = start >= end
-                ? Collections.emptyList()
-                : new ArrayList<>(sortedChatRooms.subList(start, end));
+        Page<Long> roomIdPage = this.chatRoomRepository.findChatRoomIdsByMemberAccountId(accountId, resolvedPageable);
+        List<ChatRoomResponse> chatRooms = buildPagedChatRoomResponses(roomIdPage.getContent(), accountId);
 
         ResultPaginationResponse.Meta meta = new ResultPaginationResponse.Meta();
         meta.setPage(resolvedPageable.getPageNumber() + 1);
         meta.setPageSize(resolvedPageable.getPageSize());
-        meta.setPages(calculateTotalPages(total, resolvedPageable.getPageSize()));
-        meta.setTotal(total);
+        meta.setPages(roomIdPage.getTotalPages());
+        meta.setTotal(roomIdPage.getTotalElements());
 
         return new ResultPaginationResponse(meta, chatRooms);
     }
@@ -86,7 +76,16 @@ public class ChatRoomServiceImpl implements ChatRoomService {
         // Check if user is member
         getCurrentMemberInChatRoom(chatRoom, currentAccount.getAccountId());
 
-        return this.mapToChatRoomResponse(chatRoom);
+        Map<Long, BlockStatus> blockStatusByRoomId = resolveBlockStatusByRoomId(
+            List.of(chatRoom),
+            currentAccount.getAccountId()
+        );
+
+        return this.mapToChatRoomResponse(
+            chatRoom,
+            currentAccount.getAccountId(),
+            blockStatusByRoomId
+        );
     }
 
 
@@ -818,54 +817,62 @@ public class ChatRoomServiceImpl implements ChatRoomService {
         return pageable;
     }
 
-    private Comparator<ChatRoomResponse> chatRoomResponseComparator() {
-        return Comparator
-                .comparing(
-                        ChatRoomResponse::getLastMessageTime,
-                        Comparator.nullsLast(Comparator.reverseOrder())
-                )
-                .thenComparing(ChatRoomResponse::getRoomId, Comparator.nullsLast(Comparator.reverseOrder()));
-    }
-
-    private int calculateTotalPages(long total, int pageSize) {
-        if (total <= 0 || pageSize <= 0) {
-            return 0;
+    private List<ChatRoomResponse> buildPagedChatRoomResponses(List<Long> roomIds, Long currentAccountId) {
+        if (roomIds == null || roomIds.isEmpty()) {
+            return Collections.emptyList();
         }
 
-        return (int) ((total + pageSize - 1) / pageSize);
+        List<ChatRoom> pageRooms = this.chatRoomRepository.findRoomsWithMembersByRoomIds(roomIds);
+        Map<Long, ChatRoom> roomById = new HashMap<>();
+        for (ChatRoom room : pageRooms) {
+            if (room != null && room.getRoomId() != null) {
+                roomById.put(room.getRoomId(), room);
+            }
+        }
+
+        List<ChatRoom> orderedRooms = roomIds.stream()
+                .map(roomById::get)
+                .filter(Objects::nonNull)
+                .toList();
+
+        Map<Long, BlockStatus> blockStatusByRoomId = resolveBlockStatusByRoomId(orderedRooms, currentAccountId);
+
+        return orderedRooms.stream()
+            .map(chatRoom -> mapToChatRoomResponse(chatRoom, currentAccountId, blockStatusByRoomId))
+                .toList();
     }
 
-    private ChatRoomResponse mapToChatRoomResponse(ChatRoom chatRoom) {
-        String currentUserEmail = SecurityUtil.getCurrentUserEmail();
+    private ChatRoomResponse mapToChatRoomResponse(
+            ChatRoom chatRoom,
+            Long currentAccountId,
+            Map<Long, BlockStatus> blockStatusByRoomId
+    ) {
+        int memberCount = countActiveMembers(chatRoom);
+        String name = resolveChatRoomName(chatRoom, currentAccountId);
+        String avatar = resolveChatRoomAvatar(chatRoom, currentAccountId);
 
-        try {
-            Message lastMessage = getLastMessageSafely(chatRoom.getRoomId());
-            int memberCount = countActiveMembers(chatRoom);
-            String name = resolveChatRoomName(chatRoom, currentUserEmail);
-            String avatar = resolveChatRoomAvatar(chatRoom, currentUserEmail);
-            BlockStatus blockStatus = resolveBlockStatus(chatRoom, currentUserEmail);
-            blockStatus = applyInvalidDirectMemberBlockStatus(chatRoom, name, avatar, blockStatus);
-            LastMessageInfo lastMessageInfo = buildLastMessageInfo(lastMessage, currentUserEmail);
+        BlockStatus blockStatus = blockStatusByRoomId.getOrDefault(
+                chatRoom.getRoomId(),
+                new BlockStatus(false, false, null)
+        );
+        blockStatus = applyInvalidDirectMemberBlockStatus(chatRoom, name, avatar, blockStatus);
 
-            return ChatRoomResponse.builder()
-                    .roomId(chatRoom.getRoomId())
-                    .type(chatRoom.getType())
-                    .name(name)
-                    .avatar(avatar)
-                    .memberCount(memberCount)
-                    .lastMessagePreview(lastMessageInfo.content())
-                    .lastMessageTime(lastMessageInfo.time())
-                    .isBlocked(blockStatus.blocked())
-                    .isBlockedByMe(blockStatus.blockedByMe())
-                    .counterpartAccountId(blockStatus.counterpartAccountId())
-                    .currentUserSentLastMessage(lastMessageInfo.isCurrentUserSender())
-                    .deletedAt(chatRoom.getDeletedAt())
-                    .build();
+        LastMessageInfo lastMessageInfo = buildLastMessageInfo(chatRoom, currentAccountId);
 
-        } catch (Exception e) {
-            log.error("Error mapping ChatRoom to ChatRoomResponse: {}", e.getMessage(), e);
-            return buildFallbackResponse(chatRoom);
-        }
+        return ChatRoomResponse.builder()
+                .roomId(chatRoom.getRoomId())
+                .type(chatRoom.getType())
+                .name(name)
+                .avatar(avatar)
+                .memberCount(memberCount)
+                .lastMessagePreview(lastMessageInfo.content())
+                .lastMessageTime(lastMessageInfo.time())
+                .isBlocked(blockStatus.blocked())
+                .isBlockedByMe(blockStatus.blockedByMe())
+                .counterpartAccountId(blockStatus.counterpartAccountId())
+                .currentUserSentLastMessage(lastMessageInfo.isCurrentUserSender())
+                .deletedAt(chatRoom.getDeletedAt())
+                .build();
     }
 
     // =============== HELPER METHODS FOR mapToChatRoomResponse ====================
@@ -873,16 +880,121 @@ public class ChatRoomServiceImpl implements ChatRoomService {
     private record LastMessageInfo(String content, LocalDateTime time, boolean isCurrentUserSender) {
     }
 
-    private Message getLastMessageSafely(Long chatRoomId) {
-        try {
-            return this.messageService.getLastMessageByChatRoom(chatRoomId);
-        } catch (InvalidException e) {
-            log.debug("No messages found for chatRoom {}: {}", chatRoomId, e.getMessage());
-            return null;
-        } catch (Exception e) {
-            log.error("Unexpected error getting last message for chatRoom {}: {}", chatRoomId, e.getMessage());
-            return null;
+    private record DirectPeerContext(Long roomId, Long peerUserId) {
+    }
+
+    private Map<Long, BlockStatus> resolveBlockStatusByRoomId(List<ChatRoom> chatRooms, Long currentAccountId) {
+        Map<Long, BlockStatus> blockStatusByRoomId = new HashMap<>();
+        if (chatRooms == null || chatRooms.isEmpty() || currentAccountId == null) {
+            return blockStatusByRoomId;
         }
+
+        List<DirectPeerContext> peerContexts = extractDirectPeerContexts(chatRooms, currentAccountId);
+        for (DirectPeerContext context : peerContexts) {
+            blockStatusByRoomId.put(
+                    context.roomId(),
+                    new BlockStatus(false, false, context.peerUserId())
+            );
+        }
+
+        if (peerContexts.isEmpty()) {
+            return blockStatusByRoomId;
+        }
+
+        Set<Long> lowerPeerIds = new HashSet<>();
+        Set<Long> higherPeerIds = new HashSet<>();
+        for (DirectPeerContext context : peerContexts) {
+            if (context.peerUserId() == null) {
+                continue;
+            }
+
+            if (context.peerUserId() < currentAccountId) {
+                lowerPeerIds.add(context.peerUserId());
+            } else if (context.peerUserId() > currentAccountId) {
+                higherPeerIds.add(context.peerUserId());
+            }
+        }
+
+        if (lowerPeerIds.isEmpty()) {
+            lowerPeerIds.add(-1L);
+        }
+        if (higherPeerIds.isEmpty()) {
+            higherPeerIds.add(-1L);
+        }
+
+        List<UserRelationship> blockedRelationships = this.userRelationshipRepository
+                .findBlockedRelationshipsForCurrentUserAndPeers(
+                        currentAccountId,
+                        lowerPeerIds,
+                        higherPeerIds,
+                        RelationshipState.BLOCKED
+                );
+
+        Map<UserRelationshipRepository.PairIds, UserRelationship> relationshipByPair = new HashMap<>();
+        for (UserRelationship relationship : blockedRelationships) {
+            if (relationship == null || relationship.getPairLowUser() == null || relationship.getPairHighUser() == null) {
+                continue;
+            }
+
+            UserRelationshipRepository.PairIds pairIds = UserRelationshipRepository.PairIds.of(
+                    relationship.getPairLowUser().getAccountId(),
+                    relationship.getPairHighUser().getAccountId()
+            );
+            relationshipByPair.put(pairIds, relationship);
+        }
+
+        for (DirectPeerContext context : peerContexts) {
+            if (context.peerUserId() == null) {
+                continue;
+            }
+
+            UserRelationshipRepository.PairIds pairIds = UserRelationshipRepository.PairIds.of(
+                    currentAccountId,
+                    context.peerUserId()
+            );
+            UserRelationship relationship = relationshipByPair.get(pairIds);
+            if (relationship == null) {
+                continue;
+            }
+
+            boolean blockedByMe = relationship.getBlockedBy() != null
+                    && Objects.equals(relationship.getBlockedBy().getAccountId(), currentAccountId);
+
+            blockStatusByRoomId.put(
+                    context.roomId(),
+                    new BlockStatus(true, blockedByMe, context.peerUserId())
+            );
+        }
+
+        return blockStatusByRoomId;
+    }
+
+    private List<DirectPeerContext> extractDirectPeerContexts(List<ChatRoom> chatRooms, Long currentAccountId) {
+        List<DirectPeerContext> contexts = new ArrayList<>();
+        if (chatRooms == null || chatRooms.isEmpty() || currentAccountId == null) {
+            return contexts;
+        }
+
+        for (ChatRoom chatRoom : chatRooms) {
+            if (chatRoom == null || chatRoom.getRoomId() == null || chatRoom.getType() != ChatRoomType.DIRECT) {
+                continue;
+            }
+
+            Long peerUserId = chatRoom.getMembers().stream()
+                    .filter(member -> isOtherActiveMember(member, currentAccountId))
+                    .map(ChatMember::getAccount)
+                    .filter(Objects::nonNull)
+                    .map(Account::getAccountId)
+                    .filter(Objects::nonNull)
+                    .findFirst()
+                    .orElse(null);
+
+            if (peerUserId != null) {
+                contexts.add(new DirectPeerContext(chatRoom.getRoomId(), peerUserId));
+            }
+        }
+
+        return contexts;
     }
 
     private int countActiveMembers(ChatRoom chatRoom) {
@@ -891,9 +1003,9 @@ public class ChatRoomServiceImpl implements ChatRoomService {
                 .count();
     }
 
-    private String resolveChatRoomName(ChatRoom chatRoom, String currentUserEmail) {
+    private String resolveChatRoomName(ChatRoom chatRoom, Long currentAccountId) {
         if (chatRoom.getType() == ChatRoomType.DIRECT) {
-            return getOtherMemberDisplayName(chatRoom, currentUserEmail);
+            return getOtherMemberDisplayName(chatRoom, currentAccountId);
         }
 
         if (chatRoom.getType() == ChatRoomType.GROUP) {
@@ -908,13 +1020,13 @@ public class ChatRoomServiceImpl implements ChatRoomService {
         return chatRoom.getName() != null ? chatRoom.getName() : "";
     }
 
-    private String resolveChatRoomAvatar(ChatRoom chatRoom, String currentUserEmail) {
+    private String resolveChatRoomAvatar(ChatRoom chatRoom, Long currentAccountId) {
         if (chatRoom.getType() != ChatRoomType.DIRECT) {
             return chatRoom.getAvatar();
         }
 
         return chatRoom.getMembers().stream()
-                .filter(m -> isOtherActiveMember(m, currentUserEmail))
+                .filter(m -> isOtherActiveMember(m, currentAccountId))
                 .map(ChatMember::getAccount)
                 .map(account -> {
                     Account realAccount = EntityUtil.unproxy(account);
@@ -930,9 +1042,9 @@ public class ChatRoomServiceImpl implements ChatRoomService {
                 .orElse(null);
     }
 
-    private String getOtherMemberDisplayName(ChatRoom chatRoom, String currentUserEmail) {
+    private String getOtherMemberDisplayName(ChatRoom chatRoom, Long currentAccountId) {
         return chatRoom.getMembers().stream()
-                .filter(m -> isOtherActiveMember(m, currentUserEmail))
+                .filter(m -> isOtherActiveMember(m, currentAccountId))
                 .map(ChatMember::getAccount)
                 .map(this::getDisplayName)
                 .filter(Objects::nonNull)
@@ -940,34 +1052,22 @@ public class ChatRoomServiceImpl implements ChatRoomService {
                 .orElse("Không có tên");
     }
 
-    private boolean isOtherActiveMember(ChatMember member, String currentUserEmail) {
+    private boolean isOtherActiveMember(ChatMember member, Long currentAccountId) {
         return member.getDeletedAt() == null
                 && member.getAccount() != null
-                && member.getAccount().getEmail() != null
-                && !member.getAccount().getEmail().equalsIgnoreCase(currentUserEmail);
+                && !Objects.equals(member.getAccount().getAccountId(), currentAccountId);
     }
 
-    private LastMessageInfo buildLastMessageInfo(Message lastMessage, String currentUserEmail) {
-        if (lastMessage == null) {
+    private LastMessageInfo buildLastMessageInfo(ChatRoom chatRoom, Long currentAccountId) {
+        if (chatRoom == null || chatRoom.getLastMessageTime() == null || chatRoom.getLastMessagePreview() == null) {
             return new LastMessageInfo("", null, false);
         }
 
-        String content = resolveMessageContent(lastMessage, currentUserEmail);
-        LocalDateTime time = convertToLocalDateTime(lastMessage.getCreatedAt());
-        boolean isCurrentUserSender = isMessageFromCurrentUser(lastMessage, currentUserEmail);
+        LocalDateTime time = convertToLocalDateTime(chatRoom.getLastMessageTime());
+        boolean isCurrentUserSender = chatRoom.getLastMessageSenderAccountId() != null
+                && Objects.equals(chatRoom.getLastMessageSenderAccountId(), currentAccountId);
 
-        return new LastMessageInfo(content, time, isCurrentUserSender);
-    }
-
-    private String resolveMessageContent(Message message, String currentUserEmail) {
-        if (Boolean.TRUE.equals(message.getIsHidden())) {
-            return "Tin nhắn đã được thu hồi";
-        }
-        return MessageHelper.formatMessageContent(message);
-    }
-
-    private boolean isMessageFromCurrentUser(Message message, String currentUserEmail) {
-        return message.getSender().getEmail().equalsIgnoreCase(currentUserEmail);
+        return new LastMessageInfo(chatRoom.getLastMessagePreview(), time, isCurrentUserSender);
     }
 
     private LocalDateTime convertToLocalDateTime(java.time.Instant instant) {
@@ -975,28 +1075,6 @@ public class ChatRoomServiceImpl implements ChatRoomService {
             return null;
         }
         return LocalDateTime.ofInstant(instant, ZoneId.systemDefault());
-    }
-
-    private ChatRoomResponse buildFallbackResponse(ChatRoom chatRoom) {
-        String currentUserEmail = SecurityUtil.getCurrentUserEmail();
-        String name = resolveChatRoomName(chatRoom, currentUserEmail);
-        String avatar = resolveChatRoomAvatar(chatRoom, currentUserEmail);
-        BlockStatus blockStatus = resolveBlockStatus(chatRoom, currentUserEmail);
-        blockStatus = applyInvalidDirectMemberBlockStatus(chatRoom, name, avatar, blockStatus);
-
-        return ChatRoomResponse.builder()
-                .roomId(chatRoom.getRoomId())
-                .type(chatRoom.getType())
-            .name(name)
-            .avatar(avatar)
-                .memberCount(countActiveMembers(chatRoom))
-                .lastMessagePreview("") // Để trống thay vì "Không thể tải tin nhắn này"
-                .currentUserSentLastMessage(false)
-                .lastMessageTime(null)
-                .isBlocked(blockStatus.blocked())
-                .isBlockedByMe(blockStatus.blockedByMe())
-                .counterpartAccountId(blockStatus.counterpartAccountId())
-                .build();
     }
 
     private BlockStatus applyInvalidDirectMemberBlockStatus(
@@ -1020,51 +1098,6 @@ public class ChatRoomServiceImpl implements ChatRoomService {
         }
 
         return blockStatus;
-    }
-
-    private BlockStatus resolveBlockStatus(ChatRoom chatRoom, String currentUserEmail) {
-        if (chatRoom.getType() != ChatRoomType.DIRECT || currentUserEmail == null || currentUserEmail.isBlank()) {
-            return new BlockStatus(false, false, null);
-        }
-
-        Optional<Long> currentUserId = chatRoom.getMembers().stream()
-                .filter(member -> member.getDeletedAt() == null)
-                .map(ChatMember::getAccount)
-                .filter(Objects::nonNull)
-                .filter(account -> account.getEmail() != null && account.getEmail().equalsIgnoreCase(currentUserEmail))
-                .map(Account::getAccountId)
-                .findFirst();
-
-        Optional<Long> peerUserId = chatRoom.getMembers().stream()
-                .filter(member -> isOtherActiveMember(member, currentUserEmail))
-                .map(ChatMember::getAccount)
-                .filter(Objects::nonNull)
-                .map(Account::getAccountId)
-                .findFirst();
-
-        if (currentUserId.isEmpty() || peerUserId.isEmpty()) {
-            return new BlockStatus(false, false, null);
-        }
-
-        UserRelationshipRepository.PairIds pair = UserRelationshipRepository.PairIds.of(
-                currentUserId.get(),
-                peerUserId.get()
-        );
-
-        Optional<UserRelationship> relationship = this.userRelationshipRepository
-                .findByPairLowUser_AccountIdAndPairHighUser_AccountIdAndDeletedAtIsNull(
-                        pair.pairLowId(),
-                        pair.pairHighId()
-                );
-
-        if (relationship.isEmpty() || relationship.get().getRelationshipState() != RelationshipState.BLOCKED) {
-            return new BlockStatus(false, false, peerUserId.get());
-        }
-
-        boolean blockedByMe = relationship.get().getBlockedBy() != null
-                && Objects.equals(relationship.get().getBlockedBy().getAccountId(), currentUserId.get());
-
-        return new BlockStatus(true, blockedByMe, peerUserId.get());
     }
 
     private record BlockStatus(boolean blocked, boolean blockedByMe, Long counterpartAccountId) {

@@ -7,6 +7,7 @@ import lombok.*;
 import org.hibernate.annotations.Filter;
 import org.hibernate.annotations.FilterDef;
 
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -30,6 +31,18 @@ public class ChatRoom extends BaseEntity {
     @Enumerated(EnumType.STRING)
     private ChatRoomType type;
     private String aiModel;
+
+    @Column(name = "last_message_id")
+    private String lastMessageId;
+
+    @Column(name = "last_message_sender_account_id")
+    private Long lastMessageSenderAccountId;
+
+    @Column(name = "last_message_preview", columnDefinition = "TEXT")
+    private String lastMessagePreview;
+
+    @Column(name = "last_message_time")
+    private Instant lastMessageTime;
 
     @OneToMany(mappedBy = "room", fetch = LAZY, cascade = {PERSIST, MERGE, REMOVE})
     @JsonIgnore

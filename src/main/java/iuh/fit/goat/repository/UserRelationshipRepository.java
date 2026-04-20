@@ -14,6 +14,8 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.time.Instant;
+import java.util.Collection;
+import java.util.List;
 import java.util.Optional;
 
 @Repository
@@ -30,6 +32,24 @@ public interface UserRelationshipRepository extends JpaRepository<UserRelationsh
         }
 
         Optional<UserRelationship> findByPairLowUser_AccountIdAndPairHighUser_AccountIdAndDeletedAtIsNull(Long pairLowId, Long pairHighId);
+
+            @EntityGraph(attributePaths = {"blockedBy"})
+            @Query("""
+                SELECT ur FROM UserRelationship ur
+                WHERE ur.deletedAt IS NULL
+                  AND ur.relationshipState = :relationshipState
+                  AND (
+                    (:currentAccountId = ur.pairLowUser.accountId AND ur.pairHighUser.accountId IN :higherPeerIds)
+                    OR
+                    (:currentAccountId = ur.pairHighUser.accountId AND ur.pairLowUser.accountId IN :lowerPeerIds)
+                  )
+                """)
+            List<UserRelationship> findBlockedRelationshipsForCurrentUserAndPeers(
+                @Param("currentAccountId") Long currentAccountId,
+                @Param("lowerPeerIds") Collection<Long> lowerPeerIds,
+                @Param("higherPeerIds") Collection<Long> higherPeerIds,
+                @Param("relationshipState") RelationshipState relationshipState
+            );
 
         @Query(value = """
                         SELECT pg_advisory_xact_lock(
