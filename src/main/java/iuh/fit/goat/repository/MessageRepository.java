@@ -475,7 +475,11 @@ public class MessageRepository {
         return Optional.empty();
     }
 
-    public Map<String, Message> findByChatRoomIdAndMessageIds(String chatRoomId, Collection<String> messageIds) {
+    public Map<String, Message> findByChatRoomIdAndMessageIds(
+            String chatRoomId,
+            Collection<String> messageIds,
+            int maxScanItems
+    ) {
         if (chatRoomId == null || chatRoomId.isBlank() || messageIds == null || messageIds.isEmpty()) {
             return Collections.emptyMap();
         }
@@ -506,9 +510,22 @@ public class MessageRepository {
 
         Map<String, Message> matchedMessages = new HashMap<>();
         Set<String> remainingMessageIds = new HashSet<>(normalizedMessageIds);
+        int safeMaxScanItems = maxScanItems > 0 ? maxScanItems : Integer.MAX_VALUE;
+        int scannedItems = 0;
 
         for (Page<Message> page : messageTable.query(queryRequest)) {
             for (Message message : page.items()) {
+            if (scannedItems >= safeMaxScanItems) {
+                log.debug("Reply lookup scan limit reached: chatRoomId={}, requestedIds={}, matched={}, scanLimit={}",
+                    chatRoomId,
+                    normalizedMessageIds.size(),
+                    matchedMessages.size(),
+                    safeMaxScanItems);
+                return matchedMessages;
+            }
+
+            scannedItems++;
+
                 if (message == null || message.getMessageId() == null || message.getMessageId().isBlank()) {
                     continue;
                 }

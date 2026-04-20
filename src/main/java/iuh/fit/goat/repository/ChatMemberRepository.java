@@ -77,6 +77,20 @@ public interface ChatMemberRepository extends JpaRepository<ChatMember, Long> {
             @Param("roomId") Long roomId,
             @Param("accountId") Long accountId
     );
+
+    @Modifying
+    @Transactional
+    @Query(
+            "UPDATE ChatMember cm " +
+            "SET cm.lastReadMessageSk = :messageSk, cm.unreadCount = 0 " +
+            "WHERE cm.room.roomId = :roomId AND cm.account.accountId = :accountId AND cm.deletedAt IS NULL " +
+            "AND (cm.lastReadMessageSk IS NULL OR LOWER(cm.lastReadMessageSk) <> LOWER(:messageSk))"
+    )
+    int markConversationAsRead(
+            @Param("roomId") Long roomId,
+            @Param("accountId") Long accountId,
+            @Param("messageSk") String messageSk
+    );
 }
 
 

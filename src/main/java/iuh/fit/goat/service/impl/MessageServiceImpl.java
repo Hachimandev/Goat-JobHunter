@@ -34,13 +34,13 @@ import iuh.fit.goat.repository.MessageHiddenRepository;
 import iuh.fit.goat.repository.MessageRepository;
 import iuh.fit.goat.repository.UserRelationshipRepository;
 import iuh.fit.goat.repository.UserRepository;
-import iuh.fit.goat.service.ChatMemberService;
 import iuh.fit.goat.service.MessageService;
 import iuh.fit.goat.service.StorageService;
 import iuh.fit.goat.util.MessageHelper;
 import iuh.fit.goat.util.MessageMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Pageable;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
@@ -80,13 +80,15 @@ public class MessageServiceImpl implements MessageService {
     private static final int MAX_SEARCH_PAGE_SIZE = 50;
     private static final int MAX_SEARCH_TERM_LENGTH = 100;
     private static final int SEARCH_SCAN_LIMIT = 3000;
-    private static final int MESSAGE_BATCH_QUERY_SIZE = 100;
+    private static final int DEFAULT_CURSOR_BATCH_QUERY_SIZE = 40;
+    private static final int MAX_CURSOR_BATCH_QUERY_SIZE = 100;
+    private static final int DEFAULT_REPLY_LOOKUP_SCAN_LIMIT = 400;
     private static final int MAX_SEARCH_TOP_UP_ROUNDS = 2;
-
     private static final int maxCursorPageSize = 50;
+    private static final int cursorBatchQuerySize = 40;
+    private static final int replyLookupScanLimit = 400;
 
     private final SimpMessagingTemplate messagingTemplate;
-    private final ChatMemberService chatMemberService;
 
     // ========== PUBLIC API METHODS ==========
 
@@ -563,7 +565,11 @@ public class MessageServiceImpl implements MessageService {
             }
 
             Map<String, Message> matchedParents = this.messageRepository
-                    .findByChatRoomIdAndMessageIds(chatRoomId, replyIds);
+                    .findByChatRoomIdAndMessageIds(
+                        chatRoomId,
+                        replyIds,
+                        resolveReplyLookupScanLimit()
+                    );
 
             for (String replyId : replyIds) {
                 if (parentLookupCache.containsKey(replyId)) {
@@ -574,6 +580,10 @@ public class MessageServiceImpl implements MessageService {
         }
 
         return parentLookupCache;
+    }
+
+    private int resolveReplyLookupScanLimit() {
+        return replyLookupScanLimit > 0 ? replyLookupScanLimit : DEFAULT_REPLY_LOOKUP_SCAN_LIMIT;
     }
 
     @Override
@@ -975,6 +985,13 @@ public class MessageServiceImpl implements MessageService {
         return Math.min(requestedSize, safeMaxPageSize);
     }
 
+    private int resolveCursorBatchQuerySize(int pageSize) {
+        int recommended = Math.max(pageSize * 2, DEFAULT_CURSOR_BATCH_QUERY_SIZE);
+        int configured = cursorBatchQuerySize > 0 ? cursorBatchQuerySize : recommended;
+        int bounded = Math.min(configured, MAX_CURSOR_BATCH_QUERY_SIZE);
+        return Math.max(bounded, Math.max(pageSize, 1));
+    }
+
     private ResultPaginationResponse getPaginatedMessagesByChatRoom(
             Long chatRoomId,
             Pageable pageable,
@@ -995,6 +1012,7 @@ public class MessageServiceImpl implements MessageService {
 
         int pageNumber = pageable != null ? Math.max(pageable.getPageNumber(), 0) : 0;
         int pageSize = resolveRequestedSize(pageable, DEFAULT_SEARCH_PAGE_SIZE);
+        int batchQuerySize = resolveCursorBatchQuerySize(pageSize);
 
         Long currentAccountId = currentAccount.getAccountId();
 
@@ -1003,6 +1021,7 @@ public class MessageServiceImpl implements MessageService {
                 currentAccountId,
                 pageSize,
                 pageNumber,
+                batchQuerySize,
                 includeGloballyHidden,
                 messageFilter
         );
@@ -1017,6 +1036,7 @@ public class MessageServiceImpl implements MessageService {
                     chatRoomId.toString(),
                     cursorResolution.startCursor(),
                     pageSize,
+                    batchQuerySize,
                     includeGloballyHidden,
                     currentAccountId,
                     messageFilter
@@ -1051,6 +1071,7 @@ public class MessageServiceImpl implements MessageService {
             String chatRoomId,
             String startCursor,
             int pageSize,
+            int batchQuerySize,
             boolean includeGloballyHidden,
             Long accountId,
             Predicate<Message> messageFilter
@@ -1060,7 +1081,7 @@ public class MessageServiceImpl implements MessageService {
 
         while (pageMessages.size() < pageSize) {
             MessageRepository.MessageCursorBatchResult batchResult = this.messageRepository
-                    .queryMessageBatchByChatRoomWithCursor(chatRoomId, queryCursor, MESSAGE_BATCH_QUERY_SIZE);
+                    .queryMessageBatchByChatRoomWithCursor(chatRoomId, queryCursor, batchQuerySize);
 
             List<Message> rawBatchMessages = batchResult.messages();
             if (rawBatchMessages.isEmpty()) {
@@ -1135,6 +1156,7 @@ public class MessageServiceImpl implements MessageService {
             Long accountId,
             int pageSize,
             int pageNumber,
+            int batchQuerySize,
             boolean includeGloballyHidden,
             Predicate<Message> messageFilter
     ) {
@@ -1148,6 +1170,7 @@ public class MessageServiceImpl implements MessageService {
                     chatRoomId.toString(),
                     cursor,
                     pageSize,
+                    batchQuerySize,
                     includeGloballyHidden,
                     accountId,
                     messageFilter
@@ -1234,24 +1257,16 @@ public class MessageServiceImpl implements MessageService {
         }
 
         Message latestMessage = pageMessages.getFirst();
-        String lastReadMessageSk = this.chatMemberService
-                .getLastReadMessageSk(chatRoomId, currentAccount.getAccountId());
-
         String latestMessageSk = latestMessage.getMessageSk();
         if (latestMessageSk == null || latestMessageSk.isBlank()) {
             return;
         }
 
-        if (lastReadMessageSk != null && latestMessageSk.equalsIgnoreCase(lastReadMessageSk)) {
-            return;
-        }
-
-        this.chatMemberService.updateLastReadMessageId(
+        this.chatMemberRepository.markConversationAsRead(
                 chatRoomId,
                 currentAccount.getAccountId(),
                 latestMessageSk
         );
-        resetUnreadCountForMember(chatRoomId, currentAccount.getAccountId());
     }
 
     private void incrementUnreadCountForRecipients(Long chatRoomId, Long senderAccountId) {
@@ -1260,14 +1275,6 @@ public class MessageServiceImpl implements MessageService {
         }
 
         this.chatMemberRepository.incrementUnreadCountForRecipients(chatRoomId, senderAccountId, 1L);
-    }
-
-    private void resetUnreadCountForMember(Long chatRoomId, Long accountId) {
-        if (chatRoomId == null || accountId == null) {
-            return;
-        }
-
-        this.chatMemberRepository.resetUnreadCount(chatRoomId, accountId);
     }
 
     private void updateChatRoomSummaryFromMessage(Message message) {
@@ -2223,10 +2230,12 @@ public class MessageServiceImpl implements MessageService {
     }
 
     private boolean isUserInChatRoom(Long chatRoomId, Long accountId) {
-        List<ChatMember> members = this.chatMemberRepository.findByRoomRoomIdAndDeletedAtIsNull(chatRoomId);
-        return members.stream()
-                .anyMatch(member -> member.getAccount() != null
-                        && Objects.equals(member.getAccount().getAccountId(), accountId));
+        if (chatRoomId == null || accountId == null) {
+            return false;
+        }
+
+        return this.chatMemberRepository
+            .existsByRoomRoomIdAndAccountAccountIdAndDeletedAtIsNull(chatRoomId, accountId);
     }
 
     private List<Long> normalizeTargetChatRoomIds(ForwardMessageRequest request) throws InvalidException {
