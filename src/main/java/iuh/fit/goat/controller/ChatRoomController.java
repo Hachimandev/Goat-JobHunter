@@ -19,7 +19,6 @@ import iuh.fit.goat.exception.InvalidException;
 import iuh.fit.goat.exception.NotFoundException;
 import iuh.fit.goat.exception.PermissionException;
 import iuh.fit.goat.service.AccountService;
-import iuh.fit.goat.service.ChatMemberService;
 import iuh.fit.goat.service.ChatRoomService;
 import iuh.fit.goat.service.MessageService;
 import iuh.fit.goat.service.PinnedMessageService;
@@ -47,10 +46,9 @@ public class ChatRoomController {
     private final MessageService messageService;
     private final AccountService accountService;
     private final PinnedMessageService pinnedMessageService;
-    private final ChatMemberService chatMemberService;
 
     @GetMapping("/me")
-    public ResponseEntity<?> getMyChatRooms(Pageable pageable) throws InvalidException {
+    public ResponseEntity<ResultPaginationResponse> getMyChatRooms(Pageable pageable) throws InvalidException {
         String email = SecurityUtil.getCurrentUserLogin()
                 .orElseThrow(() -> new InvalidException("User not authenticated"));
 
@@ -84,7 +82,10 @@ public class ChatRoomController {
     }
 
     @GetMapping("/{id}/messages")
-    public ResponseEntity<List<MessageResponse>> getMessagesInChatRoom(@PathVariable Long id, Pageable pageable) throws InvalidException {
+    public ResponseEntity<ResultPaginationResponse> getMessagesInChatRoom(
+            @PathVariable Long id,
+            Pageable pageable
+    ) throws InvalidException {
         String email = SecurityUtil.getCurrentUserLogin()
                 .orElseThrow(() -> new InvalidException("User not authenticated"));
 
@@ -93,24 +94,8 @@ public class ChatRoomController {
             throw new InvalidException("User not found");
         }
 
-        List<Message> messages = this.chatRoomService.getMessagesInChatRoom(currentAccount, id, pageable);
-        List<MessageResponse> responses = this.messageService.toMessageResponses(messages);
-
-        // Cập nhật lastReadMessageSk bằng latest message
-        String lastReadMessageSk = this.chatMemberService.getLastReadMessageSk(id, currentAccount.getAccountId());
-        if (!messages.isEmpty()) {
-            Message lastestMessage = messages.getFirst();
-            Message currentLastReadMessage = messages.stream()
-                    .filter(message -> message.getMessageSk().equalsIgnoreCase(lastReadMessageSk))
-                    .findFirst().orElse(null);
-
-            boolean isRead = this.chatMemberService.isMessageRead(lastestMessage, currentLastReadMessage);
-            if (lastestMessage != null && !isRead) {
-                this.chatMemberService.updateLastReadMessageId(id, currentAccount.getAccountId(), lastestMessage.getMessageSk());
-            }
-        }
-
-        return ResponseEntity.ok(responses);
+        ResultPaginationResponse response = this.chatRoomService.getMessagesInChatRoom(currentAccount, id, pageable);
+        return ResponseEntity.ok(response);
     }
 
     @GetMapping("/{id}/messages/search")
@@ -126,7 +111,7 @@ public class ChatRoomController {
     }
 
     @GetMapping("/{id}/media")
-    public ResponseEntity<List<MessageResponse>> getMediaMessagesInChatRoom(
+    public ResponseEntity<ResultPaginationResponse> getMediaMessagesInChatRoom(
             @PathVariable Long id,
             Pageable pageable
     ) throws InvalidException {
@@ -137,13 +122,12 @@ public class ChatRoomController {
             throw new InvalidException("User not found");
         }
 
-        List<Message> mediaMessages = this.chatRoomService.getMediaMessagesInChatRoom(currentAccount, id, pageable);
-        List<MessageResponse> response = this.messageService.toMessageResponses(mediaMessages);
+        ResultPaginationResponse response = this.chatRoomService.getMediaMessagesInChatRoom(currentAccount, id, pageable);
         return ResponseEntity.ok(response);
     }
 
     @GetMapping("/{id}/file")
-    public ResponseEntity<List<MessageResponse>> getFileMessagesInChatRoom(
+    public ResponseEntity<ResultPaginationResponse> getFileMessagesInChatRoom(
             @PathVariable Long id,
             Pageable pageable
     ) throws InvalidException {
@@ -154,8 +138,7 @@ public class ChatRoomController {
             throw new InvalidException("User not found");
         }
 
-        List<Message> fileMessages = this.chatRoomService.getFileMessagesInChatRoom(currentAccount, id, pageable);
-        List<MessageResponse> response = this.messageService.toMessageResponses(fileMessages);
+        ResultPaginationResponse response = this.chatRoomService.getFileMessagesInChatRoom(currentAccount, id, pageable);
         return ResponseEntity.ok(response);
     }
 

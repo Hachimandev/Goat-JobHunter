@@ -38,7 +38,6 @@ import org.springframework.web.multipart.MultipartFile;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.*;
-import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -56,30 +55,26 @@ public class ChatRoomServiceImpl implements ChatRoomService {
     @Override
     @Transactional(readOnly = true)
     public ResultPaginationResponse getMyChatRooms(Long accountId, Pageable pageable) {
-        Page<ChatRoom> chatRoomPage = this.chatRoomRepository.findChatRoomsByMemberAccountId(accountId, pageable);
+        Pageable resolvedPageable = resolveChatRoomPageable(pageable);
 
-        List<ChatRoomResponse> chatRooms = chatRoomPage.getContent().stream()
+        List<ChatRoomResponse> sortedChatRooms = this.chatRoomRepository.findAllChatRoomsByMemberAccountId(accountId).stream()
                 .map(this::mapToChatRoomResponse)
-                .sorted((cr1, cr2) -> {
-                    // Sort theo lastMessageTime DESC (mới nhất lên đầu)
-                    LocalDateTime time1 = cr1.getLastMessageTime();
-                    LocalDateTime time2 = cr2.getLastMessageTime();
+                .sorted(chatRoomResponseComparator())
+                .toList();
 
-                    // Null safety: Phòng ở cuối
-                    if (time1 == null && time2 == null) return 0;
-                    if (time1 == null) return 1;  // cr1 xuống dưới
-                    if (time2 == null) return -1; // cr2 xuống dưới
+        int total = sortedChatRooms.size();
+        int start = Math.min((int) resolvedPageable.getOffset(), total);
+        int end = Math.min(start + resolvedPageable.getPageSize(), total);
 
-                    // So sánh DESC: mới nhất trước
-                    return time2.compareTo(time1);
-                })
-                .collect(Collectors.toList());
+        List<ChatRoomResponse> chatRooms = start >= end
+                ? Collections.emptyList()
+                : new ArrayList<>(sortedChatRooms.subList(start, end));
 
         ResultPaginationResponse.Meta meta = new ResultPaginationResponse.Meta();
-        meta.setPage(chatRoomPage.getNumber() + 1);
-        meta.setPageSize(chatRoomPage.getSize());
-        meta.setPages(chatRoomPage.getTotalPages());
-        meta.setTotal(chatRoomPage.getTotalElements());
+        meta.setPage(resolvedPageable.getPageNumber() + 1);
+        meta.setPageSize(resolvedPageable.getPageSize());
+        meta.setPages(calculateTotalPages(total, resolvedPageable.getPageSize()));
+        meta.setTotal(total);
 
         return new ResultPaginationResponse(meta, chatRooms);
     }
@@ -99,7 +94,8 @@ public class ChatRoomServiceImpl implements ChatRoomService {
 
 
     @Override
-    public List<Message> getMessagesInChatRoom(Account account, Long chatRoomId, Pageable pageable) throws InvalidException {
+    public ResultPaginationResponse getMessagesInChatRoom(Account account, Long chatRoomId, Pageable pageable)
+            throws InvalidException {
         // Check if user belong to chat room or not
         ChatRoom chatRoom = this.chatRoomRepository.findByRoomId(chatRoomId).orElse(null);
         if (chatRoom == null) {
@@ -312,7 +308,8 @@ public class ChatRoomServiceImpl implements ChatRoomService {
     }
 
     @Override
-    public List<Message> getMediaMessagesInChatRoom(Account account, Long chatRoomId, Pageable pageable) throws InvalidException {
+    public ResultPaginationResponse getMediaMessagesInChatRoom(Account account, Long chatRoomId, Pageable pageable)
+            throws InvalidException {
         ChatRoom chatRoom = this.chatRoomRepository.findByRoomId(chatRoomId)
                 .orElseThrow(() -> new InvalidException("Chat room not found"));
 
@@ -324,7 +321,8 @@ public class ChatRoomServiceImpl implements ChatRoomService {
     }
 
     @Override
-    public List<Message> getFileMessagesInChatRoom(Account account, Long chatRoomId, Pageable pageable) throws InvalidException {
+    public ResultPaginationResponse getFileMessagesInChatRoom(Account account, Long chatRoomId, Pageable pageable)
+            throws InvalidException {
         ChatRoom chatRoom = this.chatRoomRepository.findByRoomId(chatRoomId)
                 .orElseThrow(() -> new InvalidException("Chat room not found"));
 
@@ -821,6 +819,31 @@ public class ChatRoomServiceImpl implements ChatRoomService {
         }
 
         return directRooms.stream().findFirst();
+    }
+
+    private Pageable resolveChatRoomPageable(Pageable pageable) {
+        if (pageable == null || pageable.isUnpaged() || pageable.getPageSize() <= 0) {
+            return org.springframework.data.domain.PageRequest.of(0, 20);
+        }
+
+        return pageable;
+    }
+
+    private Comparator<ChatRoomResponse> chatRoomResponseComparator() {
+        return Comparator
+                .comparing(
+                        ChatRoomResponse::getLastMessageTime,
+                        Comparator.nullsLast(Comparator.reverseOrder())
+                )
+                .thenComparing(ChatRoomResponse::getRoomId, Comparator.nullsLast(Comparator.reverseOrder()));
+    }
+
+    private int calculateTotalPages(long total, int pageSize) {
+        if (total <= 0 || pageSize <= 0) {
+            return 0;
+        }
+
+        return (int) ((total + pageSize - 1) / pageSize);
     }
 
     private ChatRoomResponse mapToChatRoomResponse(ChatRoom chatRoom) {

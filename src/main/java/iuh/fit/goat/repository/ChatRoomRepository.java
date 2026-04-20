@@ -30,6 +30,15 @@ public interface ChatRoomRepository extends JpaRepository<ChatRoom, Long> {
             Pageable pageable
     );
 
+    @Query("""
+        SELECT DISTINCT cr FROM ChatRoom cr
+        JOIN cr.members cm
+        WHERE cm.account.accountId = :accountId
+        AND cm.deletedAt IS NULL
+        ORDER BY cr.updatedAt DESC
+    """)
+    List<ChatRoom> findAllChatRoomsByMemberAccountId(@Param("accountId") Long accountId);
+
     @Query("SELECT DISTINCT cr FROM ChatRoom cr " +
             "JOIN cr.members m1 " +
             "JOIN cr.members m2 " +

@@ -123,6 +123,35 @@ public class MessageRepository {
         return queryMessagesByChatRoom(chatRoomId, limit, includeHidden);
     }
 
+    public Iterable<List<Message>> iterateMessageBatchesByChatRoom(String chatRoomId, int batchSize) {
+        int safeBatchSize = batchSize > 0 ? batchSize : DEFAULT_LIMIT;
+
+        QueryConditional queryConditional = QueryConditional
+                .keyEqualTo(Key.builder().partitionValue(chatRoomId).build());
+
+        QueryEnhancedRequest queryRequest = QueryEnhancedRequest.builder()
+                .queryConditional(queryConditional)
+                .scanIndexForward(false)
+                .limit(safeBatchSize)
+                .build();
+
+        PageIterable<Message> pages = messageTable.query(queryRequest);
+
+        return () -> new Iterator<>() {
+            private final Iterator<Page<Message>> pageIterator = pages.iterator();
+
+            @Override
+            public boolean hasNext() {
+                return pageIterator.hasNext();
+            }
+
+            @Override
+            public List<Message> next() {
+                return pageIterator.next().items();
+            }
+        };
+    }
+
     public MessageSearchResult searchMessagesByChatRoom(
             String chatRoomId,
             String searchTerm,
