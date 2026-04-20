@@ -3,9 +3,13 @@ import {
     receiveNewMessage,
     setCurrentChatRoom,
     setLastSeenTimestamp,
+    setUnreadCount,
 } from "@/lib/chatNotificationSlice";
 import { useAppDispatch, useAppSelector } from "@/lib/hooks";
-import { useFetchChatRoomsQuery } from "@/services/chatRoom/chatRoomApi";
+import {
+  useFetchChatRoomsQuery,
+  useCountUnreadMessagesByCurrentAccountQuery,
+} from "@/services/chatRoom/chatRoomApi";
 import { ChatRoom, MessageType } from "@/types/model";
 import { useCallback, useEffect, useRef } from "react";
 
@@ -27,7 +31,24 @@ export const useNotificationManager = ({
     { skip: !enabled, pollingInterval: checkInterval }, // Add polling to detect new messages
   );
 
+  // Fetch unread message counts from backend
+  const { data: unreadCountsRes } = useCountUnreadMessagesByCurrentAccountQuery(
+    { page: 1, size: 50 },
+    { skip: !enabled, pollingInterval: checkInterval },
+  );
+
   const previousMessagesRef = useRef<Record<number, MessageType[]>>({});
+
+  /**
+   * Sync unread counts from backend to Redux store
+   */
+  useEffect(() => {
+    if (enabled && unreadCountsRes?.data) {
+      unreadCountsRes.data.forEach((item) => {
+        dispatch(setUnreadCount({ roomId: item.chatRoomId, count: item.unreadCount }));
+      });
+    }
+  }, [enabled, unreadCountsRes?.data, dispatch]);
 
   /**
    * Kiểm tra tin nhắn mới từ các phòng chat khác

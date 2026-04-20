@@ -28,3 +28,15 @@ export type SendMessageToNewChatRoomRequest = {
   content?: string;
   files?: File[];
 };
+
+export type UnreadMessageResponse = {
+  chatRoomId: number;
+  unreadCount: number;
+};
+
+export type CountUnreadMessagesRequest = {
+  page?: number;
+  size?: number;
+};
+
+export type CountUnreadMessagesResponse = IBackendRes<UnreadMessageResponse[]>;
