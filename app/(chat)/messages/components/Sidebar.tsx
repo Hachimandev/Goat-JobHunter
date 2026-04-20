@@ -74,7 +74,7 @@ export function Sidebar() {
           <AvatarImage src={displayImage || '/placeholder.svg'} alt={displayName} />
           <AvatarFallback>{displayName.charAt(0)}</AvatarFallback>
         </Avatar>
-        <div className="relative cursor-pointer" onClick={() => setDirectChatModalOpen(true)}>
+        <div className="relative cursor-pointer sm:hidden lg:block" onClick={() => setDirectChatModalOpen(true)}>
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
           <Input
             placeholder="Tìm người dùng..."
