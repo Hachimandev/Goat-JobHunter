@@ -27,6 +27,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -48,7 +49,9 @@ public class ChatRoomController {
     private final PinnedMessageService pinnedMessageService;
 
     @GetMapping("/me")
-    public ResponseEntity<ResultPaginationResponse> getMyChatRooms(Pageable pageable) throws InvalidException {
+        public ResponseEntity<ResultPaginationResponse> getMyChatRooms(
+            @PageableDefault(size = 20) Pageable pageable
+        ) throws InvalidException {
         String email = SecurityUtil.getCurrentUserLogin()
                 .orElseThrow(() -> new InvalidException("User not authenticated"));
 
@@ -84,7 +87,7 @@ public class ChatRoomController {
     @GetMapping("/{id}/messages")
     public ResponseEntity<ResultPaginationResponse> getMessagesInChatRoom(
             @PathVariable Long id,
-            Pageable pageable
+            @PageableDefault(size = 20) Pageable pageable
     ) throws InvalidException {
         String email = SecurityUtil.getCurrentUserLogin()
                 .orElseThrow(() -> new InvalidException("User not authenticated"));
@@ -113,7 +116,7 @@ public class ChatRoomController {
     @GetMapping("/{id}/media")
     public ResponseEntity<ResultPaginationResponse> getMediaMessagesInChatRoom(
             @PathVariable Long id,
-            Pageable pageable
+            @PageableDefault(size = 20) Pageable pageable
     ) throws InvalidException {
         String email = SecurityUtil.getCurrentUserLogin().orElseThrow(() -> new InvalidException("User not authenticated"));
 
@@ -129,7 +132,7 @@ public class ChatRoomController {
     @GetMapping("/{id}/file")
     public ResponseEntity<ResultPaginationResponse> getFileMessagesInChatRoom(
             @PathVariable Long id,
-            Pageable pageable
+            @PageableDefault(size = 20) Pageable pageable
     ) throws InvalidException {
         String email = SecurityUtil.getCurrentUserLogin().orElseThrow(() -> new InvalidException("User not authenticated"));
 

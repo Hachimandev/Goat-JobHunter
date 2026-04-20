@@ -36,11 +36,13 @@ import iuh.fit.goat.repository.UserRelationshipRepository;
 import iuh.fit.goat.repository.UserRepository;
 import iuh.fit.goat.service.ChatMemberService;
 import iuh.fit.goat.service.MessageService;
+import iuh.fit.goat.service.RedisService;
 import iuh.fit.goat.service.StorageService;
 import iuh.fit.goat.util.MessageHelper;
 import iuh.fit.goat.util.MessageMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Pageable;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
@@ -51,6 +53,7 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.time.Instant;
 import java.util.*;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Predicate;
 
 @Service
@@ -58,6 +61,7 @@ import java.util.function.Predicate;
 @RequiredArgsConstructor
 public class MessageServiceImpl implements MessageService {
     private final StorageService storageService;
+    private final RedisService redisService;
 
     private final MessageHiddenRepository messageHiddenRepository;
     private final MessageRepository messageRepository;
@@ -82,6 +86,22 @@ public class MessageServiceImpl implements MessageService {
     private static final int SEARCH_SCAN_LIMIT = 3000;
     private static final int MESSAGE_BATCH_QUERY_SIZE = 100;
     private static final int MAX_SEARCH_TOP_UP_ROUNDS = 2;
+    private static final String CURSOR_CACHE_PREFIX = "chat:pagination:cursor";
+    private static final String TOTAL_CACHE_PREFIX = "chat:pagination:total";
+    private static final String CURSOR_END_MARKER = "__END__";
+
+    @Value("${chat.pagination.cursor.enabled:true}")
+    private boolean cursorBasedPaginationEnabled;
+
+    @Value("${chat.pagination.cursor.page-cache-ttl-seconds:900}")
+    private long cursorPageCacheTtlSeconds;
+
+    @Value("${chat.pagination.cursor.total-cache-ttl-seconds:60}")
+    private long totalCacheTtlSeconds;
+
+    @Value("${chat.pagination.cursor.max-page-size:50}")
+    private int maxCursorPageSize;
+
     private final SimpMessagingTemplate messagingTemplate;
     private final ChatMemberService chatMemberService;
 
@@ -120,7 +140,8 @@ public class MessageServiceImpl implements MessageService {
                 currentAccount,
                 true,
                 null,
-                true
+                true,
+                "messages"
         );
     }
 
@@ -252,6 +273,7 @@ public class MessageServiceImpl implements MessageService {
         log.info("Message created: messageId={}, chatRoomId={}", messageId, chatRoomId);
 
         sendMessageToUsers(chatRoomId, savedMessage);
+        invalidatePaginationCaches(chatRoomId.toString());
 
         return savedMessage;
     }
@@ -407,6 +429,8 @@ public class MessageServiceImpl implements MessageService {
             log.info("Batch message creation completed: {} messages created in chatRoom {}",
                     createdMessages.size(), chatRoomId);
 
+            invalidatePaginationCaches(chatRoomId.toString());
+
             return createdMessages;
 
         } catch (BlockedInteractionException e) {
@@ -463,6 +487,7 @@ public class MessageServiceImpl implements MessageService {
         }
 
         log.info("CONTACT_CARD batch completed: {} cards sent in chatRoom {}", createdMessages.size(), chatRoomId);
+        invalidatePaginationCaches(chatRoomId.toString());
         return createdMessages;
     }
 
@@ -496,7 +521,7 @@ public class MessageServiceImpl implements MessageService {
             localMessages.putIfAbsent(message.getMessageId(), message);
         }
 
-        Map<String, Optional<Message>> parentLookupCache = new HashMap<>();
+        Map<String, Optional<Message>> parentLookupCache = preloadReplyTargets(messages, localMessages);
         Map<Long, Optional<User>> contactLookupCache = preloadContactUsers(messages);
         List<MessageResponse> responses = new ArrayList<>(messages.size());
         for (Message message : messages) {
@@ -504,6 +529,63 @@ public class MessageServiceImpl implements MessageService {
         }
 
         return responses;
+    }
+
+    private Map<String, Optional<Message>> preloadReplyTargets(
+            List<Message> messages,
+            Map<String, Message> localMessages
+    ) {
+        Map<String, Optional<Message>> parentLookupCache = new HashMap<>();
+        if (messages == null || messages.isEmpty()) {
+            return parentLookupCache;
+        }
+
+        Map<String, LinkedHashSet<String>> replyIdsByChatRoom = new HashMap<>();
+
+        for (Message message : messages) {
+            if (message == null) {
+                continue;
+            }
+
+            String replyToMessageId = normalizeReplyToMessageId(message.getReplyTo());
+            if (replyToMessageId == null) {
+                continue;
+            }
+
+            if (localMessages != null && localMessages.containsKey(replyToMessageId)) {
+                parentLookupCache.put(replyToMessageId, Optional.ofNullable(localMessages.get(replyToMessageId)));
+                continue;
+            }
+
+            String chatRoomId = message.getChatRoomId();
+            if (chatRoomId == null || chatRoomId.isBlank()) {
+                continue;
+            }
+
+            replyIdsByChatRoom
+                    .computeIfAbsent(chatRoomId, ignored -> new LinkedHashSet<>())
+                    .add(replyToMessageId);
+        }
+
+        for (Map.Entry<String, LinkedHashSet<String>> entry : replyIdsByChatRoom.entrySet()) {
+            String chatRoomId = entry.getKey();
+            LinkedHashSet<String> replyIds = entry.getValue();
+            if (replyIds == null || replyIds.isEmpty()) {
+                continue;
+            }
+
+            Map<String, Message> matchedParents = this.messageRepository
+                    .findByChatRoomIdAndMessageIds(chatRoomId, replyIds);
+
+            for (String replyId : replyIds) {
+                if (parentLookupCache.containsKey(replyId)) {
+                    continue;
+                }
+                parentLookupCache.put(replyId, Optional.ofNullable(matchedParents.get(replyId)));
+            }
+        }
+
+        return parentLookupCache;
     }
 
     @Override
@@ -515,7 +597,8 @@ public class MessageServiceImpl implements MessageService {
                 currentAccount,
                 false,
                 message -> message != null && isMediaType(message.getMessageType()),
-                false
+                false,
+                "media"
         );
     }
 
@@ -528,7 +611,8 @@ public class MessageServiceImpl implements MessageService {
                 currentAccount,
                 false,
                 message -> message != null && message.getMessageType() == MessageType.FILE,
-                false
+                false,
+                "file"
         );
     }
 
@@ -567,6 +651,8 @@ public class MessageServiceImpl implements MessageService {
                 chatRoomId,
                 messageId,
                 currentAccount.getAccountId());
+
+        invalidatePaginationCaches(chatRoomId.toString());
     }
 
     @Override
@@ -633,6 +719,10 @@ public class MessageServiceImpl implements MessageService {
                 cascadeMessages.size(),
                 recalledMessages.size(),
                 affectedChatRoomIds);
+
+        for (String affectedChatRoomId : affectedChatRoomIds) {
+            invalidatePaginationCaches(affectedChatRoomId);
+        }
 
         return revokedMessage;
     }
@@ -721,6 +811,12 @@ public class MessageServiceImpl implements MessageService {
 
         log.info("Forward message completed: sourceChatRoomId={}, messageId={}, success={}, failed={}",
                 sourceChatRoomId, messageId, successes.size(), failures.size());
+
+        for (ForwardMessageSuccessResponse success : successes) {
+            if (success != null && success.getTargetChatRoomId() != null) {
+                invalidatePaginationCaches(success.getTargetChatRoomId().toString());
+            }
+        }
 
         return ForwardMessageResponse.builder()
                 .sourceChatRoomId(sourceChatRoomId)
@@ -813,6 +909,10 @@ public class MessageServiceImpl implements MessageService {
                 emittedEvents.size(),
                 affectedChatRoomIds);
 
+        for (String affectedChatRoomId : affectedChatRoomIds) {
+            invalidatePaginationCaches(affectedChatRoomId);
+        }
+
         return rootEvent;
     }
 
@@ -848,6 +948,7 @@ public class MessageServiceImpl implements MessageService {
 
         Message savedMessage = messageRepository.saveMessage(systemMessage);
         sendMessageToUsers(chatRoomId, savedMessage);
+        invalidatePaginationCaches(chatRoomId.toString());
 
         log.info("System message created: type={}, chatRoomId={}", type, chatRoomId);
     }
@@ -891,11 +992,12 @@ public class MessageServiceImpl implements MessageService {
     }
 
     private int resolveRequestedSize(Pageable pageable, int fallbackSize) {
-        if (pageable == null || pageable.getPageSize() <= 0) {
-            return fallbackSize;
-        }
+        int requestedSize = (pageable == null || pageable.getPageSize() <= 0)
+                ? fallbackSize
+                : pageable.getPageSize();
 
-        return pageable.getPageSize();
+        int safeMaxPageSize = maxCursorPageSize > 0 ? maxCursorPageSize : fallbackSize;
+        return Math.min(requestedSize, safeMaxPageSize);
     }
 
     private ResultPaginationResponse getPaginatedMessagesByChatRoom(
@@ -904,7 +1006,8 @@ public class MessageServiceImpl implements MessageService {
             Account currentAccount,
             boolean includeGloballyHidden,
             Predicate<Message> messageFilter,
-            boolean updateLastReadMessage
+            boolean updateLastReadMessage,
+            String endpointType
     ) throws InvalidException {
         if (chatRoomId == null) {
             throw new InvalidException("Chat room ID cannot be null");
@@ -918,6 +1021,95 @@ public class MessageServiceImpl implements MessageService {
 
         int pageNumber = pageable != null ? Math.max(pageable.getPageNumber(), 0) : 0;
         int pageSize = resolveRequestedSize(pageable, DEFAULT_SEARCH_PAGE_SIZE);
+
+        if (!cursorBasedPaginationEnabled) {
+            return getOffsetPaginatedMessagesByChatRoom(
+                    chatRoomId,
+                    pageNumber,
+                    pageSize,
+                    currentAccount,
+                    includeGloballyHidden,
+                    messageFilter,
+                    updateLastReadMessage
+            );
+        }
+
+        String normalizedEndpointType = normalizeEndpointType(endpointType);
+        Long currentAccountId = currentAccount.getAccountId();
+
+        CursorResolution cursorResolution = resolvePageStartCursor(
+                chatRoomId,
+                currentAccountId,
+                normalizedEndpointType,
+                pageSize,
+                pageNumber,
+                includeGloballyHidden,
+                messageFilter
+        );
+
+        List<Message> pageMessages;
+        boolean hasMore;
+        if (cursorResolution.reachedEndBeforePage()) {
+            pageMessages = Collections.emptyList();
+            hasMore = false;
+        } else {
+            FilteredPageSlice pageSlice = fetchFilteredPageSlice(
+                    chatRoomId.toString(),
+                    cursorResolution.startCursor(),
+                    pageSize,
+                    includeGloballyHidden,
+                    currentAccountId,
+                    messageFilter
+            );
+
+            pageMessages = pageSlice.messages();
+            hasMore = pageSlice.hasMore();
+            cachePageStartCursor(
+                    currentAccountId,
+                    chatRoomId,
+                    normalizedEndpointType,
+                    pageSize,
+                    pageNumber + 1,
+                    pageSlice.nextCursor()
+            );
+        }
+
+        if (updateLastReadMessage) {
+            updateLastReadMessageOnFirstPage(chatRoomId, pageNumber, pageMessages, currentAccount);
+        }
+
+        List<MessageResponse> result = toMessageResponses(pageMessages);
+        long totalVisibleMessages = cursorResolution.reachedEndBeforePage()
+                ? resolveAndCacheTotalForEndPage(
+                        currentAccountId,
+                        chatRoomId,
+                        normalizedEndpointType,
+                        pageSize,
+                        pageNumber,
+                        cursorResolution.exactTotalWhenEnd()
+                )
+                : resolveAndCacheTotal(
+                        currentAccountId,
+                        chatRoomId,
+                        normalizedEndpointType,
+                        pageSize,
+                        pageNumber,
+                        pageMessages.size(),
+                        hasMore
+                );
+
+        return buildPaginationResponse(result, pageNumber, pageSize, totalVisibleMessages);
+    }
+
+    private ResultPaginationResponse getOffsetPaginatedMessagesByChatRoom(
+            Long chatRoomId,
+            int pageNumber,
+            int pageSize,
+            Account currentAccount,
+            boolean includeGloballyHidden,
+            Predicate<Message> messageFilter,
+            boolean updateLastReadMessage
+    ) {
         long offset = (long) pageNumber * pageSize;
 
         long totalVisibleMessages = 0;
@@ -946,6 +1138,323 @@ public class MessageServiceImpl implements MessageService {
 
         List<MessageResponse> result = toMessageResponses(pageMessages);
         return buildPaginationResponse(result, pageNumber, pageSize, totalVisibleMessages);
+    }
+
+    private FilteredPageSlice fetchFilteredPageSlice(
+            String chatRoomId,
+            String startCursor,
+            int pageSize,
+            boolean includeGloballyHidden,
+            Long accountId,
+            Predicate<Message> messageFilter
+    ) {
+        List<Message> pageMessages = new ArrayList<>(pageSize);
+        String queryCursor = startCursor;
+
+        while (pageMessages.size() < pageSize) {
+            MessageRepository.MessageCursorBatchResult batchResult = this.messageRepository
+                    .queryMessageBatchByChatRoomWithCursor(chatRoomId, queryCursor, MESSAGE_BATCH_QUERY_SIZE);
+
+            List<Message> rawBatchMessages = batchResult.messages();
+            if (rawBatchMessages.isEmpty()) {
+                return new FilteredPageSlice(pageMessages, null, false);
+            }
+
+            List<Message> visibleMessages = filterMessagesForPagination(
+                    rawBatchMessages,
+                    includeGloballyHidden,
+                    accountId,
+                    messageFilter
+            );
+
+            String lastReturnedMessageSk = null;
+            for (Message message : visibleMessages) {
+                if (pageMessages.size() >= pageSize) {
+                    break;
+                }
+
+                pageMessages.add(message);
+                lastReturnedMessageSk = message != null ? message.getMessageSk() : null;
+            }
+
+            if (pageMessages.size() >= pageSize) {
+                boolean hasMoreInCurrentBatch = hasRawItemsAfterMessage(rawBatchMessages, lastReturnedMessageSk);
+                boolean hasMore = hasMoreInCurrentBatch || batchResult.hasMore();
+                String nextCursor = hasMore
+                        ? this.messageRepository.createCursorToken(chatRoomId, lastReturnedMessageSk)
+                        : null;
+
+                if (hasMore && (nextCursor == null || nextCursor.isBlank())) {
+                    nextCursor = batchResult.nextCursor();
+                }
+
+                return new FilteredPageSlice(pageMessages, nextCursor, hasMore);
+            }
+
+            if (!batchResult.hasMore()) {
+                return new FilteredPageSlice(pageMessages, null, false);
+            }
+
+            queryCursor = batchResult.nextCursor();
+            if (queryCursor == null || queryCursor.isBlank()) {
+                return new FilteredPageSlice(pageMessages, null, false);
+            }
+        }
+
+        return new FilteredPageSlice(pageMessages, null, false);
+    }
+
+    private boolean hasRawItemsAfterMessage(List<Message> rawMessages, String messageSk) {
+        if (rawMessages == null || rawMessages.isEmpty() || messageSk == null || messageSk.isBlank()) {
+            return false;
+        }
+
+        for (int index = 0; index < rawMessages.size(); index++) {
+            Message current = rawMessages.get(index);
+            if (current == null || current.getMessageSk() == null) {
+                continue;
+            }
+
+            if (messageSk.equals(current.getMessageSk())) {
+                return index < rawMessages.size() - 1;
+            }
+        }
+
+        return false;
+    }
+
+    private CursorResolution resolvePageStartCursor(
+            Long chatRoomId,
+            Long accountId,
+            String endpointType,
+            int pageSize,
+            int pageNumber,
+            boolean includeGloballyHidden,
+            Predicate<Message> messageFilter
+    ) {
+        if (pageNumber <= 0) {
+            return new CursorResolution(null, false, null);
+        }
+
+        String cachedCursorForPage = getCachedPageStartCursor(accountId, chatRoomId, endpointType, pageSize, pageNumber);
+        if (cachedCursorForPage != null) {
+            if (CURSOR_END_MARKER.equals(cachedCursorForPage)) {
+                return new CursorResolution(null, true, null);
+            }
+            return new CursorResolution(cachedCursorForPage, false, null);
+        }
+
+        int knownPage = 0;
+        String knownCursor = null;
+        for (int candidatePage = pageNumber - 1; candidatePage > 0; candidatePage--) {
+            String candidateCursor = getCachedPageStartCursor(
+                    accountId,
+                    chatRoomId,
+                    endpointType,
+                    pageSize,
+                    candidatePage
+            );
+            if (candidateCursor == null) {
+                continue;
+            }
+
+            if (CURSOR_END_MARKER.equals(candidateCursor)) {
+                cachePageStartCursor(accountId, chatRoomId, endpointType, pageSize, pageNumber, null);
+                return new CursorResolution(null, true, null);
+            }
+
+            knownPage = candidatePage;
+            knownCursor = candidateCursor;
+            break;
+        }
+
+        String cursor = knownCursor;
+        for (int currentPage = knownPage; currentPage < pageNumber; currentPage++) {
+            FilteredPageSlice pageSlice = fetchFilteredPageSlice(
+                    chatRoomId.toString(),
+                    cursor,
+                    pageSize,
+                    includeGloballyHidden,
+                    accountId,
+                    messageFilter
+            );
+
+            String nextPageCursor = pageSlice.nextCursor();
+            cachePageStartCursor(
+                    accountId,
+                    chatRoomId,
+                    endpointType,
+                    pageSize,
+                    currentPage + 1,
+                    nextPageCursor
+            );
+
+            if (nextPageCursor == null) {
+                long exactTotal = (long) currentPage * pageSize + pageSlice.messages().size();
+                return new CursorResolution(null, true, exactTotal);
+            }
+
+            cursor = nextPageCursor;
+        }
+
+        return new CursorResolution(cursor, false, null);
+    }
+
+    private String normalizeEndpointType(String endpointType) {
+        if (endpointType == null || endpointType.isBlank()) {
+            return "messages";
+        }
+
+        return endpointType.trim().toLowerCase(Locale.ROOT);
+    }
+
+    private String buildCursorPageCacheKey(
+            Long accountId,
+            Long chatRoomId,
+            String endpointType,
+            int pageSize,
+            int pageNumber
+    ) {
+        return CURSOR_CACHE_PREFIX
+                + ":" + accountId
+                + ":" + chatRoomId
+                + ":" + endpointType
+                + ":" + pageSize
+                + ":" + pageNumber;
+    }
+
+    private String buildTotalCacheKey(Long accountId, Long chatRoomId, String endpointType, int pageSize) {
+        return TOTAL_CACHE_PREFIX
+                + ":" + accountId
+                + ":" + chatRoomId
+                + ":" + endpointType
+                + ":" + pageSize;
+    }
+
+    private String getCachedPageStartCursor(
+            Long accountId,
+            Long chatRoomId,
+            String endpointType,
+            int pageSize,
+            int pageNumber
+    ) {
+        String cacheKey = buildCursorPageCacheKey(accountId, chatRoomId, endpointType, pageSize, pageNumber);
+        if (!this.redisService.hasKey(cacheKey)) {
+            return null;
+        }
+
+        String value = this.redisService.getValue(cacheKey);
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+
+        return value;
+    }
+
+    private void cachePageStartCursor(
+            Long accountId,
+            Long chatRoomId,
+            String endpointType,
+            int pageSize,
+            int pageNumber,
+            String cursor
+    ) {
+        String cacheKey = buildCursorPageCacheKey(accountId, chatRoomId, endpointType, pageSize, pageNumber);
+        String value = (cursor == null || cursor.isBlank()) ? CURSOR_END_MARKER : cursor;
+        long ttl = Math.max(cursorPageCacheTtlSeconds, 1L);
+        this.redisService.saveWithTTL(cacheKey, value, ttl, TimeUnit.SECONDS);
+    }
+
+    private Long getCachedTotal(String cacheKey) {
+        if (!this.redisService.hasKey(cacheKey)) {
+            return null;
+        }
+
+        String value = this.redisService.getValue(cacheKey);
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+
+        try {
+            return Long.parseLong(value);
+        } catch (NumberFormatException e) {
+            return null;
+        }
+    }
+
+    private void cacheTotal(String cacheKey, long total) {
+        long ttl = Math.max(totalCacheTtlSeconds, 1L);
+        this.redisService.saveWithTTL(cacheKey, String.valueOf(Math.max(total, 0L)), ttl, TimeUnit.SECONDS);
+    }
+
+    private long resolveAndCacheTotal(
+            Long accountId,
+            Long chatRoomId,
+            String endpointType,
+            int pageSize,
+            int pageNumber,
+            int currentPageItemCount,
+            boolean hasMore
+    ) {
+        String totalCacheKey = buildTotalCacheKey(accountId, chatRoomId, endpointType, pageSize);
+        Long cachedTotal = getCachedTotal(totalCacheKey);
+
+        long lowerBound = (long) pageNumber * pageSize + currentPageItemCount;
+        long resolvedTotal;
+
+        if (hasMore) {
+            long minimumForNextPage = ((long) pageNumber + 1) * pageSize + 1;
+            long candidate = Math.max(lowerBound, minimumForNextPage);
+            resolvedTotal = cachedTotal != null ? Math.max(cachedTotal, candidate) : candidate;
+        } else {
+            resolvedTotal = lowerBound;
+        }
+
+        cacheTotal(totalCacheKey, resolvedTotal);
+        return resolvedTotal;
+    }
+
+    private long resolveAndCacheTotalForEndPage(
+            Long accountId,
+            Long chatRoomId,
+            String endpointType,
+            int pageSize,
+            int pageNumber,
+            Long exactTotalWhenEnd
+    ) {
+        String totalCacheKey = buildTotalCacheKey(accountId, chatRoomId, endpointType, pageSize);
+        if (exactTotalWhenEnd != null) {
+            cacheTotal(totalCacheKey, exactTotalWhenEnd);
+            return exactTotalWhenEnd;
+        }
+
+        Long cachedTotal = getCachedTotal(totalCacheKey);
+        if (cachedTotal != null) {
+            return cachedTotal;
+        }
+
+        long fallbackTotal = (long) pageNumber * pageSize;
+        cacheTotal(totalCacheKey, fallbackTotal);
+        return fallbackTotal;
+    }
+
+    private void invalidatePaginationCaches(String chatRoomId) {
+        if (chatRoomId == null || chatRoomId.isBlank()) {
+            return;
+        }
+
+        try {
+            this.redisService.deleteByPattern(CURSOR_CACHE_PREFIX + ":*:" + chatRoomId + ":*");
+            this.redisService.deleteByPattern(TOTAL_CACHE_PREFIX + ":*:" + chatRoomId + ":*");
+        } catch (Exception e) {
+            log.warn("Failed to invalidate pagination cache for chatRoomId={}", chatRoomId, e);
+        }
+    }
+
+    private record FilteredPageSlice(List<Message> messages, String nextCursor, boolean hasMore) {
+    }
+
+    private record CursorResolution(String startCursor, boolean reachedEndBeforePage, Long exactTotalWhenEnd) {
     }
 
     private List<Message> filterMessagesForPagination(
