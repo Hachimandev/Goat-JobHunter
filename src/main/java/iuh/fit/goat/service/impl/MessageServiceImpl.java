@@ -11,6 +11,7 @@ import iuh.fit.goat.dto.response.message.MessageDeletedEventResponse;
 import iuh.fit.goat.dto.response.message.MessageResponse;
 import iuh.fit.goat.dto.response.ResultPaginationResponse;
 import iuh.fit.goat.dto.response.StorageResponse;
+import iuh.fit.goat.dto.response.poll.PollResponse;
 import iuh.fit.goat.entity.Account;
 import iuh.fit.goat.entity.ChatMember;
 import iuh.fit.goat.entity.ChatRoom;
@@ -903,8 +904,40 @@ public class MessageServiceImpl implements MessageService {
 
         Message savedMessage = messageRepository.saveMessage(systemMessage);
         sendMessageToUsers(chatRoomId, savedMessage);
+    }
 
-        log.info("System message created: type={}, chatRoomId={}", type, chatRoomId);
+    @Override
+    public void createAndSendPollMessage(Long chatRoomId, MessageEvent type, Account actor, PollResponse poll) {
+        String content = MessageHelper.generateSystemMessage(type, actor, poll);
+        Instant now = Instant.now();
+        long timestamp = now.toEpochMilli();
+
+        String messageId = type == MessageEvent.POLL_CREATED ? poll.getMessageId() : generateMessageId();
+        String messageSk = Message.buildMessageSk(timestamp, poll.getMessageId());
+        SenderInfo senderInfo = buildSenderInfo(actor);
+
+        Message message = Message.builder()
+                .messageId(messageId)
+                .messageSk(messageSk)
+                .chatRoomId(chatRoomId.toString())
+                .sender(senderInfo)
+                .content(content)
+                .messageType(MessageType.POLL)
+                .isHidden(false)
+                .isForwarded(false)
+                .originalMessageId(null)
+                .createdAt(Instant.now())
+                .updatedAt(Instant.now())
+                .build();
+        Message savedMessage = messageRepository.saveMessage(message);
+        if(poll.getPinned() != null && poll.getPinned()) {
+            this.messageRepository.pinMessage(
+                    chatRoomId.toString(), poll.getMessageId(),
+                    actor instanceof Company company ? company.getName() : ((User) Objects.requireNonNull(actor)).getFullName()
+            );
+        }
+
+        sendMessageToUsers(chatRoomId, savedMessage);
     }
 
     private boolean isMediaType(MessageType type) {

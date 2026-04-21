@@ -12,7 +12,6 @@ import java.util.List;
 public class VotePollRequest {
     @NotNull(message = "Poll ID is required")
     private String pollId;
-    @NotNull(message = "Option IDs are required")
     private List<String> optionIds;
 }
 

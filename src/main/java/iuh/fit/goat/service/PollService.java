@@ -7,6 +7,9 @@ import iuh.fit.goat.dto.request.poll.VotePollRequest;
 import iuh.fit.goat.dto.response.poll.PollResponse;
 import iuh.fit.goat.entity.Account;
 import iuh.fit.goat.exception.InvalidException;
+import org.springframework.data.domain.Pageable;
+
+import java.util.List;
 
 public interface PollService {
     PollResponse createPoll(Long chatRoomId, CreatePollRequest request, Account currentAccount) throws InvalidException;
@@ -17,10 +20,8 @@ public interface PollService {
 
     PollResponse closePoll(Long chatRoomId, ClosePollRequest request, Account currentAccount) throws InvalidException;
 
-    PollResponse getPoll(String pollId, Account currentAccount) throws InvalidException;
+    PollResponse getPoll(Long chatRoomId, String pollId, Account currentAccount) throws InvalidException;
 
-    boolean canAddOptionToPoll(String pollId) throws InvalidException;
-
-    boolean hasAccountVoted(String pollId, Long accountId) throws InvalidException;
+    List<PollResponse> getPollsInChatRoom(Account account, Long chatRoomId, Pageable pageable) throws InvalidException;
 }
 

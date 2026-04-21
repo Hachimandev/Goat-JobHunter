@@ -13,8 +13,11 @@ import iuh.fit.goat.util.SecurityUtil;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 @Slf4j
 @RestController
@@ -23,6 +26,26 @@ import org.springframework.web.bind.annotation.*;
 public class PollController {
     private final PollService pollService;
     private final AccountService accountService;
+
+    @GetMapping
+    public ResponseEntity<List<PollResponse>> getPollsInChatRoom(@PathVariable Long chatRoomId, Pageable pageable) throws InvalidException {
+        String email = SecurityUtil.getCurrentUserEmail();
+        Account currentAccount = this.accountService.handleGetAccountByEmail(email);
+        if (currentAccount == null) throw new InvalidException("Tài khoản không tồn tại");
+
+        List<PollResponse> polls = this.pollService.getPollsInChatRoom(currentAccount, chatRoomId, pageable);
+        return ResponseEntity.ok(polls);
+    }
+
+    @GetMapping("/{pollId}")
+    public ResponseEntity<PollResponse> getPoll(@PathVariable Long chatRoomId, @PathVariable String pollId) throws InvalidException {
+        String email = SecurityUtil.getCurrentUserEmail();
+        Account currentAccount = this.accountService.handleGetAccountByEmail(email);
+        if (currentAccount == null) throw new InvalidException("Tài khoản không tồn tại");
+
+        PollResponse response = this.pollService.getPoll(chatRoomId, pollId, currentAccount);
+        return ResponseEntity.ok(response);
+    }
 
     @PostMapping
     public ResponseEntity<PollResponse> createPoll(
@@ -73,16 +96,6 @@ public class PollController {
         if (currentAccount == null) throw new InvalidException("Tài khoản không tồn tại");
 
         PollResponse response = this.pollService.closePoll(chatRoomId, request, currentAccount);
-        return ResponseEntity.ok(response);
-    }
-
-    @GetMapping("/{pollId}")
-    public ResponseEntity<PollResponse> getPoll(@PathVariable String pollId) throws InvalidException {
-        String email = SecurityUtil.getCurrentUserEmail();
-        Account currentAccount = this.accountService.handleGetAccountByEmail(email);
-        if (currentAccount == null) throw new InvalidException("Tài khoản không tồn tại");
-
-        PollResponse response = this.pollService.getPoll(pollId, currentAccount);
         return ResponseEntity.ok(response);
     }
 }

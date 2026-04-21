@@ -7,6 +7,7 @@ import iuh.fit.goat.dto.response.message.ForwardMessageResponse;
 import iuh.fit.goat.dto.response.message.MessageDeletedEventResponse;
 import iuh.fit.goat.dto.response.message.MessageResponse;
 import iuh.fit.goat.dto.response.ResultPaginationResponse;
+import iuh.fit.goat.dto.response.poll.PollResponse;
 import iuh.fit.goat.entity.Account;
 import iuh.fit.goat.entity.Message;
 import iuh.fit.goat.exception.ConflictException;
@@ -64,4 +65,6 @@ public interface MessageService {
             throws InvalidException, NotFoundException, PermissionException;
 
     void createAndSendSystemMessage(Long chatRoomId, MessageEvent type, Account actor, Object... params);
+
+    void createAndSendPollMessage(Long chatRoomId, MessageEvent type, Account actor, PollResponse poll);
 }

@@ -5,8 +5,12 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Repository;
 import software.amazon.awssdk.enhanced.dynamodb.DynamoDbTable;
+import software.amazon.awssdk.enhanced.dynamodb.Expression;
 import software.amazon.awssdk.enhanced.dynamodb.Key;
+import software.amazon.awssdk.enhanced.dynamodb.model.PageIterable;
 import software.amazon.awssdk.enhanced.dynamodb.model.QueryConditional;
+import software.amazon.awssdk.enhanced.dynamodb.model.QueryEnhancedRequest;
+import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
 
 import java.util.List;
 import java.util.Optional;
@@ -27,12 +31,33 @@ public class PollRepository {
         }
     }
 
-    public Optional<Poll> findByPollId(String pollId) {
-        if (pollId == null || pollId.isBlank()) return Optional.empty();
+    public Optional<Poll> findByPollId(Long chatRoomId, String pollId) {
+        if (pollId == null || pollId.isBlank() || chatRoomId == null) {
+            return Optional.empty();
+        }
         try {
-            Key key = Key.builder().partitionValue(pollId).build();
-            Poll poll = this.pollTable.getItem(key);
-            return Optional.ofNullable(poll);
+            QueryConditional queryConditional = QueryConditional.keyEqualTo(
+                    Key.builder().partitionValue(pollId).build()
+            );
+
+            Expression filterExpression = Expression.builder()
+                    .expression("chatRoomId = :chatRoomId")
+                    .putExpressionValue(
+                            ":chatRoomId",
+                            AttributeValue.builder().n(String.valueOf(chatRoomId)).build()
+                    )
+                    .build();
+
+            QueryEnhancedRequest request = QueryEnhancedRequest.builder()
+                    .queryConditional(queryConditional)
+                    .filterExpression(filterExpression)
+                    .build();
+
+            PageIterable<Poll> pages = pollTable.query(request);
+
+            return pages.stream()
+                    .flatMap(page -> page.items().stream())
+                    .findFirst();
         } catch (Exception e) {
             log.error("Error finding poll by ID: {}", pollId, e);
             throw new RuntimeException("Failed to find poll", e);

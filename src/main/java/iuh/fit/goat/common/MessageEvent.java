@@ -13,6 +13,7 @@ public enum MessageEvent {
     MESSAGE_UNPINNED,
     POLL_CREATED,
     POLL_VOTED,
+    POLL_UNVOTED,
     POLL_OPTION_ADDED,
     POLL_CLOSED,
 }

@@ -8,15 +8,15 @@ import iuh.fit.goat.dto.request.poll.VotePollRequest;
 import iuh.fit.goat.dto.response.poll.*;
 import iuh.fit.goat.entity.*;
 import iuh.fit.goat.entity.embeddable.SenderInfo;
-import iuh.fit.goat.enumeration.MessageType;
 import iuh.fit.goat.exception.InvalidException;
 import iuh.fit.goat.repository.ChatRoomRepository;
-import iuh.fit.goat.repository.MessageRepository;
 import iuh.fit.goat.repository.PollRepository;
 import iuh.fit.goat.repository.PollVoteRepository;
+import iuh.fit.goat.service.MessageService;
 import iuh.fit.goat.service.PollService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Pageable;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -33,8 +33,9 @@ public class PollServiceImpl implements PollService {
 
     private final PollRepository pollRepository;
     private final PollVoteRepository pollVoteRepository;
-    private final MessageRepository messageRepository;
     private final ChatRoomRepository chatRoomRepository;
+
+    private final MessageService messageService;
 
     private final SimpMessagingTemplate messagingTemplate;
 
@@ -74,29 +75,11 @@ public class PollServiceImpl implements PollService {
                 .build();
         this.pollRepository.save(poll);
 
-        Message message = Message.builder()
-                .messageId(messageId)
-                .messageSk(Message.buildMessageSk(System.currentTimeMillis(), messageId))
-                .chatRoomId(chatRoomId.toString())
-                .sender(getSenderInfo(currentAccount))
-                .content(request.getQuestion())
-                .messageType(MessageType.POLL)
-                .createdAt(Instant.now())
-                .updatedAt(Instant.now())
-                .isHidden(false)
-                .isForwarded(false)
-                .build();
-        this.messageRepository.saveMessage(message);
-
-        if (poll.getPinned() != null && poll.getPinned()) {
-            this.messageRepository.pinMessage(
-                    chatRoomId.toString(), messageId,
-                    currentAccount instanceof Company company ? company.getName() : ((User) Objects.requireNonNull(currentAccount)).getFullName()
-            );
-        }
-
         PollResponse pollResponse = toPollResponse(poll, currentAccount.getAccountId());
-        sendPollCreatedEvent(chatRoomId, pollResponse);
+
+        this.messageService.createAndSendPollMessage(
+                chatRoomId, MessageEvent.POLL_CREATED, currentAccount, pollResponse
+        );
 
         return pollResponse;
     }
@@ -106,7 +89,7 @@ public class PollServiceImpl implements PollService {
     {
         validChatRoomAndMembership(chatRoomId, currentAccount.getAccountId());
 
-        Poll poll = this.pollRepository.findByPollId(request.getPollId())
+        Poll poll = this.pollRepository.findByPollId(chatRoomId, request.getPollId())
                 .orElseThrow(() -> new InvalidException("Bình chọn không tồn tại"));
 
         if (poll.getIsClosed()) throw new InvalidException("Bình chọn đã đóng");
@@ -119,8 +102,9 @@ public class PollServiceImpl implements PollService {
 
         Long accountId = currentAccount.getAccountId();
         List<PollVote> existingVotes = this.pollVoteRepository.findByPollIdAndAccountId(poll.getPollId(), accountId);
+        boolean hasOptionIds = request.getOptionIds() != null && !request.getOptionIds().isEmpty();
 
-        if (!poll.getMultipleChoice() && !existingVotes.isEmpty()) {
+        if (!existingVotes.isEmpty()) {
             for (PollVote existingVote : existingVotes) {
                 PollOption option = poll.getOptions().stream()
                         .filter(o -> o.getOptionId().equals(existingVote.getOptionId()))
@@ -133,33 +117,35 @@ public class PollServiceImpl implements PollService {
             }
         }
 
-        for (String optionId : request.getOptionIds()) {
-            PollOption option = poll.getOptions().stream()
-                    .filter(o -> o.getOptionId().equals(optionId))
-                    .findFirst()
-                    .orElseThrow(() -> new InvalidException("Không tìm thấy lựa chọn: " + optionId));
+        if(hasOptionIds) {
+            for (String optionId : request.getOptionIds()) {
+                PollOption option = poll.getOptions().stream()
+                        .filter(o -> o.getOptionId().equals(optionId))
+                        .findFirst()
+                        .orElseThrow(() -> new InvalidException("Không tìm thấy lựa chọn: " + optionId));
 
-            PollVote vote = PollVote.builder()
-                    .voteId(generateVoteId())
-                    .pollId(poll.getPollId())
-                    .optionId(optionId)
-                    .accountId(accountId)
-                    .createdAt(Instant.now())
-                    .build();
+                PollVote vote = PollVote.builder()
+                        .voteId(generateVoteId())
+                        .pollId(poll.getPollId())
+                        .optionId(optionId)
+                        .accountId(accountId)
+                        .createdAt(Instant.now())
+                        .build();
 
-            this.pollVoteRepository.save(vote);
-            option.setVoteCount(option.getVoteCount() + 1);
+                this.pollVoteRepository.save(vote);
+                option.setVoteCount(option.getVoteCount() + 1);
+            }
         }
 
         poll.setUpdatedAt(Instant.now());
         this.pollRepository.save(poll);
 
         PollResponse pollResponse = toPollResponse(poll, currentAccount.getAccountId());
-        int totalVotes = poll.getOptions().stream()
-                .mapToInt(o -> o.getVoteCount() != null ? o.getVoteCount() : 0)
-                .sum();
 
-        sendPollVotedEvent(chatRoomId, request.getPollId(), accountId.toString(), request.getOptionIds(), totalVotes);
+        this.messageService.createAndSendPollMessage(
+                chatRoomId, hasOptionIds ? MessageEvent.POLL_VOTED : MessageEvent.POLL_UNVOTED,
+                currentAccount, pollResponse
+        );
 
         return pollResponse;
     }
@@ -169,7 +155,7 @@ public class PollServiceImpl implements PollService {
     {
         validChatRoomAndMembership(chatRoomId, currentAccount.getAccountId());
 
-        Poll poll = this.pollRepository.findByPollId(request.getPollId())
+        Poll poll = this.pollRepository.findByPollId(chatRoomId, request.getPollId())
                 .orElseThrow(() -> new InvalidException("Bình chọn không tồn tại"));
 
         if (!poll.getAllowAddOption()) throw new InvalidException("Không được phép thêm lựa chọn vào bình chọn này");
@@ -199,7 +185,7 @@ public class PollServiceImpl implements PollService {
     {
         validChatRoomAndMembership(chatRoomId, currentAccount.getAccountId());
 
-        Poll poll = this.pollRepository.findByPollId(request.getPollId())
+        Poll poll = this.pollRepository.findByPollId(chatRoomId, request.getPollId())
                 .orElseThrow(() -> new InvalidException("Bình chọn không tồn tại"));
 
         if (!poll.getCreatedBy().equals(currentAccount.getEmail())) {
@@ -217,30 +203,34 @@ public class PollServiceImpl implements PollService {
 
     @Override
     @Transactional(readOnly = true)
-    public PollResponse getPoll(String pollId, Account currentAccount) throws InvalidException{
-        Poll poll = pollRepository.findByPollId(pollId)
+    public PollResponse getPoll(Long chatRoomId, String pollId, Account currentAccount) throws InvalidException{
+        validChatRoomAndMembership(chatRoomId, currentAccount.getAccountId());
+
+        Poll poll = this.pollRepository.findByPollId(chatRoomId, pollId)
                 .orElseThrow(() -> new InvalidException("Bình chọn không tồn tại"));
 
         return toPollResponse(poll, currentAccount.getAccountId());
     }
 
     @Override
-    @Transactional(readOnly = true)
-    public boolean canAddOptionToPoll(String pollId) throws InvalidException {
-        Poll poll = this.pollRepository.findByPollId(pollId)
-                .orElseThrow(() -> new InvalidException("Bình chọn không tồn tại"));
+    public List<PollResponse> getPollsInChatRoom(Account account, Long chatRoomId, Pageable pageable) throws InvalidException {
+        validChatRoomAndMembership(chatRoomId, account.getAccountId());
 
-        return poll.getAllowAddOption() && !poll.getIsClosed() &&
-                (poll.getExpiresAt() == null || Instant.now().isBefore(poll.getExpiresAt()));
-    }
+        List<Poll> allPolls = this.pollRepository.findByChatRoomId(chatRoomId.toString());
+        List<Poll> sortedPolls = allPolls.stream()
+                .sorted((p1, p2) -> p2.getCreatedAt().compareTo(p1.getCreatedAt()))
+                .toList();
 
-    @Override
-    @Transactional(readOnly = true)
-    public boolean hasAccountVoted(String pollId, Long accountId) throws InvalidException {
-        Poll poll = pollRepository.findByPollId(pollId)
-                .orElseThrow(() -> new InvalidException("Bình chọn không tồn tại"));
+        int pageNumber = pageable.getPageNumber();
+        int pageSize = pageable.getPageSize();
+        int startIndex = pageNumber * pageSize;
+        int endIndex = Math.min(startIndex + pageSize, sortedPolls.size());
 
-        return !pollVoteRepository.findByPollIdAndAccountId(poll.getPollId(), accountId).isEmpty();
+        if (startIndex >= sortedPolls.size()) return List.of();
+
+        return sortedPolls.subList(startIndex, endIndex).stream()
+                .map(poll -> toPollResponse(poll, account.getAccountId()))
+                .collect(Collectors.toList());
     }
 
     private SenderInfo getSenderInfo(Account account) {
