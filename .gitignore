@@ -43,3 +43,4 @@ out/
 skills-lock.json
 .opencode
 opencode.json
+.worktrees/
