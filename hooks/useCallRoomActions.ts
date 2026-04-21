@@ -47,7 +47,9 @@ const useCallRoomActions = () => {
           dispatch(setOutgoingCallRinging(response.data));
         }
 
-        toast.success(callType === CallTypeEnum.VIDEO ? 'Đang bắt đầu cuộc gọi video...' : 'Đang bắt đầu cuộc gọi thoại...');
+        toast.success(
+          callType === CallTypeEnum.VIDEO ? 'Đang bắt đầu cuộc gọi video...' : 'Đang bắt đầu cuộc gọi thoại...',
+        );
         return response.data ?? null;
       } catch (error) {
         console.error('Failed to initiate call:', error);
