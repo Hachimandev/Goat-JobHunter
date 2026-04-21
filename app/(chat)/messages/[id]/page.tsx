@@ -9,7 +9,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useUser } from '@/hooks/useUser';
 import useChatRoomAndMessageActions from '@/hooks/useChatRoomAndMessageActions';
 import { MessageResponse, PinnedMessage } from '@/types/model';
-import { ChatRoomType } from '@/types/enum';
+import { CallTypeEnum, ChatRoomType } from '@/types/enum';
 import { subscribeToChatRoom } from '@/services/chatRoom/message/messageApi';
 import { useAppSelector } from '@/lib/hooks';
 import { selectLastFriendshipRealtimeEventAt } from '@/lib/features/friendshipSlice';
@@ -21,6 +21,7 @@ import {
 import { toast } from 'sonner';
 import { IBackendError } from '@/types/api';
 import { Loader2 } from 'lucide-react';
+import useCallRoomActions from '@/hooks/useCallRoomActions';
 
 export default function ChatRoomPage() {
   const params = useParams();
@@ -50,6 +51,7 @@ export default function ChatRoomPage() {
 
   const [pinMessage] = usePinMessageMutation();
   const [unpinMessage] = useUnpinMessageMutation();
+  const { handleStartCall } = useCallRoomActions();
   const { data: pinnedMessagesData, isLoading: isLoadingPinnedMessages } = useGetPinnedMessagesQuery(
     { chatRoomId: parsedChatRoomId },
     { skip: isInvalidChatRoomId },
@@ -337,6 +339,12 @@ export default function ChatRoomPage() {
         isPinningMessage={(messageId: string) => pinningMessageIds.has(messageId)}
         pinnedMessages={pinnedMessagesData?.data || []}
         isLoadingPinnedMessages={isLoadingPinnedMessages}
+        onStartVoiceCall={async () => {
+          await handleStartCall(parsedChatRoomId, CallTypeEnum.VOICE);
+        }}
+        onStartVideoCall={async () => {
+          await handleStartCall(parsedChatRoomId, CallTypeEnum.VIDEO);
+        }}
       />
 
       <ForwardMessageModal

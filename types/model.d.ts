@@ -1,6 +1,8 @@
 import {
   ApplicationStatus,
   ChatRoomType,
+  CallStatusEnum,
+  CallTypeEnum,
   CompanySize,
   Education,
   Gender,
@@ -463,6 +465,27 @@ export type ChatRoom = {
   blockedByMe: boolean;
   counterpartAccountId: number;
   deletedAt?: string | null;
+};
+
+export type CallParticipant = {
+  accountId: number;
+  fullName?: string;
+  username?: string;
+  avatar?: string | null;
+  joinedAt?: string;
+  isMuted?: boolean;
+  isVideoOff?: boolean;
+};
+
+export type CallSession = {
+  callId: string;
+  chatRoomId: number;
+  callType: CallTypeEnum;
+  status: CallStatusEnum;
+  initiatorId: number;
+  participants: CallParticipant[];
+  startedAt?: string;
+  endedAt?: string;
 };
 
 export type Resume = {

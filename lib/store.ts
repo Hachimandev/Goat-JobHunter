@@ -6,6 +6,7 @@ import authReducer from './features/authSlice';
 import sendMailReducer from './features/sendMailSlice';
 import blogDetailReducer from './features/blogDetailSlice';
 import friendshipReducer from './features/friendshipSlice';
+import callReducer from './features/callSlice';
 
 const persistConfig = {
   key: 'root',
@@ -20,6 +21,7 @@ const rootReducer = combineReducers({
   sendMail: sendMailReducer,
   blogDetail: blogDetailReducer,
   friendship: friendshipReducer,
+  call: callReducer,
 });
 
 const persistedReducer = persistReducer(persistConfig, rootReducer);

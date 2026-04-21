@@ -133,3 +133,18 @@ export enum ChatRoomType {
   BROADCAST = 'BROADCAST',
   AI = 'AI',
 }
+
+export enum CallTypeEnum {
+  VOICE = 'VOICE',
+  VIDEO = 'VIDEO',
+}
+
+export enum CallStatusEnum {
+  IDLE = 'IDLE',
+  RINGING = 'RINGING',
+  CONNECTING = 'CONNECTING',
+  ACTIVE = 'ACTIVE',
+  ENDED = 'ENDED',
+  REJECTED = 'REJECTED',
+  MISSED = 'MISSED',
+}

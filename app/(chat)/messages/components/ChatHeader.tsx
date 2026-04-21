@@ -15,6 +15,9 @@ interface ChatHeaderProps {
   onOpenSearch: () => void;
   pinnedMessagesCount: number;
   readOnly?: boolean;
+  disableCallActions?: boolean;
+  onStartVoiceCall?: () => void;
+  onStartVideoCall?: () => void;
 }
 
 export function ChatHeader({
@@ -25,8 +28,12 @@ export function ChatHeader({
   onOpenSearch,
   pinnedMessagesCount = 0,
   readOnly = false,
+  disableCallActions = false,
+  onStartVoiceCall,
+  onStartVideoCall,
 }: Readonly<ChatHeaderProps>) {
   const isGroup = chatRoom.type === ChatRoomType.GROUP;
+  const isCallDisabled = readOnly || disableCallActions;
 
   return (
     <div className="h-16 border-b border-border bg-card flex items-center justify-between px-4">
@@ -48,10 +55,24 @@ export function ChatHeader({
         </div>
       </div>
       <div className="flex items-center gap-1">
-        <Button variant="ghost" size="icon" className="h-9 w-9 rounded-full" disabled={readOnly}>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-9 w-9 rounded-full"
+          disabled={isCallDisabled || !onStartVoiceCall}
+          onClick={onStartVoiceCall}
+          title="Bắt đầu cuộc gọi thoại"
+        >
           <Phone className="h-5 w-5" />
         </Button>
-        <Button variant="ghost" size="icon" className="h-9 w-9 rounded-full" disabled={readOnly}>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-9 w-9 rounded-full"
+          disabled={isCallDisabled || !onStartVideoCall}
+          onClick={onStartVideoCall}
+          title="Bắt đầu cuộc gọi video"
+        >
           <Video className="h-5 w-5" />
         </Button>
 

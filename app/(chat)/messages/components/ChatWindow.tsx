@@ -50,6 +50,8 @@ interface ChatWindowProps {
   onClearChat?: () => Promise<void> | void;
   pinnedMessages?: PinnedMessage[];
   isLoadingPinnedMessages?: boolean;
+  onStartVoiceCall?: () => void;
+  onStartVideoCall?: () => void;
 }
 
 export function ChatWindow({
@@ -82,6 +84,8 @@ export function ChatWindow({
   isPinningMessage,
   pinnedMessages = [],
   isLoadingPinnedMessages = false,
+  onStartVoiceCall,
+  onStartVideoCall,
 }: Readonly<ChatWindowProps>) {
   const { isOpen: isDetailsOpen, toggle, close } = useDetailsPanelState();
   const [isPinnedPanelOpen, setIsPinnedPanelOpen] = useState(false);
@@ -126,6 +130,9 @@ export function ChatWindow({
           onOpenSearch={handleOpenSearch}
           pinnedMessagesCount={pinnedMessages.length}
           readOnly={isDissolved}
+          disableCallActions={isChatLocked}
+          onStartVoiceCall={onStartVoiceCall}
+          onStartVideoCall={onStartVideoCall}
         />
         <MessageList
           messages={messages}
