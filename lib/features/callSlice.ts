@@ -2,12 +2,12 @@ import { useAppSelector } from '@/lib/hooks';
 import { createSelector, createSlice, PayloadAction } from '@reduxjs/toolkit';
 import type { RootState } from '@/lib/store';
 import { CallSession } from '@/types/model';
-import { CallStatusEnum } from '@/types/enum';
+import { CallStatusEnum, CallTypeEnum } from '@/types/enum';
 
 type IncomingCallState = {
-  callId: string;
+  sessionId: number;
   chatRoomId: number;
-  fromAccountId: number;
+  actorAccountId: number;
   startedAt?: string;
   session?: CallSession;
 };
@@ -17,6 +17,11 @@ type CallState = {
   incomingCall: IncomingCallState | null;
   callError: string | null;
   lastRealtimeEventAt: string | null;
+  rtcConnectionState: 'idle' | 'connecting' | 'connected' | 'reconnecting' | 'disconnected' | 'failed';
+  localAudioEnabled: boolean;
+  localVideoEnabled: boolean;
+  remoteAudioActive: boolean;
+  remoteVideoActive: boolean;
 };
 
 const initialState: CallState = {
@@ -24,6 +29,11 @@ const initialState: CallState = {
   incomingCall: null,
   callError: null,
   lastRealtimeEventAt: null,
+  rtcConnectionState: 'idle',
+  localAudioEnabled: true,
+  localVideoEnabled: true,
+  remoteAudioActive: false,
+  remoteVideoActive: false,
 };
 
 const resolveEventTimestamp = (value?: string | null): string => {
@@ -34,8 +44,16 @@ const resolveEventTimestamp = (value?: string | null): string => {
   return new Date().toISOString();
 };
 
-const isMatchingCall = (stateCall: CallSession | null, callId: string): boolean => {
-  return Boolean(stateCall && stateCall.callId === callId);
+const isMatchingCall = (stateCall: CallSession | null, sessionId: number): boolean => {
+  return Boolean(stateCall && stateCall.sessionId === sessionId);
+};
+
+const resetRtcFlags = (state: CallState) => {
+  state.rtcConnectionState = 'idle';
+  state.localAudioEnabled = true;
+  state.localVideoEnabled = true;
+  state.remoteAudioActive = false;
+  state.remoteVideoActive = false;
 };
 
 const callSlice = createSlice({
@@ -45,10 +63,10 @@ const callSlice = createSlice({
     markCallRealtimeEvent: (state, action: PayloadAction<string | undefined>) => {
       state.lastRealtimeEventAt = resolveEventTimestamp(action.payload);
     },
-    setOutgoingCallRinging: (state, action: PayloadAction<CallSession>) => {
+    setOutgoingCallPending: (state, action: PayloadAction<CallSession>) => {
       state.currentCall = {
         ...action.payload,
-        status: CallStatusEnum.RINGING,
+        status: CallStatusEnum.PENDING,
       };
       state.incomingCall = null;
       state.callError = null;
@@ -64,12 +82,14 @@ const callSlice = createSlice({
       state.currentCall = action.payload;
       state.callError = null;
 
-      if (state.incomingCall?.callId === action.payload.callId) {
+      if (state.incomingCall?.sessionId === action.payload.sessionId) {
         state.incomingCall = null;
       }
+
+      state.localVideoEnabled = action.payload.callType === CallTypeEnum.VIDEO;
     },
-    setCallStatus: (state, action: PayloadAction<{ callId: string; status: CallStatusEnum }>) => {
-      if (!isMatchingCall(state.currentCall, action.payload.callId) || !state.currentCall) {
+    setCallStatus: (state, action: PayloadAction<{ sessionId: number; status: CallStatusEnum }>) => {
+      if (!isMatchingCall(state.currentCall, action.payload.sessionId) || !state.currentCall) {
         return;
       }
 
@@ -77,9 +97,9 @@ const callSlice = createSlice({
     },
     setCallParticipants: (
       state,
-      action: PayloadAction<{ callId: string; participants: CallSession['participants'] }>,
+      action: PayloadAction<{ sessionId: number; participants: CallSession['participants'] }>,
     ) => {
-      if (!isMatchingCall(state.currentCall, action.payload.callId) || !state.currentCall) {
+      if (!isMatchingCall(state.currentCall, action.payload.sessionId) || !state.currentCall) {
         return;
       }
 
@@ -87,11 +107,11 @@ const callSlice = createSlice({
     },
     endCurrentCall: (
       state,
-      action: PayloadAction<{ callId?: string; endedAt?: string; finalStatus?: CallStatusEnum } | undefined>,
+      action: PayloadAction<{ sessionId?: number; endedAt?: string; finalStatus?: CallStatusEnum } | undefined>,
     ) => {
-      const targetCallId = action.payload?.callId;
+      const targetSessionId = action.payload?.sessionId;
 
-      if (targetCallId && !isMatchingCall(state.currentCall, targetCallId)) {
+      if (targetSessionId && !isMatchingCall(state.currentCall, targetSessionId)) {
         return;
       }
 
@@ -102,6 +122,54 @@ const callSlice = createSlice({
 
       state.currentCall = null;
       state.incomingCall = null;
+      resetRtcFlags(state);
+    },
+    setRtcConnectionState: (
+      state,
+      action: PayloadAction<{
+        sessionId?: number;
+        state: CallState['rtcConnectionState'];
+      }>,
+    ) => {
+      if (action.payload.sessionId && !isMatchingCall(state.currentCall, action.payload.sessionId)) {
+        return;
+      }
+
+      state.rtcConnectionState = action.payload.state;
+    },
+    setLocalAudioEnabled: (state, action: PayloadAction<{ sessionId?: number; enabled: boolean }>) => {
+      if (action.payload.sessionId && !isMatchingCall(state.currentCall, action.payload.sessionId)) {
+        return;
+      }
+
+      state.localAudioEnabled = action.payload.enabled;
+    },
+    setLocalVideoEnabled: (state, action: PayloadAction<{ sessionId?: number; enabled: boolean }>) => {
+      if (action.payload.sessionId && !isMatchingCall(state.currentCall, action.payload.sessionId)) {
+        return;
+      }
+
+      state.localVideoEnabled = action.payload.enabled;
+    },
+    setRemoteMediaState: (
+      state,
+      action: PayloadAction<{
+        sessionId?: number;
+        remoteAudioActive?: boolean;
+        remoteVideoActive?: boolean;
+      }>,
+    ) => {
+      if (action.payload.sessionId && !isMatchingCall(state.currentCall, action.payload.sessionId)) {
+        return;
+      }
+
+      if (typeof action.payload.remoteAudioActive === 'boolean') {
+        state.remoteAudioActive = action.payload.remoteAudioActive;
+      }
+
+      if (typeof action.payload.remoteVideoActive === 'boolean') {
+        state.remoteVideoActive = action.payload.remoteVideoActive;
+      }
     },
     setCallError: (state, action: PayloadAction<string | null>) => {
       state.callError = action.payload;
@@ -112,13 +180,17 @@ const callSlice = createSlice({
 
 export const {
   markCallRealtimeEvent,
-  setOutgoingCallRinging,
+  setOutgoingCallPending,
   setIncomingCall,
   dismissIncomingCall,
   setCurrentCall,
   setCallStatus,
   setCallParticipants,
   endCurrentCall,
+  setRtcConnectionState,
+  setLocalAudioEnabled,
+  setLocalVideoEnabled,
+  setRemoteMediaState,
   setCallError,
   clearCallState,
 } = callSlice.actions;
@@ -129,9 +201,14 @@ export const selectCurrentCall = createSelector(selectCallState, (state) => stat
 export const selectIncomingCall = createSelector(selectCallState, (state) => state.incomingCall);
 export const selectCallError = createSelector(selectCallState, (state) => state.callError);
 export const selectLastCallRealtimeEventAt = createSelector(selectCallState, (state) => state.lastRealtimeEventAt);
+export const selectRtcConnectionState = createSelector(selectCallState, (state) => state.rtcConnectionState);
+export const selectLocalAudioEnabled = createSelector(selectCallState, (state) => state.localAudioEnabled);
+export const selectLocalVideoEnabled = createSelector(selectCallState, (state) => state.localVideoEnabled);
+export const selectRemoteAudioActive = createSelector(selectCallState, (state) => state.remoteAudioActive);
+export const selectRemoteVideoActive = createSelector(selectCallState, (state) => state.remoteVideoActive);
 export const selectIsCallActive = createSelector(
   selectCurrentCall,
-  (currentCall) => currentCall?.status === CallStatusEnum.ACTIVE || currentCall?.status === CallStatusEnum.CONNECTING,
+  (currentCall) => currentCall?.status === CallStatusEnum.ACTIVE || currentCall?.status === CallStatusEnum.PENDING,
 );
 
 export const useCallSlice = () => useAppSelector(selectCallState);

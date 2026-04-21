@@ -62,6 +62,20 @@ export function LoginForm({ className, ...props }: React.ComponentProps<'div'>) 
     }
   };
 
+  const loginWithCongHai = async () => {
+    onSubmit({
+      email: 'conghai.tpma@gmail.com',
+      password: '12345678x@X',
+    });
+  };
+
+  const loginWithHaiTruong = async () => {
+    onSubmit({
+      email: 'haitruong.tpma@gmail.com',
+      password: '12345678x@X',
+    });
+  };
+
   return (
     <div className={cn('flex flex-col gap-6 w-md', className)} {...props}>
       <Card>
@@ -135,6 +149,24 @@ export function LoginForm({ className, ...props }: React.ComponentProps<'div'>) 
               )}
               <Button type="submit" className="rounded-xl w-full" disabled={isSubmitting}>
                 {isSubmitting ? 'Đang đăng nhập...' : 'Đăng nhập'}
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                className="rounded-xl w-full"
+                disabled={isSubmitting}
+                onClick={loginWithCongHai}
+              >
+                Đăng nhập với account conghai.tpma@gmail.com
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                className="rounded-xl w-full"
+                disabled={isSubmitting}
+                onClick={loginWithHaiTruong}
+              >
+                Đăng nhập với account haitruong.tpma@gmail.com
               </Button>
               <FieldDescription className="text-center text-gray-400">
                 Chưa có tài khoản?{' '}

@@ -140,11 +140,16 @@ export enum CallTypeEnum {
 }
 
 export enum CallStatusEnum {
-  IDLE = 'IDLE',
-  RINGING = 'RINGING',
-  CONNECTING = 'CONNECTING',
+  PENDING = 'PENDING',
   ACTIVE = 'ACTIVE',
   ENDED = 'ENDED',
-  REJECTED = 'REJECTED',
-  MISSED = 'MISSED',
+  CANCELLED = 'CANCELLED',
+}
+
+export enum CallEndReasonEnum {
+  HANGUP = 'HANGUP',
+  NO_ANSWER = 'NO_ANSWER',
+  TIMEOUT = 'TIMEOUT',
+  REMOVED = 'REMOVED',
+  NETWORK_ERROR = 'NETWORK_ERROR',
 }

@@ -1,0 +1,277 @@
+'use client';
+
+import AgoraRTC from 'agora-rtc-sdk-ng';
+import { CallTypeEnum } from '@/types/enum';
+import {
+  AgoraInternalState,
+  JoinRtcCallConfig,
+  mapConnectionState,
+  RtcCallbacks,
+  RtcClientState,
+} from '@/services/callRtc/callRtcType';
+
+class AgoraCallRtcClient {
+  private state: AgoraInternalState = {
+    client: null,
+    localAudioTrack: null,
+    localVideoTrack: null,
+    remoteUser: null,
+    sessionId: null,
+    channelName: null,
+    uid: null,
+    localVideoContainer: null,
+    remoteVideoContainer: null,
+  };
+
+  private callbacks: RtcCallbacks = {};
+
+  private connectionState: RtcClientState['connectionState'] = 'idle';
+
+  getSnapshot = (): RtcClientState => {
+    return {
+      sessionId: this.state.sessionId,
+      joined: Boolean(this.state.client && this.state.sessionId),
+      localAudioEnabled: this.state.localAudioTrack?.enabled ?? true,
+      localVideoEnabled: this.state.localVideoTrack?.enabled ?? false,
+      remoteAudioActive: Boolean(this.state.remoteUser?.audioTrack),
+      remoteVideoActive: Boolean(this.state.remoteUser?.videoTrack),
+      connectionState: this.connectionState,
+    };
+  };
+
+  configure = (callbacks: RtcCallbacks) => {
+    this.callbacks = callbacks;
+  };
+
+  bindContainers = (params: {
+    localVideoContainer?: HTMLElement | null;
+    remoteVideoContainer?: HTMLElement | null;
+  }) => {
+    this.state.localVideoContainer = params.localVideoContainer ?? null;
+    this.state.remoteVideoContainer = params.remoteVideoContainer ?? null;
+
+    if (this.state.localVideoContainer && this.state.localVideoTrack?.enabled) {
+      this.state.localVideoTrack.play(this.state.localVideoContainer);
+    }
+
+    if (this.state.remoteVideoContainer && this.state.remoteUser?.videoTrack) {
+      this.state.remoteUser.videoTrack.play(this.state.remoteVideoContainer);
+    }
+  };
+
+  joinAndPublish = async ({ sessionId, callType, appId, channelName, token = null, uid = null }: JoinRtcCallConfig) => {
+    await this.cleanup();
+
+    this.state.sessionId = sessionId;
+    this.state.channelName = channelName;
+    this.connectionState = 'connecting';
+    this.emitConnectionState('connecting');
+
+    const client = AgoraRTC.createClient({ mode: 'rtc', codec: 'vp8' });
+    this.state.client = client;
+    this.registerClientEvents();
+
+    try {
+      if (!uid) {
+        throw new Error('UID is required to join the RTC channel.');
+      }
+
+      console.log('UID in client side what is used in join function: ', uid);
+      console.log('Token in client side what is used in join function: ', token);
+
+      console.log('joinAndPublish info: ', { appId, channelName, token, uid });
+
+      this.state.uid = await client.join(appId, channelName, token, uid);
+      const audioTrack = await AgoraRTC.createMicrophoneAudioTrack({ encoderConfig: 'speech_standard' });
+      const videoTrack =
+        callType === CallTypeEnum.VIDEO
+          ? await AgoraRTC.createCameraVideoTrack({
+              encoderConfig: '720p_1',
+            })
+          : null;
+
+      this.state.localAudioTrack = audioTrack;
+      this.state.localVideoTrack = videoTrack;
+
+      const tracksToPublish = videoTrack ? [audioTrack, videoTrack] : [audioTrack];
+      await client.publish(tracksToPublish);
+
+      if (videoTrack && this.state.localVideoContainer) {
+        videoTrack.play(this.state.localVideoContainer);
+      }
+
+      this.emitLocalState();
+      this.emitRemoteState();
+    } catch (error) {
+      this.connectionState = 'failed';
+      this.emitConnectionState('failed');
+      this.callbacks.onError?.('Không thể kết nối media cuộc gọi.', sessionId);
+      await this.cleanup();
+
+      console.log('error in joinAndPublish in AgoraCallRtcClient :', error);
+
+      throw error;
+    }
+  };
+
+  toggleLocalAudio = async (enabled?: boolean) => {
+    if (!this.state.localAudioTrack || !this.state.sessionId) return;
+    const nextEnabled = typeof enabled === 'boolean' ? enabled : !this.state.localAudioTrack.enabled;
+    await this.state.localAudioTrack.setEnabled(nextEnabled);
+    this.callbacks.onLocalMediaStateChange?.({
+      sessionId: this.state.sessionId,
+      localAudioEnabled: nextEnabled,
+    });
+  };
+
+  toggleLocalVideo = async (enabled?: boolean) => {
+    if (!this.state.localVideoTrack || !this.state.sessionId) return;
+    const nextEnabled = typeof enabled === 'boolean' ? enabled : !this.state.localVideoTrack.enabled;
+    await this.state.localVideoTrack.setEnabled(nextEnabled);
+
+    if (!nextEnabled && this.state.localVideoContainer) {
+      this.state.localVideoContainer.innerHTML = '';
+    }
+
+    if (nextEnabled && this.state.localVideoContainer) {
+      this.state.localVideoTrack.play(this.state.localVideoContainer);
+    }
+
+    this.callbacks.onLocalMediaStateChange?.({
+      sessionId: this.state.sessionId,
+      localVideoEnabled: nextEnabled,
+    });
+  };
+
+  renewToken = async (token: string | null) => {
+    if (!this.state.client || !token) return;
+    await this.state.client.renewToken(token);
+  };
+
+  cleanup = async () => {
+    const { client, localAudioTrack, localVideoTrack } = this.state;
+
+    if (localAudioTrack) {
+      localAudioTrack.stop();
+      localAudioTrack.close();
+    }
+
+    if (localVideoTrack) {
+      localVideoTrack.stop();
+      localVideoTrack.close();
+    }
+
+    if (client) {
+      client.removeAllListeners();
+      await client.leave();
+    }
+
+    this.state = {
+      client: null,
+      localAudioTrack: null,
+      localVideoTrack: null,
+      remoteUser: null,
+      sessionId: null,
+      channelName: null,
+      uid: null,
+      localVideoContainer: null,
+      remoteVideoContainer: null,
+    };
+    this.connectionState = 'idle';
+  };
+
+  private registerClientEvents = () => {
+    if (!this.state.client || !this.state.sessionId) return;
+
+    const sessionId = this.state.sessionId;
+    const client = this.state.client;
+
+    client.on('connection-state-change', (currentState) => {
+      const mapped = mapConnectionState(currentState);
+      this.connectionState = mapped;
+      this.emitConnectionState(mapped);
+    });
+
+    client.on('user-published', async (user, mediaType) => {
+      try {
+        await client.subscribe(user, mediaType);
+        this.state.remoteUser = user;
+
+        if (mediaType === 'audio' && user.audioTrack) {
+          user.audioTrack.play();
+        }
+
+        if (mediaType === 'video' && user.videoTrack && this.state.remoteVideoContainer) {
+          user.videoTrack.play(this.state.remoteVideoContainer);
+        }
+
+        this.emitRemoteState();
+      } catch (error) {
+        console.error('Error occurred while subscribing to user media:', error);
+        this.callbacks.onError?.('Không thể subscribe media từ người tham gia khác.', sessionId);
+      }
+    });
+
+    client.on('user-unpublished', (_, mediaType) => {
+      if (mediaType === 'video' && this.state.remoteVideoContainer) {
+        this.state.remoteVideoContainer.innerHTML = '';
+      }
+
+      this.emitRemoteState();
+    });
+
+    client.on('user-left', () => {
+      if (this.state.remoteVideoContainer) {
+        this.state.remoteVideoContainer.innerHTML = '';
+      }
+      this.state.remoteUser = null;
+      this.emitRemoteState();
+    });
+
+    client.on('token-privilege-will-expire', async () => {
+      if (!this.state.channelName || !this.callbacks.onTokenWillExpire) return;
+
+      try {
+        const refreshedToken = await this.callbacks.onTokenWillExpire({
+          sessionId,
+          channelName: this.state.channelName,
+          uid: this.state.uid,
+        });
+        await this.renewToken(refreshedToken);
+      } catch {
+        this.callbacks.onError?.('Không thể gia hạn token cuộc gọi.', sessionId);
+      }
+    });
+
+    client.on('token-privilege-did-expire', () => {
+      this.callbacks.onError?.('Token cuộc gọi đã hết hạn.', sessionId);
+      this.connectionState = 'failed';
+      this.emitConnectionState('failed');
+    });
+  };
+
+  private emitConnectionState = (state: RtcClientState['connectionState']) => {
+    if (!this.state.sessionId) return;
+    this.callbacks.onConnectionStateChange?.(state, this.state.sessionId);
+  };
+
+  private emitRemoteState = () => {
+    if (!this.state.sessionId) return;
+    this.callbacks.onRemoteMediaStateChange?.({
+      sessionId: this.state.sessionId,
+      remoteAudioActive: Boolean(this.state.remoteUser?.audioTrack),
+      remoteVideoActive: Boolean(this.state.remoteUser?.videoTrack),
+    });
+  };
+
+  private emitLocalState = () => {
+    if (!this.state.sessionId) return;
+    this.callbacks.onLocalMediaStateChange?.({
+      sessionId: this.state.sessionId,
+      localAudioEnabled: this.state.localAudioTrack?.enabled ?? true,
+      localVideoEnabled: this.state.localVideoTrack?.enabled ?? false,
+    });
+  };
+}
+
+export const callRtcClient = new AgoraCallRtcClient();

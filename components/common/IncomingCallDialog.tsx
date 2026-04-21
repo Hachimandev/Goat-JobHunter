@@ -35,7 +35,7 @@ export default function IncomingCallDialog() {
       title="Cuộc gọi đến"
       description={
         incomingCall
-          ? `Tài khoản #${incomingCall.fromAccountId} đang gọi trong phòng #${incomingCall.chatRoomId}.`
+          ? `Tài khoản #${incomingCall.actorAccountId} đang gọi trong phòng #${incomingCall.chatRoomId}.`
           : 'Bạn có cuộc gọi mới.'
       }
       cancelText="Từ chối"

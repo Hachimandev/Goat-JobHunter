@@ -1,5 +1,6 @@
 import {
   ApplicationStatus,
+  CallEndReasonEnum,
   ChatRoomType,
   CallStatusEnum,
   CallTypeEnum,
@@ -469,23 +470,45 @@ export type ChatRoom = {
 
 export type CallParticipant = {
   accountId: number;
-  fullName?: string;
-  username?: string;
-  avatar?: string | null;
-  joinedAt?: string;
-  isMuted?: boolean;
-  isVideoOff?: boolean;
+  publisher: boolean;
+  joinedAt: string;
+  leftAt?: string | null;
+};
+
+export type CallRtcCredentials = {
+  sessionId: number;
+  appId: string;
+  channelName: string;
+  token: string;
+  uid: number;
+  expiresAtEpochMs: number;
+  ttlSeconds: number;
+  publisher: boolean;
+};
+
+export type CallTokenResponse = {
+  sessionId: number;
+  appId: string;
+  channelName: string;
+  uid: number;
+  token: string;
+  expiresAtEpochMs: number;
+  ttlSeconds: number;
+  publisher: boolean;
 };
 
 export type CallSession = {
-  callId: string;
+  sessionId: number;
   chatRoomId: number;
-  callType: CallTypeEnum;
   status: CallStatusEnum;
-  initiatorId: number;
+  agoraChannelName: string;
+  initiatorAccountId: number;
+  startedAt: string;
+  endedAt?: string | null;
+  endReason?: CallEndReasonEnum | null;
   participants: CallParticipant[];
-  startedAt?: string;
-  endedAt?: string;
+  callType?: CallTypeEnum;
+  rtc?: CallRtcCredentials;
 };
 
 export type Resume = {

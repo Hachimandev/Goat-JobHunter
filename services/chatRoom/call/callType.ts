@@ -1,37 +1,49 @@
 import { IBackendRes } from '@/types/api';
-import { CallSession } from '@/types/model';
-import { CallTypeEnum } from '@/types/enum';
+import { CallSession, CallTokenResponse } from '@/types/model';
+import { CallEndReasonEnum, CallTypeEnum } from '@/types/enum';
 
-export type InitiateCallRequest = {
+export type StartCallRequest = {
   chatRoomId: number;
-  callType: CallTypeEnum;
-  participantIds?: number[];
+  publisher?: boolean;
+  callType?: CallTypeEnum;
 };
 
-export type InitiateCallResponse = IBackendRes<CallSession>;
+export type StartCallResponse = IBackendRes<CallSession>;
 
-export type AcceptCallRequest = {
+export type JoinCallRequest = {
   chatRoomId: number;
-  callId: string;
+  sessionId: number;
+  publisher?: boolean;
+  callType?: CallTypeEnum;
 };
 
-export type DeclineCallRequest = {
+export type JoinCallResponse = IBackendRes<CallSession>;
+
+export type LeaveCallRequest = {
   chatRoomId: number;
-  callId: string;
+  sessionId: number;
 };
+
+export type LeaveCallResponse = IBackendRes<CallSession>;
 
 export type EndCallRequest = {
   chatRoomId: number;
-  callId: string;
+  sessionId: number;
+  reason: CallEndReasonEnum;
 };
 
-export type GetActiveCallRequest = {
+export type EndCallResponse = IBackendRes<CallSession>;
+
+export type GetCurrentCallRequest = {
   chatRoomId: number;
 };
 
-export type GetCallParticipantsRequest = {
+export type GetCurrentCallResponse = IBackendRes<CallSession>;
+
+export type IssueCallTokenRequest = {
   chatRoomId: number;
-  callId: string;
+  publisher?: boolean;
+  sessionId?: number;
 };
 
-export type CallParticipantsResponse = IBackendRes<CallSession['participants']>;
+export type IssueCallTokenResponse = IBackendRes<CallTokenResponse>;

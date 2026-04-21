@@ -22,6 +22,7 @@ import { toast } from 'sonner';
 import { IBackendError } from '@/types/api';
 import { Loader2 } from 'lucide-react';
 import useCallRoomActions from '@/hooks/useCallRoomActions';
+import { CallWindow } from '@/app/(chat)/messages/components/CallWindow';
 
 export default function ChatRoomPage() {
   const params = useParams();
@@ -51,7 +52,21 @@ export default function ChatRoomPage() {
 
   const [pinMessage] = usePinMessageMutation();
   const [unpinMessage] = useUnpinMessageMutation();
-  const { handleStartCall } = useCallRoomActions();
+  const {
+    currentCall,
+    callError,
+    rtcConnectionState,
+    localAudioEnabled,
+    localVideoEnabled,
+    remoteAudioActive,
+    remoteVideoActive,
+    isEndingCall,
+    handleStartCall,
+    handleEndCall,
+    handleToggleLocalAudio,
+    handleToggleLocalVideo,
+    bindRtcContainers,
+  } = useCallRoomActions();
   const { data: pinnedMessagesData, isLoading: isLoadingPinnedMessages } = useGetPinnedMessagesQuery(
     { chatRoomId: parsedChatRoomId },
     { skip: isInvalidChatRoomId },
@@ -355,6 +370,23 @@ export default function ChatRoomPage() {
         isSubmitting={isForwardingMessage}
         onConfirm={handleConfirmForward}
       />
+
+      {currentCall && (
+        <CallWindow
+          currentCall={currentCall}
+          callError={callError}
+          rtcConnectionState={rtcConnectionState}
+          localAudioEnabled={localAudioEnabled}
+          localVideoEnabled={localVideoEnabled}
+          remoteAudioActive={remoteAudioActive}
+          remoteVideoActive={remoteVideoActive}
+          isEndingCall={isEndingCall}
+          handleEndCall={handleEndCall}
+          handleToggleLocalAudio={handleToggleLocalAudio}
+          handleToggleLocalVideo={handleToggleLocalVideo}
+          bindRtcContainers={bindRtcContainers}
+        />
+      )}
     </>
   );
 }

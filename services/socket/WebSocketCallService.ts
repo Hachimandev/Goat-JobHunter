@@ -7,47 +7,34 @@ import {
   endCurrentCall,
   markCallRealtimeEvent,
   setCallError,
-  setCallParticipants,
-  setCallStatus,
   setCurrentCall,
   setIncomingCall,
 } from '@/lib/features/callSlice';
-import { CallSession } from '@/types/model';
 import { CallStatusEnum } from '@/types/enum';
+import { callApi } from '@/services/chatRoom/call/callApi';
 
-type CallEventEnvelope = {
-  eventType: string;
-  emittedAt?: string;
-  data?: unknown;
-};
+type CallRealtimeEventType = 'CALL_STARTED' | 'CALL_JOINED' | 'CALL_LEFT' | 'CALL_ENDED';
 
-type IncomingCallPayload = {
-  callId: string;
+type ChatCallRealtimeEventResponse = {
+  eventType: CallRealtimeEventType;
   chatRoomId: number;
-  fromAccountId: number;
-  startedAt?: string;
-  session?: CallSession;
-};
-
-type CallStatusPayload = {
-  callId: string;
+  sessionId: number;
+  actorAccountId: number;
   status: CallStatusEnum;
-  endedAt?: string;
 };
-
-type CallParticipantsPayload = {
-  callId: string;
-  participants: CallSession['participants'];
-};
-
-const CALL_EVENT_DESTINATIONS = ['/user/queue/call', '/user/queue/call-status'] as const;
 
 export class WebSocketCallService {
   private client: Client | null = null;
+  private readonly destination: string;
   private subscribedDestinations = new Set<string>();
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  constructor(private readonly dispatch: ThunkDispatch<any, any, UnknownAction>) {}
+  constructor(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    private readonly dispatch: ThunkDispatch<any, any, UnknownAction>,
+    private readonly chatRoomId: number,
+  ) {
+    this.destination = `/topic/chatrooms/${chatRoomId}/calls`;
+  }
 
   connect() {
     this.client = new Client({
@@ -94,32 +81,60 @@ export class WebSocketCallService {
   }
 
   private subscribeToCallEvents() {
-    CALL_EVENT_DESTINATIONS.forEach((destination) => {
-      if (!this.client || this.subscribedDestinations.has(destination)) {
-        return;
+    if (!this.client || this.subscribedDestinations.has(this.destination)) {
+      return;
+    }
+
+    this.client.subscribe(this.destination, (message) => {
+      try {
+        const payload = JSON.parse(message.body) as unknown;
+
+        console.log('payload in call real time: ', payload);
+
+        this.handleEvent(payload);
+      } catch (error) {
+        console.error('❌ Parse call event error:', error);
       }
-
-      this.client.subscribe(destination, (message) => {
-        try {
-          const payload = JSON.parse(message.body) as unknown;
-          this.handleEvent(payload);
-        } catch (error) {
-          console.error('❌ Parse call event error:', error);
-        }
-      });
-
-      this.subscribedDestinations.add(destination);
-      console.log(`✅ Subscribed to ${destination}`);
     });
+
+    this.subscribedDestinations.add(this.destination);
+    console.log(`✅ Subscribed to ${this.destination}`);
   }
 
-  private isCallEventEnvelope(payload: unknown): payload is CallEventEnvelope {
+  private isCallEventEnvelope(payload: unknown): payload is ChatCallRealtimeEventResponse {
     if (!payload || typeof payload !== 'object') {
       return false;
     }
 
     const candidate = payload as Record<string, unknown>;
-    return typeof candidate.eventType === 'string';
+    return (
+      typeof candidate.eventType === 'string' &&
+      typeof candidate.chatRoomId === 'number' &&
+      typeof candidate.sessionId === 'number' &&
+      typeof candidate.actorAccountId === 'number' &&
+      typeof candidate.status === 'string'
+    );
+  }
+
+  private async syncCurrentCall(chatRoomId: number) {
+    try {
+      const result = await this.dispatch(
+        callApi.endpoints.getCurrentCall.initiate(
+          {
+            chatRoomId,
+          },
+          {
+            forceRefetch: true,
+          },
+        ),
+      );
+
+      if ('data' in result && result.data?.data) {
+        this.dispatch(setCurrentCall(result.data.data));
+      }
+    } catch {
+      this.dispatch(endCurrentCall(undefined));
+    }
   }
 
   private handleEvent(payload: unknown) {
@@ -127,80 +142,45 @@ export class WebSocketCallService {
       return;
     }
 
-    this.dispatch(markCallRealtimeEvent(payload.emittedAt));
+    this.dispatch(markCallRealtimeEvent(undefined));
+
+    if (payload.chatRoomId !== this.chatRoomId) {
+      return;
+    }
+
+    const currentUserId = store.getState().auth.user?.accountId;
 
     switch (payload.eventType) {
-      case 'CALL_INCOMING': {
-        const incoming = payload.data as IncomingCallPayload;
-        if (!incoming?.callId || !incoming?.chatRoomId || !incoming?.fromAccountId) {
-          return;
-        }
-
-        this.dispatch(
-          setIncomingCall({
-            callId: incoming.callId,
-            chatRoomId: incoming.chatRoomId,
-            fromAccountId: incoming.fromAccountId,
-            startedAt: incoming.startedAt,
-            session: incoming.session,
-          }),
-        );
-        return;
-      }
-      case 'CALL_UPDATED': {
-        const session = payload.data as CallSession;
-        if (!session?.callId) {
-          return;
-        }
-
-        this.dispatch(setCurrentCall(session));
-        return;
-      }
-      case 'CALL_STATUS_CHANGED': {
-        const statusPayload = payload.data as CallStatusPayload;
-        if (!statusPayload?.callId || !statusPayload?.status) {
-          return;
-        }
-
-        if (statusPayload.status === CallStatusEnum.ENDED || statusPayload.status === CallStatusEnum.REJECTED) {
+      case 'CALL_STARTED': {
+        if (currentUserId && payload.actorAccountId !== currentUserId) {
           this.dispatch(
-            endCurrentCall({
-              callId: statusPayload.callId,
-              endedAt: statusPayload.endedAt,
-              finalStatus: statusPayload.status,
+            setIncomingCall({
+              sessionId: payload.sessionId,
+              chatRoomId: payload.chatRoomId,
+              actorAccountId: payload.actorAccountId,
             }),
           );
-          return;
         }
 
-        this.dispatch(
-          setCallStatus({
-            callId: statusPayload.callId,
-            status: statusPayload.status,
-          }),
-        );
+        void this.syncCurrentCall(payload.chatRoomId);
         return;
       }
-      case 'CALL_PARTICIPANTS_UPDATED': {
-        const participantsPayload = payload.data as CallParticipantsPayload;
-        if (!participantsPayload?.callId || !participantsPayload?.participants) {
-          return;
-        }
-
-        this.dispatch(
-          setCallParticipants({
-            callId: participantsPayload.callId,
-            participants: participantsPayload.participants,
-          }),
-        );
+      case 'CALL_JOINED':
+      case 'CALL_LEFT': {
+        void this.syncCurrentCall(payload.chatRoomId);
         return;
       }
-      case 'CALL_ERROR': {
-        const errorPayload = payload.data as { message?: string } | undefined;
-        this.dispatch(setCallError(errorPayload?.message || 'Không thể đồng bộ trạng thái cuộc gọi.'));
+      case 'CALL_ENDED': {
+        this.dispatch(
+          endCurrentCall({
+            sessionId: payload.sessionId,
+            finalStatus: payload.status,
+          }),
+        );
         return;
       }
       default:
+        this.dispatch(setCallError('Sự kiện cuộc gọi không được hỗ trợ từ realtime contract.'));
         return;
     }
   }
