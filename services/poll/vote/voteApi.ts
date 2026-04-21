@@ -1,5 +1,5 @@
 import { api } from '@/services/api';
-import { VotePollRequest, VotePollResponse } from './voteType';
+import { FetchVotesForPollRequest, FetchVotesForPollResponse, VotePollRequest, VotePollResponse } from './voteType';
 
 export const voteApi = api.injectEndpoints({
   endpoints: (builder) => ({
@@ -16,7 +16,15 @@ export const voteApi = api.injectEndpoints({
         { type: 'ChatRoom', id: `POLL_${chatRoomId}_${chatRoomId}` },
       ],
     }),
+
+    fetchVotesForPoll: builder.query<FetchVotesForPollResponse, FetchVotesForPollRequest>({
+      query: ({ chatRoomId, pollId }) => ({
+        url: `/chatrooms/${chatRoomId}/polls/${pollId}/votes`,
+        method: 'GET',
+      }),
+      providesTags: (_, __, { chatRoomId }) => [{ type: 'ChatRoom', id: `POLL_${chatRoomId}_${chatRoomId}` }],
+    }),
   }),
 });
 
-export const { useVotePollMutation } = voteApi;
+export const { useVotePollMutation, useFetchVotesForPollQuery } = voteApi;

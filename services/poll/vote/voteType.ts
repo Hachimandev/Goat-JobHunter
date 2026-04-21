@@ -1,5 +1,5 @@
 import { IBackendRes } from '@/types/api';
-import { Poll } from '@/types/model';
+import { Poll, PollVote } from '@/types/model';
 
 export type VotePollRequest = {
   chatRoomId: number;
@@ -7,3 +7,9 @@ export type VotePollRequest = {
   optionIds: string[];
 };
 export type VotePollResponse = IBackendRes<Poll>;
+
+export type FetchVotesForPollRequest = {
+  chatRoomId: number;
+  pollId: string;
+};
+export type FetchVotesForPollResponse = IBackendRes<PollVote[]>;

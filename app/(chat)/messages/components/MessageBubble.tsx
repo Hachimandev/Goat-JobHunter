@@ -31,7 +31,7 @@ import {
 } from 'lucide-react';
 import Image from 'next/image';
 import { MessageEvent, MessageTypeEnum, PollEvent } from '@/types/enum';
-import { JSX, useEffect, useMemo, useState } from 'react';
+import { JSX, useMemo, useState } from 'react';
 import { useFetchPollByIdInChatRoomQuery } from '@/services/poll/pollApi';
 import PollCard from './PollCard';
 import MarkdownDisplay from '@/components/common/MarkdownDisplay';

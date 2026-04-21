@@ -5,8 +5,10 @@ import { format, isBefore, isToday, isTomorrow } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { Poll } from '@/types/model';
 import { Button } from '@/components/ui/button';
+import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Check } from 'lucide-react';
 import PollVoteDialog from './PollVoteDialog';
+import { useFetchVotesForPollQuery } from '@/services/poll/vote/voteApi';
 
 interface PollCardProps {
   poll: Poll;
@@ -30,6 +32,22 @@ export default function PollCard({ poll }: Readonly<PollCardProps>) {
   const choiceText = poll.multipleChoice ? 'Chọn nhiều đáp án' : 'Chọn một đáp án';
   const [voteOpen, setVoteOpen] = useState(false);
 
+  const { data: votesData } = useFetchVotesForPollQuery(
+    { chatRoomId: poll.chatRoomId, pollId: poll.pollId },
+    { skip: !poll.pollId },
+  );
+
+  const votesByOption = useMemo(() => {
+    const list = votesData?.data ?? [];
+    const map: Record<string, { accountId: number; fullName: string; avatar?: string }[]> = {};
+    for (const v of list) {
+      const oid = v.option.optionId;
+      if (!map[oid]) map[oid] = [];
+      map[oid].push(v.account);
+    }
+    return map;
+  }, [votesData]);
+
   return (
     <div className="flex flex-col justify-center my-3 w-110 rounded-xl bg-muted/50 text-muted-foreground mx-auto">
       <div className="flex flex-col items-start gap-2 p-2">
@@ -37,29 +55,63 @@ export default function PollCard({ poll }: Readonly<PollCardProps>) {
         <span className="text-xs font-bold">{expiresText}</span>
         <span className="text-xs font-bold">{choiceText}</span>
       </div>
+
       {poll.options.map((opt) => {
         const percent = totalVotes > 0 ? Math.round((opt.voteCount / totalVotes) * 100) : 0;
+        const voters = votesByOption[opt.optionId] ?? [];
+        const shown = voters.slice(0, 2);
+        const rest = Math.max(0, voters.length - shown.length);
+
         return (
           <div key={opt.optionId} className="flex items-center gap-3 p-2">
-            <div className="flex justify-center items-center gap-1">
-              <div className="w-100">
+            <div className="flex justify-center items-center gap-1 w-full">
+              <div className="relative flex-1">
                 <div className="h-10 bg-muted rounded-xl mt-1 overflow-hidden relative">
                   <div className="bg-primary h-full" style={{ width: `${percent}%` }} />
+
                   <div
-                    className={`text-sm font-bold ${percent > 0 ? 'text-white' : 'text-primary'} truncate absolute top-2 left-1 p-1`}
+                    className={
+                      percent > 0
+                        ? 'text-sm font-bold text-white truncate absolute top-2 left-1 p-1'
+                        : 'text-sm font-bold text-primary truncate absolute top-2 left-1 p-1'
+                    }
                   >
                     {opt.text}
                   </div>
-                  <div className="text-sm font-bold text-primary truncate absolute top-2 right-1 p-1">
-                    {opt.accountVoted && <Check className="h-4 w-4" />}
+
+                  <div className="absolute bottom-2 right-2 flex items-center">
+                    <div className="flex -space-x-2 items-center">
+                      {shown.map((a, idx) => (
+                        <div
+                          key={a.accountId}
+                          className={
+                            'h-6 w-6 rounded-full ring-2 ring-white overflow-hidden bg-muted flex items-center justify-center ' +
+                            (idx === 0 ? 'z-20' : 'z-10')
+                          }
+                        >
+                          <Avatar className="h-6 w-6">
+                            <AvatarImage src={a.avatar || '/placeholder.svg'} alt={a.fullName} />
+                            <AvatarFallback>{a.fullName?.charAt(0) ?? 'U'}</AvatarFallback>
+                          </Avatar>
+                        </div>
+                      ))}
+
+                      {rest > 0 && (
+                        <div className="h-6 w-10 rounded-full bg-muted flex items-center justify-center text-xs font-bold text-primary ring-2 ring-white">
+                          +{rest}
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
+
               <div className="text-sm font-bold text-primary ml-2">{opt.voteCount}</div>
             </div>
           </div>
         );
       })}
+
       <div className="px-2">
         <Button
           variant="outline"
