@@ -11,6 +11,7 @@ import {
   cascadeReplyContextForDeletedMessage,
   cascadeReplyContextForRecalledMessage,
 } from '@/utils/replyContextRealtime';
+import { pollApi } from '../poll/pollApi';
 
 type DeleteMessageRealtimeEvent = {
   eventType?: string;
@@ -76,7 +77,7 @@ export class WebSocketMessageService {
 
         const message = payload as MessageResponse;
 
-        if (message.messageType === 'SYSTEM') {
+        if (message.messageType === 'SYSTEM' || message.messageType === 'POLL') {
           this.handleGroupEvent(chatRoomId, message);
         }
         this.handleMessage(chatRoomId, message);
@@ -245,7 +246,6 @@ export class WebSocketMessageService {
 
       // Detect MEMBER_REMOVED or MEMBER_LEFT or MESSAGE_UNPINNED
       if (content.includes('đã xóa') && content.includes('khỏi nhóm')) {
-        // Extract member name: "{actor} đã xóa {member} khỏi nhóm"
         const match = content.match(/đã xóa (.+?) khỏi nhóm/);
         const memberName = match?.[1];
 
@@ -269,7 +269,6 @@ export class WebSocketMessageService {
           }),
         );
       } else if (content.includes('đã rời khỏi nhóm')) {
-        // Extract actor name: "{actor} đã rời khỏi nhóm"
         const match = content.match(/(.+?) đã rời khỏi nhóm/);
         const actorName = match?.[1];
 
@@ -342,7 +341,6 @@ export class WebSocketMessageService {
       }
       // Detect GROUP_NAME_CHANGED
       else if (content.includes('đã đổi tên nhóm từ')) {
-        // Extract: "{actor} đã đổi tên nhóm từ "{oldName}" thành "{newName}""
         const match = content.match(/thành "(.+?)"$/);
         const newName = match?.[1];
 
@@ -371,6 +369,13 @@ export class WebSocketMessageService {
         );
       } else if (content.includes('đã giải tán nhóm')) {
         this.dispatch(chatRoomApi.util.invalidateTags([{ type: 'ChatRoom', id: chatRoomId }]));
+      } else if (content.includes('cuộc bình chọn')) {
+        this.dispatch(
+          pollApi.util.invalidateTags([
+            { type: 'ChatRoom', id: `POLLS_${chatRoomId}` },
+            { type: 'ChatRoom', id: `POLL_${chatRoomId}_${chatRoomId}` },
+          ]),
+        );
       }
     } catch (error) {
       console.error('Failed to parse system message:', error);

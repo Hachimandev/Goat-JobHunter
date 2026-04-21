@@ -27,10 +27,13 @@ import {
   Pin,
   PinIcon,
   PinOff,
+  BarChart,
 } from 'lucide-react';
 import Image from 'next/image';
-import { MessageEvent, MessageTypeEnum } from '@/types/enum';
-import { JSX, useMemo, useState } from 'react';
+import { MessageEvent, MessageTypeEnum, PollEvent } from '@/types/enum';
+import { JSX, useEffect, useMemo, useState } from 'react';
+import { useFetchPollByIdInChatRoomQuery } from '@/services/poll/pollApi';
+import PollCard from './PollCard';
 import MarkdownDisplay from '@/components/common/MarkdownDisplay';
 import ConfirmDialog from '@/components/common/ConfirmDialog';
 import { getMessageSenderDisplayName, getReplyContextPreviewText } from '@/utils/messageUtils';
@@ -47,6 +50,7 @@ interface MessageBubbleProps {
   senderAvatar?: string;
   onReply?: (message: MessageResponse) => void;
   onNavigateToMessage?: (messageId: string) => void;
+  onNavigateToPoll?: (pollId: string) => void;
   onForward?: (message: MessageResponse) => void;
   onHide?: (messageId: string) => void | Promise<void>;
   onRecall?: (messageId: string) => void | Promise<void>;
@@ -59,16 +63,19 @@ interface MessageBubbleProps {
   isHiding?: boolean;
   isRecalling?: boolean;
   isDeleting?: boolean;
+  showPoll?: boolean;
 }
 
 export function MessageBubble({
   message,
   isOwn,
   showAvatar = false,
+  showPoll = false,
   senderName,
   senderAvatar,
   onReply,
   onNavigateToMessage,
+  onNavigateToPoll,
   onForward,
   onHide,
   onRecall,
@@ -123,6 +130,7 @@ export function MessageBubble({
       extractMessageEvent(message.content) === MessageEvent.MESSAGE_UNPINNED,
     [message.content],
   );
+  const isPoll = useMemo(() => type === MessageTypeEnum.POLL, [type]);
   const disableReplyAction = isDeleting || isRecalling || isForwarding || isHiding || isPinning || !onReply;
   const disableForwardAction = isForwarding || isHiding || isRecalled || !onForward;
   const disableHideAction = isHiding || !onHide;
@@ -137,6 +145,13 @@ export function MessageBubble({
   const canShowPinAction = !isSystem && !isRecalled && !!onPin && !!onUnpin;
   const canShowOwnerActions = isOwn && !isSystem && (canShowRecallAction || canShowDeleteAction);
   const canShowActionMenu = canShowReplyAction || canShowForwardAction || canShowHideAction || canShowOwnerActions;
+
+  const pollId = isPoll ? extractMessageId(message.content) : null;
+  const { data: pollResponse } = useFetchPollByIdInChatRoomQuery(
+    { chatRoomId: message.chatRoomId, pollId: pollId || '' },
+    { skip: !pollId || !showPoll },
+  );
+  const fetchedPoll = pollResponse?.data;
 
   if (!message.content && !isRecalled && type !== MessageTypeEnum.CONTACT_CARD && mediaPhotos.length === 0) return null;
 
@@ -156,6 +171,31 @@ export function MessageBubble({
         [MessageEvent.GROUP_DISSOLVED]: <Users className="h-3.5 w-3.5" />,
         [MessageEvent.MESSAGE_PINNED]: <PinIcon className="h-3.5 w-3.5" />,
         [MessageEvent.MESSAGE_UNPINNED]: <PinOff className="h-3.5 w-3.5" />,
+      };
+
+      return {
+        icon: eventIcons[messageEvent],
+        text: finalContent,
+      };
+    } catch {
+      return {
+        icon: <Users className="h-3.5 w-3.5" />,
+        text: finalContent,
+      };
+    }
+  };
+
+  const getPollMessageContent = () => {
+    const finalContent = extractMessageContent(message.content) || 'Có một sự kiện hệ thống xảy ra';
+    try {
+      const messageEvent = extractMessageEvent(message.content) as PollEvent;
+
+      const eventIcons: Record<PollEvent, JSX.Element> = {
+        [PollEvent.POLL_CREATED]: <BarChart className="h-3.5 w-3.5" />,
+        [PollEvent.POLL_VOTED]: <BarChart className="h-3.5 w-3.5" />,
+        [PollEvent.POLL_UNVOTED]: <BarChart className="h-3.5 w-3.5" />,
+        [PollEvent.POLL_OPTION_ADDED]: <BarChart className="h-3.5 w-3.5" />,
+        [PollEvent.POLL_CLOSED]: <BarChart className="h-3.5 w-3.5" />,
       };
 
       return {
@@ -284,6 +324,35 @@ export function MessageBubble({
           )}
           <span className="text-xs opacity-70">• {timeAgo}</span>
         </div>
+      </div>
+    );
+  }
+
+  if (isPoll) {
+    const pollContent = getPollMessageContent();
+    return (
+      <div>
+        <div className="flex justify-center my-3">
+          <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-muted/50 text-muted-foreground">
+            {pollContent.icon}
+            <span className="text-xs font-medium">{pollContent.text}</span>
+            <span
+              className="text-xs font-medium text-primary cursor-pointer"
+              onClick={() => {
+                if (!pollId) return;
+                if (onNavigateToPoll) {
+                  onNavigateToPoll(pollId);
+                  return;
+                }
+              }}
+            >
+              Xem
+            </span>
+            <span className="text-xs opacity-70">• {timeAgo}</span>
+          </div>
+        </div>
+
+        {showPoll && fetchedPoll && fetchedPoll.pollId === pollId && <PollCard poll={fetchedPoll} />}
       </div>
     );
   }

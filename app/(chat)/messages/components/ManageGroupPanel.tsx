@@ -1,9 +1,7 @@
 import { Button } from '@/components/ui/button';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { Trash2, X, Loader2 } from 'lucide-react';
 import { ChatRoom } from '@/types/model';
 import React, { useState } from 'react';
-import { ChatMemberResponse } from '@/services/chatRoom/groupChat/groupChatApi';
 import { Input } from '@/components/ui/input';
 import {
   AlertDialog,

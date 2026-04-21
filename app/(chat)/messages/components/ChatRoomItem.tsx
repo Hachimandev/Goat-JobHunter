@@ -93,7 +93,7 @@ export function ChatRoomItem({ chatRoom, active, onClick, unreadMessagesCount }:
               'text-sm truncate text-start',
               isDissolved
                 ? 'text-muted-foreground italic'
-                :  unreadBadgeText
+                : unreadBadgeText
                   ? 'text-primary font-bold'
                   : 'text-muted-foreground',
             )}
