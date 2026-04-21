@@ -5,6 +5,7 @@ import iuh.fit.goat.dto.request.poll.ClosePollRequest;
 import iuh.fit.goat.dto.request.poll.CreatePollRequest;
 import iuh.fit.goat.dto.request.poll.VotePollRequest;
 import iuh.fit.goat.dto.response.poll.PollResponse;
+import iuh.fit.goat.dto.response.poll.PollVoteResponse;
 import iuh.fit.goat.entity.Account;
 import iuh.fit.goat.exception.InvalidException;
 import iuh.fit.goat.service.AccountService;
@@ -46,6 +47,17 @@ public class PollController {
         PollResponse response = this.pollService.getPoll(chatRoomId, pollId, currentAccount);
         return ResponseEntity.ok(response);
     }
+
+    @GetMapping("/{pollId}/votes")
+    public ResponseEntity<List<PollVoteResponse>> getVotesForPoll(@PathVariable Long chatRoomId, @PathVariable String pollId) throws InvalidException {
+        String email = SecurityUtil.getCurrentUserEmail();
+        Account currentAccount = this.accountService.handleGetAccountByEmail(email);
+        if (currentAccount == null) throw new InvalidException("Tài khoản không tồn tại");
+
+        List<PollVoteResponse> response = this.pollService.getVotesForPoll(chatRoomId, pollId, currentAccount);
+        return ResponseEntity.ok(response);
+    }
+
 
     @PostMapping
     public ResponseEntity<PollResponse> createPoll(

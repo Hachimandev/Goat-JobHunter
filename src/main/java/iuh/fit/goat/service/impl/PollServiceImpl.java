@@ -233,16 +233,15 @@ public class PollServiceImpl implements PollService {
                 .collect(Collectors.toList());
     }
 
-    private SenderInfo getSenderInfo(Account account) {
-        String fullName = account instanceof Company company ? company.getName() : ((User) account).getFullName();
-        String avatar = account instanceof Company company ? company.getLogo() : account.getAvatar();
-        return SenderInfo.builder()
-                .accountId(account.getAccountId())
-                .fullName(fullName)
-                .username(account.getUsername())
-                .email(account.getEmail())
-                .avatar(avatar)
-                .build();
+    @Override
+    public List<PollVoteResponse> getVotesForPoll(Long chatRoomId, String pollId, Account currentAccount) throws InvalidException {
+        validChatRoomAndMembership(chatRoomId, currentAccount.getAccountId());
+        Poll poll = this.pollRepository.findByPollId(chatRoomId, pollId)
+                .orElseThrow(() -> new InvalidException("Bình chọn không tồn tại"));
+
+        List<PollVote> allVotes = this.pollVoteRepository.findByPollId(poll.getPollId());
+
+        return allVotes.stream().map(vote -> toPollVoteResponse(poll, vote, currentAccount)).toList();
     }
 
     private PollResponse toPollResponse(Poll poll, Long currentAccountId) {
@@ -280,36 +279,33 @@ public class PollServiceImpl implements PollService {
                 .build();
     }
 
-    private void sendPollCreatedEvent(Long chatRoomId, PollResponse pollResponse) {
-        PollCreatedEventResponse event = PollCreatedEventResponse.builder()
-                .eventType(MessageEvent.POLL_CREATED)
-                .pollId(pollResponse.getPollId())
-                .chatRoomId(chatRoomId.toString())
-                .messageId(pollResponse.getMessageId())
-                .poll(pollResponse)
-                .createdAt(Instant.now())
+    private PollVoteResponse toPollVoteResponse(Poll poll, PollVote pollVote, Account currentAccount) {
+        String fullName = currentAccount instanceof Company company ? company.getName() : ((User) currentAccount).getFullName();
+        String avatar = currentAccount instanceof Company company ? company.getLogo() : currentAccount.getAvatar();
+        PollOption option = poll.getOptions().stream()
+                .filter(o -> o.getOptionId().equals(pollVote.getOptionId()))
+                .findFirst()
+                .orElse(null);
+
+        assert option != null;
+        return PollVoteResponse.builder()
+                .voteId(pollVote.getVoteId())
+                .poll(PollVoteResponse.Poll.builder()
+                        .pollId(poll.getPollId())
+                        .question(poll.getQuestion())
+                        .build()
+                )
+                .option(PollVoteResponse.Option.builder()
+                        .optionId(option.getOptionId())
+                        .text(option.getText())
+                        .build())
+                .account(PollVoteResponse.Account.builder()
+                        .accountId(pollVote.getAccountId())
+                        .fullName(fullName)
+                        .avatar(avatar)
+                        .build())
+                .createdAt(pollVote.getCreatedAt())
                 .build();
-
-        this.messagingTemplate.convertAndSend("/topic/chatrooms/" + chatRoomId, event);
-        log.debug("Sent POLL_CREATED event to chatRoom: {}", chatRoomId);
-    }
-
-    private void sendPollVotedEvent(
-            Long chatRoomId, String pollId, String accountId, List<String> optionIds, Integer totalVotes
-    )
-    {
-        PollVotedEventResponse event = PollVotedEventResponse.builder()
-                .eventType(MessageEvent.POLL_VOTED)
-                .pollId(pollId)
-                .chatRoomId(chatRoomId.toString())
-                .accountId(accountId)
-                .optionIds(optionIds)
-                .totalVotes(totalVotes)
-                .votedAt(Instant.now())
-                .build();
-
-        this.messagingTemplate.convertAndSend("/topic/chatrooms/" + chatRoomId, event);
-        log.debug("Sent POLL_VOTED event to chatRoom: {}", chatRoomId);
     }
 
     private void sendPollOptionAddedEvent(Long chatRoomId, String pollId, PollOption option) {

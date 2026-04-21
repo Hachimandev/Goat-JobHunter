@@ -41,7 +41,7 @@ public class PollVoteResponse {
     @AllArgsConstructor
     @Builder
     public static class Account {
-        private String accountId;
+        private Long accountId;
         private String fullName;
         private String avatar;
     }
