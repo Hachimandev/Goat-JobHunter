@@ -27,7 +27,7 @@ public class MessageSenderMigration implements CommandLineRunner {
     private final UserRepository userRepository;
 
     // Set to false after successful migration
-    private static final boolean MIGRATION_ENABLED = true;
+    private static final boolean MIGRATION_ENABLED = false;
 
     @Override
     public void run(String... args) {

@@ -12,6 +12,7 @@ import iuh.fit.goat.repository.ChatCallSessionRepository;
 import iuh.fit.goat.service.AgoraRtcTokenService;
 import iuh.fit.goat.service.ChatRoomService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -20,6 +21,7 @@ import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.EnumSet;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class AgoraRtcTokenServiceImpl implements AgoraRtcTokenService {
@@ -52,9 +54,6 @@ public class AgoraRtcTokenServiceImpl implements AgoraRtcTokenService {
         String appCertificate = normalized(this.agoraRtcProperties.getAppCertificate());
         validateAgoraSecrets(appId, appCertificate);
 
-        int ttlSeconds = this.agoraRtcProperties.getTokenTtlSeconds();
-        validateTokenTtl(ttlSeconds);
-
         ChatCallSession activeSession = this.chatCallSessionRepository
                 .findFirstByChatRoomRoomIdAndStatusInAndDeletedAtIsNullOrderByCreatedAtDesc(
                         chatRoomId,
@@ -73,15 +72,26 @@ public class AgoraRtcTokenServiceImpl implements AgoraRtcTokenService {
                 ? RtcTokenBuilder2.Role.ROLE_PUBLISHER
                 : RtcTokenBuilder2.Role.ROLE_SUBSCRIBER;
 
+        int ttlSeconds = this.agoraRtcProperties.getTokenTtlSeconds();
+        validateTokenTtl(ttlSeconds);
+
+        int now = (int) (System.currentTimeMillis() / 1000);
+        int expireTs = now + ttlSeconds;
+
+        log.info("expireTs: {}, now: {}, ttlSeconds: {}, uid: {}, channelName: {}", expireTs, now, ttlSeconds, uid, channelName);
+        log.info("appId: {}, appCertificate: {}, role: {}", appId, appCertificate, role);
+
         String token = this.tokenBuilder.buildTokenWithUid(
                 appId,
                 appCertificate,
                 channelName,
                 uid,
                 role,
-                ttlSeconds,
-                ttlSeconds
+                expireTs,
+                expireTs
         );
+
+        log.info("token: {}", token);
 
         if (!StringUtils.hasText(token)) {
             throw new InvalidException("Failed to generate Agora RTC token");

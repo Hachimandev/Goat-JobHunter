@@ -18,7 +18,9 @@ public class CorzConfiguration {
         configuration.setAllowedOrigins(Arrays.asList(
                 "http://localhost:3000", "http://localhost:4173", "http://localhost:5173", "http://localhost:8081",
 
-                "https://www.goat-jobhunter.click"
+                "https://www.goat-jobhunter.click",
+
+                "https://statscollector-1.agora.io", "https://web-2.statscollector.sd-rtn.com", "https://webrtc2-2.ap.sd-rtn.com", "https://sua-ap-web-1.agora.io"
         ));
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));
         configuration.setAllowedHeaders(List.of("*"));
