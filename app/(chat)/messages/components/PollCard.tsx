@@ -6,7 +6,6 @@ import { vi } from 'date-fns/locale';
 import { Poll } from '@/types/model';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
-import { Check } from 'lucide-react';
 import PollVoteDialog from './PollVoteDialog';
 import { useFetchVotesForPollQuery } from '@/services/poll/vote/voteApi';
 
