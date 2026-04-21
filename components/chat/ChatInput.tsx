@@ -32,6 +32,7 @@ interface ChatInputProps {
   onPickDocument: () => void;
   onRemoveFile: (idx: number) => void;
   onMediaCaptured: (assets: ImagePicker.ImagePickerAsset[]) => void;
+  disabledReason?: string;
 }
 
 export const ChatInput = ({
@@ -50,6 +51,7 @@ export const ChatInput = ({
   onRemoveFile,
   onMediaCaptured,
   disabled,
+  disabledReason,
 }: ChatInputProps) => {
   const handleImageBtnPress = () => {
     if (Platform.OS === "ios") {
@@ -178,7 +180,11 @@ export const ChatInput = ({
         <TextInput
           value={text}
           onChangeText={setText}
-          placeholder={disabled ? "Không thể nhắn tin" : "Tin nhắn"}
+          placeholder={
+            disabled
+              ? disabledReason || "Không thể nhắn tin"
+              : "Tin nhắn"
+          }
           style={styles.input}
           multiline
           editable={!disabled}

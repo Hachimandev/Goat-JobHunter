@@ -10,13 +10,19 @@ interface MessageActionsSheetProps {
   onPin: () => void;
   onRevoke: () => void;
   onDelete: () => void;
+  isGroupDissolved?: boolean;
 }
 
 export const MessageActionsSheet = forwardRef<
   BottomSheet,
   MessageActionsSheetProps
->(({ selectedMessage, onReply, onForward, onPin, onRevoke, onDelete }, ref) => {
-  const snapPoints = useMemo(() => ["32%"], []);
+>(({ selectedMessage, onReply, onForward, onPin, onRevoke, onDelete, isGroupDissolved }, ref) => {
+  const snapPoints = useMemo(() => {
+    if (isGroupDissolved) {
+      return ["20%"];
+    }
+    return ["32%"];
+  }, [isGroupDissolved]);
 
   if (!selectedMessage) return null;
 
@@ -28,27 +34,33 @@ export const MessageActionsSheet = forwardRef<
       enablePanDownToClose
     >
       <BottomSheetView style={styles.sheetContainer}>
-        <TouchableOpacity style={styles.sheetItem} onPress={onReply}>
-          <Ionicons name="arrow-undo-outline" size={22} color="#475569" />
-          <Text style={styles.sheetTextNormal}>Trả lời</Text>
-        </TouchableOpacity>
+        {!isGroupDissolved && (
+          <>
+            <TouchableOpacity style={styles.sheetItem} onPress={onReply}>
+              <Ionicons name="arrow-undo-outline" size={22} color="#475569" />
+              <Text style={styles.sheetTextNormal}>Trả lời</Text>
+            </TouchableOpacity>
 
-        <TouchableOpacity style={styles.sheetItem} onPress={onForward}>
-          <Ionicons name="arrow-redo-outline" size={22} color="#475569" />
-          <Text style={styles.sheetTextNormal}>Chuyển tiếp</Text>
-        </TouchableOpacity>
+            <TouchableOpacity style={styles.sheetItem} onPress={onForward}>
+              <Ionicons name="arrow-redo-outline" size={22} color="#475569" />
+              <Text style={styles.sheetTextNormal}>Chuyển tiếp</Text>
+            </TouchableOpacity>
 
-        <TouchableOpacity style={styles.sheetItem} onPress={onPin}>
-          <Ionicons name="pin-outline" size={22} color="#475569" />
-          <Text style={styles.sheetTextNormal}>Ghim tin nhắn</Text>
-        </TouchableOpacity>
+            <TouchableOpacity style={styles.sheetItem} onPress={onPin}>
+              <Ionicons name="pin-outline" size={22} color="#475569" />
+              <Text style={styles.sheetTextNormal}>Ghim tin nhắn</Text>
+            </TouchableOpacity>
 
-        <View style={styles.separator} />
+            <View style={styles.separator} />
 
-        <TouchableOpacity style={styles.sheetItem} onPress={onRevoke}>
-          <Ionicons name="return-up-back" size={22} color="#ef4444" />
-          <Text style={styles.sheetTextDanger}>Thu hồi tin nhắn</Text>
-        </TouchableOpacity>
+            <TouchableOpacity style={styles.sheetItem} onPress={onRevoke}>
+              <Ionicons name="return-up-back" size={22} color="#ef4444" />
+              <Text style={styles.sheetTextDanger}>Thu hồi tin nhắn</Text>
+            </TouchableOpacity>
+          </>
+        )}
+
+        {isGroupDissolved && <View style={styles.separator} />}
 
         <TouchableOpacity style={styles.sheetItem} onPress={onDelete}>
           <Ionicons name="trash-outline" size={22} color="#ef4444" />
