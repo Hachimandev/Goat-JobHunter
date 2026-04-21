@@ -23,6 +23,7 @@ import { MessageActionsSheet } from "@/components/chat/MessageActionsSheet";
 import { MessageItem } from "@/components/chat/MessageItem";
 
 import useChatActionsMobile from "@/hooks/useChatActionsMobile";
+import { useDissolveGroup } from "@/hooks/useDissolveGroup";
 import { useNotificationManager } from "@/hooks/useNotificationManager";
 import { useUser } from "@/hooks/useUser";
 import {
@@ -111,6 +112,7 @@ export default function ChatDetailScreen() {
   const [selectedImages, setSelectedImages] = useState<any[]>([]);
   const [isEmojiOpen, setIsEmojiOpen] = useState(false);
   const [isForwardModalOpen, setIsForwardModalOpen] = useState(false);
+  const [isBannerDismissed, setIsBannerDismissed] = useState(false);
 
   const flatListRef = useRef<FlatList>(null);
 
@@ -154,6 +156,7 @@ export default function ChatDetailScreen() {
 
   const { data: chatRoomData } = useFetchChatRoomsByIdQuery(chatRoomId, {
     skip: !chatRoomId,
+    pollingInterval: 3000,
   });
 
   useEffect(() => {
@@ -198,7 +201,16 @@ export default function ChatDetailScreen() {
     bottomSheetRef.current?.expand();
   }, []);
 
+  const { handleLeaveGroup } = useDissolveGroup();
+
+  const handleDeleteAllMessages = async () => {
+    if (chatRoomId && name) {
+      await handleLeaveGroup(Number(chatRoomId), name);
+    }
+  };
+
   const isDirectBlocked = chatRoomData?.data?.blocked || false;
+  const isGroupDissolved = chatRoomData?.data?.deletedAt !== null && chatRoomData?.data?.deletedAt !== undefined;
 
   if (isLoading && !messagesData) {
     return <ActivityIndicator style={styles.loadingCenter} color="#0084FF" />;
@@ -277,6 +289,7 @@ export default function ChatDetailScreen() {
             </TouchableOpacity>
           </View>
         )}
+
         <Modal visible={isPinnedListOpen} transparent animationType="fade">
           <View style={styles.overlay}>
             <View style={styles.pinnedListBox}>
@@ -338,6 +351,31 @@ export default function ChatDetailScreen() {
           </View>
         </Modal>
 
+        {isGroupDissolved && !isBannerDismissed && (
+          <View style={styles.dissolvedBanner}>
+            <View style={styles.dissolvedBannerContent}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.dissolvedBannerTitle}>Nhóm đã bị giải tán</Text>
+                <Text style={styles.dissolvedBannerDesc}>
+                  Bạn có thể rời khỏi nhóm này
+                </Text>
+              </View>
+              <TouchableOpacity
+                onPress={handleDeleteAllMessages}
+                style={styles.dissolvedBannerBtn}
+              >
+                <Text style={styles.dissolvedBannerBtnText}>Rời</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => setIsBannerDismissed(true)}
+                style={{ marginLeft: 10 }}
+              >
+                <Ionicons name="close" size={20} color="#999" />
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
+
         <FlatList
           ref={flatListRef}
           data={messagesData?.data || []}
@@ -385,13 +423,21 @@ export default function ChatDetailScreen() {
             setSelectedFiles((prev) => prev.filter((_, i) => i !== idx))
           }
           onOpenEmoji={() => setIsEmojiOpen(true)}
-          disabled={isDirectBlocked}
+          disabled={isDirectBlocked || isGroupDissolved}
+          disabledReason={
+            isGroupDissolved
+              ? "Nhóm đã bị giải tán"
+              : isDirectBlocked
+                ? "Bạn bị chặn"
+                : undefined
+          }
         />
       </KeyboardAvoidingView>
 
       <MessageActionsSheet
         ref={bottomSheetRef}
         selectedMessage={selectedMessage}
+        isGroupDissolved={isGroupDissolved}
         onReply={() => {
           setReplyTarget(selectedMessage);
           bottomSheetRef.current?.close();
@@ -508,6 +554,48 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: "#333",
     marginTop: 2,
+  },
+  dissolvedBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    backgroundColor: "#FFE5E5",
+    borderBottomWidth: 1,
+    borderColor: "#FFD4D4",
+    gap: 10,
+  },
+  dissolvedBannerContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    flex: 1,
+    gap: 10,
+  },
+  dissolvedBannerTitle: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#FF3B30",
+  },
+  dissolvedBannerDesc: {
+    fontSize: 12,
+    color: "#999",
+    marginTop: 2,
+  },
+  dissolvedBannerBtn: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    backgroundColor: "#FF3B30",
+    borderRadius: 6,
+  },
+  dissolvedBannerBtnText: {
+    color: "#fff",
+    fontSize: 13,
+    fontWeight: "600",
+  },
+  dissolvedText: {
+    fontSize: 13,
+    color: "#FF3B30",
+    fontWeight: "600",
   },
   overlay: {
     position: "absolute",
