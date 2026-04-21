@@ -40,5 +40,6 @@
     <include file="db.changelog/schema/2026-04-17/idx-friend-request.xml"/>
     <include file="db.changelog/schema/2026-04-20/add-chat-member-unread-count.xml"/>
     <include file="db.changelog/schema/2026-04-20/add-chat-room-summary-fields.xml"/>
+    <include file="db.changelog/schema/2026-04-21/create-chat-call-session-tables.xml"/>
 
 </databaseChangeLog>

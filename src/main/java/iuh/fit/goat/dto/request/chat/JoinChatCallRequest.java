@@ -1,5 +1,6 @@
 package iuh.fit.goat.dto.request.chat;
 
+import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -7,7 +8,7 @@ import lombok.NoArgsConstructor;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-public class ChatCallTokenRequest {
+public class JoinChatCallRequest {
+    @NotNull(message = "publisher is required")
     private Boolean publisher = Boolean.TRUE;
-    private Long sessionId;
 }

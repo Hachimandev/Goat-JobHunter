@@ -4,8 +4,11 @@ import iuh.fit.goat.component.agora.token.RtcTokenBuilder2;
 import iuh.fit.goat.config.AgoraRtcProperties;
 import iuh.fit.goat.dto.response.chat.ChatCallTokenResponse;
 import iuh.fit.goat.entity.Account;
+import iuh.fit.goat.entity.ChatCallSession;
+import iuh.fit.goat.enumeration.ChatCallSessionStatus;
 import iuh.fit.goat.exception.InvalidException;
 import iuh.fit.goat.exception.PermissionException;
+import iuh.fit.goat.repository.ChatCallSessionRepository;
 import iuh.fit.goat.service.AgoraRtcTokenService;
 import iuh.fit.goat.service.ChatRoomService;
 import lombok.RequiredArgsConstructor;
@@ -15,6 +18,7 @@ import org.springframework.util.StringUtils;
 
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
+import java.util.EnumSet;
 
 @Service
 @RequiredArgsConstructor
@@ -24,12 +28,13 @@ public class AgoraRtcTokenServiceImpl implements AgoraRtcTokenService {
 
     private final AgoraRtcProperties agoraRtcProperties;
     private final ChatRoomService chatRoomService;
+    private final ChatCallSessionRepository chatCallSessionRepository;
 
     private final RtcTokenBuilder2 tokenBuilder = new RtcTokenBuilder2();
 
     @Override
     @Transactional(readOnly = true)
-    public ChatCallTokenResponse issueChatRoomRtcToken(Account currentAccount, Long chatRoomId, boolean publisher)
+    public ChatCallTokenResponse issueChatRoomRtcToken(Account currentAccount, Long chatRoomId, Long sessionId, boolean publisher)
             throws InvalidException, PermissionException {
         if (currentAccount == null) {
             throw new InvalidException("User not found");
@@ -50,8 +55,19 @@ public class AgoraRtcTokenServiceImpl implements AgoraRtcTokenService {
         int ttlSeconds = this.agoraRtcProperties.getTokenTtlSeconds();
         validateTokenTtl(ttlSeconds);
 
+        ChatCallSession activeSession = this.chatCallSessionRepository
+                .findFirstByChatRoomRoomIdAndStatusInAndDeletedAtIsNullOrderByCreatedAtDesc(
+                        chatRoomId,
+                        EnumSet.of(ChatCallSessionStatus.PENDING, ChatCallSessionStatus.ACTIVE)
+                )
+                .orElseThrow(() -> new InvalidException("No active call session found in this chat room"));
+
+        if (sessionId != null && !activeSession.getCallSessionId().equals(sessionId)) {
+            throw new InvalidException("Requested session does not match active call session");
+        }
+
         int uid = toAgoraUid(currentAccount.getAccountId());
-        String channelName = buildChannelName(chatRoomId);
+        String channelName = buildChannelName(chatRoomId, activeSession.getAgoraChannelName());
 
         RtcTokenBuilder2.Role role = publisher
                 ? RtcTokenBuilder2.Role.ROLE_PUBLISHER
@@ -74,6 +90,7 @@ public class AgoraRtcTokenServiceImpl implements AgoraRtcTokenService {
         long expiresAtEpochMs = Instant.now().plusSeconds(ttlSeconds).toEpochMilli();
 
         return new ChatCallTokenResponse(
+                activeSession.getCallSessionId(),
                 appId,
                 channelName,
                 uid,
@@ -103,19 +120,27 @@ public class AgoraRtcTokenServiceImpl implements AgoraRtcTokenService {
         return (int) accountId;
     }
 
-    private String buildChannelName(Long chatRoomId) throws InvalidException {
+    private String buildChannelName(Long chatRoomId, String sessionChannelName) throws InvalidException {
+        if (StringUtils.hasText(sessionChannelName)) {
+            validateChannelNameLength(sessionChannelName);
+            return sessionChannelName.trim();
+        }
+
         String prefix = normalized(this.agoraRtcProperties.getChannelPrefix());
         if (!StringUtils.hasText(prefix)) {
             prefix = DEFAULT_CHANNEL_PREFIX;
         }
 
         String channelName = prefix + chatRoomId;
+        validateChannelNameLength(channelName);
+        return channelName;
+    }
+
+    private void validateChannelNameLength(String channelName) throws InvalidException {
         int channelLength = channelName.getBytes(StandardCharsets.UTF_8).length;
         if (channelLength > 64) {
             throw new InvalidException("Generated Agora channel name exceeds 64 bytes");
         }
-
-        return channelName;
     }
 
     private String normalized(String value) {

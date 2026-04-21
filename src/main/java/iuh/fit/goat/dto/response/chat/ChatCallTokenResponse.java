@@ -8,6 +8,7 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class ChatCallTokenResponse {
+    private Long sessionId;
     private String appId;
     private String channelName;
     private int uid;

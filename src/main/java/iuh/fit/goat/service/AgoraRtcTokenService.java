@@ -6,6 +6,6 @@ import iuh.fit.goat.exception.InvalidException;
 import iuh.fit.goat.exception.PermissionException;
 
 public interface AgoraRtcTokenService {
-    ChatCallTokenResponse issueChatRoomRtcToken(Account currentAccount, Long chatRoomId, boolean publisher)
+    ChatCallTokenResponse issueChatRoomRtcToken(Account currentAccount, Long chatRoomId, Long sessionId, boolean publisher)
             throws InvalidException, PermissionException;
 }

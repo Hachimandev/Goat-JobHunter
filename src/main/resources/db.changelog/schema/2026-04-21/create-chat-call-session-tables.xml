@@ -1,0 +1,121 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+                      http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-5.0.xsd"
+        objectQuotingStrategy="QUOTE_ONLY_RESERVED_WORDS">
+
+    <changeSet id="20260421-1-create-chat-call-sessions" author="opencode">
+        <createTable tableName="chat_call_sessions">
+            <column name="call_session_id" type="BIGINT" autoIncrement="true">
+                <constraints nullable="false" primaryKey="true" primaryKeyName="pk_chat_call_sessions"/>
+            </column>
+            <column name="created_at" type="DATETIME"/>
+            <column name="created_by" type="VARCHAR(255)"/>
+            <column name="updated_at" type="DATETIME"/>
+            <column name="updated_by" type="VARCHAR(255)"/>
+            <column name="deleted_at" type="DATETIME"/>
+            <column name="deleted_by" type="VARCHAR(255)"/>
+            <column name="chat_room_id" type="BIGINT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="initiator_account_id" type="BIGINT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="status" type="VARCHAR(32)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="agora_channel_name" type="VARCHAR(64)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="started_at" type="DATETIME"/>
+            <column name="ended_at" type="DATETIME"/>
+            <column name="end_reason" type="VARCHAR(64)"/>
+        </createTable>
+
+        <addForeignKeyConstraint
+                baseTableName="chat_call_sessions"
+                baseColumnNames="chat_room_id"
+                constraintName="fk_call_sessions_chat_room"
+                referencedTableName="chat_rooms"
+                referencedColumnNames="room_id"/>
+
+        <addForeignKeyConstraint
+                baseTableName="chat_call_sessions"
+                baseColumnNames="initiator_account_id"
+                constraintName="fk_call_sessions_initiator_account"
+                referencedTableName="accounts"
+                referencedColumnNames="account_id"/>
+    </changeSet>
+
+    <changeSet id="20260421-2-create-chat-call-participants" author="opencode">
+        <createTable tableName="chat_call_participants">
+            <column name="participant_id" type="BIGINT" autoIncrement="true">
+                <constraints nullable="false" primaryKey="true" primaryKeyName="pk_chat_call_participants"/>
+            </column>
+            <column name="created_at" type="DATETIME"/>
+            <column name="created_by" type="VARCHAR(255)"/>
+            <column name="updated_at" type="DATETIME"/>
+            <column name="updated_by" type="VARCHAR(255)"/>
+            <column name="deleted_at" type="DATETIME"/>
+            <column name="deleted_by" type="VARCHAR(255)"/>
+            <column name="call_session_id" type="BIGINT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="account_id" type="BIGINT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="joined_at" type="DATETIME">
+                <constraints nullable="false"/>
+            </column>
+            <column name="left_at" type="DATETIME"/>
+            <column name="publisher" type="BOOLEAN" defaultValueBoolean="true">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <addForeignKeyConstraint
+                baseTableName="chat_call_participants"
+                baseColumnNames="call_session_id"
+                constraintName="fk_call_participants_call_session"
+                referencedTableName="chat_call_sessions"
+                referencedColumnNames="call_session_id"/>
+
+        <addForeignKeyConstraint
+                baseTableName="chat_call_participants"
+                baseColumnNames="account_id"
+                constraintName="fk_call_participants_account"
+                referencedTableName="accounts"
+                referencedColumnNames="account_id"/>
+
+        <addUniqueConstraint
+                tableName="chat_call_participants"
+                columnNames="call_session_id, account_id"
+                constraintName="uq_call_participant_session_account"/>
+    </changeSet>
+
+    <changeSet id="20260421-3-index-chat-call-tables" author="opencode">
+        <createIndex indexName="idx_call_sessions_room_status_deleted" tableName="chat_call_sessions" unique="false">
+            <column name="chat_room_id"/>
+            <column name="status"/>
+            <column name="deleted_at"/>
+        </createIndex>
+
+        <createIndex indexName="idx_call_sessions_room_created" tableName="chat_call_sessions" unique="false">
+            <column name="chat_room_id"/>
+            <column name="created_at"/>
+        </createIndex>
+
+        <createIndex indexName="idx_call_participants_session_deleted" tableName="chat_call_participants" unique="false">
+            <column name="call_session_id"/>
+            <column name="deleted_at"/>
+        </createIndex>
+
+        <createIndex indexName="idx_call_participants_account_deleted" tableName="chat_call_participants" unique="false">
+            <column name="account_id"/>
+            <column name="deleted_at"/>
+        </createIndex>
+    </changeSet>
+
+</databaseChangeLog>
