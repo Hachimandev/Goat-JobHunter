@@ -75,6 +75,8 @@ export function ChatHeader({
     };
   }, [containerRef]);
 
+  const showActiveGroupCallAction = showOngoingCallInfo && callSession?.status === CallStatusEnum.ACTIVE;
+
   return (
     <div className="h-16 border-b border-border bg-card flex items-center justify-between px-4" ref={containerRef}>
       <div className="flex items-center gap-3">
@@ -95,7 +97,7 @@ export function ChatHeader({
         </div>
       </div>
       <div className="flex items-center gap-1">
-        {showOngoingCallInfo && callSession!.status === CallStatusEnum.ACTIVE ? (
+        {showActiveGroupCallAction ? (
           <Button
             variant="default"
             size={viewMode !== 'icon' ? 'default' : 'icon'}

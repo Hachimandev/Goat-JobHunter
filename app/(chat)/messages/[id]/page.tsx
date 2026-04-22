@@ -14,7 +14,7 @@ import { CallStatusEnum, CallTypeEnum, ChatRoomType } from '@/types/enum';
 import { subscribeToChatRoom } from '@/services/chatRoom/message/messageApi';
 import { useAppSelector } from '@/lib/hooks';
 import { selectLastFriendshipRealtimeEventAt } from '@/lib/features/friendshipSlice';
-import { selectLastCallRealtimeEventAt } from '@/lib/features/callSlice';
+import { selectLastCallRealtimeEvent, selectLastCallRealtimeEventAt } from '@/lib/features/callSlice';
 import {
   usePinMessageMutation,
   useUnpinMessageMutation,
@@ -33,6 +33,7 @@ export default function ChatRoomPage() {
   const isInvalidChatRoomId = !chatRoomId || Number.isNaN(parsedChatRoomId);
   const { user } = useUser();
   const lastFriendshipRealtimeEventAt = useAppSelector(selectLastFriendshipRealtimeEventAt);
+  const lastCallRealtimeEvent = useAppSelector(selectLastCallRealtimeEvent);
   const lastCallRealtimeEventAt = useAppSelector(selectLastCallRealtimeEventAt);
   const [forwardMessage, setForwardMessage] = useState<MessageResponse | null>(null);
   const [replyMessage, setReplyMessage] = useState<MessageResponse | null>(null);
@@ -40,7 +41,6 @@ export default function ChatRoomPage() {
   const [pinnedMessageIds, setPinnedMessageIds] = useState<Set<string>>(new Set());
   const [pinningMessageIds, setPinningMessageIds] = useState<Set<string>>(new Set());
   const [isJoiningOngoingCall, setIsJoiningOngoingCall] = useState(false);
-  const [ongoingGroupCall, setOngoingGroupCall] = useState<CallSession | null>(null);
 
   const {
     handleSendMessage,
@@ -134,22 +134,6 @@ export default function ChatRoomPage() {
   );
 
   useEffect(() => {
-    if (currentChatRoom?.type !== ChatRoomType.GROUP) {
-      setOngoingGroupCall(null);
-      return;
-    }
-
-    if (ongoingCallData?.data) {
-      setOngoingGroupCall(ongoingCallData.data);
-      return;
-    }
-
-    if (isOngoingCallError) {
-      setOngoingGroupCall(null);
-    }
-  }, [currentChatRoom?.type, isOngoingCallError, ongoingCallData]);
-
-  useEffect(() => {
     if (currentChatRoom?.type !== ChatRoomType.GROUP || !lastCallRealtimeEventAt) {
       return;
     }
@@ -157,15 +141,50 @@ export default function ChatRoomPage() {
     void refetchOngoingCall();
   }, [currentChatRoom?.type, lastCallRealtimeEventAt, refetchOngoingCall]);
 
-  useEffect(() => {
-    if (!ongoingGroupCall) {
-      return;
+  const ongoingGroupCall = useMemo(() => {
+    if (currentChatRoom?.type !== ChatRoomType.GROUP) {
+      return null;
     }
 
-    if (ongoingGroupCall.status === CallStatusEnum.ENDED || ongoingGroupCall.status === CallStatusEnum.CANCELLED) {
-      setOngoingGroupCall(null);
+    const activeLocalCall =
+      currentCall?.chatRoomId === parsedChatRoomId &&
+      (currentCall.status === CallStatusEnum.ACTIVE || currentCall.status === CallStatusEnum.PENDING)
+        ? currentCall
+        : null;
+
+    const activeServerCall =
+      ongoingCallData?.data &&
+      (ongoingCallData.data.status === CallStatusEnum.ACTIVE || ongoingCallData.data.status === CallStatusEnum.PENDING)
+        ? ongoingCallData.data
+        : null;
+
+    let candidate: CallSession | null = activeLocalCall ?? activeServerCall;
+
+    if (activeLocalCall && activeServerCall && activeLocalCall.sessionId === activeServerCall.sessionId) {
+      candidate = {
+        ...activeServerCall,
+        rtc: activeLocalCall.rtc ?? activeServerCall.rtc,
+        callType: activeLocalCall.callType ?? activeServerCall.callType,
+      };
     }
-  }, [ongoingGroupCall]);
+
+    if (!candidate) {
+      return null;
+    }
+
+    const isRealtimeEndedEventForCandidate =
+      lastCallRealtimeEvent?.chatRoomId === parsedChatRoomId &&
+      lastCallRealtimeEvent.sessionId === candidate.sessionId &&
+      (lastCallRealtimeEvent.eventType === 'CALL_ENDED' ||
+        lastCallRealtimeEvent.status === CallStatusEnum.ENDED ||
+        lastCallRealtimeEvent.status === CallStatusEnum.CANCELLED);
+
+    if (isRealtimeEndedEventForCandidate || isOngoingCallError) {
+      return null;
+    }
+
+    return candidate;
+  }, [currentCall, currentChatRoom?.type, isOngoingCallError, lastCallRealtimeEvent, ongoingCallData?.data, parsedChatRoomId]);
 
   const isDirectBlocked = currentChatRoom?.type === ChatRoomType.DIRECT && Boolean(currentChatRoom?.blocked);
   const isBlockedByMe = isDirectBlocked && Boolean(currentChatRoom?.blockedByMe);

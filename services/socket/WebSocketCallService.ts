@@ -5,7 +5,7 @@ import { ThunkDispatch } from 'redux-thunk';
 import { store } from '@/lib/store';
 import {
   endCurrentCall,
-  markCallRealtimeEvent,
+  registerCallRealtimeEvent,
   setCallError,
   setCurrentCall,
   setIncomingCall,
@@ -173,7 +173,7 @@ export class WebSocketCallService {
       return;
     }
 
-    this.dispatch(markCallRealtimeEvent(undefined));
+    this.dispatch(registerCallRealtimeEvent(payload));
 
     if (payload.chatRoomId !== this.chatRoomId) {
       return;

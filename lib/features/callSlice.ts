@@ -16,6 +16,7 @@ type CallState = {
   currentCall: CallSession | null;
   incomingCall: IncomingCallState | null;
   callError: string | null;
+  lastRealtimeEvent: CallRealtimeEvent | null;
   lastRealtimeEventAt: string | null;
   rtcConnectionState: 'idle' | 'connecting' | 'connected' | 'reconnecting' | 'disconnected' | 'failed';
   localAudioEnabled: boolean;
@@ -24,10 +25,20 @@ type CallState = {
   remoteVideoActive: boolean;
 };
 
+export type CallRealtimeEvent = {
+  eventType: 'CALL_STARTED' | 'CALL_JOINED' | 'CALL_LEFT' | 'CALL_ENDED';
+  chatRoomId: number;
+  sessionId: number;
+  actorAccountId: number;
+  status: CallStatusEnum;
+  occurredAt: string;
+};
+
 const initialState: CallState = {
   currentCall: null,
   incomingCall: null,
   callError: null,
+  lastRealtimeEvent: null,
   lastRealtimeEventAt: null,
   rtcConnectionState: 'idle',
   localAudioEnabled: true,
@@ -62,6 +73,17 @@ const callSlice = createSlice({
   reducers: {
     markCallRealtimeEvent: (state, action: PayloadAction<string | undefined>) => {
       state.lastRealtimeEventAt = resolveEventTimestamp(action.payload);
+    },
+    registerCallRealtimeEvent: (
+      state,
+      action: PayloadAction<Omit<CallRealtimeEvent, 'occurredAt'> & { occurredAt?: string }>,
+    ) => {
+      const occurredAt = resolveEventTimestamp(action.payload.occurredAt);
+      state.lastRealtimeEvent = {
+        ...action.payload,
+        occurredAt,
+      };
+      state.lastRealtimeEventAt = occurredAt;
     },
     setOutgoingCallPending: (state, action: PayloadAction<CallSession>) => {
       state.currentCall = {
@@ -185,6 +207,7 @@ const callSlice = createSlice({
 
 export const {
   markCallRealtimeEvent,
+  registerCallRealtimeEvent,
   setOutgoingCallPending,
   setIncomingCall,
   dismissIncomingCall,
@@ -205,6 +228,7 @@ const selectCallState = (state: RootState) => state.call;
 export const selectCurrentCall = createSelector(selectCallState, (state) => state.currentCall);
 export const selectIncomingCall = createSelector(selectCallState, (state) => state.incomingCall);
 export const selectCallError = createSelector(selectCallState, (state) => state.callError);
+export const selectLastCallRealtimeEvent = createSelector(selectCallState, (state) => state.lastRealtimeEvent);
 export const selectLastCallRealtimeEventAt = createSelector(selectCallState, (state) => state.lastRealtimeEventAt);
 export const selectRtcConnectionState = createSelector(selectCallState, (state) => state.rtcConnectionState);
 export const selectLocalAudioEnabled = createSelector(selectCallState, (state) => state.localAudioEnabled);
