@@ -1,16 +1,17 @@
+import { GroupManagementPanel } from "@/components/chat/GroupManagementPanel";
+import { useUser } from "@/hooks/useUser";
 import {
+  useFetchChatRoomsByIdQuery,
   useFetchFilesInChatRoomQuery,
   useFetchMediaInChatRoomQuery,
-  useFetchChatRoomsByIdQuery,
 } from "@/services/chatRoom/chatRoomApi";
 import { useGetMemberInGroupChatQuery } from "@/services/chatRoom/groupChat/groupChatApi";
-import { GroupManagementPanel } from "@/components/chat/GroupManagementPanel";
 import { Ionicons } from "@expo/vector-icons";
-import { router, useLocalSearchParams } from "expo-router";
-import { useState } from "react";
+import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
+
+import React, { useState } from "react";
 import { Image, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useUser } from "@/hooks/useUser";
 
 export default function ChatDetail() {
   const { id, name, avatar } = useLocalSearchParams<{
@@ -20,7 +21,9 @@ export default function ChatDetail() {
   }>();
   const { user } = useUser();
   const chatRoomId = Number(id);
-  const [activeTab, setActiveTab] = useState<"media" | "files" | "group">("media");
+  const [activeTab, setActiveTab] = useState<"media" | "files" | "group">(
+    "media",
+  );
 
   const { data: chatRoomData } = useFetchChatRoomsByIdQuery(chatRoomId, {
     skip: !chatRoomId,
@@ -36,17 +39,26 @@ export default function ChatDetail() {
     { chatRoomId },
     { skip: !chatRoomId },
   );
-  const { data: membersData } = useGetMemberInGroupChatQuery(chatRoomId, {
-    skip: !isGroupChat || !chatRoomId,
-  });
+  const { data: membersData, refetch } = useGetMemberInGroupChatQuery(
+    chatRoomId,
+    {
+      skip: !isGroupChat || !chatRoomId,
+    },
+  );
 
-  const media = mediaData?.data || [];
-  const files = filesData?.data || [];
+  const media = mediaData?.data?.result || [];
+  const files = filesData?.data?.result || [];
   const members = membersData?.data || [];
 
   // Check if user is owner
   const isOwner = members.some(
-    (m) => m.accountId === user?.accountId && m.role === "OWNER"
+    (m) => m.accountId === user?.accountId && m.role === "OWNER",
+  );
+
+  useFocusEffect(
+    React.useCallback(() => {
+      refetch();
+    }, []),
   );
 
   return (

@@ -1,18 +1,17 @@
-import React, { useState } from "react";
-import {
-  StyleSheet,
-  View,
-  Text,
-  TouchableOpacity,
-  ActivityIndicator,
-  Alert,
-  ScrollView,
-  Image,
-} from "react-native";
-import { Ionicons, Feather } from "@expo/vector-icons";
-import { router, useLocalSearchParams } from "expo-router";
 import { useDissolveGroup } from "@/hooks/useDissolveGroup";
 import { useGetMemberInGroupChatQuery } from "@/services/chatRoom/groupChat/groupChatApi";
+import { Feather, Ionicons } from "@expo/vector-icons";
+import { router } from "expo-router";
+import React from "react";
+import {
+  ActivityIndicator,
+  Image,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
 
 interface GroupManagementPanelProps {
   groupName: string;
@@ -25,7 +24,8 @@ export const GroupManagementPanel = ({
   groupId,
   isOwner = false,
 }: GroupManagementPanelProps) => {
-  const { handleDissolveGroup, handleLeaveGroup, isLoading } = useDissolveGroup();
+  const { handleDissolveGroup, handleLeaveGroup, isLoading } =
+    useDissolveGroup();
   const { data: membersData } = useGetMemberInGroupChatQuery(groupId);
 
   const members = membersData?.data || [];
@@ -43,6 +43,21 @@ export const GroupManagementPanel = ({
       {/* Thông tin nhóm */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Thông tin nhóm</Text>
+        <TouchableOpacity
+          style={styles.addMemberBtn}
+          onPress={() =>
+            router.push({
+              pathname: "/chat/add-members",
+              params: {
+                groupId: String(groupId),
+                members: JSON.stringify(members),
+              },
+            })
+          }
+        >
+          <Ionicons name="person-add-outline" size={20} />
+          <Text>Thêm thành viên</Text>
+        </TouchableOpacity>
         <View style={styles.infoItem}>
           <Text style={styles.infoLabel}>Tên nhóm:</Text>
           <Text style={styles.infoValue}>{groupName}</Text>
@@ -62,9 +77,7 @@ export const GroupManagementPanel = ({
               <View key={member.chatMemberId} style={styles.memberItem}>
                 <Image
                   source={{
-                    uri:
-                      member.avatar ||
-                      "https://i.pravatar.cc/150?img=1",
+                    uri: member.avatar || "https://i.pravatar.cc/150?img=1",
                   }}
                   style={styles.memberAvatar}
                 />
@@ -74,10 +87,8 @@ export const GroupManagementPanel = ({
                     <Text
                       style={[
                         styles.roleLabel,
-                        member.role === "OWNER" &&
-                          styles.roleOwner,
-                        member.role === "MODERATOR" &&
-                          styles.roleModerator,
+                        member.role === "OWNER" && styles.roleOwner,
+                        member.role === "MODERATOR" && styles.roleModerator,
                       ]}
                     >
                       {member.role === "OWNER"
@@ -235,5 +246,24 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "600",
     color: "#FF3B30",
+  },
+  addMemberBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    backgroundColor: "#fff",
+    borderRadius: 10,
+    marginHorizontal: 12,
+    marginTop: 10,
+
+    // shadow iOS
+    shadowColor: "#000",
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 2 },
+
+    // shadow Android
+    elevation: 2,
   },
 });
