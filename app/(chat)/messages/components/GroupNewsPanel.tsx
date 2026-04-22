@@ -5,11 +5,13 @@ import { Button } from '@/components/ui/button';
 // using simple div-based tabs here instead of Radix Tabs
 import { X } from 'lucide-react';
 import CreatePollDialog from './CreatePollDialog';
+import { useFetchPollsInChatRoomQuery } from '@/services/poll/pollApi';
+import PollCard from './PollCard';
 
 interface GroupNewsPanelProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  chatRoomId?: number;
+  chatRoomId: number;
 }
 
 export function GroupNewsPanel({ open, onOpenChange, chatRoomId }: Readonly<GroupNewsPanelProps>) {
@@ -17,6 +19,13 @@ export function GroupNewsPanel({ open, onOpenChange, chatRoomId }: Readonly<Grou
   const [activeTab, setActiveTab] = useState<string>('pinned');
   const tabsContainerRef = useRef<HTMLDivElement | null>(null);
   const [indicatorStyle, setIndicatorStyle] = useState({ left: 0, width: 0 });
+  const {
+    data: polls,
+    isLoading: isPollsLoading,
+    isError: isPollsError,
+  } = useFetchPollsInChatRoomQuery({ chatRoomId }, { skip: !chatRoomId });
+
+  console.log(polls);
 
   useEffect(() => {
     const updateIndicator = () => {
@@ -57,9 +66,9 @@ export function GroupNewsPanel({ open, onOpenChange, chatRoomId }: Readonly<Grou
         </Button>
       </div>
 
-      <div className="px-2 pt-2">
-        <div className="w-full">
-          <div ref={tabsContainerRef} className="relative">
+      <div className="px-2 pt-2 flex flex-col flex-1 overflow-hidden">
+        <div className="w-full flex-none">
+          <div ref={tabsContainerRef} className="relative sticky top-0 bg-card z-10 -mx-2 px-2">
             <div className="grid w-full grid-cols-3">
               <div
                 data-tab="pinned"
@@ -100,7 +109,22 @@ export function GroupNewsPanel({ open, onOpenChange, chatRoomId }: Readonly<Grou
               style={{ left: indicatorStyle.left + 'px', width: indicatorStyle.width + 'px' }}
             />
           </div>
+        </div>
 
+        <div
+          className="flex-1 overflow-y-auto pb-4 -mx-2"
+          data-scrollbar-hidden
+          style={{
+            scrollbarWidth: 'none',
+            msOverflowStyle: 'none',
+          }}
+          suppressHydrationWarning
+        >
+          <style>{`
+            [data-scrollbar-hidden]::-webkit-scrollbar {
+              display: none;
+            }
+          `}</style>
           <div className="mt-4">
             {activeTab === 'pinned' && <div className="text-sm text-muted-foreground">Không có tin ghim.</div>}
 
@@ -117,22 +141,38 @@ export function GroupNewsPanel({ open, onOpenChange, chatRoomId }: Readonly<Grou
             )}
 
             {activeTab === 'polls' && (
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <h3 className="font-semibold">Bình chọn</h3>
-                  <Button size="sm" variant="outline" onClick={() => setCreatePollOpen(true)}>
-                    Tạo bình chọn
-                  </Button>
-                </div>
-                <div className="text-sm text-muted-foreground">Chưa có bình chọn.</div>
+              <div className="flex flex-col items-center justify-between">
+                {isPollsLoading ? (
+                  <div className="text-sm text-muted-foreground">Đang tải bình chọn...</div>
+                ) : isPollsError ? (
+                  <div className="text-sm text-muted-foreground">Đã xảy ra lỗi khi tải bình chọn.</div>
+                ) : (
+                  polls?.data &&
+                  polls?.data?.length === 0 && (
+                    <div className="text-sm text-muted-foreground">Chưa có bình chọn nào.</div>
+                  )
+                )}
+                {!isPollsLoading &&
+                  !isPollsError &&
+                  polls &&
+                  polls?.data &&
+                  polls?.data?.length > 0 &&
+                  polls?.data?.map((poll) => <PollCard key={poll.pollId} poll={poll} />)}
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="w-100 bg-primary text-white hover:bg-primary/90 hover:text-white rounded-xl mt-2 items-center"
+                  onClick={() => setCreatePollOpen(true)}
+                >
+                  Tạo bình chọn
+                </Button>
               </div>
             )}
           </div>
         </div>
+        <CreatePollDialog open={createPollOpen} onOpenChange={setCreatePollOpen} chatRoomId={chatRoomId} />
       </div>
-      <CreatePollDialog open={createPollOpen} onOpenChange={setCreatePollOpen} chatRoomId={chatRoomId} />
     </div>
   );
 }
-
 export default GroupNewsPanel;

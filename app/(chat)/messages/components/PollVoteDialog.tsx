@@ -10,7 +10,7 @@ import { Poll } from '@/types/model';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { toast } from 'sonner';
 import { useVotePollMutation, useFetchVotesForPollQuery } from '@/services/poll/vote/voteApi';
-import { usePinMessageMutation, useUnpinMessageMutation } from '@/services/chatRoom/pinned_message/pinnedMessageApi';
+import { usePinMessageMutation } from '@/services/chatRoom/pinned_message/pinnedMessageApi';
 import { IBackendError } from '@/types/api';
 import { Settings, Loader2 } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -386,7 +386,7 @@ export default function PollVoteDialog({ open, onOpenChange, poll }: Readonly<Po
             )}
           </div>
 
-          {poll.allowAddOption && (
+          {poll.allowAddOption && !poll.isClosed && (
             <div className="pt-2">
               <div className="text-sm text-primary cursor-pointer" onClick={() => {}}>
                 + Thêm lựa chọn
@@ -442,7 +442,7 @@ export default function PollVoteDialog({ open, onOpenChange, poll }: Readonly<Po
           </div>
           <div className="flex w-full items-center justify-end gap-2">
             <Button variant="ghost" onClick={() => onOpenChange(false)} disabled={isVoting}>
-              Hủy
+              Đóng
             </Button>
             {!poll.isClosed && (
               <Button onClick={handleConfirm} disabled={isVoting}>

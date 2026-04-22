@@ -48,7 +48,7 @@ export default function PollCard({ poll }: Readonly<PollCardProps>) {
   }, [votesData]);
 
   return (
-    <div className="flex flex-col justify-center my-3 w-110 rounded-xl bg-muted/50 text-muted-foreground mx-auto">
+    <div className="flex flex-col justify-center my-3 w-100 rounded-xl bg-muted/50 text-muted-foreground mx-auto">
       <div className="flex flex-col items-start gap-2 p-2">
         <span className="text-sm font-bold">{poll.question}</span>
         <span className="text-xs font-bold">{expiresText}</span>
