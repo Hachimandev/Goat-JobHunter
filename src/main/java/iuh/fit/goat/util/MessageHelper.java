@@ -111,10 +111,10 @@ public class MessageHelper {
             }
 
             case POLL_CLOSED -> {
-                String pollQuestion = (String) params[0];
+                PollResponse poll = (PollResponse) params[0];
 
-                yield String.format("(event:%s) %s đã đóng cuộc thăm dò: \"%s\"",
-                        MessageEvent.POLL_CLOSED, actorName, pollQuestion);
+                yield String.format("(event:%s) %s đã đóng cuộc bình chọn: %s (Xem %s)",
+                        MessageEvent.POLL_CLOSED, actorName, poll.getQuestion(), poll.getPollId());
             }
         };
     }
@@ -146,6 +146,7 @@ public class MessageHelper {
             case FILE -> "[Tệp tin]";
             case AUDIO -> "[Âm thanh]";
             case CONTACT_CARD -> "[Danh thiếp]";
+            case POLL -> "[Cuộc bình chọn]";
             default -> "[Tin nhắn không xác định]";
         };
     }

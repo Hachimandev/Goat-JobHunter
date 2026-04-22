@@ -196,9 +196,14 @@ public class PollServiceImpl implements PollService {
         poll.setUpdatedAt(Instant.now());
         this.pollRepository.save(poll);
 
-        sendPollClosedEvent(chatRoomId, poll.getPollId(), poll.getMessageId());
+        PollResponse pollResponse = toPollResponse(poll, currentAccount.getAccountId());
 
-        return toPollResponse(poll, currentAccount.getAccountId());
+        this.messageService.createAndSendPollMessage(
+                chatRoomId, MessageEvent.POLL_CLOSED,
+                currentAccount, pollResponse
+        );
+
+        return pollResponse;
     }
 
     @Override
