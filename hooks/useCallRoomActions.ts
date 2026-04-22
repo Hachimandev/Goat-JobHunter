@@ -37,6 +37,12 @@ import { CallSession } from '@/types/model';
 import type { UID } from 'agora-rtc-sdk-ng';
 import { computeAgoraUid } from '@/services/callRtc/agoraUid';
 
+const CAMERA_WARNING_MESSAGES = new Set([
+  'Không thể bật camera vì camera đang được thiết bị hoặc ứng dụng khác sử dụng.',
+  'Camera đang được thiết bị hoặc ứng dụng khác sử dụng. Cuộc gọi tiếp tục với âm thanh.',
+  'Không thể bật camera lúc này. Cuộc gọi vẫn tiếp tục với âm thanh.',
+]);
+
 const useCallRoomActions = () => {
   const { isSignedIn, user } = useUser();
   const dispatch = useAppDispatch();
@@ -166,7 +172,16 @@ const useCallRoomActions = () => {
           );
         }
       },
-      onWarning: (message) => {
+      onWarning: (message, sessionId) => {
+        if (CAMERA_WARNING_MESSAGES.has(message)) {
+          dispatch(
+            setLocalVideoEnabled({
+              sessionId,
+              enabled: false,
+            }),
+          );
+        }
+
         toast.info(message);
       },
       onError: (message, sessionId) => {

@@ -138,7 +138,7 @@ export function CallWindow({
       accountId: participant.account.accountId,
       fullName: participant.account.fullName || participant.account.username,
       avatar: participant.account.avatar ?? null,
-      subtitle: isCurrentUser ? 'Bạn' : mediaState.audioActive ? 'Âm thanh bình thường' : 'Đang tham gia',
+      subtitle: isCurrentUser ? 'Bạn' : 'Đang tham gia',
       audioEnabled: mediaState.audioActive,
       videoEnabled: mediaState.videoActive,
     };

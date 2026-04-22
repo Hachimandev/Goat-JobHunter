@@ -48,9 +48,7 @@ export function CallParticipantCard({
           <div className="flex flex-col items-center justify-center gap-4 px-6 py-8 text-center">
             <Avatar className="size-20 border-2 border-border md:size-24">
               <AvatarImage src={avatar || '/placeholder.svg'} alt={fullName} />
-              <AvatarFallback>
-                {fullName.trim().charAt(0) || <UserRound className="h-8 w-8" />}
-              </AvatarFallback>
+              <AvatarFallback>{fullName.trim().charAt(0) || <UserRound className="h-8 w-8" />}</AvatarFallback>
             </Avatar>
           </div>
         )}
@@ -78,12 +76,20 @@ export function CallParticipantCard({
 
         <div className="flex flex-wrap gap-2">
           <Badge variant="outline" className="rounded-full px-3 py-1 text-xs">
-            {videoEnabled ? <Camera className="mr-1.5 h-3.5 w-3.5 text-primary" /> : <CameraOff className="mr-1.5 h-3.5 w-3.5 text-muted-foreground" />}
+            {videoEnabled ? (
+              <Camera className="mr-1.5 h-3.5 w-3.5 text-primary" />
+            ) : (
+              <CameraOff className="mr-1.5 h-3.5 w-3.5 text-muted-foreground" />
+            )}
             {videoEnabled ? 'Video đang phát' : 'Chưa bật camera'}
           </Badge>
 
           <Badge variant="outline" className="rounded-full px-3 py-1 text-xs">
-            {audioEnabled ? <Mic className="mr-1.5 h-3.5 w-3.5 text-primary" /> : <MicOff className="mr-1.5 h-3.5 w-3.5 text-muted-foreground" />}
+            {audioEnabled ? (
+              <Mic className="mr-1.5 h-3.5 w-3.5 text-primary" />
+            ) : (
+              <MicOff className="mr-1.5 h-3.5 w-3.5 text-muted-foreground" />
+            )}
             {audioEnabled ? 'Âm thanh bình thường' : 'Không có âm thanh'}
           </Badge>
         </div>
