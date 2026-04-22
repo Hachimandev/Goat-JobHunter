@@ -337,6 +337,12 @@ const useCallRoomActions = () => {
     }
 
     try {
+      await endCall({
+        chatRoomId: incomingCall.chatRoomId,
+        sessionId: incomingCall.sessionId,
+        reason: CallEndReasonEnum.NO_ANSWER,
+      }).unwrap();
+
       await cleanupRtcSession();
       dispatch(dismissIncomingCall());
       toast('Đã từ chối cuộc gọi.');
@@ -344,7 +350,7 @@ const useCallRoomActions = () => {
       console.error('Failed to decline call:', error);
       toast.error('Không thể từ chối cuộc gọi.');
     }
-  }, [cleanupRtcSession, dispatch, incomingCall]);
+  }, [cleanupRtcSession, dispatch, endCall, incomingCall]);
 
   const handleEndCall = useCallback(async () => {
     if (!currentCall) {
@@ -418,7 +424,7 @@ const useCallRoomActions = () => {
     isRtcReady,
     isInitiatingCall,
     isAcceptingCall,
-    isDecliningCall: isLeavingCall,
+    isDecliningCall: isLeavingCall || isEndingCall,
     isEndingCall,
     handleStartCall,
     handleAcceptIncomingCall,
