@@ -20,7 +20,7 @@ interface UpdateMemberRoleRequest {
   role: ChatRole;
 }
 
-type ChatRole = "OWNER" | "MODERATOR" | "MEMBER";
+export type ChatRole = "OWNER" | "MODERATOR" | "MEMBER";
 
 interface ChatRoomResponse {
   aiModel: string | null;
@@ -53,96 +53,117 @@ export const groupChatApi = api
   })
   .injectEndpoints({
     endpoints: (builder) => ({
-    createGroupChat: builder.mutation<IBackendRes<ChatRoomResponse>, CreateGroupChatRequest>({
-      query: (data) => ({
-        url: "/chatrooms/group",
-        method: "POST",
-        data
+      createGroupChat: builder.mutation<
+        IBackendRes<ChatRoomResponse>,
+        CreateGroupChatRequest
+      >({
+        query: (data) => ({
+          url: "/chatrooms/group",
+          method: "POST",
+          data,
+        }),
+        invalidatesTags: ["ChatRoom"],
       }),
-      invalidatesTags: ["ChatRoom"]
-    }),
 
-    updateGroupInfo: builder.mutation<IBackendRes<ChatRoomResponse>, { chatroomId: string } & UpdateGroupInfoRequest>({
-      query: ({ chatroomId, ...data }) => ({
-        url: `/chatrooms/group/${chatroomId}`,
-        method: "PUT",
-        data
+      updateGroupInfo: builder.mutation<
+        IBackendRes<ChatRoomResponse>,
+        { chatroomId: string } & UpdateGroupInfoRequest
+      >({
+        query: ({ chatroomId, ...data }) => ({
+          url: `/chatrooms/group/${chatroomId}`,
+          method: "PUT",
+          data,
+        }),
+        invalidatesTags: (result, error, { chatroomId }) => [
+          { type: "ChatRoom", id: chatroomId },
+        ],
       }),
-      invalidatesTags: (result, error, { chatroomId }) => [
-        { type: "ChatRoom", id: chatroomId }
-      ]
-    }),
 
-    leaveGroupChat: builder.mutation<void, string>({
-      query: (chatroomId) => ({
-        url: `/chatrooms/group/${chatroomId}`,
-        method: "DELETE"
+      leaveGroupChat: builder.mutation<void, string>({
+        query: (chatroomId) => ({
+          url: `/chatrooms/group/${chatroomId}`,
+          method: "DELETE",
+        }),
+        invalidatesTags: (result, error, chatroomId) => [
+          { type: "ChatRoom", id: chatroomId },
+        ],
       }),
-      invalidatesTags: (result, error, chatroomId) => [
-        { type: "ChatRoom", id: chatroomId }
-      ]
-    }),
 
-    getMemberInGroupChat: builder.query<IBackendRes<ChatMemberResponse[]>, number>({
-      query: (chatroomId) => ({
-        url: `/chatrooms/group/${chatroomId}/members`,
-        method: "GET"
+      getMemberInGroupChat: builder.query<
+        IBackendRes<ChatMemberResponse[]>,
+        number
+      >({
+        query: (chatroomId) => ({
+          url: `/chatrooms/group/${chatroomId}/members`,
+          method: "GET",
+        }),
+        providesTags: (result, error, chatroomId) => [
+          { type: "ChatMember", id: chatroomId },
+        ],
       }),
-      providesTags: (result, error, chatroomId) => [
-        { type: "ChatMember", id: chatroomId }
-      ]
-    }),
 
-    addMemberToGroup: builder.mutation<IBackendRes<ChatMemberResponse>, { chatroomId: string } & AddMemberRequest>({
-      query: ({ chatroomId, ...data }) => ({
-        url: `/chatrooms/group/${chatroomId}/member`,
-        method: "POST",
-        data
+      addMemberToGroup: builder.mutation<
+        IBackendRes<ChatMemberResponse>,
+        { chatroomId: string } & AddMemberRequest
+      >({
+        query: ({ chatroomId, ...data }) => ({
+          url: `/chatrooms/group/${chatroomId}/member`,
+          method: "POST",
+          data,
+        }),
+        invalidatesTags: (result, error, { chatroomId }) => [
+          { type: "ChatRoom", id: chatroomId },
+          { type: "ChatMember" },
+        ],
       }),
-      invalidatesTags: (result, error, { chatroomId }) => [
-        { type: "ChatRoom", id: chatroomId },
-        { type: "ChatMember" }
-      ]
-    }),
 
-    removeMemberFromGroup: builder.mutation<void, { chatroomId: string; chatMemberId: string }>({
-      query: ({ chatroomId, chatMemberId }) => ({
-        url: `/chatrooms/group/${chatroomId}/member/${chatMemberId}`,
-        method: "DELETE"
+      removeMemberFromGroup: builder.mutation<
+        void,
+        { chatroomId: string; chatMemberId: string }
+      >({
+        query: ({ chatroomId, chatMemberId }) => ({
+          url: `/chatrooms/group/${chatroomId}/member/${chatMemberId}`,
+          method: "DELETE",
+        }),
+        invalidatesTags: (result, error, { chatroomId, chatMemberId }) => [
+          { type: "ChatRoom", id: chatroomId },
+          { type: "ChatMember", id: chatMemberId },
+        ],
       }),
-      invalidatesTags: (result, error, { chatroomId, chatMemberId }) => [
-        { type: "ChatRoom", id: chatroomId },
-        { type: "ChatMember", id: chatMemberId }
-      ]
-    }),
 
-    updateMemberRole: builder.mutation<IBackendRes<ChatMemberResponse>, {
-      chatroomId: string;
-      chatMemberId: string
-    } & UpdateMemberRoleRequest>({
-      query: ({ chatroomId, chatMemberId, ...data }) => ({
-        url: `/chatrooms/group/${chatroomId}/member/${chatMemberId}`,
-        method: "PUT",
-        data
+      updateMemberRole: builder.mutation<
+        IBackendRes<ChatMemberResponse>,
+        {
+          chatroomId: string;
+          chatMemberId: string;
+        } & UpdateMemberRoleRequest
+      >({
+        query: ({ chatroomId, chatMemberId, ...data }) => ({
+          url: `/chatrooms/group/${chatroomId}/member/${chatMemberId}`,
+          method: "PUT",
+          data,
+        }),
+        invalidatesTags: (result, error, { chatroomId, chatMemberId }) => [
+          { type: "ChatRoom", id: chatroomId },
+          { type: "ChatMember", id: chatMemberId },
+        ],
       }),
-      invalidatesTags: (result, error, { chatroomId, chatMemberId }) => [
-        { type: "ChatRoom", id: chatroomId },
-        { type: "ChatMember", id: chatMemberId }
-      ]
-    }),
 
-    dissolveGroupChat: builder.mutation<void, { chatRoomId: number; groupNameConfirmation: string }>({
-      query: ({ chatRoomId, groupNameConfirmation }) => ({
-        url: `/chatrooms/group/${chatRoomId}/dissolve`,
-        method: "DELETE",
-        params: { groupNameConfirmation }
+      dissolveGroupChat: builder.mutation<
+        void,
+        { chatRoomId: number; groupNameConfirmation: string }
+      >({
+        query: ({ chatRoomId, groupNameConfirmation }) => ({
+          url: `/chatrooms/group/${chatRoomId}/dissolve`,
+          method: "DELETE",
+          params: { groupNameConfirmation },
+        }),
+        invalidatesTags: (result, error, { chatRoomId }) => [
+          { type: "ChatRoom", id: chatRoomId },
+        ],
       }),
-      invalidatesTags: (result, error, { chatRoomId }) => [
-        { type: "ChatRoom", id: chatRoomId }
-      ]
-    })
-  })
-});
+    }),
+  });
 
 export const {
   useCreateGroupChatMutation,
@@ -152,5 +173,5 @@ export const {
   useAddMemberToGroupMutation,
   useRemoveMemberFromGroupMutation,
   useUpdateMemberRoleMutation,
-  useDissolveGroupChatMutation
+  useDissolveGroupChatMutation,
 } = groupChatApi;
