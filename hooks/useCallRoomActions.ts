@@ -304,36 +304,44 @@ const useCallRoomActions = () => {
     [dispatch, hydrateCallWithToken, isSignedIn, resolvePublisherFlag, startCall],
   );
 
+  const handleJoinCallSession = useCallback(
+    async (chatRoomId: number, sessionId: number, callType: CallTypeEnum = CallTypeEnum.VOICE) => {
+      try {
+        const response = await joinCall({
+          chatRoomId,
+          sessionId,
+          publisher: true,
+          callType,
+        }).unwrap();
+
+        if (response.data) {
+          const hydratedCall = await hydrateCallWithToken(response.data, callType);
+          dispatch(setCurrentCall(hydratedCall));
+        }
+
+        dispatch(dismissIncomingCall());
+        toast.success('Bạn đã tham gia cuộc gọi.');
+        return response.data ?? null;
+      } catch (error) {
+        console.error('Failed to join call session:', error);
+        toast.error('Không thể tham gia cuộc gọi.');
+        return null;
+      }
+    },
+    [dispatch, hydrateCallWithToken, joinCall],
+  );
+
   const handleAcceptIncomingCall = useCallback(async () => {
     if (!incomingCall) {
       return null;
     }
 
-    try {
-      const response = await joinCall({
-        chatRoomId: incomingCall.chatRoomId,
-        sessionId: incomingCall.sessionId,
-        publisher: true,
-        callType: incomingCall.session?.callType,
-      }).unwrap();
-
-      if (response.data) {
-        const hydratedCall = await hydrateCallWithToken(
-          response.data,
-          incomingCall.session?.callType ?? CallTypeEnum.VOICE,
-        );
-        dispatch(setCurrentCall(hydratedCall));
-      }
-
-      dispatch(dismissIncomingCall());
-      toast.success('Bạn đã tham gia cuộc gọi.');
-      return response.data ?? null;
-    } catch (error) {
-      console.error('Failed to accept call:', error);
-      toast.error('Không thể tham gia cuộc gọi.');
-      return null;
-    }
-  }, [dispatch, hydrateCallWithToken, incomingCall, joinCall]);
+    return await handleJoinCallSession(
+      incomingCall.chatRoomId,
+      incomingCall.sessionId,
+      incomingCall.session?.callType ?? CallTypeEnum.VOICE,
+    );
+  }, [handleJoinCallSession, incomingCall]);
 
   const handleDeclineIncomingCall = useCallback(async () => {
     if (!incomingCall) {
@@ -432,6 +440,7 @@ const useCallRoomActions = () => {
     isEndingCall,
     handleStartCall,
     handleAcceptIncomingCall,
+    handleJoinCallSession,
     handleDeclineIncomingCall,
     handleEndCall,
     handleLeaveCall,

@@ -5,14 +5,16 @@ import { ForwardMessageModal } from '@/app/(chat)/messages/components/ForwardMes
 import { usePaginatedChatMessages } from '@/app/(chat)/messages/hooks/usePaginatedChatMessages';
 import { useParams } from 'next/navigation';
 import { useFetchChatRoomsByIdQuery } from '@/services/chatRoom/chatRoomApi';
+import { useGetCurrentCallQuery } from '@/services/chatRoom/call/callApi';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useUser } from '@/hooks/useUser';
 import useChatRoomAndMessageActions from '@/hooks/useChatRoomAndMessageActions';
-import { MessageResponse, PinnedMessage } from '@/types/model';
-import { CallTypeEnum, ChatRoomType } from '@/types/enum';
+import { CallSession, MessageResponse, PinnedMessage } from '@/types/model';
+import { CallStatusEnum, CallTypeEnum, ChatRoomType } from '@/types/enum';
 import { subscribeToChatRoom } from '@/services/chatRoom/message/messageApi';
 import { useAppSelector } from '@/lib/hooks';
 import { selectLastFriendshipRealtimeEventAt } from '@/lib/features/friendshipSlice';
+import { selectLastCallRealtimeEventAt } from '@/lib/features/callSlice';
 import {
   usePinMessageMutation,
   useUnpinMessageMutation,
@@ -31,11 +33,14 @@ export default function ChatRoomPage() {
   const isInvalidChatRoomId = !chatRoomId || Number.isNaN(parsedChatRoomId);
   const { user } = useUser();
   const lastFriendshipRealtimeEventAt = useAppSelector(selectLastFriendshipRealtimeEventAt);
+  const lastCallRealtimeEventAt = useAppSelector(selectLastCallRealtimeEventAt);
   const [forwardMessage, setForwardMessage] = useState<MessageResponse | null>(null);
   const [replyMessage, setReplyMessage] = useState<MessageResponse | null>(null);
   const [forwardModalOpen, setForwardModalOpen] = useState(false);
   const [pinnedMessageIds, setPinnedMessageIds] = useState<Set<string>>(new Set());
   const [pinningMessageIds, setPinningMessageIds] = useState<Set<string>>(new Set());
+  const [isJoiningOngoingCall, setIsJoiningOngoingCall] = useState(false);
+  const [ongoingGroupCall, setOngoingGroupCall] = useState<CallSession | null>(null);
 
   const {
     handleSendMessage,
@@ -65,6 +70,7 @@ export default function ChatRoomPage() {
     handleStartCall,
     handleEndCall,
     handleLeaveCall,
+    handleJoinCallSession,
     handleToggleLocalAudio,
     handleToggleLocalVideo,
     bindRtcContainers,
@@ -112,6 +118,55 @@ export default function ChatRoomPage() {
     return chatRoomsData?.data || null;
   }, [chatRoomsData]);
 
+  const {
+    data: ongoingCallData,
+    isFetching: isFetchingOngoingCall,
+    isError: isOngoingCallError,
+    refetch: refetchOngoingCall,
+  } = useGetCurrentCallQuery(
+    { chatRoomId: parsedChatRoomId },
+    {
+      skip: isInvalidChatRoomId || currentChatRoom?.type !== ChatRoomType.GROUP,
+      pollingInterval: 10000,
+      refetchOnFocus: true,
+      refetchOnReconnect: true,
+    },
+  );
+
+  useEffect(() => {
+    if (currentChatRoom?.type !== ChatRoomType.GROUP) {
+      setOngoingGroupCall(null);
+      return;
+    }
+
+    if (ongoingCallData?.data) {
+      setOngoingGroupCall(ongoingCallData.data);
+      return;
+    }
+
+    if (isOngoingCallError) {
+      setOngoingGroupCall(null);
+    }
+  }, [currentChatRoom?.type, isOngoingCallError, ongoingCallData]);
+
+  useEffect(() => {
+    if (currentChatRoom?.type !== ChatRoomType.GROUP || !lastCallRealtimeEventAt) {
+      return;
+    }
+
+    void refetchOngoingCall();
+  }, [currentChatRoom?.type, lastCallRealtimeEventAt, refetchOngoingCall]);
+
+  useEffect(() => {
+    if (!ongoingGroupCall) {
+      return;
+    }
+
+    if (ongoingGroupCall.status === CallStatusEnum.ENDED || ongoingGroupCall.status === CallStatusEnum.CANCELLED) {
+      setOngoingGroupCall(null);
+    }
+  }, [ongoingGroupCall]);
+
   const isDirectBlocked = currentChatRoom?.type === ChatRoomType.DIRECT && Boolean(currentChatRoom?.blocked);
   const isBlockedByMe = isDirectBlocked && Boolean(currentChatRoom?.blockedByMe);
   const blockedReason = isBlockedByMe
@@ -126,6 +181,16 @@ export default function ChatRoomPage() {
       ),
     );
   const isGroupCall = currentChatRoom?.type === ChatRoomType.GROUP;
+  const isCurrentUserInOngoingGroupCall =
+    Boolean(ongoingGroupCall) &&
+    typeof user?.accountId === 'number' &&
+    Boolean(
+      ongoingGroupCall?.participants.some(
+        (participant) => participant.account.accountId === user.accountId && !participant.leftAt,
+      ),
+    );
+  const canJoinOngoingGroupCall =
+    isGroupCall && Boolean(ongoingGroupCall) && !isCurrentUserInOngoingGroupCall && !canRenderCallWindow;
   const canCurrentUserEndCall = Boolean(!isGroupCall || currentCall?.initiatorAccountId === user?.accountId);
   const isClosingCall = canCurrentUserEndCall ? isEndingCall : isLeavingCall;
 
@@ -137,6 +202,23 @@ export default function ChatRoomPage() {
 
     await handleLeaveCall();
   }, [canCurrentUserEndCall, handleEndCall, handleLeaveCall]);
+
+  const handleJoinOngoingGroupCall = useCallback(async () => {
+    if (!ongoingGroupCall || isJoiningOngoingCall) {
+      return;
+    }
+
+    setIsJoiningOngoingCall(true);
+    try {
+      await handleJoinCallSession(
+        ongoingGroupCall.chatRoomId,
+        ongoingGroupCall.sessionId,
+        ongoingGroupCall.callType ?? CallTypeEnum.VOICE,
+      );
+    } finally {
+      setIsJoiningOngoingCall(false);
+    }
+  }, [handleJoinCallSession, isJoiningOngoingCall, ongoingGroupCall]);
 
   const handleNavigateToMessage = useCallback((targetMessageId: string) => {
     if (!targetMessageId) return;
@@ -381,6 +463,16 @@ export default function ChatRoomPage() {
         }}
         onStartVideoCall={async () => {
           await handleStartCall(parsedChatRoomId, CallTypeEnum.VIDEO);
+        }}
+        showOngoingCallInfo={isGroupCall && Boolean(ongoingGroupCall)}
+        callSession={ongoingGroupCall}
+        ongoingParticipantsCount={
+          ongoingGroupCall?.participants.filter((participant) => !participant.leftAt).length ?? 0
+        }
+        canJoinOngoingCall={canJoinOngoingGroupCall}
+        isJoiningOngoingCall={isJoiningOngoingCall || isFetchingOngoingCall}
+        onJoinOngoingCall={() => {
+          void handleJoinOngoingGroupCall();
         }}
       />
 

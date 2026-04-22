@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { CallStatusEnum, CallTypeEnum, ChatRoomType } from '@/types/enum';
 import { CallSession } from '@/types/model';
-import { Dot, Mic, MicOff, PhoneOff, Video, VideoOff } from 'lucide-react';
+import { DoorOpen, Dot, Mic, MicOff, PhoneOff, Video, VideoOff } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 type CallWindowProps = {
@@ -243,7 +243,7 @@ export function CallWindow({
             void handleCloseCallAction();
           }}
         >
-          <PhoneOff className="h-5 w-5" />
+          {canCurrentUserEndCall ? <PhoneOff className="h-5 w-5" /> : <DoorOpen className="h-5 w-5" />}
         </Button>
       </div>
     </div>
