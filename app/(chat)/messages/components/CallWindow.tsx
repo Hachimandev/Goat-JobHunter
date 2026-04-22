@@ -1,10 +1,12 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { Button } from '@/components/ui/button';
-import { CallStatusEnum, CallTypeEnum } from '@/types/enum';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { CallStatusEnum, CallTypeEnum, ChatRoomType } from '@/types/enum';
 import { CallSession } from '@/types/model';
-import { Mic, MicOff, PhoneOff, Video, VideoOff } from 'lucide-react';
+import { Dot, Mic, MicOff, PhoneOff, Video, VideoOff } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 type CallWindowProps = {
   currentCall: CallSession;
@@ -14,6 +16,10 @@ type CallWindowProps = {
   localVideoEnabled: boolean;
   remoteAudioActive: boolean;
   remoteVideoActive: boolean;
+  currentUserId: number;
+  chatRoomType: ChatRoomType;
+  chatRoomName: string;
+  chatRoomAvatar?: string | null;
   isEndingCall: boolean;
   canCurrentUserEndCall: boolean;
   handleCloseCallAction: () => Promise<void> | void;
@@ -33,6 +39,10 @@ export function CallWindow({
   localVideoEnabled,
   remoteAudioActive,
   remoteVideoActive,
+  currentUserId,
+  chatRoomType,
+  chatRoomName,
+  chatRoomAvatar,
   isEndingCall,
   canCurrentUserEndCall,
   handleCloseCallAction,
@@ -55,35 +65,77 @@ export function CallWindow({
     });
   }, [bindRtcContainers, currentCall]);
 
-  const statusLabel =
-    currentCall.status === CallStatusEnum.PENDING
-      ? 'Đang chờ tham gia'
-      : currentCall.status === CallStatusEnum.ACTIVE
-        ? 'Đang trong cuộc gọi'
-        : currentCall.status === CallStatusEnum.ENDED
-          ? 'Cuộc gọi đã kết thúc'
-          : currentCall.status === CallStatusEnum.CANCELLED
-            ? 'Cuộc gọi đã hủy'
-            : 'Đang xử lý';
+  const { statusLabel, iconDotColor } = useMemo(() => {
+    switch (currentCall.status) {
+      case CallStatusEnum.PENDING: {
+        return { statusLabel: 'Đang chờ tham gia', iconDotColor: 'bg-amber-400' };
+      }
+      case CallStatusEnum.ACTIVE: {
+        return { statusLabel: 'Đang trong cuộc gọi', iconDotColor: 'bg-green-500' };
+      }
+      case CallStatusEnum.ENDED: {
+        return { statusLabel: 'Cuộc gọi đã kết thúc', iconDotColor: 'bg-gray-500' };
+      }
+      case CallStatusEnum.CANCELLED: {
+        return { statusLabel: 'Cuộc gọi đã hủy', iconDotColor: 'bg-red-500' };
+      }
+      default: {
+        return { statusLabel: 'Đang xử lý', iconDotColor: 'bg-blue-500' };
+      }
+    }
+  }, [currentCall.status]);
 
   const showVideoLayout = (currentCall.callType ?? CallTypeEnum.VOICE) === CallTypeEnum.VIDEO;
   const joinedParticipants = currentCall.participants.filter((participant) => !participant.leftAt);
+  const sortedJoinedParticipants = [...joinedParticipants].sort((firstParticipant, secondParticipant) => {
+    if (firstParticipant.account.accountId === currentUserId) {
+      return -1;
+    }
+
+    if (secondParticipant.account.accountId === currentUserId) {
+      return 1;
+    }
+
+    return (firstParticipant.account.fullName || firstParticipant.account.username).localeCompare(
+      secondParticipant.account.fullName || secondParticipant.account.username,
+    );
+  });
+  const currentUserInCall = sortedJoinedParticipants.some(
+    (participant) => participant.account.accountId === currentUserId,
+  );
+
+  const voiceTiles =
+    chatRoomType === ChatRoomType.DIRECT && sortedJoinedParticipants.length === 1
+      ? [
+          {
+            key: `${sortedJoinedParticipants[0].account.accountId}`,
+            fullName: sortedJoinedParticipants[0].account.fullName || sortedJoinedParticipants[0].account.username,
+            avatar: sortedJoinedParticipants[0].account.avatar ?? null,
+            subtitle: 'Bạn',
+          },
+          {
+            key: 'direct-counterpart-placeholder',
+            fullName: chatRoomName,
+            avatar: chatRoomAvatar ?? null,
+            subtitle: 'Đang đổ chuông...',
+          },
+        ]
+      : sortedJoinedParticipants.map((participant) => ({
+          key: `${participant.account.accountId}`,
+          fullName: participant.account.fullName || participant.account.username,
+          avatar: participant.account.avatar ?? null,
+          subtitle: participant.account.accountId === currentUserId ? 'Bạn' : 'Đang tham gia',
+        }));
 
   return (
     <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex flex-col">
       <div className="flex items-center justify-between px-5 py-4 border-b border-white/15 text-white">
         <div>
-          <p className="text-sm font-medium">Cuộc gọi đang diễn ra</p>
-          <p className="text-xs text-white/70">
-            {statusLabel} · {rtcConnectionState}
+          <p className="text-sm font-medium">
+            Cuộc gọi đang diễn ra <Dot className={cn('h-3 w-3 rounded-full inline-block ml-2', iconDotColor)} />
           </p>
-          <p className="text-xs text-white/60 mt-1">
-            Đang tham gia ({joinedParticipants.length}):{' '}
-            {joinedParticipants.length > 0
-              ? joinedParticipants
-                  .map((participant) => participant.account.fullName || participant.account.username)
-                  .join(', ')
-              : 'Chưa có thành viên'}
+          <p className="text-xs text-white/70 mt-1">
+            {statusLabel} · {rtcConnectionState}
           </p>
         </div>
       </div>
@@ -109,8 +161,43 @@ export function CallWindow({
             </div>
           </div>
         ) : (
-          <div className="h-full rounded-2xl bg-zinc-900 border border-white/10 flex items-center justify-center text-white/75">
-            {remoteAudioActive ? 'Đang kết nối âm thanh với đối phương' : 'Đang chờ đối phương tham gia âm thanh...'}
+          <div className="h-full rounded-2xl bg-zinc-900 border border-white/10 p-4 pb-9!">
+            <div
+              className={cn(
+                'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 h-full auto-rows-fr',
+                voiceTiles.length === 2 && 'grid-cols-2!',
+              )}
+            >
+              {voiceTiles.map((voiceTile) => (
+                <div
+                  key={voiceTile.key}
+                  className="rounded-2xl border border-white/10 bg-zinc-800/70 p-4 flex flex-col items-center justify-center text-center gap-3"
+                >
+                  <Avatar className="h-20 w-20 md:h-24 md:w-24 border-2 border-white/20">
+                    <AvatarImage src={voiceTile.avatar || '/placeholder.svg'} alt={voiceTile.fullName} />
+                    <AvatarFallback>{voiceTile.fullName.charAt(0)}</AvatarFallback>
+                  </Avatar>
+                  <div>
+                    <p className="text-sm md:text-base font-semibold text-white">{voiceTile.fullName}</p>
+                    <p className="text-xs text-white/70 mt-1">{voiceTile.subtitle}</p>
+                  </div>
+                </div>
+              ))}
+
+              {!currentUserInCall && (
+                <div className="rounded-2xl border border-amber-300/40 bg-amber-500/10 p-4 flex items-center justify-center text-center text-amber-100 text-sm">
+                  Chờ xác nhận tham gia cuộc gọi...
+                </div>
+              )}
+
+              {voiceTiles.length === 0 && (
+                <div className="rounded-2xl border border-white/10 bg-zinc-800/70 p-4 flex items-center justify-center text-center text-white/70 text-sm">
+                  Đang chờ thành viên tham gia...
+                </div>
+              )}
+            </div>
+
+            {remoteAudioActive && <p className="text-center text-xs text-emerald-200 mt-3">Âm thanh đã kết nối</p>}
           </div>
         )}
       </div>

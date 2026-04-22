@@ -402,6 +402,10 @@ export default function ChatRoomPage() {
           localVideoEnabled={localVideoEnabled}
           remoteAudioActive={remoteAudioActive}
           remoteVideoActive={remoteVideoActive}
+          currentUserId={user.accountId}
+          chatRoomType={currentChatRoom.type}
+          chatRoomName={currentChatRoom.name}
+          chatRoomAvatar={currentChatRoom.avatar}
           isEndingCall={isClosingCall}
           canCurrentUserEndCall={canCurrentUserEndCall}
           handleCloseCallAction={handleCloseCallAction}
