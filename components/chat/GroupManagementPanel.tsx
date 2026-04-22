@@ -20,6 +20,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { CreatePollModal } from "./CreatePollModal";
 import { MemberInfoModal } from "./MemberInfoModal";
 
 interface GroupManagementPanelProps {
@@ -43,6 +44,7 @@ export const GroupManagementPanel = ({
   const { data: membersData, refetch } = useGetMemberInGroupChatQuery(groupId);
   const { handleRemoveMember } = useRemoveMember(refetch);
   const { handleUpdateRole: callUpdateRoleApi } = useUpdateMemberRole(refetch);
+  const [isPollModalVisible, setPollModalVisible] = useState(false);
 
   const members = membersData?.data || [];
 
@@ -206,6 +208,19 @@ export const GroupManagementPanel = ({
           <Text style={styles.sectionTitle}>Tác vụ</Text>
           <TouchableOpacity
             style={styles.actionButton}
+            onPress={() => setPollModalVisible(true)}
+          >
+            <MaterialCommunityIcons
+              name="chart-bar"
+              size={20}
+              color="#0084FF"
+            />
+            <Text style={[styles.actionButtonText, { color: "#000" }]}>
+              Tạo bình chọn
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.actionButton}
             onPress={onHandleLeaveGroup}
           >
             <Feather name="log-out" size={18} color="#FF3B30" />
@@ -227,6 +242,11 @@ export const GroupManagementPanel = ({
           )}
         </View>
       </ScrollView>
+      <CreatePollModal
+        visible={isPollModalVisible}
+        onClose={() => setPollModalVisible(false)}
+        chatRoomId={groupId}
+      />
       <MemberInfoModal
         ref={bottomSheetRef}
         member={selectedMember}
