@@ -7,10 +7,11 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Plus, Trash2 } from 'lucide-react';
-import { DatePicker } from '@/components/ui/example-date-picker';
+import { DatePicker } from 'antd';
 import { useCreatePollMutation } from '@/services/poll/pollApi';
 import { toast } from 'sonner';
 import { IBackendError } from '@/types/api';
+import dayjs from 'dayjs';
 
 interface CreatePollDialogProps {
   open: boolean;
@@ -21,7 +22,7 @@ interface CreatePollDialogProps {
 export default function CreatePollDialog({ open, onOpenChange, chatRoomId }: Readonly<CreatePollDialogProps>) {
   const [title, setTitle] = useState('');
   const [options, setOptions] = useState<string[]>(['', '']);
-  const [deadline, setDeadline] = useState<Date | undefined>(undefined);
+  const [deadline, setDeadline] = useState<dayjs.Dayjs | null>(null);
   const [pinToTop, setPinToTop] = useState(false);
   const [allowMultiple, setAllowMultiple] = useState(false);
   const [allowAddOption, setAllowAddOption] = useState(true);
@@ -57,6 +58,13 @@ export default function CreatePollDialog({ open, onOpenChange, chatRoomId }: Rea
 
       await createPoll(payload).unwrap();
       toast.success('Tạo bình chọn thành công');
+
+      setTitle('');
+      setOptions(['', '']);
+      setDeadline(null);
+      setPinToTop(false);
+      setAllowMultiple(false);
+      setAllowAddOption(true);
       onOpenChange(false);
     } catch (error: unknown) {
       const err = error as IBackendError;
@@ -137,7 +145,12 @@ export default function CreatePollDialog({ open, onOpenChange, chatRoomId }: Rea
             <div className="h-40">
               <label className="text-sm font-bold text-primary">Thời hạn bình chọn</label>
               <div className="mt-2">
-                <DatePicker value={deadline} onChange={setDeadline} placeholder="Không thời hạn" />
+                <DatePicker
+                  value={deadline}
+                  onChange={(value) => setDeadline(value)}
+                  placeholder="Không thời hạn"
+                  showTime
+                />
               </div>
             </div>
 

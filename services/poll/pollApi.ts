@@ -1,5 +1,7 @@
 import { api } from '@/services/api';
 import {
+  AddOptionRequest,
+  AddOptionResponse,
   ClosePollRequest,
   ClosePollResponse,
   CreatePollRequest,
@@ -43,6 +45,20 @@ export const pollApi = api.injectEndpoints({
       invalidatesTags: (_, __, { chatRoomId }) => [{ type: 'ChatRoom', id: `POLL_${chatRoomId}_${chatRoomId}` }],
     }),
 
+    addOptions: builder.mutation<AddOptionResponse, AddOptionRequest>({
+      query: ({ chatRoomId, ...data }) => {
+        return {
+          url: `/chatrooms/${chatRoomId}/polls/add-option`,
+          method: 'POST',
+          data: data,
+        };
+      },
+      invalidatesTags: (_, __, { chatRoomId, pollId }) => [
+        { type: 'ChatRoom', id: `POLL_${chatRoomId}_${chatRoomId}` },
+        { type: 'Poll', id: `POLL_${pollId}` },
+      ],
+    }),
+
     closePoll: builder.mutation<ClosePollResponse, ClosePollRequest>({
       query: ({ chatRoomId, ...data }) => {
         return {
@@ -63,5 +79,6 @@ export const {
   useFetchPollsInChatRoomQuery,
   useFetchPollByIdInChatRoomQuery,
   useCreatePollMutation,
+  useAddOptionsMutation,
   useClosePollMutation,
 } = pollApi;

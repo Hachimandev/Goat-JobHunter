@@ -5,20 +5,20 @@ import { format, isBefore, isToday, isTomorrow } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Poll } from '@/types/model';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { toast } from 'sonner';
 import { useVotePollMutation, useFetchVotesForPollQuery } from '@/services/poll/vote/voteApi';
 import { usePinMessageMutation } from '@/services/chatRoom/pinned_message/pinnedMessageApi';
 import { IBackendError } from '@/types/api';
-import { Settings, Loader2 } from 'lucide-react';
+import { Settings, Loader2, X } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { useUser } from '@/hooks/useUser';
 import { isCompanyResponse } from '@/utils/slug';
 import { CompanyResponse, MeResponse, UserResponse } from '@/types/dto';
-import { useClosePollMutation } from '@/services/poll/pollApi';
+import { useAddOptionsMutation, useClosePollMutation } from '@/services/poll/pollApi';
+import { text } from 'stream/consumers';
 
 interface PollVoteDialogProps {
   open: boolean;
@@ -45,7 +45,7 @@ export default function PollVoteDialog({ open, onOpenChange, poll }: Readonly<Po
 
   const [selectedSingle, setSelectedSingle] = useState<string | undefined>(undefined);
   const [selectedMulti, setSelectedMulti] = useState<Record<string, boolean>>({});
-  const [addingOption, setAddingOption] = useState('');
+  const [newOptions, setNewOptions] = useState<{ id: string; text: string }[]>([]);
   const [pollMenuOpen, setPollMenuOpen] = useState(false);
 
   useEffect(() => {
@@ -65,22 +65,29 @@ export default function PollVoteDialog({ open, onOpenChange, poll }: Readonly<Po
       setSelectedSingle(votedOption?.optionId);
     }
 
-    setAddingOption('');
+    setNewOptions([]);
   }, [open, poll.multipleChoice, poll.options]);
 
   const handleToggleMulti = (optId: string, checked: boolean) => {
     setSelectedMulti((prev) => ({ ...prev, [optId]: checked }));
   };
 
-  const handleAddOption = () => {
-    if (!addingOption.trim()) return;
-    toast.success('Yêu cầu thêm phương án đã được ghi nhận (chưa gửi server)');
-    setAddingOption('');
+  const handleRemoveNewOption = (optionId: string) => {
+    setNewOptions((prev) => prev.filter((o) => o.id !== optionId));
+    setSelectedMulti((prev) => {
+      const copy = { ...prev };
+      delete copy[optionId];
+      return copy;
+    });
+    if (selectedSingle === optionId) {
+      setSelectedSingle(undefined);
+    }
   };
 
   const [votePoll, { isLoading: isVoting }] = useVotePollMutation();
   const [pinMessage, { isLoading: isPinning }] = usePinMessageMutation();
   const [closePoll, { isLoading: isClosing }] = useClosePollMutation();
+  const [addOptions, { isLoading: isAddingOptions }] = useAddOptionsMutation();
 
   const { data: votesData } = useFetchVotesForPollQuery(
     { chatRoomId: poll.chatRoomId, pollId: poll.pollId },
@@ -123,6 +130,27 @@ export default function PollVoteDialog({ open, onOpenChange, poll }: Readonly<Po
   }, [totalVotes, selectedSingle, selectedMulti, poll.options, poll.multipleChoice]);
 
   const handleConfirm = async () => {
+    const texts = newOptions.map((o) => o.text.trim()).filter((text) => text.length > 0);
+    if (texts.length > 0) {
+      await handleAddOptions(texts);
+      return;
+    }
+    await handleVote();
+  };
+
+  const handleAddOptions = async (texts: string[]) => {
+    try {
+      await addOptions({ chatRoomId: Number(poll.chatRoomId), pollId: poll.pollId, texts: texts }).unwrap();
+      toast.success('Thêm lựa chọn thành công');
+      setNewOptions([]);
+    } catch (err) {
+      const e = err as IBackendError;
+      const msg = e?.data?.message || 'Không thể gửi bình chọn';
+      toast.error(msg);
+    }
+  };
+
+  const handleVote = async () => {
     const selected = poll.multipleChoice
       ? Object.entries(selectedMulti)
           .filter(([, v]) => v)
@@ -219,7 +247,7 @@ export default function PollVoteDialog({ open, onOpenChange, poll }: Readonly<Po
                     <div
                       key={opt.optionId}
                       onClick={() => !poll.isClosed && setSelectedSingle(opt.optionId)}
-                      className={`cursor-pointer p-2 rounded-xl transition-all`}
+                      className={`cursor-pointer rounded-xl transition-all`}
                     >
                       <div className="flex justify-center items-center gap-3">
                         <div className="shrink-0" onClick={(e) => e.stopPropagation()}>
@@ -281,126 +309,223 @@ export default function PollVoteDialog({ open, onOpenChange, poll }: Readonly<Po
                     </div>
                   );
                 })}
+
+                {newOptions.map((newOpt) => {
+                  return (
+                    <div
+                      key={newOpt.id}
+                      onClick={() => !poll.isClosed && setSelectedSingle(newOpt.id)}
+                      className="cursor-pointer rounded-xl transition-all"
+                    >
+                      <div className="flex justify-center items-center gap-3 w-full">
+                        <div className="shrink-0" onClick={(e) => e.stopPropagation()}>
+                          <RadioGroupItem value={newOpt.id} />
+                        </div>
+                        <div className="relative flex-1">
+                          <div className="h-10 bg-muted rounded-xl mt-1 overflow-hidden relative cursor-pointer flex items-center px-3 ">
+                            {newOpt.text ? (
+                              <span className="text-sm font-bold text-primary truncate">{newOpt.text}</span>
+                            ) : (
+                              <input
+                                type="text"
+                                placeholder="Nhập lựa chọn..."
+                                value={newOpt.text}
+                                onChange={(e) => {
+                                  setNewOptions((prev) =>
+                                    prev.map((opt) => (opt.id === newOpt.id ? { ...opt, text: e.target.value } : opt)),
+                                  );
+                                }}
+                                onClick={(e) => e.stopPropagation()}
+                                className="w-full h-full text-sm bg-transparent border-0 outline-none placeholder:text-muted-foreground focus:ring-0"
+                                autoFocus
+                              />
+                            )}
+                          </div>
+                        </div>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleRemoveNewOption(newOpt.id);
+                          }}
+                          className="text-xs text-muted-foreground hover:text-destructive transition-colors shrink-0 cursor-pointer"
+                        >
+                          <X className="h-5 w-5" />
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
               </RadioGroup>
             ) : (
-              poll.options.map((opt) => {
-                const voteCount = getOptionVoteCount(opt.optionId);
-                const percent = dynamicTotalVotes > 0 ? Math.round((voteCount / dynamicTotalVotes) * 100) : 0;
-                const voters = votesByOption[opt.optionId] ?? [];
-                const isSelected = selectedMulti[opt.optionId];
+              <>
+                {poll.options.map((opt) => {
+                  const voteCount = getOptionVoteCount(opt.optionId);
+                  const percent = dynamicTotalVotes > 0 ? Math.round((voteCount / dynamicTotalVotes) * 100) : 0;
+                  const voters = votesByOption[opt.optionId] ?? [];
+                  const isSelected = selectedMulti[opt.optionId];
 
-                const otherVoters = currentUser ? voters.filter((v) => v.accountId !== currentUser.accountId) : voters;
-                const displayVoters =
-                  isSelected && currentUser
-                    ? [
-                        {
-                          accountId: currentUser.accountId,
-                          fullName: isCompanyResponse(currentUser as MeResponse)
-                            ? (currentUser as CompanyResponse).name
-                            : (currentUser as UserResponse).fullName,
-                          avatar: isCompanyResponse(currentUser as MeResponse)
-                            ? (currentUser as CompanyResponse).logo
-                            : (currentUser as UserResponse).avatar,
-                        },
-                        ...otherVoters,
-                      ]
-                    : otherVoters;
-                const shown = displayVoters.slice(0, 3);
-                const rest = Math.max(0, displayVoters.length - shown.length);
+                  const otherVoters = currentUser
+                    ? voters.filter((v) => v.accountId !== currentUser.accountId)
+                    : voters;
+                  const displayVoters =
+                    isSelected && currentUser
+                      ? [
+                          {
+                            accountId: currentUser.accountId,
+                            fullName: isCompanyResponse(currentUser as MeResponse)
+                              ? (currentUser as CompanyResponse).name
+                              : (currentUser as UserResponse).fullName,
+                            avatar: isCompanyResponse(currentUser as MeResponse)
+                              ? (currentUser as CompanyResponse).logo
+                              : (currentUser as UserResponse).avatar,
+                          },
+                          ...otherVoters,
+                        ]
+                      : otherVoters;
+                  const shown = displayVoters.slice(0, 3);
+                  const rest = Math.max(0, displayVoters.length - shown.length);
 
-                return (
-                  <div
-                    key={opt.optionId}
-                    onClick={() => {
-                      if (poll.isClosed) return;
-                      handleToggleMulti(opt.optionId, !selectedMulti[opt.optionId]);
-                    }}
-                    className={`cursor-pointer p-2 rounded-xl transition-all`}
-                  >
-                    <div className="flex justify-center items-center gap-3">
-                      <div className="shrink-0" onClick={(e) => e.stopPropagation()}>
-                        <Checkbox
-                          checked={Boolean(selectedMulti[opt.optionId])}
-                          onCheckedChange={(v) => handleToggleMulti(opt.optionId, Boolean(v))}
-                          disabled={poll.isClosed}
-                        />
-                      </div>
-                      <div className="relative flex-1">
-                        <div
-                          className="h-10 bg-muted rounded-xl mt-1 overflow-hidden relative cursor-pointer"
-                          onClick={(e) => {
-                            if (poll.isClosed) return;
-                            e.stopPropagation();
-                            handleToggleMulti(opt.optionId, !selectedMulti[opt.optionId]);
-                          }}
-                        >
-                          <div
-                            className="bg-primary h-full transition-all duration-300"
-                            style={{ width: `${percent}%` }}
+                  return (
+                    <div
+                      key={opt.optionId}
+                      onClick={() => {
+                        if (poll.isClosed) return;
+                        handleToggleMulti(opt.optionId, !selectedMulti[opt.optionId]);
+                      }}
+                      className={`cursor-pointer rounded-xl transition-all`}
+                    >
+                      <div className="flex justify-center items-center gap-3">
+                        <div className="shrink-0" onClick={(e) => e.stopPropagation()}>
+                          <Checkbox
+                            checked={Boolean(selectedMulti[opt.optionId])}
+                            onCheckedChange={(v) => handleToggleMulti(opt.optionId, Boolean(v))}
+                            disabled={poll.isClosed}
                           />
-
+                        </div>
+                        <div className="relative flex-1">
                           <div
-                            className={
-                              percent > 0
-                                ? 'text-sm font-bold text-white truncate absolute top-2 left-1 p-1 transition-colors duration-300'
-                                : 'text-sm font-bold text-primary truncate absolute top-2 left-1 p-1 transition-colors duration-300'
-                            }
+                            className="h-10 bg-muted rounded-xl mt-1 overflow-hidden relative cursor-pointer"
+                            onClick={(e) => {
+                              if (poll.isClosed) return;
+                              e.stopPropagation();
+                              handleToggleMulti(opt.optionId, !selectedMulti[opt.optionId]);
+                            }}
                           >
-                            {opt.text}
-                          </div>
+                            <div
+                              className="bg-primary h-full transition-all duration-300"
+                              style={{ width: `${percent}%` }}
+                            />
 
-                          <div className="absolute bottom-2 right-2 flex items-center transition-all duration-300">
-                            <div className="flex -space-x-2 items-center">
-                              {shown.map((a, idx) => (
-                                <div
-                                  key={`${a.accountId}-${idx}`}
-                                  className={
-                                    'h-6 w-6 rounded-full ring-2 ring-white overflow-hidden bg-muted flex items-center justify-center transition-all duration-300 ' +
-                                    (idx === 0 ? 'z-20' : idx === 1 ? 'z-10' : 'z-0')
-                                  }
-                                >
-                                  <Avatar className="h-6 w-6">
-                                    <AvatarImage src={a.avatar || '/placeholder.svg'} alt={a.fullName} />
-                                    <AvatarFallback>{a.fullName?.charAt(0) ?? 'U'}</AvatarFallback>
-                                  </Avatar>
-                                </div>
-                              ))}
+                            <div
+                              className={
+                                percent > 0
+                                  ? 'text-sm font-bold text-white truncate absolute top-2 left-1 p-1 transition-colors duration-300'
+                                  : 'text-sm font-bold text-primary truncate absolute top-2 left-1 p-1 transition-colors duration-300'
+                              }
+                            >
+                              {opt.text}
+                            </div>
 
-                              {rest > 0 && (
-                                <div className="h-6 w-10 rounded-full bg-muted flex items-center justify-center text-xs font-bold text-primary ring-2 ring-white">
-                                  +{rest}
-                                </div>
-                              )}
+                            <div className="absolute bottom-2 right-2 flex items-center transition-all duration-300">
+                              <div className="flex -space-x-2 items-center">
+                                {shown.map((a, idx) => (
+                                  <div
+                                    key={`${a.accountId}-${idx}`}
+                                    className={
+                                      'h-6 w-6 rounded-full ring-2 ring-white overflow-hidden bg-muted flex items-center justify-center transition-all duration-300 ' +
+                                      (idx === 0 ? 'z-20' : idx === 1 ? 'z-10' : 'z-0')
+                                    }
+                                  >
+                                    <Avatar className="h-6 w-6">
+                                      <AvatarImage src={a.avatar || '/placeholder.svg'} alt={a.fullName} />
+                                      <AvatarFallback>{a.fullName?.charAt(0) ?? 'U'}</AvatarFallback>
+                                    </Avatar>
+                                  </div>
+                                ))}
+
+                                {rest > 0 && (
+                                  <div className="h-6 w-10 rounded-full bg-muted flex items-center justify-center text-xs font-bold text-primary ring-2 ring-white">
+                                    +{rest}
+                                  </div>
+                                )}
+                              </div>
                             </div>
                           </div>
                         </div>
-                      </div>
 
-                      <div className="text-sm font-bold text-primary shrink-0 transition-all duration-300">
-                        {voteCount}
+                        <div className="text-sm font-bold text-primary shrink-0 transition-all duration-300">
+                          {voteCount}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                );
-              })
+                  );
+                })}
+
+                {newOptions.map((newOpt) => {
+                  return (
+                    <div
+                      key={newOpt.id}
+                      onClick={() => {
+                        if (poll.isClosed) return;
+                        handleToggleMulti(newOpt.id, !selectedMulti[newOpt.id]);
+                      }}
+                      className="cursor-pointer rounded-xl transition-all"
+                    >
+                      <div className="flex justify-center items-center gap-3">
+                        <div className="shrink-0" onClick={(e) => e.stopPropagation()}>
+                          <Checkbox
+                            checked={Boolean(selectedMulti[newOpt.id])}
+                            onCheckedChange={(v) => handleToggleMulti(newOpt.id, Boolean(v))}
+                            disabled={poll.isClosed}
+                          />
+                        </div>
+                        <div className="relative flex-1">
+                          <div className="h-10 bg-muted rounded-xl mt-1 overflow-hidden relative cursor-pointer flex items-center px-3">
+                            {newOpt.text ? (
+                              <span className="text-sm font-bold text-primary truncate">{newOpt.text}</span>
+                            ) : (
+                              <input
+                                type="text"
+                                placeholder="Nhập lựa chọn..."
+                                value={newOpt.text}
+                                onChange={(e) => {
+                                  setNewOptions((prev) =>
+                                    prev.map((opt) => (opt.id === newOpt.id ? { ...opt, text: e.target.value } : opt)),
+                                  );
+                                }}
+                                onClick={(e) => e.stopPropagation()}
+                                className="w-full h-full text-sm bg-transparent border-0 outline-none placeholder:text-muted-foreground focus:ring-0"
+                                autoFocus
+                              />
+                            )}
+                          </div>
+                        </div>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleRemoveNewOption(newOpt.id);
+                          }}
+                          className="text-xs text-muted-foreground hover:text-destructive transition-colors shrink-0"
+                        >
+                          Xóa
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </>
             )}
           </div>
 
-          {poll.allowAddOption && !poll.isClosed && (
-            <div className="pt-2">
-              <div className="text-sm text-primary cursor-pointer" onClick={() => {}}>
-                + Thêm lựa chọn
-              </div>
-              <div className="mt-2 flex gap-2">
-                <Input
-                  placeholder="Thêm lựa chọn"
-                  value={addingOption}
-                  onChange={(e) => setAddingOption(e.target.value)}
-                />
-                <Button onClick={handleAddOption} disabled={!addingOption.trim()}>
-                  Thêm
-                </Button>
-              </div>
+          {poll.allowAddOption && !poll.isClosed && poll.options.length + newOptions.length < 10 && (
+            <div
+              className="font-bold text-primary cursor-pointer flex items-center gap-2 hover:opacity-80 transition-opacity mt-4"
+              onClick={() => {
+                const newId = `new-${Date.now()}`;
+                setNewOptions((prev) => [...prev, { id: newId, text: '' }]);
+              }}
+            >
+              + Thêm lựa chọn
             </div>
           )}
         </div>
@@ -441,12 +566,12 @@ export default function PollVoteDialog({ open, onOpenChange, poll }: Readonly<Po
             )}
           </div>
           <div className="flex w-full items-center justify-end gap-2">
-            <Button variant="ghost" onClick={() => onOpenChange(false)} disabled={isVoting}>
+            <Button variant="ghost" onClick={() => onOpenChange(false)} disabled={isVoting || isAddingOptions}>
               Đóng
             </Button>
             {!poll.isClosed && (
-              <Button onClick={handleConfirm} disabled={isVoting}>
-                {isVoting ? 'Đang gửi...' : 'Xác nhận'}
+              <Button onClick={handleConfirm} disabled={isVoting || isAddingOptions}>
+                {isVoting || isAddingOptions ? 'Đang gửi...' : 'Xác nhận'}
               </Button>
             )}
           </div>

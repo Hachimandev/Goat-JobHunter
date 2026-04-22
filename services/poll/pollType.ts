@@ -30,3 +30,10 @@ export type ClosePollRequest = {
   pollId: string;
 };
 export type ClosePollResponse = IBackendRes<Poll>;
+
+export type AddOptionRequest = {
+  chatRoomId: number;
+  pollId: string;
+  texts: string[];
+};
+export type AddOptionResponse = IBackendRes<Poll>;
