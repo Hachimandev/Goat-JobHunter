@@ -72,10 +72,16 @@ export const groupChatApi = api.injectEndpoints({
         url: `/chatrooms/group/${chatroomId}`,
         method: 'DELETE',
       }),
-      invalidatesTags: (result, error, chatroomId) => [
-        { type: 'ChatRoom', id: chatroomId },
-        { type: 'ChatMember', id: chatroomId },
-      ],
+      invalidatesTags: (result, error, chatroomId) => {
+        const normalizedChatRoomId = Number(chatroomId);
+        const chatRoomTagId = Number.isNaN(normalizedChatRoomId) ? chatroomId : normalizedChatRoomId;
+
+        return [
+          { type: 'ChatRoom', id: chatRoomTagId },
+          { type: 'ChatRoom', id: 'LIST' },
+          { type: 'ChatMember', id: chatRoomTagId },
+        ];
+      },
     }),
 
     getMemberInGroupChat: builder.query<IBackendRes<ChatMemberResponse[]>, number>({
@@ -103,10 +109,16 @@ export const groupChatApi = api.injectEndpoints({
         url: `/chatrooms/group/${chatroomId}/member/${chatMemberId}`,
         method: 'DELETE',
       }),
-      invalidatesTags: (result, error, { chatroomId }) => [
-        { type: 'ChatRoom', id: chatroomId },
-        { type: 'ChatMember', id: chatroomId },
-      ],
+      invalidatesTags: (result, error, { chatroomId }) => {
+        const normalizedChatRoomId = Number(chatroomId);
+        const chatRoomTagId = Number.isNaN(normalizedChatRoomId) ? chatroomId : normalizedChatRoomId;
+
+        return [
+          { type: 'ChatRoom', id: chatRoomTagId },
+          { type: 'ChatRoom', id: 'LIST' },
+          { type: 'ChatMember', id: chatRoomTagId },
+        ];
+      },
     }),
 
     updateMemberRole: builder.mutation<

@@ -2,13 +2,15 @@
 
 import { ChatWindow } from '@/app/(chat)/messages/components/ChatWindow';
 import { ForwardMessageModal } from '@/app/(chat)/messages/components/ForwardMessageModal';
+import { usePaginatedChatMessages } from '@/app/(chat)/messages/hooks/usePaginatedChatMessages';
 import { useParams } from 'next/navigation';
-import { useFetchChatRoomsByIdQuery, useFetchMessagesInChatRoomQuery } from '@/services/chatRoom/chatRoomApi';
+import { useFetchChatRoomsByIdQuery } from '@/services/chatRoom/chatRoomApi';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useUser } from '@/hooks/useUser';
 import useChatRoomAndMessageActions from '@/hooks/useChatRoomAndMessageActions';
 import { MessageResponse, PinnedMessage } from '@/types/model';
 import { ChatRoomType } from '@/types/enum';
+import { subscribeToChatRoom } from '@/services/chatRoom/message/messageApi';
 import { useAppSelector } from '@/lib/hooks';
 import { selectLastFriendshipRealtimeEventAt } from '@/lib/features/friendshipSlice';
 import {
@@ -23,6 +25,8 @@ import { Loader2 } from 'lucide-react';
 export default function ChatRoomPage() {
   const params = useParams();
   const chatRoomId = params?.id as string;
+  const parsedChatRoomId = Number(chatRoomId);
+  const isInvalidChatRoomId = !chatRoomId || Number.isNaN(parsedChatRoomId);
   const { user } = useUser();
   const lastFriendshipRealtimeEventAt = useAppSelector(selectLastFriendshipRealtimeEventAt);
   const [forwardMessage, setForwardMessage] = useState<MessageResponse | null>(null);
@@ -47,30 +51,36 @@ export default function ChatRoomPage() {
   const [pinMessage] = usePinMessageMutation();
   const [unpinMessage] = useUnpinMessageMutation();
   const { data: pinnedMessagesData, isLoading: isLoadingPinnedMessages } = useGetPinnedMessagesQuery(
-    { chatRoomId: Number(chatRoomId) },
-    { skip: !chatRoomId || isNaN(Number(chatRoomId)) },
+    { chatRoomId: parsedChatRoomId },
+    { skip: isInvalidChatRoomId },
   );
 
-  const { data: messagesData, isLoading } = useFetchMessagesInChatRoomQuery(
-    {
-      chatRoomId: Number(chatRoomId),
-      size: 50,
-      page: 1,
-    },
-    { skip: !chatRoomId || isNaN(Number(chatRoomId)) },
-  );
+  const { messages, hasOlderMessages, isLoadingInitialMessages, isLoadingOlderMessages, loadOlderMessages } =
+    usePaginatedChatMessages(isInvalidChatRoomId ? null : parsedChatRoomId);
 
-  const { data: chatRoomsData, refetch: refetchChatRoom } = useFetchChatRoomsByIdQuery(Number(chatRoomId), {
-    skip: !chatRoomId || isNaN(Number(chatRoomId)),
+  const {
+    data: chatRoomsData,
+    refetch: refetchChatRoom,
+    isLoading: isLoadingChatRoom,
+  } = useFetchChatRoomsByIdQuery(parsedChatRoomId, {
+    skip: isInvalidChatRoomId,
   });
 
   useEffect(() => {
-    if (!lastFriendshipRealtimeEventAt || !chatRoomId || isNaN(Number(chatRoomId))) {
+    if (isInvalidChatRoomId) {
+      return;
+    }
+
+    subscribeToChatRoom(parsedChatRoomId);
+  }, [isInvalidChatRoomId, parsedChatRoomId]);
+
+  useEffect(() => {
+    if (!lastFriendshipRealtimeEventAt || isInvalidChatRoomId) {
       return;
     }
 
     void refetchChatRoom();
-  }, [chatRoomId, lastFriendshipRealtimeEventAt, refetchChatRoom]);
+  }, [isInvalidChatRoomId, lastFriendshipRealtimeEventAt, refetchChatRoom]);
 
   useEffect(() => {
     if (pinnedMessagesData?.data) {
@@ -82,13 +92,6 @@ export default function ChatRoomPage() {
   const currentChatRoom = useMemo(() => {
     return chatRoomsData?.data || null;
   }, [chatRoomsData]);
-
-  const messages = useMemo(() => {
-    // Manually sort messages by createdAt ascending, fallback to empty array if no messages
-    return [...(messagesData?.data || [])].sort(
-      (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
-    );
-  }, [messagesData]);
 
   const isDirectBlocked = currentChatRoom?.type === ChatRoomType.DIRECT && Boolean(currentChatRoom?.blocked);
   const isBlockedByMe = isDirectBlocked && Boolean(currentChatRoom?.blockedByMe);
@@ -193,7 +196,7 @@ export default function ChatRoomPage() {
       try {
         setPinningMessageIds((prev) => new Set([...prev, messageId]));
         await pinMessage({
-          chatRoomId: Number(chatRoomId),
+          chatRoomId: parsedChatRoomId,
           messageId,
         }).unwrap();
         setPinnedMessageIds((prev) => new Set([...prev, messageId]));
@@ -208,7 +211,7 @@ export default function ChatRoomPage() {
         });
       }
     },
-    [chatRoomId, pinMessage],
+    [parsedChatRoomId, pinMessage],
   );
 
   const handleUnpinMessage = useCallback(
@@ -216,7 +219,7 @@ export default function ChatRoomPage() {
       try {
         setPinningMessageIds((prev) => new Set([...prev, messageId]));
         await unpinMessage({
-          chatRoomId: Number(chatRoomId),
+          chatRoomId: parsedChatRoomId,
           messageId,
         }).unwrap();
         setPinnedMessageIds((prev) => {
@@ -235,7 +238,7 @@ export default function ChatRoomPage() {
         });
       }
     },
-    [chatRoomId, unpinMessage],
+    [parsedChatRoomId, unpinMessage],
   );
 
   const handleOpenForwardModal = (message: MessageResponse) => {
@@ -255,7 +258,7 @@ export default function ChatRoomPage() {
       return null;
     }
 
-    const result = await handleForwardMessage(Number(chatRoomId), forwardMessage.messageId, targetChatRoomIds);
+    const result = await handleForwardMessage(parsedChatRoomId, forwardMessage.messageId, targetChatRoomIds);
 
     if (result && result.failedCount === 0) {
       handleForwardModalOpenChange(false);
@@ -264,7 +267,7 @@ export default function ChatRoomPage() {
     return result;
   };
 
-  if (isLoading) {
+  if (isLoadingInitialMessages || isLoadingChatRoom) {
     return (
       <div className="flex-1 flex items-center justify-center bg-background">
         <Loader2 className="animate-spin" />
@@ -297,7 +300,7 @@ export default function ChatRoomPage() {
             return;
           }
 
-          await handleSendMessage(Number(chatRoomId), text, files, replyToMessageId);
+          await handleSendMessage(parsedChatRoomId, text, files, replyToMessageId);
           setReplyMessage(null);
         }}
         onSendContactCards={async (selectedUserIds) => {
@@ -305,24 +308,27 @@ export default function ChatRoomPage() {
             return null;
           }
 
-          return await handleSendContactCards(Number(chatRoomId), selectedUserIds);
+          return await handleSendContactCards(parsedChatRoomId, selectedUserIds);
         }}
         replyTarget={replyMessage}
         onCancelReply={() => setReplyMessage(null)}
         onReplyMessage={setReplyMessage}
         onNavigateToMessage={handleNavigateToMessage}
+        onLoadOlderMessages={loadOlderMessages}
+        hasOlderMessages={hasOlderMessages}
+        isLoadingOlderMessages={isLoadingOlderMessages}
         onForwardMessage={handleOpenForwardModal}
         isForwardingMessage={isForwardingMessage}
         onHideMessage={async (messageId) => {
-          await handleHideMessage(Number(chatRoomId), messageId);
+          await handleHideMessage(parsedChatRoomId, messageId);
         }}
         isHidingMessage={isHidingMessage}
         onDeleteMessage={async (messageId) => {
-          await handleDeleteMessage(Number(chatRoomId), messageId);
+          await handleDeleteMessage(parsedChatRoomId, messageId);
         }}
         isDeletingMessage={isDeletingMessage}
         onRecallMessage={async (messageId) => {
-          await handleRecallMessage(Number(chatRoomId), messageId);
+          await handleRecallMessage(parsedChatRoomId, messageId);
         }}
         isRecallingMessage={isRecallingMessage}
         onPinMessage={handlePinMessage}
@@ -336,7 +342,7 @@ export default function ChatRoomPage() {
       <ForwardMessageModal
         open={forwardModalOpen}
         onOpenChange={handleForwardModalOpenChange}
-        sourceChatRoomId={Number(chatRoomId)}
+        sourceChatRoomId={parsedChatRoomId}
         message={forwardMessage}
         isSubmitting={isForwardingMessage}
         onConfirm={handleConfirmForward}

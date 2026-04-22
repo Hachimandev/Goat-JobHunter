@@ -1,6 +1,7 @@
 'use client';
 
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { CHAT_MESSAGE_SCROLL_TOP_THRESHOLD } from '@/constants/constant';
 import { MessageResponse } from '@/types/model';
 import { MessageTypeEnum } from '@/types/enum';
 import { extractMessageId } from '@/utils/slug';
@@ -12,6 +13,9 @@ interface MessageListProps {
   messages: MessageResponse[];
   currentUserId?: string;
   isGroup?: boolean;
+  onLoadOlderMessages?: () => Promise<void> | void;
+  hasOlderMessages?: boolean;
+  isLoadingOlderMessages?: boolean;
   onReplyMessage?: (message: MessageResponse) => void;
   onNavigateToMessage?: (messageId: string) => void;
   onForwardMessage?: (message: MessageResponse) => void;
@@ -32,6 +36,9 @@ export function MessageList({
   messages,
   currentUserId,
   isGroup = false,
+  onLoadOlderMessages,
+  hasOlderMessages = false,
+  isLoadingOlderMessages = false,
   onReplyMessage,
   onNavigateToMessage,
   onForwardMessage,
@@ -158,8 +165,63 @@ export function MessageList({
   }, [collapsedMap]);
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+    const viewport = resolveViewport();
+
+    if (!viewport) {
+      return;
+    }
+
+    viewportRef.current = viewport;
+    updateNearBottom();
+    viewport.addEventListener('scroll', handleScroll, { passive: true });
+
+    return () => {
+      viewport.removeEventListener('scroll', handleScroll);
+    };
+  }, [handleScroll, resolveViewport, updateNearBottom]);
+
+  useEffect(() => {
+    if (isLoadingOlderMessages) {
+      return;
+    }
+
+    const viewport = viewportRef.current;
+    const topLoadAnchor = topLoadAnchorRef.current;
+
+    if (!viewport || !topLoadAnchor) {
+      return;
+    }
+
+    if (messages.length > topLoadAnchor.messageCount) {
+      const nextScrollTop = viewport.scrollHeight - topLoadAnchor.scrollHeight + topLoadAnchor.scrollTop;
+      viewport.scrollTop = Math.max(0, nextScrollTop);
+    }
+
+    topLoadAnchorRef.current = null;
+    hasTriggeredTopLoadRef.current = false;
+    updateNearBottom();
+  }, [isLoadingOlderMessages, messages.length, updateNearBottom]);
+
+  const latestMessageId = messages[messages.length - 1]?.messageId ?? null;
+
+  useEffect(() => {
+    if (!latestMessageId) {
+      lastTailMessageIdRef.current = null;
+      return;
+    }
+
+    const previousTailMessageId = lastTailMessageIdRef.current;
+
+    if (previousTailMessageId === latestMessageId) {
+      return;
+    }
+
+    if (!previousTailMessageId || isNearBottomRef.current) {
+      bottomRef.current?.scrollIntoView({ behavior: previousTailMessageId ? 'smooth' : 'auto' });
+    }
+
+    lastTailMessageIdRef.current = latestMessageId;
+  }, [latestMessageId]);
 
   useEffect(() => {
     const handler = (e: Event) => {
@@ -185,9 +247,14 @@ export function MessageList({
   }, []);
 
   return (
-    <div className="flex-1 overflow-hidden">
+    <div className="flex-1 overflow-hidden" ref={scrollAreaContainerRef}>
       <ScrollArea className="h-full px-4">
         <div className="py-4 space-y-1">
+          {isLoadingOlderMessages && (
+            <div className="flex justify-center py-2 text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin" />
+            </div>
+          )}
           {renderedItems.map((item) => {
             if (item.kind === 'message') {
               const message = item.message as MessageResponse;

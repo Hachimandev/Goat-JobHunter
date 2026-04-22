@@ -2,7 +2,6 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import {
   X,
@@ -22,7 +21,6 @@ import { SharedMediaGrid } from './SharedMediaGrid';
 import { SharedFilesList } from './SharedFilesList';
 import { useMemo, useState } from 'react';
 import { ChatRoom } from '@/types/model';
-import { useFetchFilesInChatRoomQuery, useFetchMediaInChatRoomQuery } from '@/services/chatRoom/chatRoomApi';
 import { ManageGroupPanel } from './ManageGroupPanel';
 import { useGetMemberInGroupChatQuery, useAddMemberToGroupMutation } from '@/services/chatRoom/groupChat/groupChatApi';
 import { ChatMemberItem } from '@/app/(chat)/messages/components/ChatMemberItem';
@@ -42,6 +40,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import GroupNewsPanel from './GroupNewsPanel';
+import AssetTabSection from '@/app/(chat)/messages/components/AssetTabSection';
 
 interface GroupDetailsPanelProps {
   chatRoom: ChatRoom;
@@ -69,18 +68,6 @@ export function GroupDetailsPanel({
   const [newsPanelOpen, setNewsPanelOpen] = useState(false);
 
   const {
-    data: filesData,
-    isLoading: isLoadingFile,
-    isError: isErrorFile,
-  } = useFetchFilesInChatRoomQuery({ chatRoomId: chatRoom.roomId }, { skip: !isOpen || !chatRoom });
-
-  const {
-    data: mediaData,
-    isLoading: isLoadingMedia,
-    isError: isErrorMedia,
-  } = useFetchMediaInChatRoomQuery({ chatRoomId: chatRoom.roomId }, { skip: !isOpen || !chatRoom });
-
-  const {
     data: memberData,
     isLoading: isLoadingMembers,
     isError: isErrorMembers,
@@ -93,14 +80,6 @@ export function GroupDetailsPanel({
   const members = useMemo(() => {
     return memberData?.data || [];
   }, [memberData]);
-
-  const media = useMemo(() => {
-    return mediaData?.data || [];
-  }, [mediaData]);
-
-  const files = useMemo(() => {
-    return filesData?.data || [];
-  }, [filesData]);
 
   const { currentUserRole, currentUserId } = useMemo(() => {
     const currentMember = members.find((member) => member.accountId === user?.accountId);
@@ -314,8 +293,8 @@ export function GroupDetailsPanel({
               <div className="pb-2 space-y-1 mt-2">
                 {canLeaveGroup && !readOnly && (
                   <Button
-                    variant="ghost"
-                    className="w-full justify-start text-destructive hover:text-destructive rounded-xl"
+                    variant="destructive"
+                    className="w-full rounded-xl"
                     onClick={() => setLeaveConfirmOpen(true)}
                     disabled={isLeavingGroup}
                   >
@@ -333,6 +312,10 @@ export function GroupDetailsPanel({
                   </Button>
                 )}
               </div>
+
+              {canLeaveGroup && <Separator />}
+
+              <AssetTabSection isDetailPanelOpen={isOpen} chatRoom={chatRoom} />
             </div>
           </ScrollArea>
         </div>

@@ -1,3 +1,4 @@
+import { CHAT_MESSAGE_PAGE_SIZE } from '@/constants/constant';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useDebounce } from '@/components/ui/MultipleSelector';
 import { useLazySearchMessagesInChatRoomQuery } from '@/services/chatRoom/chatRoomApi';
@@ -19,7 +20,7 @@ const isAbortLikeError = (error: unknown): boolean => {
 };
 
 export function useSearchMessages(options: UseSearchMessagesOptions) {
-  const { chatRoomId, minLength = 2, debounceMs = 450, pageSize = 50 } = options;
+  const { chatRoomId, minLength = 2, debounceMs = 450, pageSize = CHAT_MESSAGE_PAGE_SIZE } = options;
   const [searchTerm, setSearchTerm] = useState('');
 
   const debouncedSearchTerm = useDebounce(searchTerm, debounceMs);

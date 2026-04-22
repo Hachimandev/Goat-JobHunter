@@ -41,6 +41,7 @@ import { extractMessageContent, extractMessageEvent, extractMessageId } from '@/
 import FriendActionButtons from '@/components/common/FriendActionButtons';
 import { getMessageMediaPhotos } from '@/utils/formatChatMediaForPhotoAlbum';
 import { MessageMediaGallery } from './MessageMediaGallery';
+import { UserHoverCard } from '@/app/(social-hub)/hub/fyp/component/UserHoverCard';
 
 interface MessageBubbleProps {
   message: MessageResponse;
@@ -434,10 +435,16 @@ export function MessageBubble({
     <>
       <div className={cn('flex w-full mb-2', isOwn ? 'justify-end' : 'justify-start')}>
         {!isOwn && showAvatar && (
-          <Avatar className="h-10 w-10 mr-2 shrink-0 border">
-            <AvatarImage src={senderAvatar || '/placeholder.svg'} alt={senderName} />
-            <AvatarFallback>{senderName?.charAt(0) || 'U'}</AvatarFallback>
-          </Avatar>
+          <UserHoverCard
+            userId={message.sender.accountId}
+            fullName={senderName || `User ${message.sender.accountId}`}
+            avatar={senderAvatar}
+          >
+            <Avatar className="h-10 w-10 mr-2 shrink-0 border">
+              <AvatarImage src={senderAvatar || '/placeholder.svg'} alt={senderName} />
+              <AvatarFallback>{senderName?.charAt(0) || 'U'}</AvatarFallback>
+            </Avatar>
+          </UserHoverCard>
         )}
         <div className={cn('flex items-start gap-1', isOwn ? 'flex-row-reverse' : 'flex-row')}>
           <div className={cn('flex flex-col w-full', isOwn ? 'items-end' : 'items-start')}>
@@ -574,7 +581,7 @@ export function MessageBubble({
         description="Tin nhắn sẽ bị xóa vĩnh viễn và không thể khôi phục."
         confirmText="Xóa"
         cancelText="Hủy"
-        confirmBtnClass="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+        confirmBtnClass="bg-destructive hover:bg-destructive/90"
         disableCancel={isDeleting}
         disableConfirm={disableDeleteAction}
         isLoading={isDeleting}
