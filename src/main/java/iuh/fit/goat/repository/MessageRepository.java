@@ -12,7 +12,9 @@ import software.amazon.awssdk.enhanced.dynamodb.model.Page;
 import software.amazon.awssdk.enhanced.dynamodb.model.PageIterable;
 import software.amazon.awssdk.enhanced.dynamodb.model.QueryConditional;
 import software.amazon.awssdk.enhanced.dynamodb.model.QueryEnhancedRequest;
+import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
 
+import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.*;
 
@@ -26,6 +28,7 @@ public class MessageRepository {
     private static final int DEFAULT_SEARCH_SCAN_LIMIT = 3000;
     private static final int MAX_SEARCH_SCAN_LIMIT = 10000;
     private static final int SEARCH_QUERY_PAGE_SIZE = 100;
+    private static final String CURSOR_SEPARATOR = "|";
 
     private final DynamoDbTable<Message> messageTable;
     private final DynamoDbTable<PinnedMessage> pinnedMessageTable;
@@ -34,6 +37,13 @@ public class MessageRepository {
             List<Message> messages,
             long matchedCount,
             boolean scanLimitReached
+    ) {
+    }
+
+    public record MessageCursorBatchResult(
+            List<Message> messages,
+            String nextCursor,
+            boolean hasMore
     ) {
     }
 
@@ -121,6 +131,129 @@ public class MessageRepository {
             boolean includeHidden
     ) {
         return queryMessagesByChatRoom(chatRoomId, limit, includeHidden);
+    }
+
+    public Iterable<List<Message>> iterateMessageBatchesByChatRoom(String chatRoomId, int batchSize) {
+        int safeBatchSize = batchSize > 0 ? batchSize : DEFAULT_LIMIT;
+
+        QueryConditional queryConditional = QueryConditional
+                .keyEqualTo(Key.builder().partitionValue(chatRoomId).build());
+
+        QueryEnhancedRequest queryRequest = QueryEnhancedRequest.builder()
+                .queryConditional(queryConditional)
+                .scanIndexForward(false)
+                .limit(safeBatchSize)
+                .build();
+
+        PageIterable<Message> pages = messageTable.query(queryRequest);
+
+        return () -> new Iterator<>() {
+            private final Iterator<Page<Message>> pageIterator = pages.iterator();
+
+            @Override
+            public boolean hasNext() {
+                return pageIterator.hasNext();
+            }
+
+            @Override
+            public List<Message> next() {
+                return pageIterator.next().items();
+            }
+        };
+    }
+
+    public MessageCursorBatchResult queryMessageBatchByChatRoomWithCursor(
+            String chatRoomId,
+            String cursor,
+            int batchSize
+    ) {
+        if (chatRoomId == null || chatRoomId.isBlank()) {
+            return new MessageCursorBatchResult(Collections.emptyList(), null, false);
+        }
+
+        int safeBatchSize = batchSize > 0 ? batchSize : DEFAULT_LIMIT;
+
+        QueryConditional queryConditional = QueryConditional
+                .keyEqualTo(Key.builder().partitionValue(chatRoomId).build());
+
+        QueryEnhancedRequest.Builder requestBuilder = QueryEnhancedRequest.builder()
+                .queryConditional(queryConditional)
+                .scanIndexForward(false)
+                .limit(safeBatchSize);
+
+        Optional<String> decodedSortKey = decodeCursorSortKey(cursor, chatRoomId);
+        if (decodedSortKey.isPresent()) {
+            Map<String, AttributeValue> exclusiveStartKey = new HashMap<>();
+            exclusiveStartKey.put("chatRoomId", AttributeValue.builder().s(chatRoomId).build());
+            exclusiveStartKey.put("messageSk", AttributeValue.builder().s(decodedSortKey.get()).build());
+            requestBuilder.exclusiveStartKey(exclusiveStartKey);
+        }
+
+        Iterator<Page<Message>> pageIterator = messageTable.query(requestBuilder.build()).iterator();
+        if (!pageIterator.hasNext()) {
+            return new MessageCursorBatchResult(Collections.emptyList(), null, false);
+        }
+
+        Page<Message> page = pageIterator.next();
+        List<Message> messages = page.items() == null
+            ? Collections.emptyList()
+            : new ArrayList<>(page.items());
+        Map<String, AttributeValue> lastEvaluatedKey = page.lastEvaluatedKey();
+        boolean hasMore = lastEvaluatedKey != null && !lastEvaluatedKey.isEmpty();
+        String nextCursor = hasMore
+                ? createCursorFromExclusiveStartKey(chatRoomId, lastEvaluatedKey)
+                : null;
+
+        return new MessageCursorBatchResult(messages, nextCursor, hasMore);
+    }
+
+    public String createCursorToken(String chatRoomId, String messageSk) {
+        if (chatRoomId == null || chatRoomId.isBlank() || messageSk == null || messageSk.isBlank()) {
+            return null;
+        }
+
+        String payload = chatRoomId + CURSOR_SEPARATOR + messageSk;
+        return Base64.getUrlEncoder()
+                .withoutPadding()
+                .encodeToString(payload.getBytes(StandardCharsets.UTF_8));
+    }
+
+    private String createCursorFromExclusiveStartKey(String chatRoomId, Map<String, AttributeValue> key) {
+        if (key == null || key.isEmpty()) {
+            return null;
+        }
+
+        AttributeValue messageSk = key.get("messageSk");
+        if (messageSk == null || messageSk.s() == null || messageSk.s().isBlank()) {
+            return null;
+        }
+
+        return createCursorToken(chatRoomId, messageSk.s());
+    }
+
+    private Optional<String> decodeCursorSortKey(String cursor, String expectedChatRoomId) {
+        if (cursor == null || cursor.isBlank() || expectedChatRoomId == null || expectedChatRoomId.isBlank()) {
+            return Optional.empty();
+        }
+
+        try {
+            String decoded = new String(Base64.getUrlDecoder().decode(cursor), StandardCharsets.UTF_8);
+            int separatorIndex = decoded.indexOf(CURSOR_SEPARATOR);
+            if (separatorIndex <= 0 || separatorIndex == decoded.length() - 1) {
+                return Optional.empty();
+            }
+
+            String cursorChatRoomId = decoded.substring(0, separatorIndex);
+            String messageSk = decoded.substring(separatorIndex + 1);
+            if (!expectedChatRoomId.equals(cursorChatRoomId) || messageSk.isBlank()) {
+                return Optional.empty();
+            }
+
+            return Optional.of(messageSk);
+        } catch (IllegalArgumentException e) {
+            log.warn("Invalid cursor token received for chatRoomId={}", expectedChatRoomId);
+            return Optional.empty();
+        }
     }
 
     public MessageSearchResult searchMessagesByChatRoom(
@@ -340,6 +473,76 @@ public class MessageRepository {
         }
 
         return Optional.empty();
+    }
+
+    public Map<String, Message> findByChatRoomIdAndMessageIds(
+            String chatRoomId,
+            Collection<String> messageIds,
+            int maxScanItems
+    ) {
+        if (chatRoomId == null || chatRoomId.isBlank() || messageIds == null || messageIds.isEmpty()) {
+            return Collections.emptyMap();
+        }
+
+        LinkedHashSet<String> normalizedMessageIds = new LinkedHashSet<>();
+        for (String messageId : messageIds) {
+            if (messageId != null && !messageId.isBlank()) {
+                normalizedMessageIds.add(messageId);
+            }
+        }
+
+        if (normalizedMessageIds.isEmpty()) {
+            return Collections.emptyMap();
+        }
+
+        QueryConditional queryConditional = QueryConditional
+                .keyEqualTo(
+                        Key.builder()
+                                .partitionValue(chatRoomId)
+                                .build()
+                );
+
+        QueryEnhancedRequest queryRequest = QueryEnhancedRequest.builder()
+                .queryConditional(queryConditional)
+                .scanIndexForward(false)
+                .limit(DEFAULT_LIMIT)
+                .build();
+
+        Map<String, Message> matchedMessages = new HashMap<>();
+        Set<String> remainingMessageIds = new HashSet<>(normalizedMessageIds);
+        int safeMaxScanItems = maxScanItems > 0 ? maxScanItems : Integer.MAX_VALUE;
+        int scannedItems = 0;
+
+        for (Page<Message> page : messageTable.query(queryRequest)) {
+            for (Message message : page.items()) {
+            if (scannedItems >= safeMaxScanItems) {
+                log.debug("Reply lookup scan limit reached: chatRoomId={}, requestedIds={}, matched={}, scanLimit={}",
+                    chatRoomId,
+                    normalizedMessageIds.size(),
+                    matchedMessages.size(),
+                    safeMaxScanItems);
+                return matchedMessages;
+            }
+
+            scannedItems++;
+
+                if (message == null || message.getMessageId() == null || message.getMessageId().isBlank()) {
+                    continue;
+                }
+
+                String currentMessageId = message.getMessageId();
+                if (!remainingMessageIds.remove(currentMessageId)) {
+                    continue;
+                }
+
+                matchedMessages.put(currentMessageId, message);
+                if (remainingMessageIds.isEmpty()) {
+                    return matchedMessages;
+                }
+            }
+        }
+
+        return matchedMessages;
     }
 
     // ========== Message Operations ==========

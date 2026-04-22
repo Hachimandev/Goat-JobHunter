@@ -34,4 +34,7 @@ public class ChatMember extends BaseEntity {
 
     @Column(name = "last_read_message_sk")
     private String lastReadMessageSk;
+
+    @Column(name = "unread_count", nullable = false)
+    private long unreadCount = 0L;
 }

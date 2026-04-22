@@ -3,9 +3,6 @@ package iuh.fit.goat.service.impl;
 import iuh.fit.goat.entity.ChatMember;
 import iuh.fit.goat.entity.Message;
 import iuh.fit.goat.repository.ChatMemberRepository;
-import iuh.fit.goat.repository.ChatRoomRepository;
-import iuh.fit.goat.repository.MessageRepository;
-import iuh.fit.goat.service.AccountService;
 import iuh.fit.goat.service.ChatMemberService;
 import iuh.fit.goat.util.SecurityUtil;
 import lombok.RequiredArgsConstructor;
@@ -19,7 +16,6 @@ import org.springframework.transaction.annotation.Transactional;
 public class ChatMemberServiceImpl implements ChatMemberService {
 
     private final ChatMemberRepository chatMemberRepository;
-    private final MessageRepository messageRepository;
 
     @Override
     @Transactional
@@ -37,9 +33,11 @@ public class ChatMemberServiceImpl implements ChatMemberService {
 
     @Override
     public long countUnreadMessages(Long chatRoomId, ChatMember member) {
-        return this.messageRepository.countUnreadMessages(
-                String.valueOf(chatRoomId), member.getLastReadMessageSk(), String.valueOf(member.getAccount().getAccountId())
-        );
+        if (member == null || member.getDeletedAt() != null) {
+            return 0L;
+        }
+
+        return Math.max(member.getUnreadCount(), 0L);
     }
 
     @Override

@@ -23,7 +23,8 @@ public interface MessageService {
 
     Message getLastMessageByChatRoom(Long chatRoomId) throws InvalidException;
 
-    List<Message> getMessagesByChatRoom(Long chatRoomId, Pageable pageable, Account currentAccount);
+    ResultPaginationResponse getMessagesByChatRoom(Long chatRoomId, Pageable pageable, Account currentAccount)
+            throws InvalidException;
 
     ResultPaginationResponse searchMessagesByChatRoom(
             Long chatRoomId,
@@ -45,10 +46,10 @@ public interface MessageService {
 
     List<MessageResponse> toMessageResponses(List<Message> messages);
 
-    List<Message> getMediaMessagesByChatRoom(Long chatRoomId, Pageable pageable, Account currentAccount)
+    ResultPaginationResponse getMediaMessagesByChatRoom(Long chatRoomId, Pageable pageable, Account currentAccount)
             throws InvalidException;
 
-    List<Message> getFileMessagesByChatRoom(Long chatRoomId, Pageable pageable, Account currentAccount)
+    ResultPaginationResponse getFileMessagesByChatRoom(Long chatRoomId, Pageable pageable, Account currentAccount)
             throws InvalidException;
 
     void hideMessageForMe(Long chatRoomId, String messageId, Account currentAccount)
