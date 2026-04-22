@@ -10,6 +10,7 @@ import software.amazon.awssdk.enhanced.dynamodb.Key;
 import software.amazon.awssdk.enhanced.dynamodb.model.PageIterable;
 import software.amazon.awssdk.enhanced.dynamodb.model.QueryConditional;
 import software.amazon.awssdk.enhanced.dynamodb.model.QueryEnhancedRequest;
+import software.amazon.awssdk.enhanced.dynamodb.model.ScanEnhancedRequest;
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
 
 import java.util.List;
@@ -67,9 +68,19 @@ public class PollRepository {
     public List<Poll> findByChatRoomId(String chatRoomId) {
         if (chatRoomId == null || chatRoomId.isBlank()) return List.of();
         try {
-            return this.pollTable.query(
-                    QueryConditional.keyEqualTo(Key.builder().partitionValue(chatRoomId).build())
-            ).items().stream().toList();
+            Expression filterExpression = Expression.builder()
+                    .expression("chatRoomId = :chatRoomId")
+                    .putExpressionValue(
+                            ":chatRoomId",
+                            AttributeValue.builder().n(chatRoomId).build()
+                    )
+                    .build();
+
+            ScanEnhancedRequest request = ScanEnhancedRequest.builder()
+                            .filterExpression(filterExpression)
+                            .build();
+
+            return this.pollTable.scan(request).items().stream().toList();
         } catch (Exception e) {
             log.error("Error finding polls by chat room: {}", chatRoomId, e);
             throw new RuntimeException("Failed to find polls", e);
