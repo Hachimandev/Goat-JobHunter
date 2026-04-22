@@ -23,6 +23,8 @@ import iuh.fit.goat.repository.ChatCallSessionRepository;
 import iuh.fit.goat.repository.ChatRoomRepository;
 import iuh.fit.goat.service.ChatCallService;
 import iuh.fit.goat.service.ChatRoomService;
+import iuh.fit.goat.service.MessageService;
+import iuh.fit.goat.util.EntityUtil;
 import lombok.RequiredArgsConstructor;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
@@ -45,6 +47,7 @@ public class ChatCallServiceImpl implements ChatCallService {
     private final ChatCallParticipantRepository chatCallParticipantRepository;
     private final ChatRoomRepository chatRoomRepository;
     private final ChatRoomService chatRoomService;
+    private final MessageService messageService;
     private final SimpMessagingTemplate messagingTemplate;
 
     @Override
@@ -133,6 +136,12 @@ public class ChatCallServiceImpl implements ChatCallService {
             session.setEndReason(ChatCallEndReason.HANGUP);
             session.setEndedAt(Instant.now());
             this.chatCallSessionRepository.save(session);
+
+            this.messageService.createAndSendCallMessage(chatRoomId, session.getInitiator(), session);
+
+            ChatCallSessionResponse response = toResponse(currentAccount, sessionId);
+            publishEvent("CALL_ENDED", chatRoomId, sessionId, currentAccount.getAccountId(), response.getStatus());
+            return response;
         }
 
         ChatCallSessionResponse response = toResponse(currentAccount, sessionId);
@@ -203,6 +212,7 @@ public class ChatCallServiceImpl implements ChatCallService {
         session.setEndedAt(endedAt);
         session.setEndReason(request != null && request.getReason() != null ? request.getReason() : ChatCallEndReason.HANGUP);
         this.chatCallSessionRepository.save(session);
+        this.messageService.createAndSendCallMessage(chatRoomId, session.getInitiator(), session);
 
         ChatCallSessionResponse response = toResponse(currentAccount, sessionId);
         publishEvent("CALL_ENDED", chatRoomId, sessionId, currentAccount.getAccountId(), response.getStatus());
@@ -358,14 +368,15 @@ public class ChatCallServiceImpl implements ChatCallService {
             return new ChatCallParticipantAccountResponse(accountId, null, null, null, null);
         }
 
-        String fullName = account.getUsername();
-        String avatar = account.getAvatar();
+        Account resolvedAccount = EntityUtil.unproxy(account);
+        String fullName = resolvedAccount.getUsername();
+        String avatar = resolvedAccount.getAvatar();
 
-        if (account instanceof User userAccount) {
+        if (resolvedAccount instanceof User userAccount) {
             if (userAccount.getFullName() != null && !userAccount.getFullName().isBlank()) {
                 fullName = userAccount.getFullName();
             }
-        } else if (account instanceof Company companyAccount) {
+        } else if (resolvedAccount instanceof Company companyAccount) {
             if (companyAccount.getName() != null && !companyAccount.getName().isBlank()) {
                 fullName = companyAccount.getName();
             }
@@ -376,11 +387,11 @@ public class ChatCallServiceImpl implements ChatCallService {
         }
 
         return new ChatCallParticipantAccountResponse(
-                account.getAccountId(),
+                resolvedAccount.getAccountId(),
                 avatar,
-                account.getUsername(),
+                resolvedAccount.getUsername(),
                 fullName,
-                account.getEmail()
+                resolvedAccount.getEmail()
         );
     }
 }

@@ -18,6 +18,7 @@ import iuh.fit.goat.repository.ChatCallParticipantRepository;
 import iuh.fit.goat.repository.ChatCallSessionRepository;
 import iuh.fit.goat.repository.ChatRoomRepository;
 import iuh.fit.goat.service.ChatRoomService;
+import iuh.fit.goat.service.MessageService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -53,6 +54,8 @@ class ChatCallServiceImplTest {
     @Mock
     private ChatRoomService chatRoomService;
     @Mock
+    private MessageService messageService;
+    @Mock
     private SimpMessagingTemplate messagingTemplate;
 
     private ChatCallServiceImpl service;
@@ -64,6 +67,7 @@ class ChatCallServiceImplTest {
                 this.chatCallParticipantRepository,
                 this.chatRoomRepository,
                 this.chatRoomService,
+                this.messageService,
                 this.messagingTemplate
         );
     }
@@ -124,6 +128,7 @@ class ChatCallServiceImplTest {
         ChatCallSession session = new ChatCallSession();
         session.setCallSessionId(123L);
         session.setChatRoom(room);
+        session.setInitiator(account);
         session.setStatus(ChatCallSessionStatus.ACTIVE);
 
         when(this.chatRoomService.isUserInChatRoom(99L, 10L)).thenReturn(true);
@@ -142,6 +147,7 @@ class ChatCallServiceImplTest {
 
         assertEquals(ChatCallSessionStatus.ENDED, response.getStatus());
         assertEquals(ChatCallEndReason.HANGUP, response.getEndReason());
+        verify(this.messageService).createAndSendCallMessage(99L, account, session);
     }
 
     @Test
@@ -155,6 +161,7 @@ class ChatCallServiceImplTest {
         ChatCallSession session = new ChatCallSession();
         session.setCallSessionId(123L);
         session.setChatRoom(room);
+        session.setInitiator(account);
         session.setStatus(ChatCallSessionStatus.ACTIVE);
 
         ChatCallParticipant participant = new ChatCallParticipant();
@@ -175,6 +182,39 @@ class ChatCallServiceImplTest {
         ArgumentCaptor<ChatCallSession> captor = ArgumentCaptor.forClass(ChatCallSession.class);
         verify(this.chatCallSessionRepository).save(captor.capture());
         assertEquals(ChatCallSessionStatus.ENDED, captor.getValue().getStatus());
+        verify(this.messageService).createAndSendCallMessage(99L, account, session);
+    }
+
+    @Test
+    void declineCall_shouldEndDirectCallWithNoAnswer() throws Exception {
+        Account recipient = mock(Account.class);
+        when(recipient.getAccountId()).thenReturn(11L);
+
+        Account initiator = mock(Account.class);
+        when(initiator.getAccountId()).thenReturn(10L);
+
+        ChatRoom room = new ChatRoom();
+        room.setRoomId(99L);
+        room.setType(ChatRoomType.DIRECT);
+
+        ChatCallSession session = new ChatCallSession();
+        session.setCallSessionId(123L);
+        session.setChatRoom(room);
+        session.setInitiator(initiator);
+        session.setStatus(ChatCallSessionStatus.ACTIVE);
+
+        when(this.chatRoomService.isUserInChatRoom(99L, 11L)).thenReturn(true);
+        when(this.chatCallSessionRepository.findByCallSessionIdAndDeletedAtIsNull(123L)).thenReturn(Optional.of(session));
+        when(this.chatCallParticipantRepository.findBySessionCallSessionIdAndDeletedAtIsNull(123L)).thenReturn(List.of());
+        when(this.chatCallSessionRepository.save(any(ChatCallSession.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(this.chatRoomService.getDetailChatRoomInformation(recipient, 99L))
+                .thenReturn(ChatRoomResponse.builder().roomId(99L).type(ChatRoomType.DIRECT).name("Caller").build());
+
+        ChatCallSessionResponse response = this.service.declineCall(recipient, 99L, 123L);
+
+        assertEquals(ChatCallSessionStatus.ENDED, response.getStatus());
+        assertEquals(ChatCallEndReason.NO_ANSWER, response.getEndReason());
+        verify(this.messageService).createAndSendCallMessage(99L, initiator, session);
     }
 
     @Test

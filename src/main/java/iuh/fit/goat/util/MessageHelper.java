@@ -145,6 +145,7 @@ public class MessageHelper {
             case FILE -> "[Tệp tin]";
             case AUDIO -> "[Âm thanh]";
             case CONTACT_CARD -> "[Danh thiếp]";
+            case CALL -> "[Cuộc gọi]";
             case POLL -> "[Cuộc bình chọn]";
             default -> "[Tin nhắn không xác định]";
         };
@@ -160,6 +161,7 @@ public class MessageHelper {
             case FILE -> "[Tệp tin]";
             case AUDIO -> "[Âm thanh]";
             case CONTACT_CARD -> "[Danh thiếp]";
+            case CALL -> "[Cuộc gọi]";
             case POLL -> "[Cuộc bình chọn]";
             default -> "[Tin nhắn không xác định]";
         };

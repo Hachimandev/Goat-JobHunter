@@ -1,5 +1,6 @@
 package iuh.fit.goat.entity;
 
+import iuh.fit.goat.entity.embeddable.CallSummary;
 import iuh.fit.goat.entity.embeddable.MediaItem;
 import iuh.fit.goat.entity.embeddable.SenderInfo;
 import iuh.fit.goat.enumeration.MessageType;
@@ -29,6 +30,7 @@ public class Message {
 
     private String content;
     private List<MediaItem> mediaItems;
+    private CallSummary callSummary;
     private MessageType messageType;
     private String replyTo;
     private Boolean isHidden;
@@ -73,6 +75,11 @@ public class Message {
     @DynamoDbAttribute("mediaItems")
     public List<MediaItem> getMediaItems() {
         return mediaItems;
+    }
+
+    @DynamoDbAttribute("callSummary")
+    public CallSummary getCallSummary() {
+        return callSummary;
     }
 
     @DynamoDbAttribute("messageType")
