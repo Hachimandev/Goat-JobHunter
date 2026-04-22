@@ -1,6 +1,12 @@
 import BottomSheet from "@gorhom/bottom-sheet";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -22,6 +28,7 @@ import { ForwardModal } from "@/components/chat/ForwardModal";
 import { MessageActionsSheet } from "@/components/chat/MessageActionsSheet";
 import { MessageItem } from "@/components/chat/MessageItem";
 
+import { PollVoteModal } from "@/components/chat/PollVoteModal";
 import useChatActionsMobile from "@/hooks/useChatActionsMobile";
 import { useDissolveGroup } from "@/hooks/useDissolveGroup";
 import { useNotificationManager } from "@/hooks/useNotificationManager";
@@ -38,6 +45,7 @@ import {
 } from "@/services/chatRoom/pinned_message/pinnedMessageApi";
 import { MessageType } from "@/types/model";
 import { Ionicons } from "@expo/vector-icons";
+import { useHeaderHeight } from "@react-navigation/elements";
 import * as Clipboard from "expo-clipboard";
 import * as DocumentPicker from "expo-document-picker";
 
@@ -56,6 +64,7 @@ export default function ChatDetailScreen() {
   const { setActiveChatRoom } = useNotificationManager();
   const [forwardMessageBatch] = useForwardMessageBatchMutation();
   const [showForwardToast, setShowForwardToast] = useState(false);
+  const headerHeight = useHeaderHeight();
 
   const { data: pinnedData, refetch: refetchPinned } =
     useGetPinnedMessagesQuery(
@@ -174,7 +183,6 @@ export default function ChatDetailScreen() {
     return () => setActiveChatRoom(null);
   }, [chatRoomId]);
 
-  // Refetch chat room data when screen is focused
   useFocusEffect(
     useCallback(() => {
       if (chatRoomId) {
@@ -183,7 +191,6 @@ export default function ChatDetailScreen() {
     }, [chatRoomId, refetchChatRoom]),
   );
 
-  // Get messages safely - now accessing nested result property
   const messagesList = Array.isArray(messagesData?.data?.result)
     ? messagesData.data.result
     : [];
@@ -221,8 +228,16 @@ export default function ChatDetailScreen() {
   };
 
   const handleLongPress = useCallback((message: MessageType) => {
-    setSelectedMessage(message);
-    bottomSheetRef.current?.expand();
+    if (message.messageType === "POLL") {
+      const pollData = (message as any).poll;
+      if (pollData) {
+        setSelectedPoll(pollData);
+        setIsVoteModalOpen(true);
+      }
+    } else {
+      setSelectedMessage(message);
+      bottomSheetRef.current?.expand();
+    }
   }, []);
 
   const { handleLeaveGroup } = useDissolveGroup();
@@ -241,16 +256,38 @@ export default function ChatDetailScreen() {
   const handleCopyMessage = async () => {
     if (!selectedMessage) return;
 
-    // Ưu tiên copy link media nếu là ảnh, ngược lại copy nội dung text
     const contentToCopy =
       selectedMessage.mediaItems?.[0]?.url || selectedMessage.content;
 
     if (contentToCopy) {
       await Clipboard.setStringAsync(contentToCopy);
-      // Có thể đóng sheet sau khi copy
       bottomSheetRef.current?.close();
     }
   };
+
+  const [selectedPoll, setSelectedPoll] = useState<any>(null);
+  const [isVoteModalOpen, setIsVoteModalOpen] = useState(false);
+
+  const extractPollId = (content: string) => {
+    const match = content.match(/poll_([a-z0-9]+)/);
+    return match ? match[0] : null;
+  };
+  const latestPollMessageIdByPollId = useMemo(() => {
+    const map: Record<string, any> = {};
+    for (const m of messagesList) {
+      if (m.messageType !== "POLL") continue;
+
+      const pid = extractPollId(m.content);
+      if (!pid) continue;
+
+      const prev = map[pid];
+      if (!prev) map[pid] = m;
+      else if (new Date(m.createdAt) > new Date(prev.createdAt)) map[pid] = m;
+    }
+    const result: Record<string, string> = {};
+    for (const k of Object.keys(map)) result[k] = map[k].messageId;
+    return result;
+  }, [messagesList]);
 
   if (isLoading && messagesList.length === 0) {
     return <ActivityIndicator style={styles.loadingCenter} color="#0084FF" />;
@@ -261,7 +298,7 @@ export default function ChatDetailScreen() {
       <KeyboardAvoidingView
         style={styles.flex1}
         behavior={Platform.OS === "ios" ? "padding" : undefined}
-        keyboardVerticalOffset={Platform.OS === "ios" ? 90 : 0}
+        keyboardVerticalOffset={headerHeight}
       >
         <ChatHeader
           name={chatRoomData?.data?.name || name}
@@ -431,6 +468,12 @@ export default function ChatDetailScreen() {
               isMe={item.sender?.accountId === user?.accountId}
               currentUser={user}
               onLongPress={handleLongPress}
+              showPoll={
+                item.messageType === "POLL" &&
+                latestPollMessageIdByPollId[
+                  extractPollId(item.content) || ""
+                ] === item.messageId
+              }
               onNavigateToMessage={handleNavigateToMessage}
             />
           )}
@@ -542,6 +585,15 @@ export default function ChatDetailScreen() {
           </View>
         </View>
       )}
+      <PollVoteModal
+        visible={isVoteModalOpen}
+        poll={selectedPoll}
+        currentUser={user}
+        onClose={() => {
+          setIsVoteModalOpen(false);
+          setSelectedPoll(null);
+        }}
+      />
     </SafeAreaView>
   );
 }

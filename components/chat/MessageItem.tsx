@@ -13,6 +13,7 @@ import {
   View,
 } from "react-native";
 import ImageView from "react-native-image-viewing";
+import { PollItem } from "./PollItem";
 
 interface MessageItemProps {
   item: MessageType;
@@ -21,9 +22,9 @@ interface MessageItemProps {
   onNavigateToMessage?: (messageId: string) => void;
   isSending?: boolean;
   currentUser?: any;
+  showPoll?: boolean;
 }
 
-// --- Helpers kiểm tra định dạng S3 ---
 const isS3ImageUrl = (url: string) =>
   typeof url === "string" &&
   url.includes("amazonaws.com") &&
@@ -46,6 +47,7 @@ export const MessageItem = ({
   onNavigateToMessage,
   isSending,
   currentUser,
+  showPoll = false,
 }: MessageItemProps) => {
   const [visible, setIsVisible] = useState(false);
   const [imageIndex, setImageIndex] = useState(0);
@@ -64,7 +66,6 @@ export const MessageItem = ({
 
   const MAX_VISIBLE_MEDIA = 4;
 
-  // Gom danh sách ảnh cho Lightbox
   const images = useMemo(() => {
     if (item.mediaItems && item.mediaItems.length > 0) {
       return item.mediaItems.map((img) => ({ uri: img.url }));
@@ -73,7 +74,6 @@ export const MessageItem = ({
     return [];
   }, [item.mediaItems, isS3Image, content]);
 
-  // --- Logic xử lý System Message Event đẹp hơn ---
   const getEventConfig = (content: string) => {
     if (content.includes("MESSAGE_PINNED"))
       return { icon: "pin", color: "#059669", bg: "#ECFDF5" };
@@ -91,6 +91,8 @@ export const MessageItem = ({
       return { icon: "people", color: "#4B5563", bg: "#F9FAFB" };
     return { icon: "information-circle", color: "#6B7280", bg: "#F3F4F6" };
   };
+
+  const isPoll = item.messageType === "POLL";
 
   const extractSystemContent = (content: string) => {
     return content
@@ -125,7 +127,7 @@ export const MessageItem = ({
         activeOpacity={0.9}
         style={containerStyle}
         onPress={() => handleOpenImage(index)}
-        onLongPress={() => onLongPress(item)} // Nhấn giữ ảnh mở Bottom Sheet chung
+        onLongPress={() => onLongPress(item)}
       >
         <Image source={{ uri: url }} style={styles.fullSize} />
         {isGrid && index === MAX_VISIBLE_MEDIA - 1 && remaining > 0 && (
@@ -140,6 +142,33 @@ export const MessageItem = ({
   const renderMainContent = () => {
     if (isRevoked)
       return <Text style={styles.revokedText}>Tin nhắn đã được thu hồi</Text>;
+
+    if (isPoll) {
+      return (
+        <View>
+          <View style={styles.pollEventContainer}>
+            <Ionicons name="bar-chart" size={14} color="#0084FF" />
+            <Text style={styles.pollEventText}>
+              {extractSystemContent(item.content)}
+            </Text>
+            <TouchableOpacity onPress={() => onLongPress(item)}>
+              <Text style={styles.viewLink}> Xem</Text>
+            </TouchableOpacity>
+          </View>
+
+          {showPoll && (
+            <View style={{ marginTop: 10 }}>
+              <PollItem
+                message={item}
+                onOpenVote={(pollData: any) =>
+                  onLongPress({ ...item, poll: pollData })
+                }
+              />
+            </View>
+          )}
+        </View>
+      );
+    }
 
     if (isS3Video) {
       return (
@@ -290,7 +319,6 @@ export const MessageItem = ({
     );
   }
 
-  // --- RETURN CẤU TRÚC CHUẨN ---
   return (
     <View
       style={[
@@ -300,7 +328,8 @@ export const MessageItem = ({
     >
       <View
         style={[
-          styles.rowContainer,
+          // styles.rowContainer,
+          isPoll ? styles.pollWrapper : styles.bubbleContainer,
           isMe ? { flexDirection: "row-reverse" } : { flexDirection: "row" },
         ]}
       >
@@ -315,7 +344,7 @@ export const MessageItem = ({
           onLongPress={() => onLongPress(item)}
           activeOpacity={0.8}
           style={{ maxWidth: "85%" }}
-          disabled={isRevoked}
+          disabled={isRevoked || isPoll}
         >
           {renderForwardLabel()}
           {renderReplyHeaderLabel()}
@@ -342,7 +371,7 @@ export const MessageItem = ({
             {/* BONG BÓNG NỘI DUNG CHÍNH */}
             <View
               style={[
-                item.mediaItems?.length || isS3Image || isS3Video
+                item.mediaItems?.length || isS3Image || isS3Video || isPoll
                   ? styles.mediaContainer
                   : [
                       styles.bubble,
@@ -496,4 +525,16 @@ const styles = StyleSheet.create({
   systemMessageText: { fontSize: 12, textAlign: "center", flexShrink: 1 },
   viewPinnedBtn: { color: "#059669", fontWeight: "bold" },
   systemTimeText: { color: "#9CA3AF", fontSize: 11 },
+
+  pollWrapper: { width: "100%", alignItems: "center", marginVertical: 10 },
+  pollEventContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#F0F2F5",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+  },
+  pollEventText: { fontSize: 12, color: "#4B5563", marginLeft: 6 },
+  viewLink: { fontSize: 12, color: "#0084FF", fontWeight: "bold" },
 });
