@@ -4,12 +4,14 @@ import iuh.fit.goat.dto.request.chat.EndChatCallRequest;
 import iuh.fit.goat.dto.request.chat.JoinChatCallRequest;
 import iuh.fit.goat.dto.request.chat.StartChatCallRequest;
 import iuh.fit.goat.dto.response.chat.ChatCallSessionResponse;
+import iuh.fit.goat.dto.response.chat.ChatRoomResponse;
 import iuh.fit.goat.entity.Account;
 import iuh.fit.goat.entity.ChatCallParticipant;
 import iuh.fit.goat.entity.ChatCallSession;
 import iuh.fit.goat.entity.ChatRoom;
 import iuh.fit.goat.enumeration.ChatCallEndReason;
 import iuh.fit.goat.enumeration.ChatCallSessionStatus;
+import iuh.fit.goat.enumeration.ChatRoomType;
 import iuh.fit.goat.exception.InvalidException;
 import iuh.fit.goat.exception.PermissionException;
 import iuh.fit.goat.repository.ChatCallParticipantRepository;
@@ -89,6 +91,8 @@ class ChatCallServiceImplTest {
         when(this.chatCallSessionRepository.save(any(ChatCallSession.class))).thenReturn(saved);
         when(this.chatCallSessionRepository.findByCallSessionIdAndDeletedAtIsNull(123L)).thenReturn(Optional.of(saved));
         when(this.chatCallParticipantRepository.findBySessionCallSessionIdAndDeletedAtIsNull(123L)).thenReturn(List.of());
+        when(this.chatRoomService.getDetailChatRoomInformation(account, 99L))
+                .thenReturn(ChatRoomResponse.builder().roomId(99L).type(ChatRoomType.DIRECT).name("Receiver").build());
 
         ChatCallSessionResponse response = this.service.startCall(account, 99L, new StartChatCallRequest(true));
 
@@ -126,6 +130,8 @@ class ChatCallServiceImplTest {
         when(this.chatCallSessionRepository.findByCallSessionIdAndDeletedAtIsNull(123L)).thenReturn(Optional.of(session));
         when(this.chatCallSessionRepository.save(any(ChatCallSession.class))).thenAnswer(invocation -> invocation.getArgument(0));
         when(this.chatCallParticipantRepository.findBySessionCallSessionIdAndDeletedAtIsNull(123L)).thenReturn(List.of());
+        when(this.chatRoomService.getDetailChatRoomInformation(account, 99L))
+                .thenReturn(ChatRoomResponse.builder().roomId(99L).type(ChatRoomType.DIRECT).name("Receiver").build());
 
         ChatCallSessionResponse response = this.service.endCall(
                 account,

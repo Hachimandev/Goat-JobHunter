@@ -6,6 +6,7 @@ import iuh.fit.goat.dto.request.chat.StartChatCallRequest;
 import iuh.fit.goat.dto.response.chat.ChatCallParticipantAccountResponse;
 import iuh.fit.goat.dto.response.chat.ChatCallParticipantResponse;
 import iuh.fit.goat.dto.response.chat.ChatCallRealtimeEventResponse;
+import iuh.fit.goat.dto.response.chat.ChatRoomResponse;
 import iuh.fit.goat.dto.response.chat.ChatCallSessionResponse;
 import iuh.fit.goat.entity.Account;
 import iuh.fit.goat.entity.Company;
@@ -77,7 +78,7 @@ public class ChatCallServiceImpl implements ChatCallService {
         participant.setPublisher(isPublisher(request != null ? request.getPublisher() : null));
         this.chatCallParticipantRepository.save(participant);
 
-        ChatCallSessionResponse response = toResponse(savedSession.getCallSessionId());
+        ChatCallSessionResponse response = toResponse(currentAccount, savedSession.getCallSessionId());
         publishEvent("CALL_STARTED", chatRoomId, savedSession.getCallSessionId(), currentAccount.getAccountId(), savedSession.getStatus());
         return response;
     }
@@ -106,7 +107,7 @@ public class ChatCallServiceImpl implements ChatCallService {
         participant.setDeclined(false);
         this.chatCallParticipantRepository.save(participant);
 
-        ChatCallSessionResponse response = toResponse(sessionId);
+        ChatCallSessionResponse response = toResponse(currentAccount, sessionId);
         publishEvent("CALL_JOINED", chatRoomId, sessionId, currentAccount.getAccountId(), session.getStatus());
         return response;
     }
@@ -134,7 +135,7 @@ public class ChatCallServiceImpl implements ChatCallService {
             this.chatCallSessionRepository.save(session);
         }
 
-        ChatCallSessionResponse response = toResponse(sessionId);
+        ChatCallSessionResponse response = toResponse(currentAccount, sessionId);
         publishEvent("CALL_LEFT", chatRoomId, sessionId, currentAccount.getAccountId(), response.getStatus());
         return response;
     }
@@ -168,7 +169,7 @@ public class ChatCallServiceImpl implements ChatCallService {
         participant.setDeclined(true);
         this.chatCallParticipantRepository.save(participant);
 
-        ChatCallSessionResponse response = toResponse(sessionId);
+        ChatCallSessionResponse response = toResponse(currentAccount, sessionId);
         publishEvent("CALL_LEFT", chatRoomId, sessionId, currentAccount.getAccountId(), response.getStatus());
         return response;
     }
@@ -203,7 +204,7 @@ public class ChatCallServiceImpl implements ChatCallService {
         session.setEndReason(request != null && request.getReason() != null ? request.getReason() : ChatCallEndReason.HANGUP);
         this.chatCallSessionRepository.save(session);
 
-        ChatCallSessionResponse response = toResponse(sessionId);
+        ChatCallSessionResponse response = toResponse(currentAccount, sessionId);
         publishEvent("CALL_ENDED", chatRoomId, sessionId, currentAccount.getAccountId(), response.getStatus());
         return response;
     }
@@ -219,7 +220,7 @@ public class ChatCallServiceImpl implements ChatCallService {
                 .findFirstByChatRoomRoomIdAndStatusInAndDeletedAtIsNullOrderByCreatedAtDesc(chatRoomId, activeStatuses())
                 .orElseThrow(() -> new InvalidException("No active call found in this chat room"));
 
-        return toResponse(session.getCallSessionId());
+        return toResponse(currentAccount, session.getCallSessionId());
     }
 
     private ChatCallSession validateSessionAccess(Long chatRoomId, Long sessionId, Long accountId)
@@ -282,9 +283,15 @@ public class ChatCallServiceImpl implements ChatCallService {
         return publisher == null || publisher;
     }
 
-    private ChatCallSessionResponse toResponse(Long sessionId) throws InvalidException {
+    private ChatCallSessionResponse toResponse(Account currentAccount, Long sessionId) throws InvalidException {
         ChatCallSession session = this.chatCallSessionRepository.findByCallSessionIdAndDeletedAtIsNull(sessionId)
                 .orElseThrow(() -> new InvalidException("Call session not found"));
+        Long chatRoomId = session.getChatRoom() != null ? session.getChatRoom().getRoomId() : null;
+        ChatRoomResponse chatRoomResponse = null;
+
+        if (currentAccount != null && chatRoomId != null) {
+            chatRoomResponse = this.chatRoomService.getDetailChatRoomInformation(currentAccount, chatRoomId);
+        }
 
         List<ChatCallParticipantResponse> participants = new ArrayList<>();
         for (ChatCallParticipant participant : this.chatCallParticipantRepository
@@ -300,7 +307,10 @@ public class ChatCallServiceImpl implements ChatCallService {
 
         return new ChatCallSessionResponse(
                 session.getCallSessionId(),
-                session.getChatRoom() != null ? session.getChatRoom().getRoomId() : null,
+                chatRoomId,
+                chatRoomResponse != null ? chatRoomResponse.getType() : null,
+                chatRoomResponse != null ? chatRoomResponse.getName() : null,
+                chatRoomResponse != null ? chatRoomResponse.getAvatar() : null,
                 session.getStatus(),
                 session.getAgoraChannelName(),
                 session.getInitiator() != null ? session.getInitiator().getAccountId() : null,
