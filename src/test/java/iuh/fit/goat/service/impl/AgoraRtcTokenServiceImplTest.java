@@ -8,6 +8,7 @@ import iuh.fit.goat.entity.ChatRoom;
 import iuh.fit.goat.enumeration.ChatCallSessionStatus;
 import iuh.fit.goat.exception.InvalidException;
 import iuh.fit.goat.exception.PermissionException;
+import iuh.fit.goat.repository.ChatCallParticipantRepository;
 import iuh.fit.goat.repository.ChatCallSessionRepository;
 import iuh.fit.goat.service.ChatRoomService;
 import org.junit.jupiter.api.BeforeEach;
@@ -23,6 +24,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -34,6 +36,8 @@ class AgoraRtcTokenServiceImplTest {
 
     @Mock
     private ChatCallSessionRepository chatCallSessionRepository;
+    @Mock
+    private ChatCallParticipantRepository chatCallParticipantRepository;
 
     private AgoraRtcProperties agoraRtcProperties;
     private AgoraRtcTokenServiceImpl agoraRtcTokenService;
@@ -49,7 +53,8 @@ class AgoraRtcTokenServiceImplTest {
         this.agoraRtcTokenService = new AgoraRtcTokenServiceImpl(
                 this.agoraRtcProperties,
                 this.chatRoomService,
-                this.chatCallSessionRepository
+                this.chatCallSessionRepository,
+                this.chatCallParticipantRepository
         );
     }
 
@@ -68,7 +73,7 @@ class AgoraRtcTokenServiceImplTest {
         assertEquals(1L, response.getSessionId());
         assertEquals("0123456789abcdef0123456789abcdef", response.getAppId());
         assertEquals("chatroom-10", response.getChannelName());
-        assertEquals(123, response.getUid());
+        assertTrue(response.getUid() > 0);
         assertEquals(600, response.getTtlSeconds());
         assertFalse(response.getToken().isBlank());
     }

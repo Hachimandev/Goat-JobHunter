@@ -26,6 +26,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.time.Instant;
 import java.util.ArrayList;
@@ -310,15 +312,30 @@ public class ChatCallServiceImpl implements ChatCallService {
     }
 
     private void publishEvent(String eventType, Long chatRoomId, Long sessionId, Long actorAccountId, ChatCallSessionStatus status) {
-        String destination = CALL_TOPIC_PREFIX + chatRoomId + "/calls";
-        ChatCallRealtimeEventResponse payload = new ChatCallRealtimeEventResponse(
-                eventType,
-                chatRoomId,
-                sessionId,
-                actorAccountId,
-                status
-        );
-        this.messagingTemplate.convertAndSend(destination, payload);
+        Runnable publishAction = () -> {
+            String destination = CALL_TOPIC_PREFIX + chatRoomId + "/calls";
+            ChatCallRealtimeEventResponse payload = new ChatCallRealtimeEventResponse(
+                    eventType,
+                    chatRoomId,
+                    sessionId,
+                    actorAccountId,
+                    status
+            );
+            this.messagingTemplate.convertAndSend(destination, payload);
+        };
+
+        if (TransactionSynchronizationManager.isActualTransactionActive()
+                && TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    publishAction.run();
+                }
+            });
+            return;
+        }
+
+        publishAction.run();
     }
 
     private boolean isGroupCall(ChatCallSession session) {
