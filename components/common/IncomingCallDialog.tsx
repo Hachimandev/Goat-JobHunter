@@ -2,13 +2,20 @@
 
 import ConfirmDialog from '@/components/common/ConfirmDialog';
 import useCallRoomActions from '@/hooks/useCallRoomActions';
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 
 const AUTO_DISMISS_TIMEOUT_MS = 60 * 1000;
 
 export default function IncomingCallDialog() {
   const { incomingCall, handleAcceptIncomingCall, handleDeclineIncomingCall, isAcceptingCall, isDecliningCall } =
     useCallRoomActions();
+  const isAcceptIntentRef = useRef(false);
+
+  useEffect(() => {
+    if (!incomingCall) {
+      isAcceptIntentRef.current = false;
+    }
+  }, [incomingCall]);
 
   useEffect(() => {
     if (!incomingCall) {
@@ -29,6 +36,11 @@ export default function IncomingCallDialog() {
       open={Boolean(incomingCall)}
       onOpenChange={(open) => {
         if (!open) {
+          if (isAcceptIntentRef.current || isAcceptingCall) {
+            isAcceptIntentRef.current = false;
+            return;
+          }
+
           void handleDeclineIncomingCall();
         }
       }}
@@ -44,6 +56,7 @@ export default function IncomingCallDialog() {
       disableConfirm={isAcceptingCall || isDecliningCall}
       isLoading={isAcceptingCall || isDecliningCall}
       onConfirm={() => {
+        isAcceptIntentRef.current = true;
         void handleAcceptIncomingCall();
       }}
     />
