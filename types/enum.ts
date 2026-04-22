@@ -93,6 +93,7 @@ export enum MessageTypeEnum {
   MEDIA = 'MEDIA',
   FILE = 'FILE',
   CONTACT_CARD = 'CONTACT_CARD',
+  CALL = 'CALL',
   SYSTEM = 'SYSTEM',
   POLL = 'POLL',
 }

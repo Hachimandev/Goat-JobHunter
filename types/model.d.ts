@@ -379,6 +379,14 @@ export type MessageReplyContext = {
   originalMessageHidden: boolean;
 };
 
+export type MessageCallContext = {
+  sessionId: number;
+  startedAt?: string | null;
+  endedAt?: string | null;
+  durationSeconds?: number | null;
+  endReason?: CallEndReasonEnum | null;
+};
+
 export type MessageMediaItem = {
   url: string;
   mediaType: 'image' | 'video' | 'audio';
@@ -406,6 +414,7 @@ export type MessageType = {
   isForwarded?: boolean;
   originalMessageId?: string;
   contactCard?: ContactCardContext | null;
+  callContext?: MessageCallContext | null;
   createdAt: string;
   updatedAt: string;
   role?: MessageTypeRole; // temporary field to avoid error for build in chat container
@@ -424,6 +433,7 @@ export type MessageResponse = {
   isForwarded: boolean;
   originalMessageId?: string | null;
   contactCard?: ContactCardContext | null;
+  callContext?: MessageCallContext | null;
   createdAt: string; // Instant -> ISO string
   updatedAt: string; // Instant -> ISO string
 };

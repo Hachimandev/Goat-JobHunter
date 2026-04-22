@@ -369,16 +369,24 @@ const useCallRoomActions = () => {
     }
 
     try {
-      await endCall({
+      const response = await endCall({
         chatRoomId: currentCall.chatRoomId,
         sessionId: currentCall.sessionId,
         reason: CallEndReasonEnum.HANGUP,
       }).unwrap();
+
+      await cleanupRtcSession();
+      dispatch(
+        endCurrentCall({
+          sessionId: currentCall.sessionId,
+          endedAt: response.data?.endedAt ?? undefined,
+          finalStatus: response.data?.status ?? CallStatusEnum.ENDED,
+        }),
+      );
     } catch (error) {
       console.error('Failed to end call:', error);
-    } finally {
-      await cleanupRtcSession();
-      dispatch(endCurrentCall({ sessionId: currentCall.sessionId }));
+      dispatch(setCallError('Không thể kết thúc cuộc gọi.'));
+      toast.error('Không thể kết thúc cuộc gọi. Vui lòng thử lại.');
     }
   }, [cleanupRtcSession, currentCall, dispatch, endCall]);
 
@@ -388,15 +396,23 @@ const useCallRoomActions = () => {
     }
 
     try {
-      await leaveCall({
+      const response = await leaveCall({
         chatRoomId: currentCall.chatRoomId,
         sessionId: currentCall.sessionId,
       }).unwrap();
+
+      await cleanupRtcSession();
+      dispatch(
+        endCurrentCall({
+          sessionId: currentCall.sessionId,
+          endedAt: response.data?.endedAt ?? undefined,
+          finalStatus: response.data?.status ?? undefined,
+        }),
+      );
     } catch (error) {
       console.error('Failed to leave call:', error);
-    } finally {
-      await cleanupRtcSession();
-      dispatch(endCurrentCall({ sessionId: currentCall.sessionId }));
+      dispatch(setCallError('Không thể rời cuộc gọi.'));
+      toast.error('Không thể rời cuộc gọi. Vui lòng thử lại.');
     }
   }, [cleanupRtcSession, currentCall, dispatch, leaveCall]);
 
