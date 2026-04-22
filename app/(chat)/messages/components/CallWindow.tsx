@@ -5,8 +5,9 @@ import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { CallStatusEnum, CallTypeEnum, ChatRoomType } from '@/types/enum';
 import { CallSession } from '@/types/model';
-import { DoorOpen, Dot, Mic, MicOff, PhoneOff, Video, VideoOff } from 'lucide-react';
+import { Camera, CameraOff, DoorOpen, Dot, Mic, MicOff, PhoneOff, UserRound, Video, VideoOff } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Badge } from '@/components/ui/badge';
 
 type CallWindowProps = {
   currentCall: CallSession;
@@ -50,8 +51,17 @@ export function CallWindow({
   handleToggleLocalVideo,
   bindRtcContainers,
 }: Readonly<CallWindowProps>) {
-  const localVideoRef = useRef<HTMLDivElement | null>(null);
-  const remoteVideoRef = useRef<HTMLDivElement | null>(null);
+  const mainStageRef = useRef<HTMLDivElement | null>(null);
+  const secondaryStageRef = useRef<HTMLDivElement | null>(null);
+
+  const showVideoLayout = (currentCall.callType ?? CallTypeEnum.VOICE) === CallTypeEnum.VIDEO;
+  const joinedParticipants = currentCall.participants.filter((participant) => !participant.leftAt);
+  const remoteParticipant =
+    joinedParticipants.find((participant) => participant.account.accountId !== currentUserId) ?? null;
+  const remoteDisplayName =
+    remoteParticipant?.account.fullName || remoteParticipant?.account.username || chatRoomName || 'Đối phương';
+  const remoteAvatar = remoteParticipant?.account.avatar ?? chatRoomAvatar ?? null;
+  const stageShowsLocalVideo = showVideoLayout && localVideoEnabled && !remoteVideoActive;
 
   useEffect(() => {
     if (!currentCall) {
@@ -60,33 +70,31 @@ export function CallWindow({
     }
 
     bindRtcContainers({
-      localVideoContainer: localVideoRef.current,
-      remoteVideoContainer: remoteVideoRef.current,
+      localVideoContainer: stageShowsLocalVideo ? mainStageRef.current : secondaryStageRef.current,
+      remoteVideoContainer: stageShowsLocalVideo ? secondaryStageRef.current : mainStageRef.current,
     });
-  }, [bindRtcContainers, currentCall]);
+  }, [bindRtcContainers, currentCall, stageShowsLocalVideo, remoteVideoActive, localVideoEnabled]);
 
-  const { statusLabel, iconDotColor } = useMemo(() => {
+  const { statusLabel } = useMemo(() => {
     switch (currentCall.status) {
       case CallStatusEnum.PENDING: {
-        return { statusLabel: 'Đang chờ tham gia', iconDotColor: 'bg-amber-400' };
+        return { statusLabel: 'Đang chờ tham gia' };
       }
       case CallStatusEnum.ACTIVE: {
-        return { statusLabel: 'Đang trong cuộc gọi', iconDotColor: 'bg-green-500' };
+        return { statusLabel: 'Đang trong cuộc gọi' };
       }
       case CallStatusEnum.ENDED: {
-        return { statusLabel: 'Cuộc gọi đã kết thúc', iconDotColor: 'bg-gray-500' };
+        return { statusLabel: 'Cuộc gọi đã kết thúc' };
       }
       case CallStatusEnum.CANCELLED: {
-        return { statusLabel: 'Cuộc gọi đã hủy', iconDotColor: 'bg-red-500' };
+        return { statusLabel: 'Cuộc gọi đã hủy' };
       }
       default: {
-        return { statusLabel: 'Đang xử lý', iconDotColor: 'bg-blue-500' };
+        return { statusLabel: 'Đang xử lý' };
       }
     }
   }, [currentCall.status]);
 
-  const showVideoLayout = (currentCall.callType ?? CallTypeEnum.VOICE) === CallTypeEnum.VIDEO;
-  const joinedParticipants = currentCall.participants.filter((participant) => !participant.leftAt);
   const sortedJoinedParticipants = [...joinedParticipants].sort((firstParticipant, secondParticipant) => {
     if (firstParticipant.account.accountId === currentUserId) {
       return -1;
@@ -127,14 +135,25 @@ export function CallWindow({
           subtitle: participant.account.accountId === currentUserId ? 'Bạn' : 'Đang tham gia',
         }));
 
+  const statusToneClass = cn(
+    'inline-block ml-2 h-2.5 w-2.5 rounded-full',
+    currentCall.status === CallStatusEnum.ACTIVE && 'bg-primary',
+    currentCall.status === CallStatusEnum.PENDING && 'bg-muted-foreground',
+    currentCall.status === CallStatusEnum.ENDED && 'bg-muted-foreground',
+    currentCall.status === CallStatusEnum.CANCELLED && 'bg-destructive',
+    ![CallStatusEnum.ACTIVE, CallStatusEnum.PENDING, CallStatusEnum.ENDED, CallStatusEnum.CANCELLED].includes(
+      currentCall.status,
+    ) && 'bg-primary',
+  );
+
   return (
-    <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex flex-col">
-      <div className="flex items-center justify-between px-5 py-4 border-b border-white/15 text-white">
+    <div className="fixed inset-0 z-50 flex flex-col bg-accent-foreground/90 backdrop-blur-sm">
+      <div className="flex items-center justify-between border-b border-muted-foreground px-5 py-4 text-foreground">
         <div>
-          <p className="text-sm font-medium">
-            Cuộc gọi đang diễn ra <Dot className={cn('h-3 w-3 rounded-full inline-block ml-2', iconDotColor)} />
+          <p className="text-sm font-medium text-white">
+            Cuộc gọi đang diễn ra <Dot className={statusToneClass} />
           </p>
-          <p className="text-xs text-white/70 mt-1">
+          <p className="mt-1 text-xs text-secondary">
             {statusLabel} · {rtcConnectionState}
           </p>
         </div>
@@ -143,25 +162,140 @@ export function CallWindow({
       <div className="flex-1 p-4 md:p-6">
         {showVideoLayout ? (
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 h-full">
-            <div className="lg:col-span-9 rounded-2xl bg-zinc-900 border border-white/10 min-h-[280px] relative overflow-hidden">
-              <div ref={remoteVideoRef} className="h-full w-full" />
-              {!remoteVideoActive && (
-                <div className="absolute inset-0 flex items-center justify-center text-sm text-white/70">
-                  Đang chờ video từ đối phương...
+            <div className="relative min-h-80 overflow-hidden rounded-3xl bg-card shadow-sm lg:col-span-8">
+              <div ref={mainStageRef} className="h-full w-full" />
+
+              {remoteVideoActive && !stageShowsLocalVideo && (
+                <Badge
+                  variant="default"
+                  className="absolute left-4 top-4 rounded-full px-3 py-1 font-medium backdrop-blur"
+                >
+                  <span className="inline-flex items-center gap-2">
+                    <Camera className="inline-start h-5 w-5" />
+                    {remoteDisplayName} đang bật camera
+                  </span>
+                </Badge>
+              )}
+
+              {stageShowsLocalVideo && (
+                <Badge
+                  variant="default"
+                  className="absolute left-4 top-4 rounded-full px-3 py-1 font-medium backdrop-blur"
+                >
+                  <span className="inline-flex items-center gap-2">
+                    <Video className="inline-start h-5 w-5" />
+                    Camera của bạn
+                  </span>
+                </Badge>
+              )}
+
+              {!remoteVideoActive && !stageShowsLocalVideo && (
+                <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 px-6 text-center bg-card">
+                  <div className="flex h-20 w-20 items-center justify-center rounded-full bg-muted text-muted-foreground">
+                    <UserRound className="h-10 w-10" />
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-lg font-semibold text-foreground">{remoteDisplayName}</p>
+                    <p className="text-sm text-muted-foreground">Đối phương chưa bật camera</p>
+                  </div>
+                  <Badge
+                    variant="secondary"
+                    className="flex items-center gap-2 rounded-full px-3 py-1 text-xs text-muted-foreground"
+                  >
+                    <CameraOff className="h-3.5 w-3.5" />
+                    {remoteAudioActive ? 'Âm thanh vẫn đang hoạt động' : 'Đang chờ video từ đối phương'}
+                  </Badge>
                 </div>
               )}
             </div>
-            <div className="lg:col-span-3 rounded-2xl bg-zinc-900 border border-white/10 min-h-[180px] relative overflow-hidden">
-              <div ref={localVideoRef} className="h-full w-full" />
-              {!localVideoEnabled && (
-                <div className="absolute inset-0 flex items-center justify-center text-sm text-white/70">
-                  Camera đang tắt
+
+            <div className="lg:col-span-4 flex flex-col gap-4">
+              <div className="relative min-h-[220px] overflow-hidden rounded-3xl border border-muted-foreground bg-card shadow-sm">
+                <div ref={secondaryStageRef} className="h-full w-full" />
+
+                <div className="absolute right-3 top-3 flex items-center gap-2">
+                  <Badge variant="secondary" className="px-2 py-1 backdrop-blur">
+                    {stageShowsLocalVideo ? (
+                      remoteVideoActive ? (
+                        <>
+                          <Camera className="inline-start h-5 w-5" />
+                          Camera bật
+                        </>
+                      ) : (
+                        <>
+                          <CameraOff className="inline-start h-5 w-5" />
+                          Camera tắt
+                        </>
+                      )
+                    ) : localVideoEnabled ? (
+                      <>
+                        <Video className="inline-start h-5 w-5" />
+                        Xem trước bật
+                      </>
+                    ) : (
+                      <>
+                        <VideoOff className="inline-start h-5 w-5" />
+                        Xem trước tắt
+                      </>
+                    )}
+                  </Badge>
                 </div>
-              )}
+
+                {stageShowsLocalVideo
+                  ? !remoteVideoActive && (
+                      <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 px-4 text-center">
+                        <Avatar className="size-16 border border-border">
+                          <AvatarImage src={remoteAvatar || '/placeholder.svg'} alt={remoteDisplayName} />
+                          <AvatarFallback>{remoteDisplayName.charAt(0)}</AvatarFallback>
+                        </Avatar>
+                        <div>
+                          <p className="text-sm font-medium text-foreground">{remoteDisplayName}</p>
+                          <p className="text-xs text-muted-foreground">Chưa bật camera</p>
+                        </div>
+                      </div>
+                    )
+                  : !localVideoEnabled && (
+                      <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 px-4 text-center">
+                        <div className="flex h-16 w-16 items-center justify-center rounded-full border border-border bg-muted text-muted-foreground">
+                          <VideoOff className="h-7 w-7" />
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-foreground">Camera của bạn đang tắt</p>
+                          <p className="text-xs text-muted-foreground">Bạn vẫn có thể tiếp tục gọi bằng âm thanh</p>
+                        </div>
+                      </div>
+                    )}
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="rounded-2xl border border-border bg-card px-4 py-3 text-foreground shadow-sm">
+                  <p className="text-[11px] uppercase tracking-[0.22em] text-muted-foreground">Micro</p>
+                  <div className="mt-2 flex items-center gap-2 text-sm font-medium text-foreground">
+                    {localAudioEnabled ? (
+                      <Mic className="h-4 w-4 text-primary" />
+                    ) : (
+                      <MicOff className="h-4 w-4 text-muted-foreground" />
+                    )}
+                    <span>{localAudioEnabled ? 'Bạn đang nói' : 'Bạn đã tắt mic'}</span>
+                  </div>
+                </div>
+
+                <div className="rounded-2xl border border-border bg-card px-4 py-3 text-foreground shadow-sm">
+                  <p className="text-[11px] uppercase tracking-[0.22em] text-muted-foreground">Đối phương</p>
+                  <div className="mt-2 flex items-center gap-2 text-sm font-medium text-foreground">
+                    {remoteAudioActive ? (
+                      <Mic className="h-4 w-4 text-primary" />
+                    ) : (
+                      <MicOff className="h-4 w-4 text-muted-foreground" />
+                    )}
+                    <span>{remoteAudioActive ? 'Có âm thanh' : 'Đang im lặng'}</span>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         ) : (
-          <div className="h-full rounded-2xl bg-zinc-900 border border-white/10 p-4 pb-9!">
+          <div className="h-full rounded-2xl border border-border bg-card p-4 pb-9!">
             <div
               className={cn(
                 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 h-full auto-rows-fr',
@@ -171,65 +305,65 @@ export function CallWindow({
               {voiceTiles.map((voiceTile) => (
                 <div
                   key={voiceTile.key}
-                  className="rounded-2xl border border-white/10 bg-zinc-800/70 p-4 flex flex-col items-center justify-center text-center gap-3"
+                  className="flex flex-col items-center justify-center gap-3 rounded-2xl border border-border bg-muted/40 p-4 text-center"
                 >
-                  <Avatar className="h-20 w-20 md:h-24 md:w-24 border-2 border-white/20">
+                  <Avatar className="size-20 border-2 border-border md:size-24">
                     <AvatarImage src={voiceTile.avatar || '/placeholder.svg'} alt={voiceTile.fullName} />
                     <AvatarFallback>{voiceTile.fullName.charAt(0)}</AvatarFallback>
                   </Avatar>
                   <div>
-                    <p className="text-sm md:text-base font-semibold text-white">{voiceTile.fullName}</p>
-                    <p className="text-xs text-white/70 mt-1">{voiceTile.subtitle}</p>
+                    <p className="text-sm font-semibold text-foreground md:text-base">{voiceTile.fullName}</p>
+                    <p className="mt-1 text-xs text-muted-foreground">{voiceTile.subtitle}</p>
                   </div>
                 </div>
               ))}
 
               {!currentUserInCall && (
-                <div className="rounded-2xl border border-amber-300/40 bg-amber-500/10 p-4 flex items-center justify-center text-center text-amber-100 text-sm">
+                <div className="flex items-center justify-center rounded-2xl border border-border bg-muted p-4 text-center text-sm text-muted-foreground">
                   Chờ xác nhận tham gia cuộc gọi...
                 </div>
               )}
 
               {voiceTiles.length === 0 && (
-                <div className="rounded-2xl border border-white/10 bg-zinc-800/70 p-4 flex items-center justify-center text-center text-white/70 text-sm">
+                <div className="flex items-center justify-center rounded-2xl border border-border bg-muted/40 p-4 text-center text-sm text-muted-foreground">
                   Đang chờ thành viên tham gia...
                 </div>
               )}
             </div>
 
-            {remoteAudioActive && <p className="text-center text-xs text-emerald-200 mt-3">Âm thanh đã kết nối</p>}
+            {remoteAudioActive && <p className="mt-3 text-center text-xs text-muted-foreground">Âm thanh đã kết nối</p>}
           </div>
         )}
       </div>
 
       {(callError || rtcConnectionState === 'failed') && (
-        <div className="mx-4 md:mx-6 mb-2 rounded-xl border border-rose-500/40 bg-rose-500/10 px-4 py-2 text-sm text-rose-100">
+        <div className="mx-4 mb-2 rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-2 text-sm text-destructive md:mx-6">
           {callError || 'Không thể duy trì kết nối cuộc gọi.'}
         </div>
       )}
 
-      <div className="px-4 md:px-6 py-4 border-t border-white/15 flex items-center justify-center gap-3">
+      <div className="flex items-center justify-center gap-3 border-t border-muted-foreground px-4 py-4 md:px-6">
         <Button
           variant="secondary"
           size="icon"
-          className="rounded-full bg-white/15 hover:bg-white/20 text-white"
+          className="rounded-full"
           onClick={() => {
             void handleToggleLocalAudio();
           }}
         >
-          {localAudioEnabled ? <Mic className="h-5 w-5" /> : <MicOff className="h-5 w-5" />}
+          {localAudioEnabled ? <Mic /> : <MicOff />}
         </Button>
 
         {showVideoLayout && (
           <Button
             variant="secondary"
             size="icon"
-            className="rounded-full bg-white/15 hover:bg-white/20 text-white"
+            className="rounded-full"
             onClick={() => {
               void handleToggleLocalVideo();
             }}
           >
-            {localVideoEnabled ? <Video className="h-5 w-5" /> : <VideoOff className="h-5 w-5" />}
+            {localVideoEnabled ? <Video /> : <VideoOff />}
           </Button>
         )}
 
@@ -243,7 +377,7 @@ export function CallWindow({
             void handleCloseCallAction();
           }}
         >
-          {canCurrentUserEndCall ? <PhoneOff className="h-5 w-5" /> : <DoorOpen className="h-5 w-5" />}
+          {canCurrentUserEndCall ? <PhoneOff /> : <DoorOpen />}
         </Button>
       </div>
     </div>
