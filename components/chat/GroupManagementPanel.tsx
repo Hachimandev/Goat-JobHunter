@@ -1,4 +1,6 @@
 import { useDissolveGroup } from "@/hooks/useDissolveGroup";
+import { useRemoveMember } from "@/hooks/useRemoveMember";
+import { useUser } from "@/hooks/useUser";
 import { useGetMemberInGroupChatQuery } from "@/services/chatRoom/groupChat/groupChatApi";
 import { Feather, Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
@@ -24,11 +26,24 @@ export const GroupManagementPanel = ({
   groupId,
   isOwner = false,
 }: GroupManagementPanelProps) => {
+  const { user } = useUser();
   const { handleDissolveGroup, handleLeaveGroup, isLoading } =
     useDissolveGroup();
+  const { handleRemoveMember, isLoading: isRemoving } = useRemoveMember();
   const { data: membersData } = useGetMemberInGroupChatQuery(groupId);
 
   const members = membersData?.data || [];
+
+  // Get current user's role
+  const currentUserRole = members.find(
+    (m) => m.accountId === user?.accountId
+  )?.role;
+
+  const canRemove = (memberRole: string) => {
+    if (isOwner) return true;
+    if (currentUserRole === "MODERATOR" && memberRole === "MEMBER") return true;
+    return false;
+  };
 
   const onHandleLeaveGroup = async () => {
     await handleLeaveGroup(groupId, groupName);
@@ -36,6 +51,16 @@ export const GroupManagementPanel = ({
 
   const handleDissolve = async () => {
     await handleDissolveGroup(groupName, groupId);
+  };
+
+  const handleRemove = async (
+    member: any
+  ) => {
+    const success = await handleRemoveMember(
+      groupId,
+      member.chatMemberId.toString(),
+      member.fullName
+    );
   };
 
   return (
@@ -73,34 +98,56 @@ export const GroupManagementPanel = ({
         <Text style={styles.sectionTitle}>Thành viên ({members.length})</Text>
         {members.length > 0 ? (
           <View style={styles.membersList}>
-            {members.map((member, index) => (
-              <View key={member.chatMemberId} style={styles.memberItem}>
-                <Image
-                  source={{
-                    uri: member.avatar || "https://i.pravatar.cc/150?img=1",
-                  }}
-                  style={styles.memberAvatar}
-                />
-                <View style={styles.memberInfo}>
-                  <Text style={styles.memberName}>{member.fullName}</Text>
-                  <View style={styles.roleContainer}>
-                    <Text
-                      style={[
-                        styles.roleLabel,
-                        member.role === "OWNER" && styles.roleOwner,
-                        member.role === "MODERATOR" && styles.roleModerator,
-                      ]}
-                    >
-                      {member.role === "OWNER"
-                        ? "Chủ nhóm"
-                        : member.role === "MODERATOR"
-                          ? "Người điều hành"
-                          : "Thành viên"}
-                    </Text>
+            {members.map((member, index) => {
+              const isSelf = member.accountId === user?.accountId;
+              const canRemoveMember =
+                !isSelf && canRemove(member.role);
+
+              return (
+                <View key={member.chatMemberId} style={styles.memberItem}>
+                  <Image
+                    source={{
+                      uri:
+                        member.avatar ||
+                        "https://i.pravatar.cc/150?img=1",
+                    }}
+                    style={styles.memberAvatar}
+                  />
+                  <View style={styles.memberInfo}>
+                    <Text style={styles.memberName}>{member.fullName}</Text>
+                    <View style={styles.roleContainer}>
+                      <Text
+                        style={[
+                          styles.roleLabel,
+                          member.role === "OWNER" && styles.roleOwner,
+                          member.role === "MODERATOR" &&
+                            styles.roleModerator,
+                        ]}
+                      >
+                        {member.role === "OWNER"
+                          ? "Chủ nhóm"
+                          : member.role === "MODERATOR"
+                            ? "Người điều hành"
+                            : "Thành viên"}
+                      </Text>
+                    </View>
                   </View>
+                  {canRemoveMember && (
+                    <TouchableOpacity
+                      onPress={() => handleRemove(member)}
+                      disabled={isRemoving}
+                      style={styles.removeButton}
+                    >
+                      {isRemoving ? (
+                        <ActivityIndicator size="small" color="#FF3B30" />
+                      ) : (
+                        <Ionicons name="trash-outline" size={18} color="#FF3B30" />
+                      )}
+                    </TouchableOpacity>
+                  )}
                 </View>
-              </View>
-            ))}
+              );
+            })}
           </View>
         ) : (
           <Text style={styles.emptyText}>Không có thành viên</Text>
@@ -222,6 +269,10 @@ const styles = StyleSheet.create({
     color: "#999",
     textAlign: "center",
     paddingVertical: 20,
+  },
+  removeButton: {
+    padding: 8,
+    marginLeft: 8,
   },
   actionButton: {
     flexDirection: "row",
