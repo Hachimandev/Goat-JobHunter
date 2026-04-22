@@ -139,8 +139,19 @@ public class ChatCallServiceImpl implements ChatCallService {
         ChatCallSession session = validateSessionAccess(chatRoomId, sessionId, currentAccount.getAccountId());
         ensureActiveSession(session);
 
+        Instant endedAt = Instant.now();
+
+        List<ChatCallParticipant> participants = this.chatCallParticipantRepository
+                .findBySessionCallSessionIdAndDeletedAtIsNull(sessionId);
+        for (ChatCallParticipant participant : participants) {
+            if (participant.getLeftAt() == null) {
+                participant.setLeftAt(endedAt);
+            }
+        }
+        this.chatCallParticipantRepository.saveAll(participants);
+
         session.setStatus(ChatCallSessionStatus.ENDED);
-        session.setEndedAt(Instant.now());
+        session.setEndedAt(endedAt);
         session.setEndReason(request != null && request.getReason() != null ? request.getReason() : ChatCallEndReason.HANGUP);
         this.chatCallSessionRepository.save(session);
 
