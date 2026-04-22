@@ -27,6 +27,8 @@ class AgoraCallRtcClient {
 
   private connectionState: RtcClientState['connectionState'] = 'idle';
 
+  private operationQueue: Promise<void> = Promise.resolve();
+
   getSnapshot = (): RtcClientState => {
     return {
       sessionId: this.state.sessionId,
@@ -60,58 +62,60 @@ class AgoraCallRtcClient {
   };
 
   joinAndPublish = async ({ sessionId, callType, appId, channelName, token = null, uid = null }: JoinRtcCallConfig) => {
-    await this.cleanup();
+    return this.enqueueOperation(async () => {
+      await this.cleanupInternal();
 
-    this.state.sessionId = sessionId;
-    this.state.channelName = channelName;
-    this.connectionState = 'connecting';
-    this.emitConnectionState('connecting');
+      this.state.sessionId = sessionId;
+      this.state.channelName = channelName;
+      this.connectionState = 'connecting';
+      this.emitConnectionState('connecting');
 
-    const client = AgoraRTC.createClient({ mode: 'rtc', codec: 'vp8' });
-    this.state.client = client;
-    this.registerClientEvents();
+      const client = AgoraRTC.createClient({ mode: 'rtc', codec: 'vp8' });
+      this.state.client = client;
+      this.registerClientEvents();
 
-    try {
-      if (!uid) {
-        throw new Error('UID is required to join the RTC channel.');
+      try {
+        if (!uid) {
+          throw new Error('UID is required to join the RTC channel.');
+        }
+
+        const tokenLength = typeof token === 'string' ? token.length : 0;
+        console.log('UID in client side what is used in join function: ', uid);
+        console.log('Token length in client side what is used in join function: ', tokenLength);
+        console.log('joinAndPublish info: ', { appId, channelName, uid, tokenLength });
+
+        this.state.uid = await client.join(appId, channelName, token, uid);
+        const audioTrack = await AgoraRTC.createMicrophoneAudioTrack({ encoderConfig: 'speech_standard' });
+        const videoTrack =
+          callType === CallTypeEnum.VIDEO
+            ? await AgoraRTC.createCameraVideoTrack({
+                encoderConfig: '720p_1',
+              })
+            : null;
+
+        this.state.localAudioTrack = audioTrack;
+        this.state.localVideoTrack = videoTrack;
+
+        const tracksToPublish = videoTrack ? [audioTrack, videoTrack] : [audioTrack];
+        await client.publish(tracksToPublish);
+
+        if (videoTrack && this.state.localVideoContainer) {
+          videoTrack.play(this.state.localVideoContainer);
+        }
+
+        this.emitLocalState();
+        this.emitRemoteState();
+      } catch (error) {
+        this.connectionState = 'failed';
+        this.emitConnectionState('failed');
+        this.callbacks.onError?.('Không thể kết nối media cuộc gọi.', sessionId);
+        await this.cleanupInternal();
+
+        console.log('error in joinAndPublish in AgoraCallRtcClient :', error);
+
+        throw error;
       }
-
-      console.log('UID in client side what is used in join function: ', uid);
-      console.log('Token in client side what is used in join function: ', token);
-
-      console.log('joinAndPublish info: ', { appId, channelName, token, uid });
-
-      this.state.uid = await client.join(appId, channelName, token, uid);
-      const audioTrack = await AgoraRTC.createMicrophoneAudioTrack({ encoderConfig: 'speech_standard' });
-      const videoTrack =
-        callType === CallTypeEnum.VIDEO
-          ? await AgoraRTC.createCameraVideoTrack({
-              encoderConfig: '720p_1',
-            })
-          : null;
-
-      this.state.localAudioTrack = audioTrack;
-      this.state.localVideoTrack = videoTrack;
-
-      const tracksToPublish = videoTrack ? [audioTrack, videoTrack] : [audioTrack];
-      await client.publish(tracksToPublish);
-
-      if (videoTrack && this.state.localVideoContainer) {
-        videoTrack.play(this.state.localVideoContainer);
-      }
-
-      this.emitLocalState();
-      this.emitRemoteState();
-    } catch (error) {
-      this.connectionState = 'failed';
-      this.emitConnectionState('failed');
-      this.callbacks.onError?.('Không thể kết nối media cuộc gọi.', sessionId);
-      await this.cleanup();
-
-      console.log('error in joinAndPublish in AgoraCallRtcClient :', error);
-
-      throw error;
-    }
+    });
   };
 
   toggleLocalAudio = async (enabled?: boolean) => {
@@ -149,6 +153,12 @@ class AgoraCallRtcClient {
   };
 
   cleanup = async () => {
+    return this.enqueueOperation(async () => {
+      await this.cleanupInternal();
+    });
+  };
+
+  private cleanupInternal = async () => {
     const { client, localAudioTrack, localVideoTrack } = this.state;
 
     if (localAudioTrack) {
@@ -178,6 +188,23 @@ class AgoraCallRtcClient {
       remoteVideoContainer: null,
     };
     this.connectionState = 'idle';
+  };
+
+  private enqueueOperation = async <T>(operation: () => Promise<T>): Promise<T> => {
+    const previousOperation = this.operationQueue;
+    let releaseCurrentOperation: (() => void) | null = null;
+
+    this.operationQueue = new Promise<void>((resolve) => {
+      releaseCurrentOperation = resolve;
+    });
+
+    await previousOperation;
+
+    try {
+      return await operation();
+    } finally {
+      releaseCurrentOperation?.();
+    }
   };
 
   private registerClientEvents = () => {

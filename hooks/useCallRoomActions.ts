@@ -31,6 +31,7 @@ import { useUser } from '@/hooks/useUser';
 import { CallEndReasonEnum, CallStatusEnum, CallTypeEnum } from '@/types/enum';
 import { callRtcClient } from '@/services/callRtc/AgoraCallRtcClient';
 import { CallSession } from '@/types/model';
+import type { UID } from 'agora-rtc-sdk-ng';
 
 const useCallRoomActions = () => {
   const { isSignedIn, user } = useUser();
@@ -52,6 +53,7 @@ const useCallRoomActions = () => {
 
   const currentCallRef = useRef(currentCall);
   const activeRtcSessionIdRef = useRef<number | null>(null);
+  const tokenHydratingSessionIdRef = useRef<number | null>(null);
 
   useEffect(() => {
     currentCallRef.current = currentCall;
@@ -150,28 +152,25 @@ const useCallRoomActions = () => {
     };
   }, [dispatch, issueCallToken]);
 
-  const resolveRtcJoinParams = useCallback(
-    (targetCall: NonNullable<typeof currentCall>) => {
-      const appId = targetCall.rtc?.appId ?? process.env.NEXT_PUBLIC_AGORA_APP_ID;
-      const channelName = targetCall.rtc?.channelName ?? targetCall.agoraChannelName;
-      const token = targetCall.rtc?.token ?? null;
-      const uid = targetCall.rtc?.uid ?? user?.accountId ?? null;
+  const resolveRtcJoinParams = useCallback((targetCall: NonNullable<typeof currentCall>) => {
+    const appId = targetCall.rtc?.appId ?? process.env.NEXT_PUBLIC_AGORA_APP_ID;
+    const channelName = targetCall.rtc?.channelName ?? targetCall.agoraChannelName;
+    const token = targetCall.rtc?.token ?? null;
+    const uid = targetCall.rtc?.uid ?? null;
 
-      if (!appId) {
-        return null;
-      }
+    if (!appId || !channelName || !token || uid === null || uid === undefined) {
+      return null;
+    }
 
-      return {
-        sessionId: targetCall.sessionId,
-        callType: targetCall.callType ?? CallTypeEnum.VOICE,
-        appId,
-        channelName,
-        token,
-        uid,
-      };
-    },
-    [user?.accountId],
-  );
+    return {
+      sessionId: targetCall.sessionId,
+      callType: targetCall.callType ?? CallTypeEnum.VOICE,
+      appId,
+      channelName,
+      token,
+      uid: uid as UID,
+    };
+  }, []);
 
   const cleanupRtcSession = useCallback(async () => {
     await callRtcClient.cleanup();
@@ -186,8 +185,13 @@ const useCallRoomActions = () => {
       return;
     }
 
+    const isCurrentUserParticipant =
+      typeof user?.accountId === 'number' &&
+      currentCall.participants.some((participant) => participant.accountId === user.accountId && !participant.leftAt);
+
     const shouldConnectRtc =
-      currentCall.status === CallStatusEnum.PENDING || currentCall.status === CallStatusEnum.ACTIVE;
+      (currentCall.status === CallStatusEnum.PENDING || currentCall.status === CallStatusEnum.ACTIVE) &&
+      isCurrentUserParticipant;
 
     if (!shouldConnectRtc) {
       return;
@@ -198,14 +202,42 @@ const useCallRoomActions = () => {
     }
 
     const joinParams = resolveRtcJoinParams(currentCall);
+    console.log('joinParams: ', joinParams);
+
     if (!joinParams) {
-      dispatch(setCallError('Thiếu NEXT_PUBLIC_AGORA_APP_ID để khởi tạo cuộc gọi.'));
-      dispatch(
-        setRtcConnectionState({
-          sessionId: currentCall.sessionId,
-          state: 'failed',
-        }),
-      );
+      if (tokenHydratingSessionIdRef.current === currentCall.sessionId) {
+        return;
+      }
+
+      tokenHydratingSessionIdRef.current = currentCall.sessionId;
+      void (async () => {
+        try {
+          const tokenResponse = await issueCallToken({
+            chatRoomId: currentCall.chatRoomId,
+            sessionId: currentCall.sessionId,
+            publisher: resolvePublisherFlag(currentCall.callType ?? CallTypeEnum.VOICE),
+          }).unwrap();
+
+          if (tokenResponse.data) {
+            dispatch(
+              setCurrentCall({
+                ...currentCall,
+                rtc: tokenResponse.data,
+              }),
+            );
+          }
+        } catch {
+          dispatch(setCallError('Không thể cấp token RTC để tham gia cuộc gọi.'));
+          dispatch(
+            setRtcConnectionState({
+              sessionId: currentCall.sessionId,
+              state: 'failed',
+            }),
+          );
+        } finally {
+          tokenHydratingSessionIdRef.current = null;
+        }
+      })();
       return;
     }
 
@@ -218,7 +250,15 @@ const useCallRoomActions = () => {
         activeRtcSessionIdRef.current = null;
       }
     })();
-  }, [cleanupRtcSession, currentCall, dispatch, resolveRtcJoinParams]);
+  }, [
+    cleanupRtcSession,
+    currentCall,
+    dispatch,
+    issueCallToken,
+    resolvePublisherFlag,
+    resolveRtcJoinParams,
+    user?.accountId,
+  ]);
 
   useEffect(() => {
     return () => {

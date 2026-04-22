@@ -130,7 +130,36 @@ export class WebSocketCallService {
       );
 
       if ('data' in result && result.data?.data) {
-        this.dispatch(setCurrentCall(result.data.data));
+        const nextCall = result.data.data;
+        const existingCurrentCall = store.getState().call.currentCall;
+        const currentUserId = store.getState().auth.user?.accountId;
+        const isCurrentUserParticipant =
+          typeof currentUserId === 'number' &&
+          nextCall.participants.some((participant) => participant.accountId === currentUserId && !participant.leftAt);
+
+        if (!isCurrentUserParticipant) {
+          if (existingCurrentCall?.sessionId === nextCall.sessionId) {
+            this.dispatch(
+              endCurrentCall({
+                sessionId: nextCall.sessionId,
+              }),
+            );
+          }
+          return;
+        }
+
+        if (existingCurrentCall?.sessionId === nextCall.sessionId && existingCurrentCall.rtc && !nextCall.rtc) {
+          this.dispatch(
+            setCurrentCall({
+              ...nextCall,
+              rtc: existingCurrentCall.rtc,
+              callType: existingCurrentCall.callType ?? nextCall.callType,
+            }),
+          );
+          return;
+        }
+
+        this.dispatch(setCurrentCall(nextCall));
       }
     } catch {
       this.dispatch(endCurrentCall(undefined));

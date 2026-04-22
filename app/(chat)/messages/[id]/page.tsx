@@ -115,6 +115,12 @@ export default function ChatRoomPage() {
   const blockedReason = isBlockedByMe
     ? 'Bạn đã chặn người này. Hãy bỏ chặn để tiếp tục nhắn tin.'
     : 'Bạn không thể nhắn tin với người này.';
+  const canRenderCallWindow =
+    Boolean(currentCall) &&
+    typeof user?.accountId === 'number' &&
+    Boolean(
+      currentCall?.participants.some((participant) => participant.accountId === user.accountId && !participant.leftAt),
+    );
 
   const handleNavigateToMessage = useCallback((targetMessageId: string) => {
     if (!targetMessageId) return;
@@ -371,7 +377,7 @@ export default function ChatRoomPage() {
         onConfirm={handleConfirmForward}
       />
 
-      {currentCall && (
+      {canRenderCallWindow && currentCall && (
         <CallWindow
           currentCall={currentCall}
           callError={callError}
