@@ -2,6 +2,7 @@ package iuh.fit.goat.util;
 
 import iuh.fit.goat.common.MessageEvent;
 import iuh.fit.goat.dto.response.message.MessageResponse;
+import iuh.fit.goat.dto.response.poll.PollResponse;
 import iuh.fit.goat.entity.Account;
 import iuh.fit.goat.entity.Company;
 import iuh.fit.goat.entity.Message;
@@ -79,6 +80,41 @@ public class MessageHelper {
                         MessageEvent.MESSAGE_UNPINNED, actorName, formatMessageContent(message), messageId
                 );
             }
+
+            case POLL_CREATED -> {
+                PollResponse poll = (PollResponse) params[0];
+
+                yield String.format("(event:%s) %s đã tạo cuộc bình chọn mới: %s (Xem %s)",
+                        MessageEvent.POLL_CREATED, actorName, poll.getQuestion(), poll.getPollId());
+            }
+
+            case POLL_VOTED -> {
+                PollResponse poll = (PollResponse) params[0];
+
+                yield String.format("(event:%s) %s đã tham gia cuộc bình chọn: %s (Xem %s)",
+                        MessageEvent.POLL_VOTED, actorName, poll.getQuestion(), poll.getPollId());
+            }
+
+            case POLL_UNVOTED -> {
+                PollResponse poll = (PollResponse) params[0];
+
+                yield String.format("(event:%s) %s đã không tham gia cuộc bình chọn: %s (Xem %s)",
+                        MessageEvent.POLL_UNVOTED, actorName, poll.getQuestion(), poll.getPollId());
+            }
+
+            case POLL_OPTION_ADDED -> {
+                PollResponse poll = (PollResponse) params[0];
+
+                yield String.format("(event:%s) %s đã thêm một lựa chọn trong: %s (Xem %s)",
+                        MessageEvent.POLL_OPTION_ADDED, actorName, poll.getQuestion(), poll.getPollId());
+            }
+
+            case POLL_CLOSED -> {
+                PollResponse poll = (PollResponse) params[0];
+
+                yield String.format("(event:%s) %s đã đóng cuộc bình chọn: %s (Xem %s)",
+                        MessageEvent.POLL_CLOSED, actorName, poll.getQuestion(), poll.getPollId());
+            }
         };
     }
 
@@ -109,6 +145,7 @@ public class MessageHelper {
             case FILE -> "[Tệp tin]";
             case AUDIO -> "[Âm thanh]";
             case CONTACT_CARD -> "[Danh thiếp]";
+            case POLL -> "[Cuộc bình chọn]";
             default -> "[Tin nhắn không xác định]";
         };
     }
@@ -123,6 +160,7 @@ public class MessageHelper {
             case FILE -> "[Tệp tin]";
             case AUDIO -> "[Âm thanh]";
             case CONTACT_CARD -> "[Danh thiếp]";
+            case POLL -> "[Cuộc bình chọn]";
             default -> "[Tin nhắn không xác định]";
         };
     }
