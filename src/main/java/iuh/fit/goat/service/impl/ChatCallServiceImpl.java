@@ -3,12 +3,15 @@ package iuh.fit.goat.service.impl;
 import iuh.fit.goat.dto.request.chat.EndChatCallRequest;
 import iuh.fit.goat.dto.request.chat.JoinChatCallRequest;
 import iuh.fit.goat.dto.request.chat.StartChatCallRequest;
+import iuh.fit.goat.dto.response.chat.ChatCallParticipantAccountResponse;
 import iuh.fit.goat.dto.response.chat.ChatCallParticipantResponse;
 import iuh.fit.goat.dto.response.chat.ChatCallRealtimeEventResponse;
 import iuh.fit.goat.dto.response.chat.ChatCallSessionResponse;
 import iuh.fit.goat.entity.Account;
+import iuh.fit.goat.entity.Company;
 import iuh.fit.goat.entity.ChatCallParticipant;
 import iuh.fit.goat.entity.ChatCallSession;
+import iuh.fit.goat.entity.User;
 import iuh.fit.goat.enumeration.ChatCallEndReason;
 import iuh.fit.goat.enumeration.ChatCallSessionStatus;
 import iuh.fit.goat.enumeration.ChatRoomType;
@@ -288,7 +291,7 @@ public class ChatCallServiceImpl implements ChatCallService {
                 .findBySessionCallSessionIdAndDeletedAtIsNull(sessionId)) {
             Long accountId = participant.getAccount() != null ? participant.getAccount().getAccountId() : null;
             participants.add(new ChatCallParticipantResponse(
-                    accountId,
+                    mapParticipantAccount(participant.getAccount(), accountId),
                     participant.isPublisher(),
                     participant.getJoinedAt(),
                     participant.getLeftAt()
@@ -323,5 +326,36 @@ public class ChatCallServiceImpl implements ChatCallService {
     private boolean isGroupCall(ChatCallSession session) {
         return session.getChatRoom() != null
                 && session.getChatRoom().getType() == ChatRoomType.GROUP;
+    }
+
+    private ChatCallParticipantAccountResponse mapParticipantAccount(Account account, Long accountId) {
+        if (account == null) {
+            return new ChatCallParticipantAccountResponse(accountId, null, null, null, null);
+        }
+
+        String fullName = account.getUsername();
+        String avatar = account.getAvatar();
+
+        if (account instanceof User userAccount) {
+            if (userAccount.getFullName() != null && !userAccount.getFullName().isBlank()) {
+                fullName = userAccount.getFullName();
+            }
+        } else if (account instanceof Company companyAccount) {
+            if (companyAccount.getName() != null && !companyAccount.getName().isBlank()) {
+                fullName = companyAccount.getName();
+            }
+
+            if ((avatar == null || avatar.isBlank()) && companyAccount.getLogo() != null && !companyAccount.getLogo().isBlank()) {
+                avatar = companyAccount.getLogo();
+            }
+        }
+
+        return new ChatCallParticipantAccountResponse(
+                account.getAccountId(),
+                avatar,
+                account.getUsername(),
+                fullName,
+                account.getEmail()
+        );
     }
 }

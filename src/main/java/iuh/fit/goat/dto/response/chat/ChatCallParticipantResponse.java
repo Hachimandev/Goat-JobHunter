@@ -10,7 +10,7 @@ import java.time.Instant;
 @NoArgsConstructor
 @AllArgsConstructor
 public class ChatCallParticipantResponse {
-    private Long accountId;
+    private ChatCallParticipantAccountResponse account;
     private Boolean publisher;
     private Instant joinedAt;
     private Instant leftAt;
