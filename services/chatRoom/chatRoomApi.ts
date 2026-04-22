@@ -121,7 +121,7 @@ export const chatRoomApi = api.injectEndpoints({
           chatRoomApi.endpoints.fetchMessagesInChatRoom.select({
             chatRoomId,
             size: 50,
-            page: 0,
+            page: 1,
           })(state);
 
         const originalMsg = messagesCache?.data?.data?.result?.find(
@@ -131,7 +131,7 @@ export const chatRoomApi = api.injectEndpoints({
         const patchResult = dispatch(
           chatRoomApi.util.updateQueryData(
             "fetchMessagesInChatRoom",
-            { chatRoomId, size: 50, page: 0 },
+            { chatRoomId, size: 50, page: 1 },
             (draft) => {
               if (draft?.data?.result) {
                 const optimisticMsg: any = {

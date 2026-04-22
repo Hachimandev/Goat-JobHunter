@@ -3,7 +3,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { formatDistanceToNow } from "date-fns";
 import { vi } from "date-fns/locale";
 import { useVideoPlayer, VideoView } from "expo-video";
-import React from "react";
+import React, { useMemo, useState } from "react";
 import {
   Image,
   Linking,
@@ -12,6 +12,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import ImageView from "react-native-image-viewing";
 
 interface MessageItemProps {
   item: MessageType;
@@ -22,62 +23,21 @@ interface MessageItemProps {
   currentUser?: any;
 }
 
-const isS3ImageUrl = (url: string) => {
-  return (
-    typeof url === "string" &&
-    url.includes("amazonaws.com") &&
-    url.match(/\.(jpeg|jpg|gif|png)$/i) != null
-  );
-};
+// --- Helpers kiểm tra định dạng S3 ---
+const isS3ImageUrl = (url: string) =>
+  typeof url === "string" &&
+  url.includes("amazonaws.com") &&
+  /\.(jpeg|jpg|gif|png)$/i.test(url);
 
-const isS3VideoUrl = (url: string) => {
-  return (
-    typeof url === "string" &&
-    url.includes("amazonaws.com") &&
-    url.match(/\.(mp4|mov|avi|wmv)$/i) != null
-  );
-};
+const isS3VideoUrl = (url: string) =>
+  typeof url === "string" &&
+  url.includes("amazonaws.com") &&
+  /\.(mp4|mov|avi|wmv)$/i.test(url);
 
-const isS3FileUrl = (url: string) => {
-  return (
-    typeof url === "string" &&
-    url.includes("amazonaws.com") &&
-    url.match(/\.(pdf|doc|docx|xls|xlsx|ppt|pptx|txt|zip|rar)$/i) != null
-  );
-};
-enum MessageEvent {
-  MEMBER_ADDED = "MEMBER_ADDED",
-  MEMBER_REMOVED = "MEMBER_REMOVED",
-  MEMBER_LEFT = "MEMBER_LEFT",
-  ROLE_CHANGED = "ROLE_CHANGED",
-  GROUP_CREATED = "GROUP_CREATED",
-  GROUP_NAME_CHANGED = "GROUP_NAME_CHANGED",
-  GROUP_AVATAR_CHANGED = "GROUP_AVATAR_CHANGED",
-  MESSAGE_PINNED = "MESSAGE_PINNED",
-  MESSAGE_UNPINNED = "MESSAGE_UNPINNED",
-}
-
-const getEventIcon = (content: string) => {
-  if (content.includes("MESSAGE_PINNED")) return "pin";
-  if (content.includes("MESSAGE_UNPINNED")) return "pin-outline";
-  if (content.includes("MEMBER_ADDED")) return "person-add";
-  if (content.includes("MEMBER_REMOVED") || content.includes("MEMBER_LEFT"))
-    return "person-remove";
-  if (content.includes("GROUP")) return "people";
-  return "information-circle";
-};
-
-const extractSystemContent = (content: string) => {
-  return content
-    .replace(/\(event:.*?\)\s*/g, "")
-    .split("(Xem")[0]
-    .trim();
-};
-
-const extractMessageId = (content: string) => {
-  const match = content.match(/msg_([a-z0-9]+)/);
-  return match ? `msg_${match[1]}` : null;
-};
+const isS3FileUrl = (url: string) =>
+  typeof url === "string" &&
+  url.includes("amazonaws.com") &&
+  /\.(pdf|doc|docx|xls|xlsx|ppt|pptx|txt|zip|rar)$/i.test(url);
 
 export const MessageItem = ({
   item,
@@ -87,92 +47,93 @@ export const MessageItem = ({
   isSending,
   currentUser,
 }: MessageItemProps) => {
+  const [visible, setIsVisible] = useState(false);
+  const [imageIndex, setImageIndex] = useState(0);
+
   const isSystem = item.messageType === "SYSTEM";
   const content = item.content || "";
   const isS3Image = isS3ImageUrl(content);
   const isS3Video = isS3VideoUrl(content);
   const isS3File = isS3FileUrl(content);
-  const isRevoked = !content && !isSystem;
+  const isRevoked = item.isHidden === true;
+
   const player = useVideoPlayer(content, (player) => {
     player.loop = false;
     player.muted = false;
   });
 
-  if (isSystem) {
-    const iconName = getEventIcon(content) as any;
-    const displayBody = extractSystemContent(content);
-    const pinnedMsgId = extractMessageId(content);
+  const MAX_VISIBLE_MEDIA = 4;
 
-    const timeAgo = formatDistanceToNow(new Date(item.createdAt), {
-      addSuffix: true,
-      locale: vi,
-    }).replace("khoảng ", "");
+  // Gom danh sách ảnh cho Lightbox
+  const images = useMemo(() => {
+    if (item.mediaItems && item.mediaItems.length > 0) {
+      return item.mediaItems.map((img) => ({ uri: img.url }));
+    }
+    if (isS3Image) return [{ uri: content }];
+    return [];
+  }, [item.mediaItems, isS3Image, content]);
 
-    return (
-      <View style={styles.systemMessageContainer}>
-        <View style={styles.systemMessageRow}>
-          <Ionicons
-            name={iconName}
-            size={13}
-            color="#666"
-            style={{ marginRight: 6 }}
-          />
-
-          <Text numberOfLines={2} style={styles.systemMessageText}>
-            <Text>{displayBody}</Text>
-            {content.includes("MESSAGE_PINNED") && pinnedMsgId && (
-              <Text
-                style={styles.viewPinnedBtn}
-                onPress={() => onNavigateToMessage?.(pinnedMsgId)}
-              >
-                {" "}
-                Xem
-              </Text>
-            )}
-            <Text style={styles.systemTimeText}> • {timeAgo}</Text>
-          </Text>
-        </View>
-      </View>
-    );
-  }
-
-  const renderReplyHeaderLabel = () => {
-    if (!item.replyContext || isRevoked) return null;
-    const isReplyToMe =
-      item.replyContext.originalSender?.accountId === currentUser?.accountId;
-    const replyTitle = isMe
-      ? isReplyToMe
-        ? "Bạn đã trả lời chính mình"
-        : `Bạn đã trả lời ${item.replyContext.originalSender?.fullName}`
-      : `${item.sender?.fullName} đã trả lời ${isReplyToMe ? "bạn" : item.replyContext.originalSender?.fullName}`;
-
-    return (
-      <View
-        style={[
-          styles.replyHeaderRow,
-          isMe ? { justifyContent: "flex-end" } : null,
-        ]}
-      >
-        <Ionicons name="arrow-undo" size={12} color="#888" />
-        <Text style={styles.replyHeaderText}>{replyTitle}</Text>
-      </View>
-    );
+  // --- Logic xử lý System Message Event đẹp hơn ---
+  const getEventConfig = (content: string) => {
+    if (content.includes("MESSAGE_PINNED"))
+      return { icon: "pin", color: "#059669", bg: "#ECFDF5" };
+    if (content.includes("MESSAGE_UNPINNED"))
+      return { icon: "pin-outline", color: "#6B7280", bg: "#F3F4F6" };
+    if (content.includes("MEMBER_ADDED"))
+      return { icon: "person-add", color: "#2563EB", bg: "#EFF6FF" };
+    if (content.includes("MEMBER_REMOVED") || content.includes("MEMBER_LEFT"))
+      return { icon: "person-remove", color: "#DC2626", bg: "#FEF2F2" };
+    if (content.includes("ROLE_CHANGED"))
+      return { icon: "shield-checkmark", color: "#7C3AED", bg: "#F5F3FF" };
+    if (content.includes("GROUP_CREATED"))
+      return { icon: "apps-outline", color: "#F59E0B", bg: "#FFFBEB" };
+    if (content.includes("GROUP"))
+      return { icon: "people", color: "#4B5563", bg: "#F9FAFB" };
+    return { icon: "information-circle", color: "#6B7280", bg: "#F3F4F6" };
   };
 
-  const renderForwardLabel = () => {
-    if (!item.isForwarded || isRevoked) return null;
+  const extractSystemContent = (content: string) => {
+    return content
+      .replace(/\(event:.*?\)\s*/g, "")
+      .split("(Xem")[0]
+      .trim();
+  };
+
+  const extractPinnedId = (content: string) => {
+    const match = content.match(/msg_([a-z0-9]+)/);
+    return match ? `msg_${match[1]}` : null;
+  };
+
+  const handleOpenImage = (index: number) => {
+    setImageIndex(index);
+    setIsVisible(true);
+  };
+
+  // --- Helper Render từng tấm ảnh ---
+  const renderImageItem = (
+    url: string,
+    index: number,
+    containerStyle: any,
+    isGrid = false,
+  ) => {
+    const totalMedia = item.mediaItems?.length || 0;
+    const remaining = totalMedia - MAX_VISIBLE_MEDIA;
+
     return (
-      <View
-        style={[
-          styles.forwardHeaderRow,
-          isMe ? { justifyContent: "flex-end" } : null,
-        ]}
+      <TouchableOpacity
+        key={index}
+        activeOpacity={0.9}
+        style={containerStyle}
+        onPress={() => handleOpenImage(index)}
+        onLongPress={() => onLongPress(item)} // Nhấn giữ ảnh mở Bottom Sheet chung
       >
-        <Ionicons name="arrow-redo" size={12} color="#888" />
-        <Text style={styles.forwardHeaderText}>
-          {isMe ? "Bạn đã chuyển tiếp tin nhắn" : "Tin nhắn được chuyển tiếp"}
-        </Text>
-      </View>
+        <Image source={{ uri: url }} style={styles.fullSize} />
+        {isGrid && index === MAX_VISIBLE_MEDIA - 1 && remaining > 0 && (
+          <View style={styles.overlay}>
+            <Text style={styles.overlayText}>+{remaining}</Text>
+          </View>
+        )}
+      </TouchableOpacity>
     );
   };
 
@@ -180,16 +141,12 @@ export const MessageItem = ({
     if (isRevoked)
       return <Text style={styles.revokedText}>Tin nhắn đã được thu hồi</Text>;
 
-    if (isS3Image) {
-      return <Image source={{ uri: content }} style={styles.chatImage} />;
-    }
-
     if (isS3Video) {
       return (
         <TouchableOpacity
           activeOpacity={0.9}
+          onPress={() => onLongPress(item)}
           onLongPress={() => onLongPress(item)}
-          delayLongPress={200}
         >
           <VideoView
             style={styles.videoPlayer}
@@ -201,14 +158,40 @@ export const MessageItem = ({
       );
     }
 
+    if (item.mediaItems && item.mediaItems.length > 0) {
+      const photos = item.mediaItems;
+      if (photos.length === 1)
+        return renderImageItem(photos[0].url, 0, styles.chatImage);
+
+      if (photos.length === 3) {
+        return (
+          <View style={styles.mediaHorizontal}>
+            {photos.map((p, i) =>
+              renderImageItem(p.url, i, styles.horizontalImageItem),
+            )}
+          </View>
+        );
+      }
+
+      return (
+        <View style={styles.mediaGrid}>
+          {photos
+            .slice(0, MAX_VISIBLE_MEDIA)
+            .map((p, i) =>
+              renderImageItem(p.url, i, styles.gridItemContainer, true),
+            )}
+        </View>
+      );
+    }
+
+    if (isS3Image) return renderImageItem(content, 0, styles.chatImage);
+
     if (isS3File) {
       const fileName = content.split("/").pop()?.split("-").pop() || "Tài liệu";
       return (
         <TouchableOpacity
           style={styles.fileBox}
           onPress={() => Linking.openURL(content)}
-          onLongPress={() => onLongPress(item)}
-          delayLongPress={200}
         >
           <Ionicons
             name="document-text"
@@ -237,6 +220,77 @@ export const MessageItem = ({
     );
   };
 
+  const renderReplyHeaderLabel = () => {
+    if (!item.replyContext || isRevoked) return null;
+    return (
+      <View
+        style={[styles.replyHeaderRow, isMe && { justifyContent: "flex-end" }]}
+      >
+        <Ionicons name="arrow-undo" size={12} color="#888" />
+        <Text style={styles.replyHeaderText} numberOfLines={1}>
+          {isMe ? "Bạn" : item.sender?.fullName} đã trả lời{" "}
+          {item.replyContext.originalSender?.fullName}
+        </Text>
+      </View>
+    );
+  };
+
+  const renderForwardLabel = () => {
+    if (!item.isForwarded || isRevoked) return null;
+    return (
+      <View
+        style={[
+          styles.forwardHeaderRow,
+          isMe && { justifyContent: "flex-end" },
+        ]}
+      >
+        <Ionicons name="arrow-redo" size={12} color="#888" />
+        <Text style={styles.forwardHeaderText}>
+          {isMe ? "Bạn đã chuyển tiếp" : "Được chuyển tiếp"}
+        </Text>
+      </View>
+    );
+  };
+
+  // --- UI TIN NHẮN HỆ THỐNG ---
+  if (isSystem) {
+    const config = getEventConfig(content);
+    const displayBody = extractSystemContent(content);
+    const pinnedMsgId = extractPinnedId(content);
+    const timeAgo = formatDistanceToNow(new Date(item.createdAt), {
+      locale: vi,
+    }).replace("khoảng ", "");
+
+    return (
+      <View style={styles.systemMessageContainer}>
+        <View style={[styles.systemMessageRow, { backgroundColor: config.bg }]}>
+          <Ionicons
+            name={config.icon as any}
+            size={14}
+            color={config.color}
+            style={{ marginRight: 6 }}
+          />
+          <Text style={styles.systemMessageText} numberOfLines={2}>
+            <Text style={{ color: "#374151", fontWeight: "500" }}>
+              {displayBody}
+            </Text>
+            {pinnedMsgId && (
+              <Text
+                style={styles.viewPinnedBtn}
+                onPress={() => onNavigateToMessage?.(pinnedMsgId)}
+              >
+                {" "}
+                Xem
+              </Text>
+            )}
+            <Text style={styles.systemTimeText}> • {timeAgo}</Text>
+          </Text>
+        </View>
+      </View>
+    );
+  }
+
+  // --- RETURN CẤU TRÚC CHUẨN ---
   return (
     <View
       style={[
@@ -252,9 +306,7 @@ export const MessageItem = ({
       >
         {!isMe && (
           <Image
-            source={{
-              uri: item.sender?.avatar,
-            }}
+            source={{ uri: item.sender?.avatar }}
             style={styles.smallAvatar}
           />
         )}
@@ -290,7 +342,7 @@ export const MessageItem = ({
             {/* BONG BÓNG NỘI DUNG CHÍNH */}
             <View
               style={[
-                isS3Image || isS3Video
+                item.mediaItems?.length || isS3Image || isS3Video
                   ? styles.mediaContainer
                   : [
                       styles.bubble,
@@ -306,11 +358,22 @@ export const MessageItem = ({
           </View>
         </TouchableOpacity>
       </View>
+
+      <ImageView
+        images={images}
+        imageIndex={imageIndex}
+        visible={visible}
+        onRequestClose={() => setIsVisible(false)}
+        swipeToCloseEnabled={true}
+        doubleTapToZoomEnabled={true}
+      />
     </View>
   );
 };
 
 const styles = StyleSheet.create({
+  fullSize: { width: "100%", height: "100%", resizeMode: "cover" },
+  horizontalImageItem: { flex: 1 },
   messageWrapper: { marginVertical: 6, width: "100%" },
   rowContainer: { alignItems: "flex-end", gap: 8 },
   smallAvatar: { width: 26, height: 26, borderRadius: 13, marginBottom: 2 },
@@ -332,31 +395,36 @@ const styles = StyleSheet.create({
   bubbleWithReply: { marginTop: -14 },
 
   // Media Styles
-  mediaContainer: { borderRadius: 15, overflow: "hidden" },
-  chatImage: {
-    width: 220,
-    height: 160,
+  mediaContainer: {
     borderRadius: 15,
-    resizeMode: "cover",
-    borderWidth: 0.5,
-    borderColor: "#EEE",
+    overflow: "hidden",
+    backgroundColor: "transparent",
   },
-  videoContainer: {
+  chatImage: { width: 220, height: 160, borderRadius: 15 },
+  mediaHorizontal: {
+    flexDirection: "row",
+    gap: 2,
+    borderRadius: 15,
+    height: 100,
+    overflow: "hidden",
+    width: 240,
+  },
+  mediaGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 2,
+    borderRadius: 15,
+    overflow: "hidden",
     width: 220,
-    height: 150,
-    backgroundColor: "#000",
+  },
+  gridItemContainer: { width: "49.2%", aspectRatio: 1, position: "relative" },
+  overlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(0,0,0,0.5)",
     justifyContent: "center",
     alignItems: "center",
   },
-  videoLabel: {
-    color: "#fff",
-    fontSize: 10,
-    position: "absolute",
-    bottom: 5,
-    left: 10,
-  },
-
-  // File Styles
+  overlayText: { color: "#fff", fontSize: 18, fontWeight: "bold" },
   videoPlayer: {
     width: 220,
     height: 160,
@@ -364,6 +432,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#000",
   },
 
+  // File & Text
   fileBox: {
     flexDirection: "row",
     alignItems: "center",
@@ -371,17 +440,15 @@ const styles = StyleSheet.create({
     minWidth: 160,
   },
   fileName: { fontSize: 14, fontWeight: "500" },
-
-  // Reply Styles
-  replyQuoteBox: {
-    padding: 10,
-    paddingBottom: 22,
-    borderRadius: 15,
-    backgroundColor: "#E5E7EB",
+  messageText: { fontSize: 16, lineHeight: 22 },
+  revokedBubble: {
+    backgroundColor: "#FFFFFF",
+    borderWidth: 1,
+    borderColor: "#E0E0E0",
   },
-  myReplyQuote: { backgroundColor: "#D1D5DB" },
-  otherReplyQuote: { backgroundColor: "#E5E7EB" },
-  replyQuoteText: { fontSize: 13, color: "#4B5563" },
+  revokedText: { color: "#999", fontStyle: "italic", fontSize: 14 },
+
+  // Labels
   replyHeaderRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -390,8 +457,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
   },
   replyHeaderText: { fontSize: 11, color: "#888", fontStyle: "italic" },
-
-  // Forward Styles
   forwardHeaderRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -401,14 +466,18 @@ const styles = StyleSheet.create({
   },
   forwardHeaderText: { fontSize: 11, color: "#888", fontStyle: "italic" },
 
-  // System & Revoked
-  messageText: { fontSize: 16, lineHeight: 22 },
-  revokedBubble: {
-    backgroundColor: "#FFFFFF",
-    borderWidth: 1,
-    borderColor: "#E0E0E0",
+  // Reply
+  replyQuoteBox: {
+    padding: 10,
+    paddingBottom: 22,
+    borderRadius: 15,
+    backgroundColor: "#E5E7EB",
   },
-  revokedText: { color: "#999", fontStyle: "italic", fontSize: 14 },
+  myReplyQuote: { backgroundColor: "#D1D5DB" },
+  otherReplyQuote: { backgroundColor: "#E5E7EB" },
+  replyQuoteText: { fontSize: 13, color: "#4B5563" },
+
+  // System Message (Nâng cấp UI)
   systemMessageContainer: {
     width: "100%",
     alignItems: "center",
@@ -418,25 +487,13 @@ const styles = StyleSheet.create({
   systemMessageRow: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "center", // Căn giữa nội dung
-    backgroundColor: "#F0F2F5",
+    justifyContent: "center",
     paddingHorizontal: 14,
     paddingVertical: 6,
     borderRadius: 20,
-    maxWidth: "95%", // Cho phép nở rộng ra gần hết màn hình
+    maxWidth: "95%",
   },
-  systemMessageText: {
-    fontSize: 12,
-    color: "#4B5563",
-    textAlign: "center", // Căn giữa chữ bên trong
-    flexShrink: 1,
-  },
-  viewPinnedBtn: {
-    color: "#059669",
-    fontWeight: "bold",
-  },
-  systemTimeText: {
-    color: "#9CA3AF",
-    fontSize: 11,
-  },
+  systemMessageText: { fontSize: 12, textAlign: "center", flexShrink: 1 },
+  viewPinnedBtn: { color: "#059669", fontWeight: "bold" },
+  systemTimeText: { color: "#9CA3AF", fontSize: 11 },
 });
