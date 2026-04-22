@@ -506,6 +506,9 @@ export type CallTokenResponse = {
 export type CallSession = {
   sessionId: number;
   chatRoomId: number;
+  chatRoomType?: ChatRoomType;
+  chatRoomName?: string | null;
+  chatRoomAvatar?: string | null;
   status: CallStatusEnum;
   agoraChannelName: string;
   initiatorAccountId: number;

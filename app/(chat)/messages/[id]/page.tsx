@@ -184,7 +184,14 @@ export default function ChatRoomPage() {
     }
 
     return candidate;
-  }, [currentCall, currentChatRoom?.type, isOngoingCallError, lastCallRealtimeEvent, ongoingCallData?.data, parsedChatRoomId]);
+  }, [
+    currentCall,
+    currentChatRoom?.type,
+    isOngoingCallError,
+    lastCallRealtimeEvent,
+    ongoingCallData?.data,
+    parsedChatRoomId,
+  ]);
 
   const isDirectBlocked = currentChatRoom?.type === ChatRoomType.DIRECT && Boolean(currentChatRoom?.blocked);
   const isBlockedByMe = isDirectBlocked && Boolean(currentChatRoom?.blockedByMe);
@@ -210,17 +217,22 @@ export default function ChatRoomPage() {
     );
   const canJoinOngoingGroupCall =
     isGroupCall && Boolean(ongoingGroupCall) && !isCurrentUserInOngoingGroupCall && !canRenderCallWindow;
-  const canCurrentUserEndCall = Boolean(!isGroupCall || currentCall?.initiatorAccountId === user?.accountId);
-  const isClosingCall = canCurrentUserEndCall ? isEndingCall : isLeavingCall;
+  const activeCallRoomType = currentCall?.chatRoomType || currentChatRoom?.type;
+  const activeCallRoomName = currentCall?.chatRoomName || currentChatRoom?.name;
+  const activeCallRoomAvatar = currentCall?.chatRoomAvatar || currentChatRoom?.avatar || null;
+  const canCurrentUserEndActiveCall = Boolean(
+    activeCallRoomType !== ChatRoomType.GROUP || currentCall?.initiatorAccountId === user?.accountId,
+  );
+  const isClosingCall = canCurrentUserEndActiveCall ? isEndingCall : isLeavingCall;
 
   const handleCloseCallAction = useCallback(async () => {
-    if (canCurrentUserEndCall) {
+    if (canCurrentUserEndActiveCall) {
       await handleEndCall();
       return;
     }
 
     await handleLeaveCall();
-  }, [canCurrentUserEndCall, handleEndCall, handleLeaveCall]);
+  }, [canCurrentUserEndActiveCall, handleEndCall, handleLeaveCall]);
 
   const handleJoinOngoingGroupCall = useCallback(async () => {
     if (!ongoingGroupCall || isJoiningOngoingCall) {
@@ -504,7 +516,7 @@ export default function ChatRoomPage() {
         onConfirm={handleConfirmForward}
       />
 
-      {canRenderCallWindow && currentCall && (
+      {canRenderCallWindow && currentCall && activeCallRoomType && activeCallRoomName && (
         <CallWindow
           currentCall={currentCall}
           callError={callError}
@@ -514,11 +526,11 @@ export default function ChatRoomPage() {
           remoteAudioActive={remoteAudioActive}
           remoteVideoActive={remoteVideoActive}
           currentUserId={user.accountId}
-          chatRoomType={currentChatRoom.type}
-          chatRoomName={currentChatRoom.name}
-          chatRoomAvatar={currentChatRoom.avatar}
+          chatRoomType={activeCallRoomType}
+          chatRoomName={activeCallRoomName}
+          chatRoomAvatar={activeCallRoomAvatar}
           isEndingCall={isClosingCall}
-          canCurrentUserEndCall={canCurrentUserEndCall}
+          canCurrentUserEndCall={canCurrentUserEndActiveCall}
           handleCloseCallAction={handleCloseCallAction}
           handleToggleLocalAudio={handleToggleLocalAudio}
           handleToggleLocalVideo={handleToggleLocalVideo}
