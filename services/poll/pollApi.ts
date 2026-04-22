@@ -1,5 +1,7 @@
 import { api } from '@/services/api';
 import {
+  ClosePollRequest,
+  ClosePollResponse,
   CreatePollRequest,
   CreatePollResponse,
   FetchPollByIdInChatRoomRequest,
@@ -16,7 +18,7 @@ export const pollApi = api.injectEndpoints({
         method: 'GET',
         params: { size, page },
       }),
-      providesTags: (_, __, { chatRoomId }) => [{ type: 'ChatRoom', id: `POLLS_${chatRoomId}` }],
+      providesTags: (_, __, { chatRoomId }) => [{ type: 'Poll', id: `POLLS_${chatRoomId}` }],
     }),
 
     fetchPollByIdInChatRoom: builder.query<FetchPollByIdInChatRoomResponse, FetchPollByIdInChatRoomRequest>({
@@ -24,7 +26,10 @@ export const pollApi = api.injectEndpoints({
         url: `/chatrooms/${chatRoomId}/polls/${pollId}`,
         method: 'GET',
       }),
-      providesTags: (_, __, { chatRoomId }) => [{ type: 'ChatRoom', id: `POLL_${chatRoomId}_${chatRoomId}` }],
+      providesTags: (_, __, { chatRoomId, pollId }) => [
+        { type: 'ChatRoom', id: `POLL_${chatRoomId}_${chatRoomId}` },
+        { type: 'Poll', id: `POLL_${pollId}` },
+      ],
     }),
 
     createPoll: builder.mutation<CreatePollResponse, CreatePollRequest>({
@@ -35,9 +40,28 @@ export const pollApi = api.injectEndpoints({
           data: data,
         };
       },
-      invalidatesTags: (_, __, { chatRoomId }) => [{ type: 'ChatRoom', id: `POLLS_${chatRoomId}` }],
+      invalidatesTags: (_, __, { chatRoomId }) => [{ type: 'ChatRoom', id: `POLL_${chatRoomId}_${chatRoomId}` }],
+    }),
+
+    closePoll: builder.mutation<ClosePollResponse, ClosePollRequest>({
+      query: ({ chatRoomId, ...data }) => {
+        return {
+          url: `/chatrooms/${chatRoomId}/polls/close`,
+          method: 'POST',
+          data: data,
+        };
+      },
+      invalidatesTags: (_, __, { chatRoomId, pollId }) => [
+        { type: 'ChatRoom', id: `POLL_${chatRoomId}_${chatRoomId}` },
+        { type: 'Poll', id: `POLL_${pollId}` },
+      ],
     }),
   }),
 });
 
-export const { useFetchPollsInChatRoomQuery, useFetchPollByIdInChatRoomQuery, useCreatePollMutation } = pollApi;
+export const {
+  useFetchPollsInChatRoomQuery,
+  useFetchPollByIdInChatRoomQuery,
+  useCreatePollMutation,
+  useClosePollMutation,
+} = pollApi;

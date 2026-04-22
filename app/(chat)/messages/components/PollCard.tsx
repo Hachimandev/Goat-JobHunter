@@ -118,7 +118,7 @@ export default function PollCard({ poll }: Readonly<PollCardProps>) {
           className="w-full mb-2 mt-1 text-primary bg-transparent border border-primary hover:text-primary hover:bg-primary/20 rounded-xl"
           onClick={() => setVoteOpen(true)}
         >
-          {isVoted ? 'Đổi bình chọn' : 'Bình chọn'}
+          {poll.isClosed ? 'Xem bình chọn' : isVoted ? 'Đổi bình chọn' : 'Bình chọn'}
         </Button>
       </div>
 

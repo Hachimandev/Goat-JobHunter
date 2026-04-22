@@ -372,7 +372,7 @@ export class WebSocketMessageService {
       } else if (content.includes('cuộc bình chọn')) {
         this.dispatch(
           pollApi.util.invalidateTags([
-            { type: 'ChatRoom', id: `POLLS_${chatRoomId}` },
+            { type: 'Poll', id: `POLLS_${chatRoomId}` },
             { type: 'ChatRoom', id: `POLL_${chatRoomId}_${chatRoomId}` },
           ]),
         );

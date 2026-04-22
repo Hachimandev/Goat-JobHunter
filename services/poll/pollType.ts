@@ -24,3 +24,9 @@ export type CreatePollRequest = {
   expiresAt: string;
 };
 export type CreatePollResponse = IBackendRes<Poll>;
+
+export type ClosePollRequest = {
+  chatRoomId: number;
+  pollId: string;
+};
+export type ClosePollResponse = IBackendRes<Poll>;
