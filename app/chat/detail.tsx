@@ -1,4 +1,5 @@
 import { GroupManagementPanel } from "@/components/chat/GroupManagementPanel";
+import { EditGroupModal } from "@/components/chat/EditGroupModal";
 import { useUser } from "@/hooks/useUser";
 import {
   useFetchChatRoomsByIdQuery,
@@ -24,8 +25,9 @@ export default function ChatDetail() {
   const [activeTab, setActiveTab] = useState<"media" | "files" | "group">(
     "media",
   );
+  const [isEditModalVisible, setIsEditModalVisible] = useState(false);
 
-  const { data: chatRoomData } = useFetchChatRoomsByIdQuery(chatRoomId, {
+  const { data: chatRoomData, refetch: refetchChatRoom } = useFetchChatRoomsByIdQuery(chatRoomId, {
     skip: !chatRoomId,
   });
   const chatRoom = chatRoomData?.data;
@@ -58,7 +60,8 @@ export default function ChatDetail() {
   useFocusEffect(
     React.useCallback(() => {
       refetch();
-    }, []),
+      refetchChatRoom();
+    }, [refetch, refetchChatRoom]),
   );
 
   return (
@@ -75,10 +78,21 @@ export default function ChatDetail() {
       {/* PROFILE */}
       <View style={styles.profile}>
         <Image
-          source={{ uri: avatar || "https://i.pravatar.cc/150?img=12" }}
+          source={{ uri: chatRoomData?.data?.avatar || avatar || "https://i.pravatar.cc/150?img=12" }}
           style={styles.avatar}
         />
-        <Text style={styles.name}>{name}</Text>
+        <View style={styles.nameContainer}>
+          <Text style={styles.name}>{chatRoomData?.data?.name || name || "Nhóm"}</Text>
+          {isGroupChat && (isOwner || members.find((m) => m.accountId === user?.accountId)?.role === "MODERATOR") && (
+            <TouchableOpacity
+              onPress={() => setIsEditModalVisible(true)}
+              style={styles.editGroupButton}
+            >
+              <Ionicons name="pencil" size={16} color="#007AFF" />
+              <Text style={styles.editGroupButtonText}>Chỉnh sửa</Text>
+            </TouchableOpacity>
+          )}
+        </View>
       </View>
 
       {/* QUICK ACTIONS */}
@@ -158,12 +172,26 @@ export default function ChatDetail() {
           )
         ) : activeTab === "group" ? (
           <GroupManagementPanel
-            groupName={name || "Nhóm"}
+            groupName={chatRoomData?.data?.name || name || "Nhóm"}
             groupId={chatRoomId}
+            groupAvatar={chatRoomData?.data?.avatar || avatar || ""}
             isOwner={isOwner}
+            onRefetch={refetchChatRoom}
           />
         ) : null}
       </View>
+
+      <EditGroupModal
+        visible={isEditModalVisible}
+        groupId={chatRoomId}
+        groupName={chatRoomData?.data?.name || name || "Nhóm"}
+        groupAvatar={chatRoomData?.data?.avatar || avatar || ""}
+        onClose={() => setIsEditModalVisible(false)}
+        onSuccess={() => {
+          refetch();
+        }}
+        onRefetch={refetchChatRoom}
+      />
     </SafeAreaView>
   );
 }
@@ -249,6 +277,28 @@ const styles = StyleSheet.create({
     marginTop: 10,
     fontSize: 18,
     fontWeight: "600",
+  },
+
+  nameContainer: {
+    alignItems: "center",
+    marginTop: 10,
+  },
+
+  editGroupButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    backgroundColor: "#E5F3FF",
+  },
+
+  editGroupButtonText: {
+    marginLeft: 6,
+    fontSize: 13,
+    fontWeight: "500",
+    color: "#007AFF",
   },
 
   quickActions: {

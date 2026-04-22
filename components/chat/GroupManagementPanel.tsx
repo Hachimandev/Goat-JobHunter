@@ -18,19 +18,23 @@ import {
 interface GroupManagementPanelProps {
   groupName: string;
   groupId: number;
+  groupAvatar: string;
   isOwner?: boolean;
+  onRefetch?: () => void;
 }
 
 export const GroupManagementPanel = ({
   groupName,
   groupId,
+  groupAvatar,
   isOwner = false,
+  onRefetch,
 }: GroupManagementPanelProps) => {
   const { user } = useUser();
   const { handleDissolveGroup, handleLeaveGroup, isLoading } =
     useDissolveGroup();
-  const { handleRemoveMember, isLoading: isRemoving } = useRemoveMember();
-  const { data: membersData } = useGetMemberInGroupChatQuery(groupId);
+  const { data: membersData, refetch } = useGetMemberInGroupChatQuery(groupId);
+  const { handleRemoveMember, isLoading: isRemoving } = useRemoveMember(refetch);
 
   const members = membersData?.data || [];
 
@@ -64,25 +68,26 @@ export const GroupManagementPanel = ({
   };
 
   return (
-    <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-      {/* Thông tin nhóm */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Thông tin nhóm</Text>
-        <TouchableOpacity
-          style={styles.addMemberBtn}
-          onPress={() =>
-            router.push({
-              pathname: "/chat/add-members",
-              params: {
-                groupId: String(groupId),
-                members: JSON.stringify(members),
-              },
-            })
-          }
-        >
-          <Ionicons name="person-add-outline" size={20} />
-          <Text>Thêm thành viên</Text>
-        </TouchableOpacity>
+    <>
+      <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+        {/* Thông tin nhóm */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Thông tin nhóm</Text>
+          <TouchableOpacity
+            style={styles.addMemberBtn}
+            onPress={() =>
+              router.push({
+                pathname: "/chat/add-members",
+                params: {
+                  groupId: String(groupId),
+                  members: JSON.stringify(members),
+                },
+              })
+            }
+          >
+            <Ionicons name="person-add-outline" size={20} />
+            <Text>Thêm thành viên</Text>
+          </TouchableOpacity>
         <View style={styles.infoItem}>
           <Text style={styles.infoLabel}>Tên nhóm:</Text>
           <Text style={styles.infoValue}>{groupName}</Text>
@@ -183,6 +188,7 @@ export const GroupManagementPanel = ({
         )}
       </View>
     </ScrollView>
+    </>
   );
 };
 
