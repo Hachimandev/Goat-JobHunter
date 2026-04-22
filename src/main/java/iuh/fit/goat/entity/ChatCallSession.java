@@ -2,6 +2,7 @@ package iuh.fit.goat.entity;
 
 import iuh.fit.goat.enumeration.ChatCallEndReason;
 import iuh.fit.goat.enumeration.ChatCallSessionStatus;
+import iuh.fit.goat.enumeration.ChatCallType;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -49,6 +50,10 @@ public class ChatCallSession extends BaseEntity {
 
     @Column(name = "agora_channel_name", nullable = false, length = 64)
     private String agoraChannelName;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "call_type", nullable = false, length = 16)
+    private ChatCallType callType;
 
     @Column(name = "started_at")
     private Instant startedAt;

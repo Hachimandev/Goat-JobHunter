@@ -7,6 +7,7 @@ import iuh.fit.goat.dto.request.chat.StartChatCallRequest;
 import iuh.fit.goat.dto.response.chat.ChatCallSessionResponse;
 import iuh.fit.goat.dto.response.chat.ChatCallTokenResponse;
 import iuh.fit.goat.entity.Account;
+import iuh.fit.goat.enumeration.ChatCallType;
 import iuh.fit.goat.exception.InvalidException;
 import iuh.fit.goat.exception.PermissionException;
 import iuh.fit.goat.service.AccountService;
@@ -40,7 +41,7 @@ public class ChatCallController {
         ChatCallSessionResponse response = this.chatCallService.startCall(
                 currentAccount,
                 chatRoomId,
-                request == null ? new StartChatCallRequest(Boolean.TRUE) : request
+                request == null ? new StartChatCallRequest(Boolean.TRUE, ChatCallType.VOICE) : request
         );
         return ResponseEntity.ok(response);
     }
@@ -56,7 +57,7 @@ public class ChatCallController {
                 currentAccount,
                 chatRoomId,
                 sessionId,
-                request == null ? new JoinChatCallRequest(Boolean.TRUE) : request
+                request == null ? new JoinChatCallRequest(Boolean.TRUE, ChatCallType.VOICE) : request
         );
         return ResponseEntity.ok(response);
     }

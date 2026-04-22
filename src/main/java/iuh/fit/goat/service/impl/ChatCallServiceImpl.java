@@ -15,6 +15,7 @@ import iuh.fit.goat.entity.ChatCallSession;
 import iuh.fit.goat.entity.User;
 import iuh.fit.goat.enumeration.ChatCallEndReason;
 import iuh.fit.goat.enumeration.ChatCallSessionStatus;
+import iuh.fit.goat.enumeration.ChatCallType;
 import iuh.fit.goat.enumeration.ChatRoomType;
 import iuh.fit.goat.exception.InvalidException;
 import iuh.fit.goat.exception.PermissionException;
@@ -70,6 +71,7 @@ public class ChatCallServiceImpl implements ChatCallService {
         session.setInitiator(currentAccount);
         session.setStatus(ChatCallSessionStatus.ACTIVE);
         session.setAgoraChannelName(buildChannelName(chatRoomId));
+        session.setCallType(resolveCallType(request != null ? request.getCallType() : null));
         session.setStartedAt(Instant.now());
 
         ChatCallSession savedSession = this.chatCallSessionRepository.save(session);
@@ -82,7 +84,14 @@ public class ChatCallServiceImpl implements ChatCallService {
         this.chatCallParticipantRepository.save(participant);
 
         ChatCallSessionResponse response = toResponse(currentAccount, savedSession.getCallSessionId());
-        publishEvent("CALL_STARTED", chatRoomId, savedSession.getCallSessionId(), currentAccount.getAccountId(), savedSession.getStatus());
+        publishEvent(
+                "CALL_STARTED",
+                chatRoomId,
+                savedSession.getCallSessionId(),
+                currentAccount.getAccountId(),
+                savedSession.getStatus(),
+                savedSession.getCallType()
+        );
         return response;
     }
 
@@ -93,6 +102,7 @@ public class ChatCallServiceImpl implements ChatCallService {
         validateCurrentAccount(currentAccount);
         ChatCallSession session = validateSessionAccess(chatRoomId, sessionId, currentAccount.getAccountId());
         ensureActiveSession(session);
+        validateRequestedCallType(request, session);
 
         ChatCallParticipant participant = this.chatCallParticipantRepository
                 .findBySessionCallSessionIdAndAccountAccountIdAndDeletedAtIsNull(sessionId, currentAccount.getAccountId())
@@ -111,7 +121,14 @@ public class ChatCallServiceImpl implements ChatCallService {
         this.chatCallParticipantRepository.save(participant);
 
         ChatCallSessionResponse response = toResponse(currentAccount, sessionId);
-        publishEvent("CALL_JOINED", chatRoomId, sessionId, currentAccount.getAccountId(), session.getStatus());
+        publishEvent(
+                "CALL_JOINED",
+                chatRoomId,
+                sessionId,
+                currentAccount.getAccountId(),
+                session.getStatus(),
+                session.getCallType()
+        );
         return response;
     }
 
@@ -140,12 +157,26 @@ public class ChatCallServiceImpl implements ChatCallService {
             this.messageService.createAndSendCallMessage(chatRoomId, session.getInitiator(), session);
 
             ChatCallSessionResponse response = toResponse(currentAccount, sessionId);
-            publishEvent("CALL_ENDED", chatRoomId, sessionId, currentAccount.getAccountId(), response.getStatus());
+            publishEvent(
+                    "CALL_ENDED",
+                    chatRoomId,
+                    sessionId,
+                    currentAccount.getAccountId(),
+                    response.getStatus(),
+                    response.getCallType()
+            );
             return response;
         }
 
         ChatCallSessionResponse response = toResponse(currentAccount, sessionId);
-        publishEvent("CALL_LEFT", chatRoomId, sessionId, currentAccount.getAccountId(), response.getStatus());
+        publishEvent(
+                "CALL_LEFT",
+                chatRoomId,
+                sessionId,
+                currentAccount.getAccountId(),
+                response.getStatus(),
+                response.getCallType()
+        );
         return response;
     }
 
@@ -179,7 +210,14 @@ public class ChatCallServiceImpl implements ChatCallService {
         this.chatCallParticipantRepository.save(participant);
 
         ChatCallSessionResponse response = toResponse(currentAccount, sessionId);
-        publishEvent("CALL_LEFT", chatRoomId, sessionId, currentAccount.getAccountId(), response.getStatus());
+        publishEvent(
+                "CALL_LEFT",
+                chatRoomId,
+                sessionId,
+                currentAccount.getAccountId(),
+                response.getStatus(),
+                response.getCallType()
+        );
         return response;
     }
 
@@ -215,7 +253,14 @@ public class ChatCallServiceImpl implements ChatCallService {
         this.messageService.createAndSendCallMessage(chatRoomId, session.getInitiator(), session);
 
         ChatCallSessionResponse response = toResponse(currentAccount, sessionId);
-        publishEvent("CALL_ENDED", chatRoomId, sessionId, currentAccount.getAccountId(), response.getStatus());
+        publishEvent(
+                "CALL_ENDED",
+                chatRoomId,
+                sessionId,
+                currentAccount.getAccountId(),
+                response.getStatus(),
+                response.getCallType()
+        );
         return response;
     }
 
@@ -282,6 +327,17 @@ public class ChatCallServiceImpl implements ChatCallService {
         return EnumSet.of(ChatCallSessionStatus.PENDING, ChatCallSessionStatus.ACTIVE);
     }
 
+    private ChatCallType resolveCallType(ChatCallType requestedCallType) {
+        return requestedCallType != null ? requestedCallType : ChatCallType.VOICE;
+    }
+
+    private void validateRequestedCallType(JoinChatCallRequest request, ChatCallSession session) throws InvalidException {
+        ChatCallType requestedCallType = request != null ? request.getCallType() : null;
+        if (requestedCallType != null && session.getCallType() != null && requestedCallType != session.getCallType()) {
+            throw new InvalidException("Requested call type does not match active call session");
+        }
+    }
+
     private long countActiveParticipants(Long sessionId) {
         return this.chatCallParticipantRepository.findBySessionCallSessionIdAndDeletedAtIsNull(sessionId)
                 .stream()
@@ -323,6 +379,7 @@ public class ChatCallServiceImpl implements ChatCallService {
                 chatRoomResponse != null ? chatRoomResponse.getAvatar() : null,
                 session.getStatus(),
                 session.getAgoraChannelName(),
+                session.getCallType(),
                 session.getInitiator() != null ? session.getInitiator().getAccountId() : null,
                 session.getStartedAt(),
                 session.getEndedAt(),
@@ -331,7 +388,14 @@ public class ChatCallServiceImpl implements ChatCallService {
         );
     }
 
-    private void publishEvent(String eventType, Long chatRoomId, Long sessionId, Long actorAccountId, ChatCallSessionStatus status) {
+    private void publishEvent(
+            String eventType,
+            Long chatRoomId,
+            Long sessionId,
+            Long actorAccountId,
+            ChatCallSessionStatus status,
+            ChatCallType callType
+    ) {
         Runnable publishAction = () -> {
             String destination = CALL_TOPIC_PREFIX + chatRoomId + "/calls";
             ChatCallRealtimeEventResponse payload = new ChatCallRealtimeEventResponse(
@@ -339,7 +403,8 @@ public class ChatCallServiceImpl implements ChatCallService {
                     chatRoomId,
                     sessionId,
                     actorAccountId,
-                    status
+                    status,
+                    callType
             );
             this.messagingTemplate.convertAndSend(destination, payload);
         };

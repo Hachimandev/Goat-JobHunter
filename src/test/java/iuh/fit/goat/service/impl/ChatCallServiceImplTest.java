@@ -11,6 +11,7 @@ import iuh.fit.goat.entity.ChatCallSession;
 import iuh.fit.goat.entity.ChatRoom;
 import iuh.fit.goat.enumeration.ChatCallEndReason;
 import iuh.fit.goat.enumeration.ChatCallSessionStatus;
+import iuh.fit.goat.enumeration.ChatCallType;
 import iuh.fit.goat.enumeration.ChatRoomType;
 import iuh.fit.goat.exception.InvalidException;
 import iuh.fit.goat.exception.PermissionException;
@@ -86,6 +87,7 @@ class ChatCallServiceImplTest {
         saved.setInitiator(account);
         saved.setStatus(ChatCallSessionStatus.ACTIVE);
         saved.setAgoraChannelName("chatroom-99");
+        saved.setCallType(ChatCallType.VIDEO);
         saved.setStartedAt(Instant.now());
 
         when(this.chatRoomService.isUserInChatRoom(99L, 10L)).thenReturn(true);
@@ -98,10 +100,15 @@ class ChatCallServiceImplTest {
         when(this.chatRoomService.getDetailChatRoomInformation(account, 99L))
                 .thenReturn(ChatRoomResponse.builder().roomId(99L).type(ChatRoomType.DIRECT).name("Receiver").build());
 
-        ChatCallSessionResponse response = this.service.startCall(account, 99L, new StartChatCallRequest(true));
+        ChatCallSessionResponse response = this.service.startCall(
+                account,
+                99L,
+                new StartChatCallRequest(true, ChatCallType.VIDEO)
+        );
 
         assertEquals(123L, response.getSessionId());
         assertEquals(ChatCallSessionStatus.ACTIVE, response.getStatus());
+        assertEquals(ChatCallType.VIDEO, response.getCallType());
         verify(this.messagingTemplate).convertAndSend(anyString(), any(Object.class));
     }
 
@@ -113,7 +120,10 @@ class ChatCallServiceImplTest {
         when(this.chatCallSessionRepository.existsByChatRoomRoomIdAndStatusInAndDeletedAtIsNull(eq(99L), anyCollection()))
                 .thenReturn(true);
 
-        assertThrows(InvalidException.class, () -> this.service.startCall(account, 99L, new StartChatCallRequest(true)));
+        assertThrows(
+                InvalidException.class,
+                () -> this.service.startCall(account, 99L, new StartChatCallRequest(true, ChatCallType.VOICE))
+        );
         verify(this.chatCallSessionRepository, never()).save(any(ChatCallSession.class));
     }
 
@@ -130,6 +140,7 @@ class ChatCallServiceImplTest {
         session.setChatRoom(room);
         session.setInitiator(account);
         session.setStatus(ChatCallSessionStatus.ACTIVE);
+        session.setCallType(ChatCallType.VOICE);
 
         when(this.chatRoomService.isUserInChatRoom(99L, 10L)).thenReturn(true);
         when(this.chatCallSessionRepository.findByCallSessionIdAndDeletedAtIsNull(123L)).thenReturn(Optional.of(session));
@@ -163,6 +174,7 @@ class ChatCallServiceImplTest {
         session.setChatRoom(room);
         session.setInitiator(account);
         session.setStatus(ChatCallSessionStatus.ACTIVE);
+        session.setCallType(ChatCallType.VOICE);
 
         ChatCallParticipant participant = new ChatCallParticipant();
         participant.setSession(session);
@@ -202,6 +214,7 @@ class ChatCallServiceImplTest {
         session.setChatRoom(room);
         session.setInitiator(initiator);
         session.setStatus(ChatCallSessionStatus.ACTIVE);
+        session.setCallType(ChatCallType.VOICE);
 
         when(this.chatRoomService.isUserInChatRoom(99L, 11L)).thenReturn(true);
         when(this.chatCallSessionRepository.findByCallSessionIdAndDeletedAtIsNull(123L)).thenReturn(Optional.of(session));
@@ -229,13 +242,14 @@ class ChatCallServiceImplTest {
         session.setCallSessionId(123L);
         session.setChatRoom(room);
         session.setStatus(ChatCallSessionStatus.ENDED);
+        session.setCallType(ChatCallType.VOICE);
 
         when(this.chatRoomService.isUserInChatRoom(99L, 10L)).thenReturn(true);
         when(this.chatCallSessionRepository.findByCallSessionIdAndDeletedAtIsNull(123L)).thenReturn(Optional.of(session));
 
         assertThrows(
                 InvalidException.class,
-                () -> this.service.joinCall(account, 99L, 123L, new JoinChatCallRequest(true))
+                () -> this.service.joinCall(account, 99L, 123L, new JoinChatCallRequest(true, ChatCallType.VOICE))
         );
     }
 }

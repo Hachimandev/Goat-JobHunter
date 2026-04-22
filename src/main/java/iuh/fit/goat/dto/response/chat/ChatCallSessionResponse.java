@@ -2,6 +2,7 @@ package iuh.fit.goat.dto.response.chat;
 
 import iuh.fit.goat.enumeration.ChatCallEndReason;
 import iuh.fit.goat.enumeration.ChatCallSessionStatus;
+import iuh.fit.goat.enumeration.ChatCallType;
 import iuh.fit.goat.enumeration.ChatRoomType;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -21,6 +22,7 @@ public class ChatCallSessionResponse {
     private String chatRoomAvatar;
     private ChatCallSessionStatus status;
     private String agoraChannelName;
+    private ChatCallType callType;
     private Long initiatorAccountId;
     private Instant startedAt;
     private Instant endedAt;
