@@ -41,6 +41,8 @@ import {
 } from '@/components/ui/alert-dialog';
 import GroupNewsPanel from './GroupNewsPanel';
 import AssetTabSection from '@/app/(chat)/messages/components/AssetTabSection';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { useFetchFilesInChatRoomQuery, useFetchMediaInChatRoomQuery } from '@/services/chatRoom/chatRoomApi';
 
 interface GroupDetailsPanelProps {
   chatRoom: ChatRoom;
@@ -68,6 +70,18 @@ export function GroupDetailsPanel({
   const [newsPanelOpen, setNewsPanelOpen] = useState(false);
 
   const {
+    data: filesData,
+    isLoading: isLoadingFile,
+    isError: isErrorFile,
+  } = useFetchFilesInChatRoomQuery({ chatRoomId: chatRoom.roomId }, { skip: !isOpen || !chatRoom });
+
+  const {
+    data: mediaData,
+    isLoading: isLoadingMedia,
+    isError: isErrorMedia,
+  } = useFetchMediaInChatRoomQuery({ chatRoomId: chatRoom.roomId }, { skip: !isOpen || !chatRoom });
+
+  const {
     data: memberData,
     isLoading: isLoadingMembers,
     isError: isErrorMembers,
@@ -80,6 +94,14 @@ export function GroupDetailsPanel({
   const members = useMemo(() => {
     return memberData?.data || [];
   }, [memberData]);
+
+  const media = useMemo(() => {
+    return mediaData?.data?.result || [];
+  }, [mediaData]);
+
+  const files = useMemo(() => {
+    return filesData?.data?.result || [];
+  }, [filesData]);
 
   const { currentUserRole, currentUserId } = useMemo(() => {
     const currentMember = members.find((member) => member.accountId === user?.accountId);
@@ -312,10 +334,6 @@ export function GroupDetailsPanel({
                   </Button>
                 )}
               </div>
-
-              {canLeaveGroup && <Separator />}
-
-              <AssetTabSection isDetailPanelOpen={isOpen} chatRoom={chatRoom} />
             </div>
           </ScrollArea>
         </div>

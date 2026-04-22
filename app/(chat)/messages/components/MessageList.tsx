@@ -5,9 +5,10 @@ import { CHAT_MESSAGE_SCROLL_TOP_THRESHOLD } from '@/constants/constant';
 import { MessageResponse } from '@/types/model';
 import { MessageTypeEnum } from '@/types/enum';
 import { extractMessageId } from '@/utils/slug';
-import { useEffect, useRef, useMemo, useState } from 'react';
+import { useEffect, useRef, useMemo, useState, useCallback } from 'react';
 import { MessageBubble, MessageBubbleLoading } from './MessageBubble';
 import { usePendingMessages } from '@/contexts/PendingMessagesContext';
+import { Loader2 } from 'lucide-react';
 
 interface MessageListProps {
   messages: MessageResponse[];
@@ -54,7 +55,13 @@ export function MessageList({
   isPinnedMessage,
   isPinningMessage,
 }: Readonly<MessageListProps>) {
-  const bottomRef = useRef<HTMLDivElement | null>(null);
+  const bottomRef = useRef<HTMLDivElement>(null);
+  const scrollAreaContainerRef = useRef<HTMLDivElement>(null);
+  const viewportRef = useRef<HTMLDivElement | null>(null);
+  const topLoadAnchorRef = useRef<{ scrollHeight: number; scrollTop: number; messageCount: number } | null>(null);
+  const hasTriggeredTopLoadRef = useRef(false);
+  const isNearBottomRef = useRef(true);
+  const lastTailMessageIdRef = useRef<string | null>(null);
   const { pendingMessages } = usePendingMessages();
   const collapsedMapRef = useRef<Record<string, number>>({});
   const [expandedGroups, setExpandedGroups] = useState<Set<number>>(new Set());
@@ -160,9 +167,46 @@ export function MessageList({
   }, [messages, latestPollMessageIdByPollId]);
 
   useEffect(() => {
-    // update ref outside of render
     collapsedMapRef.current = collapsedMap;
   }, [collapsedMap]);
+
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
+
+  const resolveViewport = useCallback(() => {
+    return scrollAreaContainerRef.current?.querySelector('[data-slot="scroll-area-viewport"]') as HTMLDivElement | null;
+  }, []);
+
+  const updateNearBottom = useCallback(() => {
+    const viewport = viewportRef.current;
+
+    if (!viewport) {
+      return;
+    }
+
+    const distanceToBottom = viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight;
+    isNearBottomRef.current = distanceToBottom <= 120;
+  }, []);
+
+  const handleScroll = useCallback(() => {
+    const viewport = viewportRef.current;
+
+    if (!viewport) {
+      return;
+    }
+
+    updateNearBottom();
+
+    if (viewport.scrollTop > CHAT_MESSAGE_SCROLL_TOP_THRESHOLD) {
+      hasTriggeredTopLoadRef.current = false;
+      return;
+    }
+
+    if (!onLoadOlderMessages || !hasOlderMessages || isLoadingOlderMessages || hasTriggeredTopLoadRef.current) {
+      return;
+    }
+  }, [hasOlderMessages, isLoadingOlderMessages, onLoadOlderMessages, updateNearBottom]);
 
   useEffect(() => {
     const viewport = resolveViewport();
@@ -179,6 +223,28 @@ export function MessageList({
       viewport.removeEventListener('scroll', handleScroll);
     };
   }, [handleScroll, resolveViewport, updateNearBottom]);
+
+  useEffect(() => {
+    if (isLoadingOlderMessages) {
+      return;
+    }
+
+    const viewport = viewportRef.current;
+    const topLoadAnchor = topLoadAnchorRef.current;
+
+    if (!viewport || !topLoadAnchor) {
+      return;
+    }
+
+    if (messages.length > topLoadAnchor.messageCount) {
+      const nextScrollTop = viewport.scrollHeight - topLoadAnchor.scrollHeight + topLoadAnchor.scrollTop;
+      viewport.scrollTop = Math.max(0, nextScrollTop);
+    }
+
+    topLoadAnchorRef.current = null;
+    hasTriggeredTopLoadRef.current = false;
+    updateNearBottom();
+  }, [isLoadingOlderMessages, messages.length, updateNearBottom]);
 
   useEffect(() => {
     if (isLoadingOlderMessages) {

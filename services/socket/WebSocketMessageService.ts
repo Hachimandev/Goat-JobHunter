@@ -414,18 +414,18 @@ export class WebSocketMessageService {
         this.dispatch(
           pinnedMessageApi.util.invalidateTags([{ type: 'PinnedMessage', id: `PINNED_MESSAGE_${chatRoomId}` }]),
         );
-      } else if (content.includes('đã giải tán nhóm')) {
-        this.dispatch(chatRoomApi.util.invalidateTags([{ type: 'ChatRoom', id: chatRoomId }]));
-      } else if (content.includes('cuộc bình chọn')) {
-        this.dispatch(
-          pollApi.util.invalidateTags([
-            { type: 'Poll', id: `POLLS_${chatRoomId}` },
-            { type: 'ChatRoom', id: `POLL_${chatRoomId}_${chatRoomId}` },
       } else if (event === MessageEvent.GROUP_DISSOLVED || content.includes('đã giải tán nhóm')) {
         this.dispatch(
           chatRoomApi.util.invalidateTags([
             { type: 'ChatRoom', id: chatRoomId },
             { type: 'ChatRoom', id: 'LIST' },
+          ]),
+        );
+      } else if (content.includes('cuộc bình chọn')) {
+        this.dispatch(
+          pollApi.util.invalidateTags([
+            { type: 'Poll', id: `POLLS_${chatRoomId}` },
+            { type: 'ChatRoom', id: `POLL_${chatRoomId}_${chatRoomId}` },
           ]),
         );
       }
