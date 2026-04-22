@@ -135,7 +135,9 @@ export class WebSocketCallService {
         const currentUserId = store.getState().auth.user?.accountId;
         const isCurrentUserParticipant =
           typeof currentUserId === 'number' &&
-          nextCall.participants.some((participant) => participant.accountId === currentUserId && !participant.leftAt);
+          nextCall.participants.some(
+            (participant) => participant.account.accountId === currentUserId && !participant.leftAt,
+          );
 
         if (!isCurrentUserParticipant) {
           if (existingCurrentCall?.sessionId === nextCall.sessionId) {

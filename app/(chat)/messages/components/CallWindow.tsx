@@ -73,14 +73,16 @@ export function CallWindow({
     <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex flex-col">
       <div className="flex items-center justify-between px-5 py-4 border-b border-white/15 text-white">
         <div>
-          <p className="text-sm font-medium">Cuộc gọi #{currentCall.sessionId}</p>
+          <p className="text-sm font-medium">Cuộc gọi đang diễn ra</p>
           <p className="text-xs text-white/70">
             {statusLabel} · {rtcConnectionState}
           </p>
           <p className="text-xs text-white/60 mt-1">
             Đang tham gia ({joinedParticipants.length}):{' '}
             {joinedParticipants.length > 0
-              ? joinedParticipants.map((participant) => `#${participant.accountId}`).join(', ')
+              ? joinedParticipants
+                  .map((participant) => participant.account.fullName || participant.account.username)
+                  .join(', ')
               : 'Chưa có thành viên'}
           </p>
         </div>

@@ -469,7 +469,13 @@ export type ChatRoom = {
 };
 
 export type CallParticipant = {
-  accountId: number;
+  account: {
+    accountId: number;
+    avatar?: string | null;
+    username: string;
+    fullName: string;
+    email: string;
+  };
   publisher: boolean;
   joinedAt: string;
   leftAt?: string | null;

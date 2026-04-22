@@ -121,7 +121,9 @@ export default function ChatRoomPage() {
     Boolean(currentCall) &&
     typeof user?.accountId === 'number' &&
     Boolean(
-      currentCall?.participants.some((participant) => participant.accountId === user.accountId && !participant.leftAt),
+      currentCall?.participants.some(
+        (participant) => participant.account.accountId === user.accountId && !participant.leftAt,
+      ),
     );
   const isGroupCall = currentChatRoom?.type === ChatRoomType.GROUP;
   const canCurrentUserEndCall = Boolean(!isGroupCall || currentCall?.initiatorAccountId === user?.accountId);

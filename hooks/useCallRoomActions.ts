@@ -189,7 +189,9 @@ const useCallRoomActions = () => {
 
     const isCurrentUserParticipant =
       typeof user?.accountId === 'number' &&
-      currentCall.participants.some((participant) => participant.accountId === user.accountId && !participant.leftAt);
+      currentCall.participants.some(
+        (participant) => participant.account.accountId === user.accountId && !participant.leftAt,
+      );
 
     const shouldConnectRtc =
       (currentCall.status === CallStatusEnum.PENDING || currentCall.status === CallStatusEnum.ACTIVE) &&

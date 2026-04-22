@@ -203,7 +203,7 @@ class AgoraCallRtcClient {
     try {
       return await operation();
     } finally {
-      releaseCurrentOperation?.();
+      (releaseCurrentOperation as unknown as () => void)?.();
     }
   };
 
