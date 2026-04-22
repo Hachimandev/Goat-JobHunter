@@ -85,6 +85,7 @@ export const api = createApi({
     'Friendship',
     'AIConversation',
     'AIMessage',
+    'Poll',
   ],
   endpoints: (builder) => ({
     ping: builder.query<string, void>({

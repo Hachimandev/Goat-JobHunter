@@ -94,6 +94,7 @@ export enum MessageTypeEnum {
   FILE = 'FILE',
   CONTACT_CARD = 'CONTACT_CARD',
   SYSTEM = 'SYSTEM',
+  POLL = 'POLL',
 }
 
 export enum MessageEvent {
@@ -107,6 +108,14 @@ export enum MessageEvent {
   GROUP_DISSOLVED = 'GROUP_DISSOLVED',
   MESSAGE_PINNED = 'MESSAGE_PINNED',
   MESSAGE_UNPINNED = 'MESSAGE_UNPINNED',
+}
+
+export enum PollEvent {
+  POLL_CREATED = 'POLL_CREATED',
+  POLL_VOTED = 'POLL_VOTED',
+  POLL_UNVOTED = 'POLL_UNVOTED',
+  POLL_OPTION_ADDED = 'POLL_OPTION_ADDED',
+  POLL_CLOSED = 'POLL_CLOSED',
 }
 
 export enum ReactionType {

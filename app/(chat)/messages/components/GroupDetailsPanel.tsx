@@ -3,7 +3,22 @@ import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { X, ChevronDown, UserPlus, Edit, Loader2, LogOut, Bell, PinIcon, Settings, Users } from 'lucide-react';
+import {
+  X,
+  ChevronDown,
+  UserPlus,
+  Edit,
+  Loader2,
+  LogOut,
+  Bell,
+  PinIcon,
+  Settings,
+  Users,
+  Newspaper,
+  Notebook,
+} from 'lucide-react';
+import { SharedMediaGrid } from './SharedMediaGrid';
+import { SharedFilesList } from './SharedFilesList';
 import { useMemo, useState } from 'react';
 import { ChatRoom } from '@/types/model';
 import { ManageGroupPanel } from './ManageGroupPanel';
@@ -24,6 +39,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import GroupNewsPanel from './GroupNewsPanel';
 import AssetTabSection from '@/app/(chat)/messages/components/AssetTabSection';
 
 interface GroupDetailsPanelProps {
@@ -44,10 +60,12 @@ export function GroupDetailsPanel({
   isLeavingGroup,
 }: Readonly<GroupDetailsPanelProps>) {
   const [isMembersOpen, setIsMembersOpen] = useState(true);
+  const [isGroupNewsOpen, setIsGroupNewsOpen] = useState(true);
   const [addMemberModalOpen, setAddMemberModalOpen] = useState(false);
   const [editGroupModalOpen, setEditGroupModalOpen] = useState(false);
   const [leaveConfirmOpen, setLeaveConfirmOpen] = useState(false);
   const [managePanelOpen, setManagePanelOpen] = useState(false);
+  const [newsPanelOpen, setNewsPanelOpen] = useState(false);
 
   const {
     data: memberData,
@@ -218,6 +236,60 @@ export function GroupDetailsPanel({
 
               <Separator />
 
+              <Collapsible open={isGroupNewsOpen} onOpenChange={setIsGroupNewsOpen}>
+                <div className="bg-accent/30 rounded-lg overflow-hidden">
+                  <CollapsibleTrigger asChild>
+                    <Button
+                      className="w-full flex items-center justify-between p-3 py-6 hover:bg-accent/50 transition-colors cursor-pointer rounded-xl"
+                      variant="ghost"
+                    >
+                      <div className="flex items-center gap-2">
+                        <Newspaper className="h-5 w-5" />
+                        <h3 className="font-semibold text-sm">Bảng tin nhóm</h3>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <ChevronDown
+                          className={`h-4 w-4 transition-transform duration-200 ${isGroupNewsOpen ? 'rotate-180' : ''}`}
+                        />
+                      </div>
+                    </Button>
+                  </CollapsibleTrigger>
+
+                  <CollapsibleContent className="data-[state=open]:animate-collapsible-down data-[state=closed]:animate-collapsible-up">
+                    <div className="px-2 pb-2 space-y-1 mt-2">
+                      <div
+                        className="flex items-center gap-3 p-3 rounded-xl hover:bg-accent/50 transition-colors cursor-pointer"
+                        onClick={() => setNewsPanelOpen(true)}
+                      >
+                        <Notebook className="h-4 w-4" />
+                        <h3 className="text-sm">Ghi chú, Ghim, Bình chọn</h3>
+                      </div>
+                    </div>
+                  </CollapsibleContent>
+                </div>
+              </Collapsible>
+
+              <Separator />
+
+              <Tabs defaultValue="media" className="w-full">
+                <TabsList className="grid w-full grid-cols-2">
+                  <TabsTrigger className="cursor-pointer" value="media">
+                    Phương tiện
+                  </TabsTrigger>
+                  <TabsTrigger className="cursor-pointer" value="files">
+                    Files
+                  </TabsTrigger>
+                </TabsList>
+                <TabsContent value="media" className="mt-4">
+                  <SharedMediaGrid media={media} isLoading={isLoadingMedia} isError={isErrorMedia} />
+                </TabsContent>
+                <TabsContent value="files" className="mt-4">
+                  <SharedFilesList files={files} isLoading={isLoadingFile} isError={isErrorFile} />
+                </TabsContent>
+              </Tabs>
+
+              {canLeaveGroup && <Separator />}
+
               <div className="pb-2 space-y-1 mt-2">
                 {canLeaveGroup && !readOnly && (
                   <Button
@@ -249,6 +321,7 @@ export function GroupDetailsPanel({
         </div>
 
         <ManageGroupPanel open={managePanelOpen} onOpenChange={setManagePanelOpen} chatRoom={chatRoom} />
+        <GroupNewsPanel open={newsPanelOpen} onOpenChange={setNewsPanelOpen} chatRoomId={chatRoom.roomId} />
       </div>
 
       <SearchUsersModal
