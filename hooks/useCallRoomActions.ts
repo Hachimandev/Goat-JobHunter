@@ -9,12 +9,14 @@ import {
   selectIncomingCall,
   selectLocalAudioEnabled,
   selectLocalVideoEnabled,
+  selectParticipantMediaStates,
   selectRemoteAudioActive,
   selectRemoteVideoActive,
   selectRtcConnectionState,
   setCallError,
   setLocalAudioEnabled,
   setLocalVideoEnabled,
+  setParticipantMediaStates,
   setRemoteMediaState,
   setCurrentCall,
   setOutgoingCallPending,
@@ -33,6 +35,7 @@ import { CallEndReasonEnum, CallStatusEnum, CallTypeEnum } from '@/types/enum';
 import { callRtcClient } from '@/services/callRtc/AgoraCallRtcClient';
 import { CallSession } from '@/types/model';
 import type { UID } from 'agora-rtc-sdk-ng';
+import { computeAgoraUid } from '@/services/callRtc/agoraUid';
 
 const useCallRoomActions = () => {
   const { isSignedIn, user } = useUser();
@@ -43,6 +46,7 @@ const useCallRoomActions = () => {
   const rtcConnectionState = useAppSelector(selectRtcConnectionState);
   const localAudioEnabled = useAppSelector(selectLocalAudioEnabled);
   const localVideoEnabled = useAppSelector(selectLocalVideoEnabled);
+  const participantMediaStates = useAppSelector(selectParticipantMediaStates);
   const remoteAudioActive = useAppSelector(selectRemoteAudioActive);
   const remoteVideoActive = useAppSelector(selectRemoteVideoActive);
 
@@ -98,6 +102,48 @@ const useCallRoomActions = () => {
             sessionId,
             remoteAudioActive: remoteAudio,
             remoteVideoActive: remoteVideo,
+          }),
+        );
+      },
+      onRemoteParticipantsStateChange: ({ sessionId, participants }) => {
+        const activeCall = currentCallRef.current;
+        const nextParticipantMediaStates =
+          activeCall && activeCall.sessionId === sessionId
+            ? activeCall.participants.reduce<Record<number, { audioActive: boolean; videoActive: boolean }>>(
+                (accumulator, participant) => {
+                  if (participant.leftAt) {
+                    return accumulator;
+                  }
+
+                  const uid = computeAgoraUid(
+                    participant.account.accountId,
+                    activeCall.sessionId,
+                    activeCall.rtc?.channelName ?? activeCall.agoraChannelName,
+                  );
+
+                  if (uid === null) {
+                    return accumulator;
+                  }
+
+                  const remoteParticipant = participants.find((candidate) => `${candidate.uid}` === `${uid}`);
+                  if (!remoteParticipant) {
+                    return accumulator;
+                  }
+
+                  accumulator[participant.account.accountId] = {
+                    audioActive: remoteParticipant.audioActive,
+                    videoActive: remoteParticipant.videoActive,
+                  };
+                  return accumulator;
+                },
+                {},
+              )
+            : {};
+
+        dispatch(
+          setParticipantMediaStates({
+            sessionId,
+            participantMediaStates: nextParticipantMediaStates,
           }),
         );
       },
@@ -426,6 +472,32 @@ const useCallRoomActions = () => {
     [],
   );
 
+  const bindParticipantVideoContainer = useCallback(
+    (params: { accountId: number; container: HTMLElement | null }) => {
+      if (!currentCallRef.current || !user?.accountId) {
+        return;
+      }
+
+      if (params.accountId === user.accountId) {
+        callRtcClient.bindLocalVideoContainer(params.container);
+        return;
+      }
+
+      const uid = computeAgoraUid(
+        params.accountId,
+        currentCallRef.current.sessionId,
+        currentCallRef.current.rtc?.channelName ?? currentCallRef.current.agoraChannelName,
+      );
+
+      if (uid === null) {
+        return;
+      }
+
+      callRtcClient.bindRemoteVideoContainer(uid, params.container);
+    },
+    [user?.accountId],
+  );
+
   const handleToggleLocalAudio = useCallback(async () => {
     await callRtcClient.toggleLocalAudio();
   }, []);
@@ -454,6 +526,7 @@ const useCallRoomActions = () => {
     rtcConnectionState,
     localAudioEnabled,
     localVideoEnabled,
+    participantMediaStates,
     remoteAudioActive,
     remoteVideoActive,
     isRtcReady,
@@ -469,6 +542,7 @@ const useCallRoomActions = () => {
     handleEndCall,
     handleLeaveCall,
     bindRtcContainers,
+    bindParticipantVideoContainer,
     handleToggleLocalAudio,
     handleToggleLocalVideo,
   };

@@ -29,16 +29,22 @@ export type RtcClientState = {
   connectionState: RtcConnectionState;
 };
 
+export type RtcRemoteParticipantState = {
+  uid: UID;
+  audioActive: boolean;
+  videoActive: boolean;
+};
+
 export type AgoraInternalState = {
   client: IAgoraRTCClient | null;
   localAudioTrack: IMicrophoneAudioTrack | null;
   localVideoTrack: ICameraVideoTrack | null;
-  remoteUser: IAgoraRTCRemoteUser | null;
+  remoteUsers: Map<string, IAgoraRTCRemoteUser>;
   sessionId: number | null;
   channelName: string | null;
   uid: UID | null;
   localVideoContainer: HTMLElement | null;
-  remoteVideoContainer: HTMLElement | null;
+  remoteVideoContainers: Map<string, HTMLElement>;
 };
 
 export type RtcCallbacks = {
@@ -47,6 +53,10 @@ export type RtcCallbacks = {
     sessionId: number;
     remoteAudioActive?: boolean;
     remoteVideoActive?: boolean;
+  }) => void;
+  onRemoteParticipantsStateChange?: (payload: {
+    sessionId: number;
+    participants: RtcRemoteParticipantState[];
   }) => void;
   onLocalMediaStateChange?: (payload: {
     sessionId: number;

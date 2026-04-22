@@ -24,6 +24,7 @@ type CallState = {
   localVideoEnabled: boolean;
   remoteAudioActive: boolean;
   remoteVideoActive: boolean;
+  participantMediaStates: Record<number, { audioActive: boolean; videoActive: boolean }>;
 };
 
 export type CallRealtimeEvent = {
@@ -47,6 +48,7 @@ const initialState: CallState = {
   localVideoEnabled: true,
   remoteAudioActive: false,
   remoteVideoActive: false,
+  participantMediaStates: {},
 };
 
 const resolveEventTimestamp = (value?: string | null): string => {
@@ -67,6 +69,7 @@ const resetRtcFlags = (state: CallState) => {
   state.localVideoEnabled = true;
   state.remoteAudioActive = false;
   state.remoteVideoActive = false;
+  state.participantMediaStates = {};
 };
 
 const callSlice = createSlice({
@@ -111,6 +114,7 @@ const callSlice = createSlice({
       }
 
       state.localVideoEnabled = action.payload.callType === CallTypeEnum.VIDEO;
+      state.participantMediaStates = {};
     },
     setCallStatus: (state, action: PayloadAction<{ sessionId: number; status: CallStatusEnum }>) => {
       if (!isMatchingCall(state.currentCall, action.payload.sessionId) || !state.currentCall) {
@@ -200,6 +204,19 @@ const callSlice = createSlice({
         state.remoteVideoActive = action.payload.remoteVideoActive;
       }
     },
+    setParticipantMediaStates: (
+      state,
+      action: PayloadAction<{
+        sessionId?: number;
+        participantMediaStates: CallState['participantMediaStates'];
+      }>,
+    ) => {
+      if (action.payload.sessionId && !isMatchingCall(state.currentCall, action.payload.sessionId)) {
+        return;
+      }
+
+      state.participantMediaStates = action.payload.participantMediaStates;
+    },
     setCallError: (state, action: PayloadAction<string | null>) => {
       state.callError = action.payload;
     },
@@ -221,6 +238,7 @@ export const {
   setLocalAudioEnabled,
   setLocalVideoEnabled,
   setRemoteMediaState,
+  setParticipantMediaStates,
   setCallError,
   clearCallState,
 } = callSlice.actions;
@@ -237,6 +255,7 @@ export const selectLocalAudioEnabled = createSelector(selectCallState, (state) =
 export const selectLocalVideoEnabled = createSelector(selectCallState, (state) => state.localVideoEnabled);
 export const selectRemoteAudioActive = createSelector(selectCallState, (state) => state.remoteAudioActive);
 export const selectRemoteVideoActive = createSelector(selectCallState, (state) => state.remoteVideoActive);
+export const selectParticipantMediaStates = createSelector(selectCallState, (state) => state.participantMediaStates);
 export const selectIsCallActive = createSelector(
   selectCurrentCall,
   (currentCall) => currentCall?.status === CallStatusEnum.ACTIVE || currentCall?.status === CallStatusEnum.PENDING,

@@ -8,6 +8,7 @@ import { CallSession } from '@/types/model';
 import { Camera, CameraOff, DoorOpen, Dot, Mic, MicOff, PhoneOff, UserRound, Video, VideoOff } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
+import { CallParticipantCard } from '@/app/(chat)/messages/components/CallParticipantCard';
 
 type CallWindowProps = {
   currentCall: CallSession;
@@ -15,6 +16,7 @@ type CallWindowProps = {
   rtcConnectionState: 'idle' | 'connecting' | 'connected' | 'reconnecting' | 'disconnected' | 'failed';
   localAudioEnabled: boolean;
   localVideoEnabled: boolean;
+  participantMediaStates: Record<number, { audioActive: boolean; videoActive: boolean }>;
   remoteAudioActive: boolean;
   remoteVideoActive: boolean;
   currentUserId: number;
@@ -30,6 +32,7 @@ type CallWindowProps = {
     localVideoContainer?: HTMLElement | null;
     remoteVideoContainer?: HTMLElement | null;
   }) => void;
+  bindParticipantVideoContainer: (params: { accountId: number; container: HTMLElement | null }) => void;
 };
 
 export function CallWindow({
@@ -38,6 +41,7 @@ export function CallWindow({
   rtcConnectionState,
   localAudioEnabled,
   localVideoEnabled,
+  participantMediaStates,
   remoteAudioActive,
   remoteVideoActive,
   currentUserId,
@@ -50,11 +54,13 @@ export function CallWindow({
   handleToggleLocalAudio,
   handleToggleLocalVideo,
   bindRtcContainers,
+  bindParticipantVideoContainer,
 }: Readonly<CallWindowProps>) {
   const mainStageRef = useRef<HTMLDivElement | null>(null);
   const secondaryStageRef = useRef<HTMLDivElement | null>(null);
 
   const showVideoLayout = (currentCall.callType ?? CallTypeEnum.VOICE) === CallTypeEnum.VIDEO;
+  const isGroupVideoLayout = showVideoLayout && chatRoomType === ChatRoomType.GROUP;
   const joinedParticipants = currentCall.participants.filter((participant) => !participant.leftAt);
   const remoteParticipant =
     joinedParticipants.find((participant) => participant.account.accountId !== currentUserId) ?? null;
@@ -69,11 +75,16 @@ export function CallWindow({
       return;
     }
 
+    if (isGroupVideoLayout) {
+      bindRtcContainers({ localVideoContainer: null, remoteVideoContainer: null });
+      return;
+    }
+
     bindRtcContainers({
       localVideoContainer: stageShowsLocalVideo ? mainStageRef.current : secondaryStageRef.current,
       remoteVideoContainer: stageShowsLocalVideo ? secondaryStageRef.current : mainStageRef.current,
     });
-  }, [bindRtcContainers, currentCall, stageShowsLocalVideo, remoteVideoActive, localVideoEnabled]);
+  }, [bindRtcContainers, currentCall, isGroupVideoLayout, stageShowsLocalVideo, remoteVideoActive, localVideoEnabled]);
 
   const { statusLabel } = useMemo(() => {
     switch (currentCall.status) {
@@ -111,6 +122,27 @@ export function CallWindow({
   const currentUserInCall = sortedJoinedParticipants.some(
     (participant) => participant.account.accountId === currentUserId,
   );
+  const groupVideoTiles = sortedJoinedParticipants.map((participant) => {
+    const isCurrentUser = participant.account.accountId === currentUserId;
+    const mediaState = isCurrentUser
+      ? {
+          audioActive: localAudioEnabled,
+          videoActive: localVideoEnabled,
+        }
+      : (participantMediaStates[participant.account.accountId] ?? {
+          audioActive: false,
+          videoActive: false,
+        });
+
+    return {
+      accountId: participant.account.accountId,
+      fullName: participant.account.fullName || participant.account.username,
+      avatar: participant.account.avatar ?? null,
+      subtitle: isCurrentUser ? 'Bạn' : mediaState.audioActive ? 'Âm thanh bình thường' : 'Đang tham gia',
+      audioEnabled: mediaState.audioActive,
+      videoEnabled: mediaState.videoActive,
+    };
+  });
 
   const voiceTiles =
     chatRoomType === ChatRoomType.DIRECT && sortedJoinedParticipants.length === 1
@@ -160,7 +192,41 @@ export function CallWindow({
       </div>
 
       <div className="flex-1 p-4 md:p-6">
-        {showVideoLayout ? (
+        {isGroupVideoLayout ? (
+          <div className="h-full rounded-2xl border border-border bg-card p-4 pb-9!">
+            <div
+              className={cn(
+                'grid h-full auto-rows-fr grid-cols-1 gap-4 md:grid-cols-2 2xl:grid-cols-3',
+                groupVideoTiles.length === 2 && 'xl:grid-cols-2',
+              )}
+            >
+              {groupVideoTiles.map((participantTile) => (
+                <CallParticipantCard
+                  key={participantTile.accountId}
+                  accountId={participantTile.accountId}
+                  fullName={participantTile.fullName}
+                  avatar={participantTile.avatar}
+                  subtitle={participantTile.subtitle}
+                  audioEnabled={participantTile.audioEnabled}
+                  videoEnabled={participantTile.videoEnabled}
+                  bindParticipantVideoContainer={bindParticipantVideoContainer}
+                />
+              ))}
+
+              {!currentUserInCall && (
+                <div className="flex items-center justify-center rounded-2xl border border-border bg-muted p-4 text-center text-sm text-muted-foreground">
+                  Chờ xác nhận tham gia cuộc gọi...
+                </div>
+              )}
+
+              {groupVideoTiles.length === 0 && (
+                <div className="flex items-center justify-center rounded-2xl border border-border bg-muted/40 p-4 text-center text-sm text-muted-foreground">
+                  Đang chờ thành viên tham gia...
+                </div>
+              )}
+            </div>
+          </div>
+        ) : showVideoLayout ? (
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 h-full">
             <div className="relative min-h-80 overflow-hidden rounded-3xl bg-card shadow-sm lg:col-span-8">
               <div ref={mainStageRef} className="h-full w-full" />

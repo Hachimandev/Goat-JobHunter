@@ -63,6 +63,7 @@ export default function ChatRoomPage() {
     rtcConnectionState,
     localAudioEnabled,
     localVideoEnabled,
+    participantMediaStates,
     remoteAudioActive,
     remoteVideoActive,
     isLeavingCall,
@@ -74,6 +75,7 @@ export default function ChatRoomPage() {
     handleToggleLocalAudio,
     handleToggleLocalVideo,
     bindRtcContainers,
+    bindParticipantVideoContainer,
   } = useCallRoomActions();
   const { data: pinnedMessagesData, isLoading: isLoadingPinnedMessages } = useGetPinnedMessagesQuery(
     { chatRoomId: parsedChatRoomId },
@@ -523,6 +525,7 @@ export default function ChatRoomPage() {
           rtcConnectionState={rtcConnectionState}
           localAudioEnabled={localAudioEnabled}
           localVideoEnabled={localVideoEnabled}
+          participantMediaStates={participantMediaStates}
           remoteAudioActive={remoteAudioActive}
           remoteVideoActive={remoteVideoActive}
           currentUserId={user.accountId}
@@ -535,6 +538,7 @@ export default function ChatRoomPage() {
           handleToggleLocalAudio={handleToggleLocalAudio}
           handleToggleLocalVideo={handleToggleLocalVideo}
           bindRtcContainers={bindRtcContainers}
+          bindParticipantVideoContainer={bindParticipantVideoContainer}
         />
       )}
     </>

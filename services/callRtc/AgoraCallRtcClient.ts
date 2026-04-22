@@ -8,6 +8,7 @@ import {
   mapConnectionState,
   RtcCallbacks,
   RtcClientState,
+  RtcRemoteParticipantState,
 } from '@/services/callRtc/callRtcType';
 
 const CAMERA_IN_USE_WARNING = 'Không thể bật camera vì camera đang được thiết bị hoặc ứng dụng khác sử dụng.';
@@ -19,12 +20,12 @@ class AgoraCallRtcClient {
     client: null,
     localAudioTrack: null,
     localVideoTrack: null,
-    remoteUser: null,
+    remoteUsers: new Map(),
     sessionId: null,
     channelName: null,
     uid: null,
     localVideoContainer: null,
-    remoteVideoContainer: null,
+    remoteVideoContainers: new Map(),
   };
 
   private callbacks: RtcCallbacks = {};
@@ -39,8 +40,8 @@ class AgoraCallRtcClient {
       joined: Boolean(this.state.client && this.state.sessionId),
       localAudioEnabled: this.state.localAudioTrack?.enabled ?? true,
       localVideoEnabled: this.state.localVideoTrack?.enabled ?? false,
-      remoteAudioActive: Boolean(this.state.remoteUser?.audioTrack),
-      remoteVideoActive: Boolean(this.state.remoteUser?.videoTrack),
+      remoteAudioActive: this.resolveRemoteParticipantsState().some((participant) => participant.audioActive),
+      remoteVideoActive: this.resolveRemoteParticipantsState().some((participant) => participant.videoActive),
       connectionState: this.connectionState,
     };
   };
@@ -53,15 +54,45 @@ class AgoraCallRtcClient {
     localVideoContainer?: HTMLElement | null;
     remoteVideoContainer?: HTMLElement | null;
   }) => {
-    this.state.localVideoContainer = params.localVideoContainer ?? null;
-    this.state.remoteVideoContainer = params.remoteVideoContainer ?? null;
+    this.bindLocalVideoContainer(params.localVideoContainer ?? null);
 
-    if (this.state.localVideoContainer && this.state.localVideoTrack?.enabled) {
-      this.state.localVideoTrack.play(this.state.localVideoContainer);
+    if (params.remoteVideoContainer === null || params.remoteVideoContainer === undefined) {
+      this.state.remoteVideoContainers.clear();
+      return;
     }
 
-    if (this.state.remoteVideoContainer && this.state.remoteUser?.videoTrack) {
-      this.state.remoteUser.videoTrack.play(this.state.remoteVideoContainer);
+    const [firstRemoteUser] = this.state.remoteUsers.values();
+    if (!firstRemoteUser?.uid) {
+      return;
+    }
+
+    this.bindRemoteVideoContainer(firstRemoteUser.uid, params.remoteVideoContainer);
+  };
+
+  bindLocalVideoContainer = (container: HTMLElement | null) => {
+    this.state.localVideoContainer = container;
+
+    if (!container) {
+      return;
+    }
+
+    if (this.state.localVideoTrack?.enabled) {
+      this.state.localVideoTrack.play(container);
+    }
+  };
+
+  bindRemoteVideoContainer = (uid: string | number, container: HTMLElement | null) => {
+    const remoteKey = `${uid}`;
+
+    if (!container) {
+      this.state.remoteVideoContainers.delete(remoteKey);
+      return;
+    }
+
+    this.state.remoteVideoContainers.set(remoteKey, container);
+    const remoteUser = this.state.remoteUsers.get(remoteKey);
+    if (remoteUser?.videoTrack) {
+      remoteUser.videoTrack.play(container);
     }
   };
 
@@ -197,17 +228,17 @@ class AgoraCallRtcClient {
       await client.leave();
     }
 
-    this.state = {
-      client: null,
-      localAudioTrack: null,
-      localVideoTrack: null,
-      remoteUser: null,
-      sessionId: null,
-      channelName: null,
-      uid: null,
-      localVideoContainer: null,
-      remoteVideoContainer: null,
-    };
+      this.state = {
+        client: null,
+        localAudioTrack: null,
+        localVideoTrack: null,
+        remoteUsers: new Map(),
+        sessionId: null,
+        channelName: null,
+        uid: null,
+        localVideoContainer: null,
+        remoteVideoContainers: new Map(),
+      };
     this.connectionState = 'idle';
   };
 
@@ -298,14 +329,17 @@ class AgoraCallRtcClient {
     client.on('user-published', async (user, mediaType) => {
       try {
         await client.subscribe(user, mediaType);
-        this.state.remoteUser = user;
+        this.state.remoteUsers.set(`${user.uid}`, user);
 
         if (mediaType === 'audio' && user.audioTrack) {
           user.audioTrack.play();
         }
 
-        if (mediaType === 'video' && user.videoTrack && this.state.remoteVideoContainer) {
-          user.videoTrack.play(this.state.remoteVideoContainer);
+        if (mediaType === 'video' && user.videoTrack) {
+          const container = this.state.remoteVideoContainers.get(`${user.uid}`);
+          if (container) {
+            user.videoTrack.play(container);
+          }
         }
 
         this.emitRemoteState();
@@ -315,19 +349,27 @@ class AgoraCallRtcClient {
       }
     });
 
-    client.on('user-unpublished', (_, mediaType) => {
-      if (mediaType === 'video' && this.state.remoteVideoContainer) {
-        this.state.remoteVideoContainer.innerHTML = '';
+    client.on('user-unpublished', (user, mediaType) => {
+      const remoteKey = `${user.uid}`;
+
+      if (mediaType === 'video') {
+        const container = this.state.remoteVideoContainers.get(remoteKey);
+        if (container) {
+          container.innerHTML = '';
+        }
       }
 
       this.emitRemoteState();
     });
 
-    client.on('user-left', () => {
-      if (this.state.remoteVideoContainer) {
-        this.state.remoteVideoContainer.innerHTML = '';
+    client.on('user-left', (user) => {
+      const remoteKey = `${user.uid}`;
+      const container = this.state.remoteVideoContainers.get(remoteKey);
+      if (container) {
+        container.innerHTML = '';
       }
-      this.state.remoteUser = null;
+      this.state.remoteUsers.delete(remoteKey);
+      this.state.remoteVideoContainers.delete(remoteKey);
       this.emitRemoteState();
     });
 
@@ -360,10 +402,16 @@ class AgoraCallRtcClient {
 
   private emitRemoteState = () => {
     if (!this.state.sessionId) return;
+    const participants = this.resolveRemoteParticipantsState();
+
     this.callbacks.onRemoteMediaStateChange?.({
       sessionId: this.state.sessionId,
-      remoteAudioActive: Boolean(this.state.remoteUser?.audioTrack),
-      remoteVideoActive: Boolean(this.state.remoteUser?.videoTrack),
+      remoteAudioActive: participants.some((participant) => participant.audioActive),
+      remoteVideoActive: participants.some((participant) => participant.videoActive),
+    });
+    this.callbacks.onRemoteParticipantsStateChange?.({
+      sessionId: this.state.sessionId,
+      participants,
     });
   };
 
@@ -374,6 +422,14 @@ class AgoraCallRtcClient {
       localAudioEnabled: this.state.localAudioTrack?.enabled ?? true,
       localVideoEnabled: this.state.localVideoTrack?.enabled ?? false,
     });
+  };
+
+  private resolveRemoteParticipantsState = (): RtcRemoteParticipantState[] => {
+    return [...this.state.remoteUsers.values()].map((remoteUser) => ({
+      uid: remoteUser.uid,
+      audioActive: Boolean(remoteUser.audioTrack),
+      videoActive: Boolean(remoteUser.videoTrack),
+    }));
   };
 }
 
