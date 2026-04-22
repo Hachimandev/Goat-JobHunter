@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useRemoveMemberFromGroupMutation } from "@/services/chatRoom/groupChat/groupChatApi";
 import { Alert } from "react-native";
 
-export const useRemoveMember = () => {
+export const useRemoveMember = (onMemberRemoved?: () => void) => {
   const [isLoading, setIsLoading] = useState(false);
   const [removeMember] = useRemoveMemberFromGroupMutation();
 
@@ -30,6 +30,11 @@ export const useRemoveMember = () => {
                   chatroomId: chatRoomId.toString(),
                   chatMemberId,
                 }).unwrap();
+
+                // Refetch members after successful removal
+                if (onMemberRemoved) {
+                  onMemberRemoved();
+                }
 
                 Alert.alert("Thành công", `Đã xóa ${memberName} khỏi nhóm`);
                 resolve(true);

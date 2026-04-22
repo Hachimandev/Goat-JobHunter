@@ -1,5 +1,5 @@
 import BottomSheet from "@gorhom/bottom-sheet";
-import { router, useLocalSearchParams } from "expo-router";
+import { router, useLocalSearchParams, useFocusEffect } from "expo-router";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -159,7 +159,7 @@ export default function ChatDetailScreen() {
     { skip: !chatRoomId, pollingInterval: 5000 },
   );
 
-  const { data: chatRoomData } = useFetchChatRoomsByIdQuery(chatRoomId, {
+  const { data: chatRoomData, refetch: refetchChatRoom } = useFetchChatRoomsByIdQuery(chatRoomId, {
     skip: !chatRoomId,
     pollingInterval: 3000,
   });
@@ -171,6 +171,15 @@ export default function ChatDetailScreen() {
     }
     return () => setActiveChatRoom(null);
   }, [chatRoomId]);
+
+  // Refetch chat room data when screen is focused
+  useFocusEffect(
+    useCallback(() => {
+      if (chatRoomId) {
+        refetchChatRoom();
+      }
+    }, [chatRoomId, refetchChatRoom])
+  );
 
   // Get messages safely - now accessing nested result property
   const messagesList = Array.isArray(messagesData?.data?.result)
@@ -239,16 +248,16 @@ export default function ChatDetailScreen() {
         keyboardVerticalOffset={Platform.OS === "ios" ? 90 : 0}
       >
         <ChatHeader
-          name={name}
-          avatar={avatar}
+          name={chatRoomData?.data?.name || name}
+          avatar={chatRoomData?.data?.avatar || avatar}
           status="Đang hoạt động"
           onPressInfo={() =>
             router.push({
               pathname: "/chat/detail",
               params: {
                 id: chatRoomId.toString(),
-                name,
-                avatar,
+                name: chatRoomData?.data?.name || name,
+                avatar: chatRoomData?.data?.avatar || avatar,
                 messages: JSON.stringify(messagesList || []),
               },
             })
