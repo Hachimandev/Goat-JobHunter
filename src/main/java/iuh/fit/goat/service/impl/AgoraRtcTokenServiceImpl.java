@@ -8,6 +8,7 @@ import iuh.fit.goat.entity.ChatCallSession;
 import iuh.fit.goat.enumeration.ChatCallSessionStatus;
 import iuh.fit.goat.exception.InvalidException;
 import iuh.fit.goat.exception.PermissionException;
+import iuh.fit.goat.repository.ChatCallParticipantRepository;
 import iuh.fit.goat.repository.ChatCallSessionRepository;
 import iuh.fit.goat.service.AgoraRtcTokenService;
 import iuh.fit.goat.service.ChatRoomService;
@@ -20,6 +21,7 @@ import org.springframework.util.StringUtils;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.EnumSet;
+import java.util.Objects;
 
 @Slf4j
 @Service
@@ -31,6 +33,7 @@ public class AgoraRtcTokenServiceImpl implements AgoraRtcTokenService {
     private final AgoraRtcProperties agoraRtcProperties;
     private final ChatRoomService chatRoomService;
     private final ChatCallSessionRepository chatCallSessionRepository;
+    private final ChatCallParticipantRepository chatCallParticipantRepository;
 
     private final RtcTokenBuilder2 tokenBuilder = new RtcTokenBuilder2();
 
@@ -65,8 +68,9 @@ public class AgoraRtcTokenServiceImpl implements AgoraRtcTokenService {
             throw new InvalidException("Requested session does not match active call session");
         }
 
-        int uid = toAgoraUid(currentAccount.getAccountId());
         String channelName = buildChannelName(chatRoomId, activeSession.getAgoraChannelName());
+        ensureUidNotReusedAcrossActiveSessions(currentAccount.getAccountId(), activeSession.getCallSessionId());
+        int uid = toAgoraUid(currentAccount.getAccountId(), activeSession.getCallSessionId(), channelName);
 
         RtcTokenBuilder2.Role role = publisher
                 ? RtcTokenBuilder2.Role.ROLE_PUBLISHER
@@ -78,8 +82,18 @@ public class AgoraRtcTokenServiceImpl implements AgoraRtcTokenService {
         int now = (int) (System.currentTimeMillis() / 1000);
         int expireTs = now + ttlSeconds;
 
-        log.info("expireTs: {}, now: {}, ttlSeconds: {}, uid: {}, channelName: {}", expireTs, now, ttlSeconds, uid, channelName);
-        log.info("appId: {}, appCertificate: {}, role: {}", appId, appCertificate, role);
+        log.info(
+            "Issuing Agora RTC token accountId={}, sessionId={}, chatRoomId={}, appId={}, channelName={}, uid={}, role={}, ttlSeconds={}, expireTs={}",
+            currentAccount.getAccountId(),
+            activeSession.getCallSessionId(),
+            chatRoomId,
+            appId,
+            channelName,
+            uid,
+            role,
+            ttlSeconds,
+            expireTs
+        );
 
         String token = this.tokenBuilder.buildTokenWithUid(
                 appId,
@@ -91,11 +105,17 @@ public class AgoraRtcTokenServiceImpl implements AgoraRtcTokenService {
                 expireTs
         );
 
-        log.info("token: {}", token);
-
         if (!StringUtils.hasText(token)) {
             throw new InvalidException("Failed to generate Agora RTC token");
         }
+
+        log.info(
+            "Issued Agora RTC token accountId={}, sessionId={}, uid={}, tokenLength={}",
+            currentAccount.getAccountId(),
+            activeSession.getCallSessionId(),
+            uid,
+            token.length()
+        );
 
         long expiresAtEpochMs = Instant.now().plusSeconds(ttlSeconds).toEpochMilli();
 
@@ -123,11 +143,38 @@ public class AgoraRtcTokenServiceImpl implements AgoraRtcTokenService {
         }
     }
 
-    private int toAgoraUid(long accountId) throws InvalidException {
-        if (accountId <= 0 || accountId > Integer.MAX_VALUE) {
+    private int toAgoraUid(long accountId, long sessionId, String channelName) throws InvalidException {
+        if (accountId <= 0) {
             throw new InvalidException("Current account id is not valid for Agora UID");
         }
-        return (int) accountId;
+
+        if (sessionId <= 0) {
+            throw new InvalidException("Current session id is not valid for Agora UID");
+        }
+
+        if (!StringUtils.hasText(channelName)) {
+            throw new InvalidException("Current channel name is not valid for Agora UID");
+        }
+
+        String seed = sessionId + ":" + accountId + ":" + channelName;
+        int computedUid = Math.floorMod(Objects.hash(seed), Integer.MAX_VALUE - 1) + 1;
+        if (computedUid <= 0) {
+            throw new InvalidException("Failed to compute valid Agora UID");
+        }
+        return computedUid;
+    }
+
+    private void ensureUidNotReusedAcrossActiveSessions(long accountId, long currentSessionId) throws InvalidException {
+        boolean hasAnotherActiveSession = this.chatCallParticipantRepository
+                .existsByAccountAccountIdAndLeftAtIsNullAndDeletedAtIsNullAndSessionStatusInAndSessionDeletedAtIsNullAndSessionCallSessionIdNot(
+                        accountId,
+                        EnumSet.of(ChatCallSessionStatus.PENDING, ChatCallSessionStatus.ACTIVE),
+                        currentSessionId
+                );
+
+        if (hasAnotherActiveSession) {
+            throw new InvalidException("Current account still has an active call session; cannot issue another RTC UID");
+        }
     }
 
     private String buildChannelName(Long chatRoomId, String sessionChannelName) throws InvalidException {
