@@ -117,9 +117,13 @@ export default function ChatDetailScreen() {
   const flatListRef = useRef<FlatList>(null);
 
   const handleNavigateToMessage = (messageId: string) => {
-    if (!messagesData?.data) return;
+    const currentMessages = Array.isArray(messagesData?.data?.result)
+      ? messagesData.data.result
+      : [];
 
-    const index = messagesData.data.findIndex((m) => m.messageId === messageId);
+    if (!currentMessages.length) return;
+
+    const index = currentMessages.findIndex((m) => m.messageId === messageId);
 
     if (index !== -1) {
       flatListRef.current?.scrollToIndex({
@@ -149,6 +153,7 @@ export default function ChatDetailScreen() {
     data: messagesData,
     isLoading,
     refetch,
+    isFetching,
   } = useFetchMessagesInChatRoomQuery(
     { chatRoomId, size: 50, page: 0 },
     { skip: !chatRoomId, pollingInterval: 5000 },
@@ -161,8 +166,16 @@ export default function ChatDetailScreen() {
 
   useEffect(() => {
     setActiveChatRoom(chatRoomId);
+    if (chatRoomId) {
+      refetch();
+    }
     return () => setActiveChatRoom(null);
   }, [chatRoomId]);
+
+  // Get messages safely - now accessing nested result property
+  const messagesList = Array.isArray(messagesData?.data?.result)
+    ? messagesData.data.result
+    : [];
 
   const onSend = async () => {
     if (
@@ -210,9 +223,11 @@ export default function ChatDetailScreen() {
   };
 
   const isDirectBlocked = chatRoomData?.data?.blocked || false;
-  const isGroupDissolved = chatRoomData?.data?.deletedAt !== null && chatRoomData?.data?.deletedAt !== undefined;
+  const isGroupDissolved =
+    chatRoomData?.data?.deletedAt !== null &&
+    chatRoomData?.data?.deletedAt !== undefined;
 
-  if (isLoading && !messagesData) {
+  if (isLoading && messagesList.length === 0) {
     return <ActivityIndicator style={styles.loadingCenter} color="#0084FF" />;
   }
 
@@ -234,7 +249,7 @@ export default function ChatDetailScreen() {
                 id: chatRoomId.toString(),
                 name,
                 avatar,
-                messages: JSON.stringify(messagesData?.data || []),
+                messages: JSON.stringify(messagesList || []),
               },
             })
           }
@@ -355,7 +370,9 @@ export default function ChatDetailScreen() {
           <View style={styles.dissolvedBanner}>
             <View style={styles.dissolvedBannerContent}>
               <View style={{ flex: 1 }}>
-                <Text style={styles.dissolvedBannerTitle}>Nhóm đã bị giải tán</Text>
+                <Text style={styles.dissolvedBannerTitle}>
+                  Nhóm đã bị giải tán
+                </Text>
                 <Text style={styles.dissolvedBannerDesc}>
                   Bạn có thể rời khỏi nhóm này
                 </Text>
@@ -378,7 +395,8 @@ export default function ChatDetailScreen() {
 
         <FlatList
           ref={flatListRef}
-          data={messagesData?.data || []}
+          data={messagesList}
+          style={styles.flex1}
           inverted
           keyExtractor={(item) => item.messageId}
           contentContainerStyle={styles.listContent}
@@ -397,6 +415,13 @@ export default function ChatDetailScreen() {
               animated: true,
             });
           }}
+          ListEmptyComponent={
+            !isLoading ? (
+              <View style={styles.emptyContainer}>
+                <Text style={styles.emptyText}>Chưa có tin nhắn nào</Text>
+              </View>
+            ) : null
+          }
         />
 
         <ChatInput
@@ -500,6 +525,17 @@ const styles = StyleSheet.create({
   flex1: { flex: 1 },
   listContent: { paddingHorizontal: 15, paddingBottom: 10 },
   loadingCenter: { flex: 1, justifyContent: "center", alignItems: "center" },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingVertical: 50,
+  },
+  emptyText: {
+    fontSize: 14,
+    color: "#999",
+    fontWeight: "500",
+  },
   toastContainer: {
     position: "absolute",
     bottom: 100,

@@ -38,7 +38,8 @@ const processQueue = (error: any, success: boolean = false) => {
 // ============================================================
 // Hàm refresh token - Now saves tokens and notifies tokenManager
 // ============================================================
-const refreshToken = async (): Promise<boolean> => {
+const refreshToken = async (retryCount: number = 0): Promise<boolean> => {
+  const maxRetries = 3;
   try {
     // Cookies are automatically sent with withCredentials: true
     const response = await axiosClient.get(`/auth/refresh`);
@@ -63,6 +64,15 @@ const refreshToken = async (): Promise<boolean> => {
     return response.status === 200;
   } catch (error) {
     console.error("Refresh token failed:", error);
+    if (retryCount < maxRetries) {
+      console.log(
+        `Retrying refresh token (${retryCount + 1}/${maxRetries})...`,
+      );
+      await new Promise((resolve) =>
+        setTimeout(resolve, 1000 * (retryCount + 1)),
+      ); // Exponential backoff
+      return refreshToken(retryCount + 1);
+    }
     return false;
   }
 };

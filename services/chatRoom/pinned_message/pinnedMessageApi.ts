@@ -6,6 +6,7 @@ import {
 } from "./pinnedMessageType";
 
 export const pinnedMessageApi = api.injectEndpoints({
+  overrideExisting: true,
   endpoints: (builder) => ({
     pinMessage: builder.mutation<PinMessageResponse, PinMessageRequest>({
       query: ({ chatRoomId, messageId }) => ({
