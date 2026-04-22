@@ -120,6 +120,9 @@ const useCallRoomActions = () => {
           );
         }
       },
+      onWarning: (message) => {
+        toast.info(message);
+      },
       onError: (message, sessionId) => {
         dispatch(setCallError(message));
         dispatch(
@@ -339,7 +342,7 @@ const useCallRoomActions = () => {
     return await handleJoinCallSession(
       incomingCall.chatRoomId,
       incomingCall.sessionId,
-      incomingCall.session?.callType ?? CallTypeEnum.VOICE,
+      incomingCall.callType ?? incomingCall.session?.callType ?? CallTypeEnum.VOICE,
     );
   }, [handleJoinCallSession, incomingCall]);
 
@@ -432,7 +435,12 @@ const useCallRoomActions = () => {
       return;
     }
 
-    await callRtcClient.toggleLocalVideo();
+    try {
+      await callRtcClient.toggleLocalVideo();
+    } catch (error) {
+      console.error('Failed to toggle local video:', error);
+      toast.error('Không thể thay đổi trạng thái camera lúc này.');
+    }
   }, [currentCall?.callType]);
 
   const isRtcReady = useMemo(() => {

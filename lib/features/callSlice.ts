@@ -8,6 +8,7 @@ type IncomingCallState = {
   sessionId: number;
   chatRoomId: number;
   actorAccountId: number;
+  callType?: CallTypeEnum;
   startedAt?: string;
   session?: CallSession;
 };
@@ -31,6 +32,7 @@ export type CallRealtimeEvent = {
   sessionId: number;
   actorAccountId: number;
   status: CallStatusEnum;
+  callType?: CallTypeEnum;
   occurredAt: string;
 };
 

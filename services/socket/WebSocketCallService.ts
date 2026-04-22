@@ -10,7 +10,7 @@ import {
   setCurrentCall,
   setIncomingCall,
 } from '@/lib/features/callSlice';
-import { CallStatusEnum } from '@/types/enum';
+import { CallStatusEnum, CallTypeEnum } from '@/types/enum';
 import { callApi } from '@/services/chatRoom/call/callApi';
 
 type CallRealtimeEventType = 'CALL_STARTED' | 'CALL_JOINED' | 'CALL_LEFT' | 'CALL_ENDED';
@@ -21,6 +21,7 @@ type ChatCallRealtimeEventResponse = {
   sessionId: number;
   actorAccountId: number;
   status: CallStatusEnum;
+  callType?: CallTypeEnum;
 };
 
 export class WebSocketCallService {
@@ -112,7 +113,8 @@ export class WebSocketCallService {
       typeof candidate.chatRoomId === 'number' &&
       typeof candidate.sessionId === 'number' &&
       typeof candidate.actorAccountId === 'number' &&
-      typeof candidate.status === 'string'
+      typeof candidate.status === 'string' &&
+      (candidate.callType === undefined || typeof candidate.callType === 'string')
     );
   }
 
@@ -189,6 +191,7 @@ export class WebSocketCallService {
               sessionId: payload.sessionId,
               chatRoomId: payload.chatRoomId,
               actorAccountId: payload.actorAccountId,
+              callType: payload.callType,
             }),
           );
         }

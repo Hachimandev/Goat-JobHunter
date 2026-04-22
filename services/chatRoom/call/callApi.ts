@@ -19,22 +19,24 @@ import {
 export const callApi = api.injectEndpoints({
   endpoints: (builder) => ({
     startCall: builder.mutation<StartCallResponse, StartCallRequest>({
-      query: ({ chatRoomId, publisher = true }) => ({
+      query: ({ chatRoomId, publisher = true, callType }) => ({
         url: `/chatrooms/${chatRoomId}/calls`,
         method: 'POST',
         data: {
           publisher,
+          callType,
         },
       }),
       invalidatesTags: (_, __, { chatRoomId }) => [{ type: 'ChatRoom', id: chatRoomId }],
     }),
 
     joinCall: builder.mutation<JoinCallResponse, JoinCallRequest>({
-      query: ({ chatRoomId, sessionId, publisher = true }) => ({
+      query: ({ chatRoomId, sessionId, publisher = true, callType }) => ({
         url: `/chatrooms/${chatRoomId}/calls/${sessionId}/join`,
         method: 'POST',
         data: {
           publisher,
+          callType,
         },
       }),
       invalidatesTags: (_, __, { chatRoomId }) => [{ type: 'ChatRoom', id: chatRoomId }],

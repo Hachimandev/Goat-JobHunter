@@ -53,6 +53,7 @@ export type RtcCallbacks = {
     localAudioEnabled?: boolean;
     localVideoEnabled?: boolean;
   }) => void;
+  onWarning?: (message: string, sessionId: number) => void;
   onError?: (message: string, sessionId: number) => void;
   onTokenWillExpire?: (params: { sessionId: number; channelName: string; uid: UID | null }) => Promise<string | null>;
 };

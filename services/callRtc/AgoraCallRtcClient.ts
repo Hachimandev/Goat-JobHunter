@@ -1,6 +1,6 @@
 'use client';
 
-import AgoraRTC from 'agora-rtc-sdk-ng';
+import AgoraRTC, { ICameraVideoTrack } from 'agora-rtc-sdk-ng';
 import { CallTypeEnum } from '@/types/enum';
 import {
   AgoraInternalState,
@@ -9,6 +9,10 @@ import {
   RtcCallbacks,
   RtcClientState,
 } from '@/services/callRtc/callRtcType';
+
+const CAMERA_IN_USE_WARNING = 'Không thể bật camera vì camera đang được thiết bị hoặc ứng dụng khác sử dụng.';
+const CAMERA_JOIN_WARNING = 'Camera đang được thiết bị hoặc ứng dụng khác sử dụng. Cuộc gọi tiếp tục với âm thanh.';
+const CAMERA_GENERIC_WARNING = 'Không thể bật camera lúc này. Cuộc gọi vẫn tiếp tục với âm thanh.';
 
 class AgoraCallRtcClient {
   private state: AgoraInternalState = {
@@ -86,24 +90,13 @@ class AgoraCallRtcClient {
 
         this.state.uid = await client.join(appId, channelName, token, uid);
         const audioTrack = await AgoraRTC.createMicrophoneAudioTrack({ encoderConfig: 'speech_standard' });
-        const videoTrack =
-          callType === CallTypeEnum.VIDEO
-            ? await AgoraRTC.createCameraVideoTrack({
-                encoderConfig: '720p_1',
-              })
-            : null;
-
         this.state.localAudioTrack = audioTrack;
-        this.state.localVideoTrack = videoTrack;
+        await client.publish([audioTrack]);
 
-        const tracksToPublish = videoTrack ? [audioTrack, videoTrack] : [audioTrack];
-        await client.publish(tracksToPublish);
-
-        if (videoTrack && this.state.localVideoContainer) {
-          videoTrack.play(this.state.localVideoContainer);
+        if (callType === CallTypeEnum.VIDEO) {
+          await this.tryEnableVideoForCurrentSession(sessionId, true);
         }
 
-        this.emitLocalState();
         this.emitRemoteState();
       } catch (error) {
         this.connectionState = 'failed';
@@ -129,22 +122,50 @@ class AgoraCallRtcClient {
   };
 
   toggleLocalVideo = async (enabled?: boolean) => {
-    if (!this.state.localVideoTrack || !this.state.sessionId) return;
+    if (!this.state.sessionId) return;
+
+    if (!this.state.localVideoTrack) {
+      const nextEnabled = typeof enabled === 'boolean' ? enabled : true;
+      if (!nextEnabled) {
+        this.emitLocalState();
+        return;
+      }
+
+      await this.tryEnableVideoForCurrentSession(this.state.sessionId, false);
+      return;
+    }
+
     const nextEnabled = typeof enabled === 'boolean' ? enabled : !this.state.localVideoTrack.enabled;
-    await this.state.localVideoTrack.setEnabled(nextEnabled);
 
-    if (!nextEnabled && this.state.localVideoContainer) {
-      this.state.localVideoContainer.innerHTML = '';
+    try {
+      await this.state.localVideoTrack.setEnabled(nextEnabled);
+
+      if (!nextEnabled && this.state.localVideoContainer) {
+        this.state.localVideoContainer.innerHTML = '';
+      }
+
+      if (nextEnabled && this.state.localVideoContainer) {
+        this.state.localVideoTrack.play(this.state.localVideoContainer);
+      }
+
+      this.emitLocalState();
+    } catch (error) {
+      if (nextEnabled && this.isCameraInUseError(error)) {
+        console.warn('Camera busy while enabling local video track:', error);
+        this.callbacks.onWarning?.(CAMERA_IN_USE_WARNING, this.state.sessionId);
+        this.emitLocalState();
+        return;
+      }
+
+      if (nextEnabled) {
+        console.warn('Unable to enable local video track, continue audio only:', error);
+        this.callbacks.onWarning?.(CAMERA_GENERIC_WARNING, this.state.sessionId);
+        this.emitLocalState();
+        return;
+      }
+
+      throw error;
     }
-
-    if (nextEnabled && this.state.localVideoContainer) {
-      this.state.localVideoTrack.play(this.state.localVideoContainer);
-    }
-
-    this.callbacks.onLocalMediaStateChange?.({
-      sessionId: this.state.sessionId,
-      localVideoEnabled: nextEnabled,
-    });
   };
 
   renewToken = async (token: string | null) => {
@@ -205,6 +226,61 @@ class AgoraCallRtcClient {
     } finally {
       (releaseCurrentOperation as unknown as () => void)?.();
     }
+  };
+
+  private tryEnableVideoForCurrentSession = async (sessionId: number, joiningCall: boolean) => {
+    if (!this.state.client) {
+      return false;
+    }
+
+    let videoTrack: ICameraVideoTrack | null = null;
+
+    try {
+      videoTrack = await AgoraRTC.createCameraVideoTrack({
+        encoderConfig: '720p_1',
+      });
+
+      await this.state.client.publish([videoTrack]);
+      this.state.localVideoTrack = videoTrack;
+
+      if (this.state.localVideoContainer) {
+        videoTrack.play(this.state.localVideoContainer);
+      }
+
+      this.emitLocalState();
+      return true;
+    } catch (error) {
+      if (videoTrack) {
+        videoTrack.stop();
+        videoTrack.close();
+      }
+
+      this.state.localVideoTrack = null;
+
+      if (this.isCameraInUseError(error)) {
+        console.warn('Camera busy, continue without video:', error);
+        this.callbacks.onWarning?.(joiningCall ? CAMERA_JOIN_WARNING : CAMERA_IN_USE_WARNING, sessionId);
+        this.emitLocalState();
+        return false;
+      }
+
+      console.warn('Unable to enable local video, continue audio only:', error);
+      this.callbacks.onWarning?.(CAMERA_GENERIC_WARNING, sessionId);
+      this.emitLocalState();
+      return false;
+    }
+  };
+
+  private isCameraInUseError = (error: unknown) => {
+    const candidate = error as { code?: string; name?: string; message?: string } | null;
+    const raw = [candidate?.code, candidate?.name, candidate?.message].filter(Boolean).join(' ').toUpperCase();
+
+    return (
+      raw.includes('NOT_READABLE') ||
+      raw.includes('NOTREADABLEERROR') ||
+      raw.includes('DEVICE IN USE') ||
+      raw.includes('SOURCE UNAVAILABLE')
+    );
   };
 
   private registerClientEvents = () => {
