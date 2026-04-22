@@ -187,6 +187,14 @@ export type CommentType = {
   createdAt: string;
 };
 
+export type MessageMediaItem = {
+  url: string;
+  mediaType: "image" | "video" | "audio";
+  mimeType: string;
+  sizeBytes: number;
+  displayOrder: number;
+};
+
 export type MessageType = {
   chatRoomBucket: string;
   messageSk: string;
@@ -201,6 +209,7 @@ export type MessageType = {
   };
   content: string;
   messageType: MessageTypeEnum;
+  mediaItems?: MessageMediaItem[] | null;
   replyTo?: string;
   isHidden: boolean;
   createdAt: string;

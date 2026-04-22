@@ -1,5 +1,5 @@
 import BottomSheet from "@gorhom/bottom-sheet";
-import { router, useLocalSearchParams, useFocusEffect } from "expo-router";
+import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -38,6 +38,7 @@ import {
 } from "@/services/chatRoom/pinned_message/pinnedMessageApi";
 import { MessageType } from "@/types/model";
 import { Ionicons } from "@expo/vector-icons";
+import * as Clipboard from "expo-clipboard";
 import * as DocumentPicker from "expo-document-picker";
 
 type PinnedMessage = {
@@ -159,10 +160,11 @@ export default function ChatDetailScreen() {
     { skip: !chatRoomId, pollingInterval: 5000 },
   );
 
-  const { data: chatRoomData, refetch: refetchChatRoom } = useFetchChatRoomsByIdQuery(chatRoomId, {
-    skip: !chatRoomId,
-    pollingInterval: 3000,
-  });
+  const { data: chatRoomData, refetch: refetchChatRoom } =
+    useFetchChatRoomsByIdQuery(chatRoomId, {
+      skip: !chatRoomId,
+      pollingInterval: 3000,
+    });
 
   useEffect(() => {
     setActiveChatRoom(chatRoomId);
@@ -178,7 +180,7 @@ export default function ChatDetailScreen() {
       if (chatRoomId) {
         refetchChatRoom();
       }
-    }, [chatRoomId, refetchChatRoom])
+    }, [chatRoomId, refetchChatRoom]),
   );
 
   // Get messages safely - now accessing nested result property
@@ -235,6 +237,20 @@ export default function ChatDetailScreen() {
   const isGroupDissolved =
     chatRoomData?.data?.deletedAt !== null &&
     chatRoomData?.data?.deletedAt !== undefined;
+
+  const handleCopyMessage = async () => {
+    if (!selectedMessage) return;
+
+    // Ưu tiên copy link media nếu là ảnh, ngược lại copy nội dung text
+    const contentToCopy =
+      selectedMessage.mediaItems?.[0]?.url || selectedMessage.content;
+
+    if (contentToCopy) {
+      await Clipboard.setStringAsync(contentToCopy);
+      // Có thể đóng sheet sau khi copy
+      bottomSheetRef.current?.close();
+    }
+  };
 
   if (isLoading && messagesList.length === 0) {
     return <ActivityIndicator style={styles.loadingCenter} color="#0084FF" />;
@@ -471,6 +487,7 @@ export default function ChatDetailScreen() {
       <MessageActionsSheet
         ref={bottomSheetRef}
         selectedMessage={selectedMessage}
+        onCopy={handleCopyMessage}
         isGroupDissolved={isGroupDissolved}
         onReply={() => {
           setReplyTarget(selectedMessage);

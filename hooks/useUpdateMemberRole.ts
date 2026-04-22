@@ -1,5 +1,5 @@
-import { useUser } from "@/hooks/useUser"; // Để lấy accountId của chính bạn
-import { useAppDispatch } from "@/lib/hooks"; // Hook dispatch của bạn
+import { useUser } from "@/hooks/useUser";
+import { useAppDispatch } from "@/lib/hooks";
 import { groupChatApi } from "@/services/chatRoom/groupChat/groupChatApi";
 import { Alert } from "react-native";
 
@@ -7,7 +7,7 @@ export const useUpdateMemberRole = (onSuccess?: () => void) => {
   const [updateRole, { isLoading }] =
     groupChatApi.useUpdateMemberRoleMutation();
   const dispatch = useAppDispatch();
-  const { user } = useUser(); // Lấy thông tin user hiện tại đang đăng nhập
+  const { user } = useUser();
 
   const handleUpdateRole = async (
     chatroomId: string,
@@ -31,28 +31,23 @@ export const useUpdateMemberRole = (onSuccess?: () => void) => {
           text: "Xác nhận",
           onPress: async () => {
             try {
-              // 1. Gọi API cập nhật role cho người mới
               await updateRole({
                 chatroomId,
                 chatMemberId,
                 role: newRole,
               }).unwrap();
 
-              // 2. NẾU LÀ CHUYỂN QUYỀN CHỦ NHÓM -> ÉP CẬP NHẬT CACHE TẠI CHỖ
               if (newRole === "OWNER" && user?.accountId) {
                 dispatch(
                   groupChatApi.util.updateQueryData(
                     "getMemberInGroupChat",
                     Number(chatroomId),
                     (draft) => {
-                      // draft.data là danh sách thành viên trong cache
                       if (draft && draft.data) {
                         draft.data.forEach((member) => {
-                          // Người được chọn -> Lên làm OWNER
                           if (member.chatMemberId.toString() === chatMemberId) {
                             member.role = "OWNER";
                           }
-                          // Chính mình (Chủ cũ) -> Xuống làm MEMBER
                           if (member.accountId === user.accountId) {
                             member.role = "MEMBER";
                           }
