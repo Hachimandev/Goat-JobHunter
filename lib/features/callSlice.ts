@@ -111,8 +111,13 @@ const callSlice = createSlice({
     ) => {
       const targetSessionId = action.payload?.sessionId;
 
-      if (targetSessionId && !isMatchingCall(state.currentCall, targetSessionId)) {
-        return;
+      if (targetSessionId) {
+        const isCurrentCallTarget = isMatchingCall(state.currentCall, targetSessionId);
+        const isIncomingCallTarget = state.incomingCall?.sessionId === targetSessionId;
+
+        if (!isCurrentCallTarget && !isIncomingCallTarget) {
+          return;
+        }
       }
 
       if (state.currentCall) {

@@ -57,14 +57,12 @@ export default function IncomingCallDialog() {
   };
 
   const handleCancel = () => {
-    if (!open) {
-      if (isAcceptIntentRef.current || isAcceptingCall) {
-        isAcceptIntentRef.current = false;
-        return;
-      }
-
-      void handleDeclineIncomingCall();
+    if (isAcceptIntentRef.current || isAcceptingCall) {
+      isAcceptIntentRef.current = false;
+      return;
     }
+
+    void handleDeclineIncomingCall();
   };
 
   return (
