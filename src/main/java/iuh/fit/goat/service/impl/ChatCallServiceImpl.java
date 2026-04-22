@@ -96,8 +96,6 @@ public class ChatCallServiceImpl implements ChatCallService {
             participant = new ChatCallParticipant();
             participant.setSession(session);
             participant.setAccount(currentAccount);
-        } else if (participant.isDeclined()) {
-            throw new InvalidException("You declined this group call and cannot join it again");
         }
 
         participant.setJoinedAt(Instant.now());
