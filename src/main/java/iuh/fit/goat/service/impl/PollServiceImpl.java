@@ -7,13 +7,14 @@ import iuh.fit.goat.dto.request.poll.CreatePollRequest;
 import iuh.fit.goat.dto.request.poll.VotePollRequest;
 import iuh.fit.goat.dto.response.poll.*;
 import iuh.fit.goat.entity.*;
-import iuh.fit.goat.entity.embeddable.SenderInfo;
 import iuh.fit.goat.exception.InvalidException;
+import iuh.fit.goat.repository.AccountRepository;
 import iuh.fit.goat.repository.ChatRoomRepository;
 import iuh.fit.goat.repository.PollRepository;
 import iuh.fit.goat.repository.PollVoteRepository;
 import iuh.fit.goat.service.MessageService;
 import iuh.fit.goat.service.PollService;
+import iuh.fit.goat.util.EntityUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Pageable;
@@ -34,6 +35,7 @@ public class PollServiceImpl implements PollService {
     private final PollRepository pollRepository;
     private final PollVoteRepository pollVoteRepository;
     private final ChatRoomRepository chatRoomRepository;
+    private final AccountRepository accountRepository;
 
     private final MessageService messageService;
 
@@ -258,7 +260,7 @@ public class PollServiceImpl implements PollService {
 
         List<PollVote> allVotes = this.pollVoteRepository.findByPollId(poll.getPollId());
 
-        return allVotes.stream().map(vote -> toPollVoteResponse(poll, vote, currentAccount)).toList();
+        return allVotes.stream().map(vote -> toPollVoteResponse(poll, vote)).toList();
     }
 
     private PollResponse toPollResponse(Poll poll, Long currentAccountId) {
@@ -296,9 +298,12 @@ public class PollServiceImpl implements PollService {
                 .build();
     }
 
-    private PollVoteResponse toPollVoteResponse(Poll poll, PollVote pollVote, Account currentAccount) {
-        String fullName = currentAccount instanceof Company company ? company.getName() : ((User) currentAccount).getFullName();
-        String avatar = currentAccount instanceof Company company ? company.getLogo() : currentAccount.getAvatar();
+    private PollVoteResponse toPollVoteResponse(Poll poll, PollVote pollVote) {
+        Account account = this.accountRepository.findByAccountIdAndDeletedAtIsNull(pollVote.getAccountId()).orElse(null);
+        Account realAccount = EntityUtil.unproxy(account);
+        String fullName = realAccount instanceof Company company ? company.getName() : ((User) Objects.requireNonNull(realAccount)).getFullName();
+        String avatar = realAccount instanceof Company company ? company.getLogo() : realAccount.getAvatar();
+
         PollOption option = poll.getOptions().stream()
                 .filter(o -> o.getOptionId().equals(pollVote.getOptionId()))
                 .findFirst()
