@@ -15,6 +15,7 @@ import {
   cascadeReplyContextForDeletedMessage,
   cascadeReplyContextForRecalledMessage,
 } from '@/utils/replyContextRealtime';
+import { pollApi } from '../poll/pollApi';
 
 type DeleteMessageRealtimeEvent = {
   eventType?: string;
@@ -80,7 +81,7 @@ export class WebSocketMessageService {
 
         const message = payload as MessageResponse;
 
-        if (message.messageType === 'SYSTEM') {
+        if (message.messageType === 'SYSTEM' || message.messageType === 'POLL') {
           this.handleGroupEvent(chatRoomId, message);
           this.handleMessage(chatRoomId, message);
           return;
@@ -418,6 +419,13 @@ export class WebSocketMessageService {
           chatRoomApi.util.invalidateTags([
             { type: 'ChatRoom', id: chatRoomId },
             { type: 'ChatRoom', id: 'LIST' },
+          ]),
+        );
+      } else if (content.includes('cuộc bình chọn')) {
+        this.dispatch(
+          pollApi.util.invalidateTags([
+            { type: 'Poll', id: `POLLS_${chatRoomId}` },
+            { type: 'ChatRoom', id: `POLL_${chatRoomId}_${chatRoomId}` },
           ]),
         );
       }

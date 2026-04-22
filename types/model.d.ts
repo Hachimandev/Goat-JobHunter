@@ -572,3 +572,46 @@ export type Interview = {
   createdBy: string;
   updatedBy: string;
 };
+
+export type PollOption = {
+  optionId: string;
+  text: string;
+  createdBy: string;
+  createdAt: string;
+  voteCount: number;
+  accountVoted: boolean;
+};
+
+export type Poll = {
+  pollId: string;
+  chatRoomId: number;
+  messageId: string;
+  createdBy: string;
+  question: string;
+  options: PollOption[];
+  multipleChoice: boolean;
+  allowAddOption: boolean;
+  pinned: boolean;
+  isClosed: boolean;
+  expiresAt?: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type PollVote = {
+  voteId: string;
+  poll: {
+    pollId: string;
+    question: string;
+  };
+  option: {
+    optionId: string;
+    text: string;
+  };
+  account: {
+    accountId: number;
+    fullName: string;
+    avatar: string;
+  };
+  createdAt: string;
+};
