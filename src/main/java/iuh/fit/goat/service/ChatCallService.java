@@ -18,6 +18,9 @@ public interface ChatCallService {
     ChatCallSessionResponse leaveCall(Account currentAccount, Long chatRoomId, Long sessionId)
             throws InvalidException, PermissionException;
 
+    ChatCallSessionResponse declineCall(Account currentAccount, Long chatRoomId, Long sessionId)
+            throws InvalidException, PermissionException;
+
     ChatCallSessionResponse endCall(Account currentAccount, Long chatRoomId, Long sessionId, EndChatCallRequest request)
             throws InvalidException, PermissionException;
 

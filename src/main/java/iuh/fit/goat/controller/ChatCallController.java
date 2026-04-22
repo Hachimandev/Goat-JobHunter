@@ -71,6 +71,16 @@ public class ChatCallController {
         return ResponseEntity.ok(response);
     }
 
+        @PostMapping("/{chatRoomId}/calls/{sessionId}/decline")
+        public ResponseEntity<ChatCallSessionResponse> declineCall(
+                        @PathVariable Long chatRoomId,
+                        @PathVariable Long sessionId
+        ) throws InvalidException, PermissionException {
+                Account currentAccount = getCurrentAccount();
+                ChatCallSessionResponse response = this.chatCallService.declineCall(currentAccount, chatRoomId, sessionId);
+                return ResponseEntity.ok(response);
+        }
+
     @PostMapping("/{chatRoomId}/calls/{sessionId}/end")
     public ResponseEntity<ChatCallSessionResponse> endCall(
             @PathVariable Long chatRoomId,

@@ -52,4 +52,7 @@ public class ChatCallParticipant extends BaseEntity {
 
     @Column(name = "publisher", nullable = false)
     private boolean publisher = true;
+
+        @Column(name = "declined", nullable = false)
+        private boolean declined = false;
 }

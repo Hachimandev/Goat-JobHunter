@@ -11,6 +11,7 @@ import iuh.fit.goat.entity.ChatCallParticipant;
 import iuh.fit.goat.entity.ChatCallSession;
 import iuh.fit.goat.enumeration.ChatCallEndReason;
 import iuh.fit.goat.enumeration.ChatCallSessionStatus;
+import iuh.fit.goat.enumeration.ChatRoomType;
 import iuh.fit.goat.exception.InvalidException;
 import iuh.fit.goat.exception.PermissionException;
 import iuh.fit.goat.repository.ChatCallParticipantRepository;
@@ -92,11 +93,14 @@ public class ChatCallServiceImpl implements ChatCallService {
             participant = new ChatCallParticipant();
             participant.setSession(session);
             participant.setAccount(currentAccount);
+        } else if (participant.isDeclined()) {
+            throw new InvalidException("You declined this group call and cannot join it again");
         }
 
         participant.setJoinedAt(Instant.now());
         participant.setLeftAt(null);
         participant.setPublisher(isPublisher(request != null ? request.getPublisher() : null));
+        participant.setDeclined(false);
         this.chatCallParticipantRepository.save(participant);
 
         ChatCallSessionResponse response = toResponse(sessionId);
@@ -117,9 +121,10 @@ public class ChatCallServiceImpl implements ChatCallService {
                 .orElseThrow(() -> new InvalidException("Participant not found in this call session"));
 
         participant.setLeftAt(Instant.now());
+        participant.setDeclined(false);
         this.chatCallParticipantRepository.save(participant);
 
-        if (countActiveParticipants(sessionId) == 0) {
+        if (!isGroupCall(session) && countActiveParticipants(sessionId) == 0) {
             session.setStatus(ChatCallSessionStatus.ENDED);
             session.setEndReason(ChatCallEndReason.HANGUP);
             session.setEndedAt(Instant.now());
@@ -133,11 +138,51 @@ public class ChatCallServiceImpl implements ChatCallService {
 
     @Override
     @Transactional
+    public ChatCallSessionResponse declineCall(Account currentAccount, Long chatRoomId, Long sessionId)
+            throws InvalidException, PermissionException {
+        validateCurrentAccount(currentAccount);
+        ChatCallSession session = validateSessionAccess(chatRoomId, sessionId, currentAccount.getAccountId());
+        ensureActiveSession(session);
+
+        if (!isGroupCall(session)) {
+            return endCall(currentAccount, chatRoomId, sessionId, new EndChatCallRequest(ChatCallEndReason.NO_ANSWER));
+        }
+
+        ChatCallParticipant participant = this.chatCallParticipantRepository
+                .findBySessionCallSessionIdAndAccountAccountIdAndDeletedAtIsNull(sessionId, currentAccount.getAccountId())
+                .orElse(null);
+
+        if (participant == null) {
+            participant = new ChatCallParticipant();
+            participant.setSession(session);
+            participant.setAccount(currentAccount);
+            participant.setPublisher(false);
+        }
+
+        Instant now = Instant.now();
+        participant.setJoinedAt(now);
+        participant.setLeftAt(now);
+        participant.setDeclined(true);
+        this.chatCallParticipantRepository.save(participant);
+
+        ChatCallSessionResponse response = toResponse(sessionId);
+        publishEvent("CALL_LEFT", chatRoomId, sessionId, currentAccount.getAccountId(), response.getStatus());
+        return response;
+    }
+
+    @Override
+    @Transactional
     public ChatCallSessionResponse endCall(Account currentAccount, Long chatRoomId, Long sessionId, EndChatCallRequest request)
             throws InvalidException, PermissionException {
         validateCurrentAccount(currentAccount);
         ChatCallSession session = validateSessionAccess(chatRoomId, sessionId, currentAccount.getAccountId());
         ensureActiveSession(session);
+
+        if (isGroupCall(session)
+                && (session.getInitiator() == null
+                || currentAccount.getAccountId() != session.getInitiator().getAccountId())) {
+            throw new PermissionException("Only call initiator can end a group call");
+        }
 
         Instant endedAt = Instant.now();
 
@@ -273,5 +318,10 @@ public class ChatCallServiceImpl implements ChatCallService {
                 status
         );
         this.messagingTemplate.convertAndSend(destination, payload);
+    }
+
+    private boolean isGroupCall(ChatCallSession session) {
+        return session.getChatRoom() != null
+                && session.getChatRoom().getType() == ChatRoomType.GROUP;
     }
 }
