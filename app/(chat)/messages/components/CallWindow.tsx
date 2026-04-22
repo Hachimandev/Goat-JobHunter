@@ -15,7 +15,8 @@ type CallWindowProps = {
   remoteAudioActive: boolean;
   remoteVideoActive: boolean;
   isEndingCall: boolean;
-  handleEndCall: () => Promise<void> | void;
+  canCurrentUserEndCall: boolean;
+  handleCloseCallAction: () => Promise<void> | void;
   handleToggleLocalAudio: () => Promise<void> | void;
   handleToggleLocalVideo: () => Promise<void> | void;
   bindRtcContainers: (params: {
@@ -33,7 +34,8 @@ export function CallWindow({
   remoteAudioActive,
   remoteVideoActive,
   isEndingCall,
-  handleEndCall,
+  canCurrentUserEndCall,
+  handleCloseCallAction,
   handleToggleLocalAudio,
   handleToggleLocalVideo,
   bindRtcContainers,
@@ -65,6 +67,7 @@ export function CallWindow({
             : 'Đang xử lý';
 
   const showVideoLayout = (currentCall.callType ?? CallTypeEnum.VOICE) === CallTypeEnum.VIDEO;
+  const joinedParticipants = currentCall.participants.filter((participant) => !participant.leftAt);
 
   return (
     <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex flex-col">
@@ -73,6 +76,12 @@ export function CallWindow({
           <p className="text-sm font-medium">Cuộc gọi #{currentCall.sessionId}</p>
           <p className="text-xs text-white/70">
             {statusLabel} · {rtcConnectionState}
+          </p>
+          <p className="text-xs text-white/60 mt-1">
+            Đang tham gia ({joinedParticipants.length}):{' '}
+            {joinedParticipants.length > 0
+              ? joinedParticipants.map((participant) => `#${participant.accountId}`).join(', ')
+              : 'Chưa có thành viên'}
           </p>
         </div>
       </div>
@@ -140,8 +149,9 @@ export function CallWindow({
           size="icon"
           className="rounded-full"
           disabled={isEndingCall}
+          title={canCurrentUserEndCall ? 'Kết thúc cuộc gọi' : 'Rời cuộc gọi'}
           onClick={() => {
-            void handleEndCall();
+            void handleCloseCallAction();
           }}
         >
           <PhoneOff className="h-5 w-5" />

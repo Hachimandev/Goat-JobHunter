@@ -2,6 +2,8 @@ import { api } from '@/services/api';
 import {
   EndCallRequest,
   EndCallResponse,
+  DeclineCallRequest,
+  DeclineCallResponse,
   GetCurrentCallRequest,
   GetCurrentCallResponse,
   IssueCallTokenRequest,
@@ -46,6 +48,14 @@ export const callApi = api.injectEndpoints({
       invalidatesTags: (_, __, { chatRoomId }) => [{ type: 'ChatRoom', id: chatRoomId }],
     }),
 
+    declineCall: builder.mutation<DeclineCallResponse, DeclineCallRequest>({
+      query: ({ chatRoomId, sessionId }) => ({
+        url: `/chatrooms/${chatRoomId}/calls/${sessionId}/decline`,
+        method: 'POST',
+      }),
+      invalidatesTags: (_, __, { chatRoomId }) => [{ type: 'ChatRoom', id: chatRoomId }],
+    }),
+
     endCall: builder.mutation<EndCallResponse, EndCallRequest>({
       query: ({ chatRoomId, sessionId, reason }) => ({
         url: `/chatrooms/${chatRoomId}/calls/${sessionId}/end`,
@@ -83,6 +93,7 @@ export const {
   useStartCallMutation,
   useJoinCallMutation,
   useLeaveCallMutation,
+  useDeclineCallMutation,
   useEndCallMutation,
   useGetCurrentCallQuery,
   useIssueCallTokenMutation,

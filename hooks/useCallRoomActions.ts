@@ -23,6 +23,7 @@ import {
 import {
   useJoinCallMutation,
   useLeaveCallMutation,
+  useDeclineCallMutation,
   useEndCallMutation,
   useIssueCallTokenMutation,
   useStartCallMutation,
@@ -48,6 +49,7 @@ const useCallRoomActions = () => {
   const [startCall, { isLoading: isInitiatingCall }] = useStartCallMutation();
   const [joinCall, { isLoading: isAcceptingCall }] = useJoinCallMutation();
   const [leaveCall, { isLoading: isLeavingCall }] = useLeaveCallMutation();
+  const [declineCall, { isLoading: isDecliningCallMutation }] = useDeclineCallMutation();
   const [endCall, { isLoading: isEndingCall }] = useEndCallMutation();
   const [issueCallToken] = useIssueCallTokenMutation();
 
@@ -337,10 +339,9 @@ const useCallRoomActions = () => {
     }
 
     try {
-      await endCall({
+      await declineCall({
         chatRoomId: incomingCall.chatRoomId,
         sessionId: incomingCall.sessionId,
-        reason: CallEndReasonEnum.NO_ANSWER,
       }).unwrap();
 
       await cleanupRtcSession();
@@ -350,7 +351,7 @@ const useCallRoomActions = () => {
       console.error('Failed to decline call:', error);
       toast.error('Không thể từ chối cuộc gọi.');
     }
-  }, [cleanupRtcSession, dispatch, endCall, incomingCall]);
+  }, [cleanupRtcSession, declineCall, dispatch, incomingCall]);
 
   const handleEndCall = useCallback(async () => {
     if (!currentCall) {
@@ -424,7 +425,8 @@ const useCallRoomActions = () => {
     isRtcReady,
     isInitiatingCall,
     isAcceptingCall,
-    isDecliningCall: isLeavingCall || isEndingCall,
+    isDecliningCall: isDecliningCallMutation,
+    isLeavingCall,
     isEndingCall,
     handleStartCall,
     handleAcceptIncomingCall,

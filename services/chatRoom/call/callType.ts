@@ -26,6 +26,13 @@ export type LeaveCallRequest = {
 
 export type LeaveCallResponse = IBackendRes<CallSession>;
 
+export type DeclineCallRequest = {
+  chatRoomId: number;
+  sessionId: number;
+};
+
+export type DeclineCallResponse = IBackendRes<CallSession>;
+
 export type EndCallRequest = {
   chatRoomId: number;
   sessionId: number;

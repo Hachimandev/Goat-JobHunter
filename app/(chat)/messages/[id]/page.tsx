@@ -60,9 +60,11 @@ export default function ChatRoomPage() {
     localVideoEnabled,
     remoteAudioActive,
     remoteVideoActive,
+    isLeavingCall,
     isEndingCall,
     handleStartCall,
     handleEndCall,
+    handleLeaveCall,
     handleToggleLocalAudio,
     handleToggleLocalVideo,
     bindRtcContainers,
@@ -121,6 +123,18 @@ export default function ChatRoomPage() {
     Boolean(
       currentCall?.participants.some((participant) => participant.accountId === user.accountId && !participant.leftAt),
     );
+  const isGroupCall = currentChatRoom?.type === ChatRoomType.GROUP;
+  const canCurrentUserEndCall = Boolean(!isGroupCall || currentCall?.initiatorAccountId === user?.accountId);
+  const isClosingCall = canCurrentUserEndCall ? isEndingCall : isLeavingCall;
+
+  const handleCloseCallAction = useCallback(async () => {
+    if (canCurrentUserEndCall) {
+      await handleEndCall();
+      return;
+    }
+
+    await handleLeaveCall();
+  }, [canCurrentUserEndCall, handleEndCall, handleLeaveCall]);
 
   const handleNavigateToMessage = useCallback((targetMessageId: string) => {
     if (!targetMessageId) return;
@@ -386,8 +400,9 @@ export default function ChatRoomPage() {
           localVideoEnabled={localVideoEnabled}
           remoteAudioActive={remoteAudioActive}
           remoteVideoActive={remoteVideoActive}
-          isEndingCall={isEndingCall}
-          handleEndCall={handleEndCall}
+          isEndingCall={isClosingCall}
+          canCurrentUserEndCall={canCurrentUserEndCall}
+          handleCloseCallAction={handleCloseCallAction}
           handleToggleLocalAudio={handleToggleLocalAudio}
           handleToggleLocalVideo={handleToggleLocalVideo}
           bindRtcContainers={bindRtcContainers}
