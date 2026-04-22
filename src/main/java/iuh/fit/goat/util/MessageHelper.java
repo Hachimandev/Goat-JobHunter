@@ -103,11 +103,10 @@ public class MessageHelper {
             }
 
             case POLL_OPTION_ADDED -> {
-                String pollQuestion = (String) params[0];
-                String optionText = (String) params[1];
+                PollResponse poll = (PollResponse) params[0];
 
-                yield String.format("(event:%s) %s đã thêm một lựa chọn \"%s\" vào cuộc thăm dò: \"%s\"",
-                        MessageEvent.POLL_OPTION_ADDED, actorName, optionText, pollQuestion);
+                yield String.format("(event:%s) %s đã thêm một lựa chọn trong: %s (Xem %s)",
+                        MessageEvent.POLL_OPTION_ADDED, actorName, poll.getQuestion(), poll.getPollId());
             }
 
             case POLL_CLOSED -> {

@@ -160,22 +160,34 @@ public class PollServiceImpl implements PollService {
 
         if (!poll.getAllowAddOption()) throw new InvalidException("Không được phép thêm lựa chọn vào bình chọn này");
         if (poll.getIsClosed()) throw new InvalidException("Bình chọn đã đóng");
-        if (poll.getOptions().size() >= 10) throw new InvalidException("Chỉ được phép có tối đa 10 lựa chọn trong một bình chọn");
 
-        PollOption newOption = PollOption.builder()
-                .optionId(generateOptionId())
-                .text(request.getText())
-                .createdBy(currentAccount.getEmail())
-                .createdAt(Instant.now())
-                .voteCount(0)
-                .build();
+        int remainingSlots = 10 - poll.getOptions().size();
+        if (remainingSlots <= 0) throw new InvalidException("Chỉ được phép có tối đa 10 lựa chọn trong một bình chọn");
+        List<String> texts = request.getTexts()
+                .stream()
+                .limit(remainingSlots)
+                .toList();
 
-        poll.getOptions().add(newOption);
+        for(String text: texts) {
+            PollOption newOption = PollOption.builder()
+                    .optionId(generateOptionId())
+                    .text(text)
+                    .createdBy(currentAccount.getEmail())
+                    .createdAt(Instant.now())
+                    .voteCount(0)
+                    .build();
+
+            poll.getOptions().add(newOption);
+        }
         poll.setUpdatedAt(Instant.now());
         this.pollRepository.save(poll);
 
         PollResponse pollResponse = toPollResponse(poll, currentAccount.getAccountId());
-        sendPollOptionAddedEvent(chatRoomId, poll.getPollId(), newOption);
+
+        this.messageService.createAndSendPollMessage(
+                chatRoomId, MessageEvent.POLL_OPTION_ADDED,
+                currentAccount, pollResponse
+        );
 
         return pollResponse;
     }
