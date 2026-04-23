@@ -97,7 +97,9 @@ const useCallRoomActions = () => {
   const [endCall, { isLoading: isEndingCall }] = useEndCallMutation();
   const [issueCallToken] = useIssueCallTokenMutation();
 
-  const [availableCallDevices, setAvailableCallDevices] = useState<CallDeviceInventory>(createEmptyCallDeviceInventory());
+  const [availableCallDevices, setAvailableCallDevices] = useState<CallDeviceInventory>(
+    createEmptyCallDeviceInventory(),
+  );
   const [isLoadingCallDevices, setIsLoadingCallDevices] = useState(false);
   const [updatingCallDeviceKind, setUpdatingCallDeviceKind] = useState<CallDeviceKind | null>(null);
 
@@ -153,36 +155,33 @@ const useCallRoomActions = () => {
     [issueCallToken, resolvePublisherFlag],
   );
 
-  const applyResolvedCallDevicesToActiveRtc = useCallback(
-    async (preferences: CallDevicePreferencesState) => {
-      const previousPreferences = appliedCallDevicePreferencesRef.current;
-      const activeCall = currentCallRef.current;
+  const applyResolvedCallDevicesToActiveRtc = useCallback(async (preferences: CallDevicePreferencesState) => {
+    const previousPreferences = appliedCallDevicePreferencesRef.current;
+    const activeCall = currentCallRef.current;
 
-      callRtcClient.setPreferredDevices(preferences);
+    callRtcClient.setPreferredDevices(preferences);
 
-      if (!activeCall) {
-        appliedCallDevicePreferencesRef.current = preferences;
-        return;
-      }
-
-      if (previousPreferences.microphoneId !== preferences.microphoneId) {
-        await callRtcClient.switchMicrophone(preferences.microphoneId);
-      }
-
-      if (previousPreferences.speakerId !== preferences.speakerId) {
-        await callRtcClient.switchSpeaker(preferences.speakerId);
-      }
-
-      if ((activeCall.callType ?? CallTypeEnum.VOICE) === CallTypeEnum.VIDEO) {
-        if (previousPreferences.cameraId !== preferences.cameraId) {
-          await callRtcClient.switchCamera(preferences.cameraId);
-        }
-      }
-
+    if (!activeCall) {
       appliedCallDevicePreferencesRef.current = preferences;
-    },
-    [],
-  );
+      return;
+    }
+
+    if (previousPreferences.microphoneId !== preferences.microphoneId) {
+      await callRtcClient.switchMicrophone(preferences.microphoneId);
+    }
+
+    if (previousPreferences.speakerId !== preferences.speakerId) {
+      await callRtcClient.switchSpeaker(preferences.speakerId);
+    }
+
+    if ((activeCall.callType ?? CallTypeEnum.VOICE) === CallTypeEnum.VIDEO) {
+      if (previousPreferences.cameraId !== preferences.cameraId) {
+        await callRtcClient.switchCamera(preferences.cameraId);
+      }
+    }
+
+    appliedCallDevicePreferencesRef.current = preferences;
+  }, []);
 
   const syncCallDevices = useCallback(
     async ({ overridePreferences, applyToActiveRtc = false, notifyFallback = false }: SyncCallDevicesOptions = {}) => {
@@ -401,7 +400,7 @@ const useCallRoomActions = () => {
   }, [dispatch, issueCallToken, resolveCurrentParticipantPublisher]);
 
   const resolveRtcJoinParams = useCallback((targetCall: NonNullable<typeof currentCall>) => {
-    const appId = targetCall.rtc?.appId ?? process.env.NEXT_PUBLIC_AGORA_APP_ID;
+    const appId = targetCall.rtc?.appId;
     const channelName = targetCall.rtc?.channelName ?? targetCall.agoraChannelName;
     const token = targetCall.rtc?.token ?? null;
     const uid = targetCall.rtc?.uid ?? null;
