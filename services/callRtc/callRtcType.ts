@@ -7,6 +7,7 @@ import type {
   UID,
 } from 'agora-rtc-sdk-ng';
 import { CallTypeEnum } from '@/types/enum';
+import type { CallDevicePreferencesState } from '@/lib/features/callDevicePreferencesSlice';
 
 export type RtcConnectionState = 'idle' | 'connecting' | 'connected' | 'reconnecting' | 'disconnected' | 'failed';
 
@@ -45,6 +46,7 @@ export type AgoraInternalState = {
   uid: UID | null;
   localVideoContainer: HTMLElement | null;
   remoteVideoContainers: Map<string, HTMLElement>;
+  preferredDevices: CallDevicePreferencesState;
 };
 
 export type RtcCallbacks = {

@@ -1,7 +1,11 @@
 'use client';
 
-import AgoraRTC, { ICameraVideoTrack } from 'agora-rtc-sdk-ng';
+import AgoraRTC, {
+  ICameraVideoTrack,
+  IRemoteAudioTrack,
+} from 'agora-rtc-sdk-ng';
 import { CallTypeEnum } from '@/types/enum';
+import type { CallDevicePreferencesState } from '@/lib/features/callDevicePreferencesSlice';
 import {
   AgoraInternalState,
   JoinRtcCallConfig,
@@ -26,6 +30,11 @@ class AgoraCallRtcClient {
     uid: null,
     localVideoContainer: null,
     remoteVideoContainers: new Map(),
+    preferredDevices: {
+      microphoneId: null,
+      speakerId: null,
+      cameraId: null,
+    },
   };
 
   private callbacks: RtcCallbacks = {};
@@ -48,6 +57,14 @@ class AgoraCallRtcClient {
 
   configure = (callbacks: RtcCallbacks) => {
     this.callbacks = callbacks;
+  };
+
+  setPreferredDevices = (preferences: CallDevicePreferencesState) => {
+    this.state.preferredDevices = {
+      microphoneId: preferences.microphoneId ?? null,
+      speakerId: preferences.speakerId ?? null,
+      cameraId: preferences.cameraId ?? null,
+    };
   };
 
   bindContainers = (params: {
@@ -98,7 +115,9 @@ class AgoraCallRtcClient {
 
   joinAndPublish = async ({ sessionId, callType, appId, channelName, token = null, uid = null }: JoinRtcCallConfig) => {
     return this.enqueueOperation(async () => {
+      const preferredDevices = { ...this.state.preferredDevices };
       await this.cleanupInternal();
+      this.state.preferredDevices = preferredDevices;
 
       this.state.sessionId = sessionId;
       this.state.channelName = channelName;
@@ -120,7 +139,8 @@ class AgoraCallRtcClient {
         console.log('joinAndPublish info: ', { appId, channelName, uid, tokenLength });
 
         this.state.uid = await client.join(appId, channelName, token, uid);
-        const audioTrack = await AgoraRTC.createMicrophoneAudioTrack({ encoderConfig: 'speech_standard' });
+
+        const audioTrack = await this.createLocalAudioTrack();
         this.state.localAudioTrack = audioTrack;
         await client.publish([audioTrack]);
 
@@ -128,6 +148,7 @@ class AgoraCallRtcClient {
           await this.tryEnableVideoForCurrentSession(sessionId, true);
         }
 
+        this.emitLocalState();
         this.emitRemoteState();
       } catch (error) {
         this.connectionState = 'failed';
@@ -199,6 +220,53 @@ class AgoraCallRtcClient {
     }
   };
 
+  switchMicrophone = async (deviceId: string | null) => {
+    this.state.preferredDevices.microphoneId = deviceId;
+
+    if (!this.state.client || !this.state.sessionId) {
+      return;
+    }
+
+    if (!this.state.localAudioTrack) {
+      return;
+    }
+
+    if (deviceId) {
+      await this.state.localAudioTrack.setDevice(deviceId);
+      return;
+    }
+
+    await this.replaceLocalAudioTrack();
+  };
+
+  switchCamera = async (deviceId: string | null) => {
+    this.state.preferredDevices.cameraId = deviceId;
+
+    if (!this.state.client || !this.state.sessionId || !this.state.localVideoTrack) {
+      return;
+    }
+
+    if (deviceId) {
+      await this.state.localVideoTrack.setDevice(deviceId);
+      if (this.state.localVideoTrack.enabled && this.state.localVideoContainer) {
+        this.state.localVideoTrack.play(this.state.localVideoContainer);
+      }
+      return;
+    }
+
+    await this.replaceLocalVideoTrack();
+  };
+
+  switchSpeaker = async (deviceId: string | null) => {
+    this.state.preferredDevices.speakerId = deviceId;
+
+    const remoteAudioTracks = [...this.state.remoteUsers.values()]
+      .map((remoteUser) => remoteUser.audioTrack)
+      .filter((track): track is IRemoteAudioTrack => Boolean(track));
+
+    await Promise.all(remoteAudioTracks.map((track) => this.applySpeakerPreferenceToTrack(track)));
+  };
+
   renewToken = async (token: string | null) => {
     if (!this.state.client || !token) return;
     await this.state.client.renewToken(token);
@@ -211,7 +279,7 @@ class AgoraCallRtcClient {
   };
 
   private cleanupInternal = async () => {
-    const { client, localAudioTrack, localVideoTrack } = this.state;
+    const { client, localAudioTrack, localVideoTrack, preferredDevices } = this.state;
 
     if (localAudioTrack) {
       localAudioTrack.stop();
@@ -228,17 +296,18 @@ class AgoraCallRtcClient {
       await client.leave();
     }
 
-      this.state = {
-        client: null,
-        localAudioTrack: null,
-        localVideoTrack: null,
-        remoteUsers: new Map(),
-        sessionId: null,
-        channelName: null,
-        uid: null,
-        localVideoContainer: null,
-        remoteVideoContainers: new Map(),
-      };
+    this.state = {
+      client: null,
+      localAudioTrack: null,
+      localVideoTrack: null,
+      remoteUsers: new Map(),
+      sessionId: null,
+      channelName: null,
+      uid: null,
+      localVideoContainer: null,
+      remoteVideoContainers: new Map(),
+      preferredDevices,
+    };
     this.connectionState = 'idle';
   };
 
@@ -259,6 +328,90 @@ class AgoraCallRtcClient {
     }
   };
 
+  private createLocalAudioTrack = async () => {
+    return await AgoraRTC.createMicrophoneAudioTrack({
+      encoderConfig: 'speech_standard',
+      AEC: true,
+      ANS: true,
+      AGC: true,
+      ...(this.state.preferredDevices.microphoneId ? { microphoneId: this.state.preferredDevices.microphoneId } : {}),
+    });
+  };
+
+  private createLocalVideoTrack = async () => {
+    return await AgoraRTC.createCameraVideoTrack({
+      encoderConfig: '720p_1',
+      ...(this.state.preferredDevices.cameraId ? { cameraId: this.state.preferredDevices.cameraId } : {}),
+    });
+  };
+
+  private replaceLocalAudioTrack = async () => {
+    if (!this.state.client) {
+      return;
+    }
+
+    const previousTrack = this.state.localAudioTrack;
+    const previousEnabled = previousTrack?.enabled ?? true;
+    const nextTrack = await this.createLocalAudioTrack();
+
+    try {
+      if (previousTrack) {
+        await this.state.client.unpublish([previousTrack]);
+      }
+
+      await this.state.client.publish([nextTrack]);
+
+      if (!previousEnabled) {
+        await nextTrack.setEnabled(false);
+      }
+
+      previousTrack?.stop();
+      previousTrack?.close();
+      this.state.localAudioTrack = nextTrack;
+      this.emitLocalState();
+    } catch (error) {
+      nextTrack.stop();
+      nextTrack.close();
+      throw error;
+    }
+  };
+
+  private replaceLocalVideoTrack = async () => {
+    if (!this.state.client || !this.state.localVideoTrack) {
+      return;
+    }
+
+    const previousTrack = this.state.localVideoTrack;
+    const previousEnabled = previousTrack.enabled;
+    const nextTrack = await this.createLocalVideoTrack();
+
+    try {
+      await this.state.client.unpublish([previousTrack]);
+      await this.state.client.publish([nextTrack]);
+
+      if (!previousEnabled) {
+        await nextTrack.setEnabled(false);
+      }
+
+      if (previousEnabled && this.state.localVideoContainer) {
+        nextTrack.play(this.state.localVideoContainer);
+      }
+
+      if (!previousEnabled && this.state.localVideoContainer) {
+        this.state.localVideoContainer.innerHTML = '';
+      }
+
+      previousTrack.stop();
+      previousTrack.close();
+      this.state.localVideoTrack = nextTrack;
+      this.emitLocalState();
+    } catch (error) {
+      nextTrack.stop();
+      nextTrack.close();
+      throw error;
+    }
+  };
+
   private tryEnableVideoForCurrentSession = async (sessionId: number, joiningCall: boolean) => {
     if (!this.state.client) {
       return false;
@@ -267,9 +420,7 @@ class AgoraCallRtcClient {
     let videoTrack: ICameraVideoTrack | null = null;
 
     try {
-      videoTrack = await AgoraRTC.createCameraVideoTrack({
-        encoderConfig: '720p_1',
-      });
+      videoTrack = await this.createLocalVideoTrack();
 
       await this.state.client.publish([videoTrack]);
       this.state.localVideoTrack = videoTrack;
@@ -302,6 +453,23 @@ class AgoraCallRtcClient {
     }
   };
 
+  private applySpeakerPreferenceToTrack = async (track: IRemoteAudioTrack) => {
+    if (!this.state.preferredDevices.speakerId) {
+      return;
+    }
+
+    try {
+      await track.setPlaybackDevice(this.state.preferredDevices.speakerId);
+    } catch (error) {
+      if (this.isSpeakerSelectionUnsupportedError(error)) {
+        console.warn('Speaker selection is not supported in this browser:', error);
+        return;
+      }
+
+      throw error;
+    }
+  };
+
   private isCameraInUseError = (error: unknown) => {
     const candidate = error as { code?: string; name?: string; message?: string } | null;
     const raw = [candidate?.code, candidate?.name, candidate?.message].filter(Boolean).join(' ').toUpperCase();
@@ -312,6 +480,12 @@ class AgoraCallRtcClient {
       raw.includes('DEVICE IN USE') ||
       raw.includes('SOURCE UNAVAILABLE')
     );
+  };
+
+  private isSpeakerSelectionUnsupportedError = (error: unknown) => {
+    const candidate = error as { code?: string; name?: string; message?: string } | null;
+    const raw = [candidate?.code, candidate?.name, candidate?.message].filter(Boolean).join(' ').toUpperCase();
+    return raw.includes('NOT_SUPPORTED') || raw.includes('SETSINKID');
   };
 
   private registerClientEvents = () => {
@@ -333,6 +507,7 @@ class AgoraCallRtcClient {
 
         if (mediaType === 'audio' && user.audioTrack) {
           user.audioTrack.play();
+          await this.applySpeakerPreferenceToTrack(user.audioTrack);
         }
 
         if (mediaType === 'video' && user.videoTrack) {

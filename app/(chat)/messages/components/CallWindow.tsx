@@ -1,14 +1,29 @@
 'use client';
 
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { CallStatusEnum, CallTypeEnum, ChatRoomType } from '@/types/enum';
 import { CallSession } from '@/types/model';
-import { Camera, CameraOff, DoorOpen, Dot, Mic, MicOff, PhoneOff, UserRound, Video, VideoOff } from 'lucide-react';
+import {
+  Camera,
+  CameraOff,
+  DoorOpen,
+  Dot,
+  Mic,
+  MicOff,
+  PhoneOff,
+  Settings2,
+  UserRound,
+  Video,
+  VideoOff,
+} from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { CallParticipantCard } from '@/app/(chat)/messages/components/CallParticipantCard';
+import { CallDeviceSettingsDialog } from '@/app/(chat)/messages/components/CallDeviceSettingsDialog';
+import type { CallDevicePreferencesState } from '@/lib/features/callDevicePreferencesSlice';
+import type { CallDeviceInventory, CallDeviceKind } from '@/services/callRtc/callDeviceUtils';
 
 type CallWindowProps = {
   currentCall: CallSession;
@@ -28,6 +43,11 @@ type CallWindowProps = {
   handleCloseCallAction: () => Promise<void> | void;
   handleToggleLocalAudio: () => Promise<void> | void;
   handleToggleLocalVideo: () => Promise<void> | void;
+  availableCallDevices: CallDeviceInventory;
+  selectedCallDevices: CallDevicePreferencesState;
+  isLoadingCallDevices: boolean;
+  updatingCallDeviceKind: CallDeviceKind | null;
+  handleSelectCallDevice: (kind: CallDeviceKind, deviceId: string | null) => Promise<void> | void;
   bindRtcContainers: (params: {
     localVideoContainer?: HTMLElement | null;
     remoteVideoContainer?: HTMLElement | null;
@@ -53,11 +73,17 @@ export function CallWindow({
   handleCloseCallAction,
   handleToggleLocalAudio,
   handleToggleLocalVideo,
+  availableCallDevices,
+  selectedCallDevices,
+  isLoadingCallDevices,
+  updatingCallDeviceKind,
+  handleSelectCallDevice,
   bindRtcContainers,
   bindParticipantVideoContainer,
 }: Readonly<CallWindowProps>) {
   const mainStageRef = useRef<HTMLDivElement | null>(null);
   const secondaryStageRef = useRef<HTMLDivElement | null>(null);
+  const [isDeviceSettingsOpen, setIsDeviceSettingsOpen] = useState(false);
 
   const showVideoLayout = (currentCall.callType ?? CallTypeEnum.VOICE) === CallTypeEnum.VIDEO;
   const isGroupVideoLayout = showVideoLayout && chatRoomType === ChatRoomType.GROUP;
@@ -414,6 +440,18 @@ export function CallWindow({
           size="icon"
           className="rounded-full"
           onClick={() => {
+            setIsDeviceSettingsOpen(true);
+          }}
+          title="Cài đặt thiết bị"
+        >
+          <Settings2 />
+        </Button>
+
+        <Button
+          variant="secondary"
+          size="icon"
+          className="rounded-full"
+          onClick={() => {
             void handleToggleLocalAudio();
           }}
         >
@@ -446,6 +484,17 @@ export function CallWindow({
           {canCurrentUserEndCall ? <PhoneOff /> : <DoorOpen />}
         </Button>
       </div>
+
+      <CallDeviceSettingsDialog
+        open={isDeviceSettingsOpen}
+        onOpenChange={setIsDeviceSettingsOpen}
+        callType={currentCall.callType ?? CallTypeEnum.VOICE}
+        devices={availableCallDevices}
+        preferences={selectedCallDevices}
+        isLoading={isLoadingCallDevices}
+        updatingKind={updatingCallDeviceKind}
+        onSelectDevice={handleSelectCallDevice}
+      />
     </div>
   );
 }

@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useEffectEvent, useMemo, useRef, useState } from 'react';
+import AgoraRTC from 'agora-rtc-sdk-ng';
 import { toast } from 'sonner';
 import { useAppDispatch, useAppSelector } from '@/lib/hooks';
 import {
@@ -23,6 +24,13 @@ import {
   setRtcConnectionState,
 } from '@/lib/features/callSlice';
 import {
+  selectCallDevicePreferences,
+  setCallDevicePreference,
+  setCallDevicePreferences,
+  type CallDevicePreferenceKey,
+  type CallDevicePreferencesState,
+} from '@/lib/features/callDevicePreferencesSlice';
+import {
   useJoinCallMutation,
   useLeaveCallMutation,
   useDeclineCallMutation,
@@ -36,12 +44,37 @@ import { callRtcClient } from '@/services/callRtc/AgoraCallRtcClient';
 import { CallSession } from '@/types/model';
 import type { UID } from 'agora-rtc-sdk-ng';
 import { computeAgoraUid } from '@/services/callRtc/agoraUid';
+import {
+  CallDeviceInventory,
+  CallDeviceKind,
+  createEmptyCallDeviceInventory,
+  listCallDevices,
+  resolveCallDevicePreferences,
+} from '@/services/callRtc/callDeviceUtils';
 
 const CAMERA_WARNING_MESSAGES = new Set([
   'Không thể bật camera vì camera đang được thiết bị hoặc ứng dụng khác sử dụng.',
   'Camera đang được thiết bị hoặc ứng dụng khác sử dụng. Cuộc gọi tiếp tục với âm thanh.',
   'Không thể bật camera lúc này. Cuộc gọi vẫn tiếp tục với âm thanh.',
 ]);
+
+const CALL_DEVICE_KEY_BY_KIND: Record<CallDeviceKind, CallDevicePreferenceKey> = {
+  microphone: 'microphoneId',
+  speaker: 'speakerId',
+  camera: 'cameraId',
+};
+
+const CALL_DEVICE_LABEL_BY_KIND: Record<CallDeviceKind, string> = {
+  microphone: 'Microphone',
+  speaker: 'Loa',
+  camera: 'Camera',
+};
+
+type SyncCallDevicesOptions = {
+  overridePreferences?: CallDevicePreferencesState;
+  applyToActiveRtc?: boolean;
+  notifyFallback?: boolean;
+};
 
 const useCallRoomActions = () => {
   const { isSignedIn, user } = useUser();
@@ -55,6 +88,7 @@ const useCallRoomActions = () => {
   const participantMediaStates = useAppSelector(selectParticipantMediaStates);
   const remoteAudioActive = useAppSelector(selectRemoteAudioActive);
   const remoteVideoActive = useAppSelector(selectRemoteVideoActive);
+  const callDevicePreferences = useAppSelector(selectCallDevicePreferences);
 
   const [startCall, { isLoading: isInitiatingCall }] = useStartCallMutation();
   const [joinCall, { isLoading: isAcceptingCall }] = useJoinCallMutation();
@@ -63,9 +97,18 @@ const useCallRoomActions = () => {
   const [endCall, { isLoading: isEndingCall }] = useEndCallMutation();
   const [issueCallToken] = useIssueCallTokenMutation();
 
+  const [availableCallDevices, setAvailableCallDevices] = useState<CallDeviceInventory>(createEmptyCallDeviceInventory());
+  const [isLoadingCallDevices, setIsLoadingCallDevices] = useState(false);
+  const [updatingCallDeviceKind, setUpdatingCallDeviceKind] = useState<CallDeviceKind | null>(null);
+
   const currentCallRef = useRef(currentCall);
   const activeRtcSessionIdRef = useRef<number | null>(null);
   const tokenHydratingSessionIdRef = useRef<number | null>(null);
+  const appliedCallDevicePreferencesRef = useRef<CallDevicePreferencesState>({
+    microphoneId: null,
+    speakerId: null,
+    cameraId: null,
+  });
 
   useEffect(() => {
     currentCallRef.current = currentCall;
@@ -74,6 +117,24 @@ const useCallRoomActions = () => {
   const resolvePublisherFlag = useCallback((callType: CallTypeEnum) => {
     return callType === CallTypeEnum.VIDEO || callType === CallTypeEnum.VOICE;
   }, []);
+
+  const resolveCurrentParticipantPublisher = useCallback(
+    (callSession: CallSession | null) => {
+      if (!callSession) {
+        return true;
+      }
+
+      const participantPublisher =
+        typeof user?.accountId === 'number'
+          ? callSession.participants.find(
+              (participant) => participant.account.accountId === user.accountId && !participant.leftAt,
+            )?.publisher
+          : undefined;
+
+      return participantPublisher ?? callSession.rtc?.publisher ?? true;
+    },
+    [user?.accountId],
+  );
 
   const hydrateCallWithToken = useCallback(
     async (targetCall: CallSession, callType: CallTypeEnum): Promise<CallSession> => {
@@ -91,6 +152,127 @@ const useCallRoomActions = () => {
     },
     [issueCallToken, resolvePublisherFlag],
   );
+
+  const applyResolvedCallDevicesToActiveRtc = useCallback(
+    async (preferences: CallDevicePreferencesState) => {
+      const previousPreferences = appliedCallDevicePreferencesRef.current;
+      const activeCall = currentCallRef.current;
+
+      callRtcClient.setPreferredDevices(preferences);
+
+      if (!activeCall) {
+        appliedCallDevicePreferencesRef.current = preferences;
+        return;
+      }
+
+      if (previousPreferences.microphoneId !== preferences.microphoneId) {
+        await callRtcClient.switchMicrophone(preferences.microphoneId);
+      }
+
+      if (previousPreferences.speakerId !== preferences.speakerId) {
+        await callRtcClient.switchSpeaker(preferences.speakerId);
+      }
+
+      if ((activeCall.callType ?? CallTypeEnum.VOICE) === CallTypeEnum.VIDEO) {
+        if (previousPreferences.cameraId !== preferences.cameraId) {
+          await callRtcClient.switchCamera(preferences.cameraId);
+        }
+      }
+
+      appliedCallDevicePreferencesRef.current = preferences;
+    },
+    [],
+  );
+
+  const syncCallDevices = useCallback(
+    async ({ overridePreferences, applyToActiveRtc = false, notifyFallback = false }: SyncCallDevicesOptions = {}) => {
+      setIsLoadingCallDevices(true);
+
+      try {
+        const inventory = await listCallDevices();
+        setAvailableCallDevices(inventory);
+
+        const nextPreferences = overridePreferences ?? callDevicePreferences;
+        const resolution = resolveCallDevicePreferences(nextPreferences, inventory);
+
+        if (
+          resolution.persisted.microphoneId !== nextPreferences.microphoneId ||
+          resolution.persisted.speakerId !== nextPreferences.speakerId ||
+          resolution.persisted.cameraId !== nextPreferences.cameraId
+        ) {
+          dispatch(setCallDevicePreferences(resolution.persisted));
+        }
+
+        if (applyToActiveRtc) {
+          await applyResolvedCallDevicesToActiveRtc(resolution.applied);
+        } else {
+          callRtcClient.setPreferredDevices(resolution.applied);
+          appliedCallDevicePreferencesRef.current = resolution.applied;
+        }
+
+        if (notifyFallback && resolution.fallbackKinds.length > 0) {
+          const fallbackLabel = resolution.fallbackKinds
+            .map((kind) => CALL_DEVICE_LABEL_BY_KIND[kind].toLowerCase())
+            .join(', ');
+          toast.info(`${fallbackLabel} đã lưu không còn sẵn. Đang dùng thiết bị mặc định hệ thống.`);
+        }
+
+        return {
+          inventory,
+          resolution,
+        };
+      } finally {
+        setIsLoadingCallDevices(false);
+      }
+    },
+    [applyResolvedCallDevicesToActiveRtc, callDevicePreferences, dispatch],
+  );
+
+  const handleDeviceEnvironmentChange = useEffectEvent(() => {
+    void syncCallDevices({
+      applyToActiveRtc: Boolean(currentCallRef.current),
+      notifyFallback: true,
+    });
+  });
+
+  useEffect(() => {
+    void syncCallDevices();
+  }, [syncCallDevices]);
+
+  useEffect(() => {
+    if (typeof navigator === 'undefined' || !navigator.mediaDevices?.addEventListener) {
+      return;
+    }
+
+    const previousCameraChanged = AgoraRTC.onCameraChanged;
+    const previousMicrophoneChanged = AgoraRTC.onMicrophoneChanged;
+    const previousPlaybackDeviceChanged = AgoraRTC.onPlaybackDeviceChanged;
+
+    const handleNativeDeviceChange = () => {
+      handleDeviceEnvironmentChange();
+    };
+
+    navigator.mediaDevices.addEventListener('devicechange', handleNativeDeviceChange);
+    AgoraRTC.onCameraChanged = (info) => {
+      previousCameraChanged?.(info);
+      handleDeviceEnvironmentChange();
+    };
+    AgoraRTC.onMicrophoneChanged = (info) => {
+      previousMicrophoneChanged?.(info);
+      handleDeviceEnvironmentChange();
+    };
+    AgoraRTC.onPlaybackDeviceChanged = (info) => {
+      previousPlaybackDeviceChanged?.(info);
+      handleDeviceEnvironmentChange();
+    };
+
+    return () => {
+      navigator.mediaDevices.removeEventListener('devicechange', handleNativeDeviceChange);
+      AgoraRTC.onCameraChanged = previousCameraChanged;
+      AgoraRTC.onMicrophoneChanged = previousMicrophoneChanged;
+      AgoraRTC.onPlaybackDeviceChanged = previousPlaybackDeviceChanged;
+    };
+  }, []);
 
   useEffect(() => {
     callRtcClient.configure({
@@ -203,7 +385,7 @@ const useCallRoomActions = () => {
           const tokenResponse = await issueCallToken({
             chatRoomId: activeCall.chatRoomId,
             sessionId: activeCall.sessionId,
-            publisher: true,
+            publisher: resolveCurrentParticipantPublisher(activeCall),
           }).unwrap();
 
           return tokenResponse.data?.token ?? null;
@@ -216,7 +398,7 @@ const useCallRoomActions = () => {
     return () => {
       callRtcClient.configure({});
     };
-  }, [dispatch, issueCallToken]);
+  }, [dispatch, issueCallToken, resolveCurrentParticipantPublisher]);
 
   const resolveRtcJoinParams = useCallback((targetCall: NonNullable<typeof currentCall>) => {
     const appId = targetCall.rtc?.appId ?? process.env.NEXT_PUBLIC_AGORA_APP_ID;
@@ -283,7 +465,7 @@ const useCallRoomActions = () => {
           const tokenResponse = await issueCallToken({
             chatRoomId: currentCall.chatRoomId,
             sessionId: currentCall.sessionId,
-            publisher: resolvePublisherFlag(currentCall.callType ?? CallTypeEnum.VOICE),
+            publisher: resolveCurrentParticipantPublisher(currentCall),
           }).unwrap();
 
           if (tokenResponse.data) {
@@ -313,6 +495,7 @@ const useCallRoomActions = () => {
 
     void (async () => {
       try {
+        await syncCallDevices();
         await callRtcClient.joinAndPublish(joinParams);
       } catch {
         activeRtcSessionIdRef.current = null;
@@ -323,8 +506,9 @@ const useCallRoomActions = () => {
     currentCall,
     dispatch,
     issueCallToken,
-    resolvePublisherFlag,
+    resolveCurrentParticipantPublisher,
     resolveRtcJoinParams,
+    syncCallDevices,
     user?.accountId,
   ]);
 
@@ -333,6 +517,51 @@ const useCallRoomActions = () => {
       void cleanupRtcSession();
     };
   }, [cleanupRtcSession]);
+
+  const handleSelectCallDevice = useCallback(
+    async (kind: CallDeviceKind, deviceId: string | null) => {
+      const key = CALL_DEVICE_KEY_BY_KIND[kind];
+      const previousValue = callDevicePreferences[key];
+      const nextPreferences: CallDevicePreferencesState = {
+        ...callDevicePreferences,
+        [key]: deviceId,
+      };
+
+      dispatch(
+        setCallDevicePreference({
+          key,
+          deviceId,
+        }),
+      );
+      setUpdatingCallDeviceKind(kind);
+
+      try {
+        await syncCallDevices({
+          overridePreferences: nextPreferences,
+          applyToActiveRtc: Boolean(currentCallRef.current),
+        });
+      } catch (error) {
+        console.error(`Failed to switch ${kind}:`, error);
+        dispatch(
+          setCallDevicePreference({
+            key,
+            deviceId: previousValue,
+          }),
+        );
+        await syncCallDevices({
+          overridePreferences: {
+            ...callDevicePreferences,
+            [key]: previousValue,
+          },
+          applyToActiveRtc: Boolean(currentCallRef.current),
+        });
+        toast.error(`Không thể đổi ${CALL_DEVICE_LABEL_BY_KIND[kind].toLowerCase()} lúc này.`);
+      } finally {
+        setUpdatingCallDeviceKind(null);
+      }
+    },
+    [callDevicePreferences, dispatch, syncCallDevices],
+  );
 
   const handleStartCall = useCallback(
     async (chatRoomId: number, callType: CallTypeEnum) => {
@@ -476,7 +705,7 @@ const useCallRoomActions = () => {
     } catch (error) {
       console.error('Failed to leave call:', error);
       dispatch(setCallError('Không thể rời cuộc gọi.'));
-      toast.error('Không thể rời cuộc gọi. Vui lòng thử lại.');
+      toast.error('Không thể rời cuộc gọi.');
     }
   }, [cleanupRtcSession, currentCall, dispatch, leaveCall]);
 
@@ -550,12 +779,17 @@ const useCallRoomActions = () => {
     isDecliningCall: isDecliningCallMutation,
     isLeavingCall,
     isEndingCall,
+    availableCallDevices,
+    selectedCallDevices: callDevicePreferences,
+    isLoadingCallDevices,
+    updatingCallDeviceKind,
     handleStartCall,
     handleAcceptIncomingCall,
     handleJoinCallSession,
     handleDeclineIncomingCall,
     handleEndCall,
     handleLeaveCall,
+    handleSelectCallDevice,
     bindRtcContainers,
     bindParticipantVideoContainer,
     handleToggleLocalAudio,

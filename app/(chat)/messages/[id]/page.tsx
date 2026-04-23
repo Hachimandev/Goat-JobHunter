@@ -68,10 +68,15 @@ export default function ChatRoomPage() {
     remoteVideoActive,
     isLeavingCall,
     isEndingCall,
+    availableCallDevices,
+    selectedCallDevices,
+    isLoadingCallDevices,
+    updatingCallDeviceKind,
     handleStartCall,
     handleEndCall,
     handleLeaveCall,
     handleJoinCallSession,
+    handleSelectCallDevice,
     handleToggleLocalAudio,
     handleToggleLocalVideo,
     bindRtcContainers,
@@ -537,6 +542,11 @@ export default function ChatRoomPage() {
           handleCloseCallAction={handleCloseCallAction}
           handleToggleLocalAudio={handleToggleLocalAudio}
           handleToggleLocalVideo={handleToggleLocalVideo}
+          availableCallDevices={availableCallDevices}
+          selectedCallDevices={selectedCallDevices}
+          isLoadingCallDevices={isLoadingCallDevices}
+          updatingCallDeviceKind={updatingCallDeviceKind}
+          handleSelectCallDevice={handleSelectCallDevice}
           bindRtcContainers={bindRtcContainers}
           bindParticipantVideoContainer={bindParticipantVideoContainer}
         />
