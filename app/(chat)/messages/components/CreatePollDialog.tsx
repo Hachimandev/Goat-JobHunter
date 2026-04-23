@@ -12,6 +12,7 @@ import { useCreatePollMutation } from '@/services/poll/pollApi';
 import { toast } from 'sonner';
 import { IBackendError } from '@/types/api';
 import dayjs from 'dayjs';
+import { Label } from '@/components/ui/label';
 
 interface CreatePollDialogProps {
   open: boolean;
@@ -87,13 +88,13 @@ export default function CreatePollDialog({ open, onOpenChange, chatRoomId }: Rea
         <div className="flex gap-4 p-5">
           <div className="flex-1 space-y-4">
             <div>
-              <label className="text-sm font-bold text-primary">Chủ đề bình chọn</label>
+              <Label className="text-sm font-bold">Chủ đề bình chọn</Label>
               <div className="relative mt-2">
                 <Textarea
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
                   placeholder="Đặt câu hỏi bình chọn"
-                  className="rounded-md h-30 w-130"
+                  className="rounded-xl h-30 w-130"
                   maxLength={200}
                 />
                 <div className="absolute right-10 bottom-2 text-xs text-muted-foreground">{titleChars}/200</div>
@@ -101,7 +102,7 @@ export default function CreatePollDialog({ open, onOpenChange, chatRoomId }: Rea
             </div>
 
             <div>
-              <label className="text-sm font-bold text-primary">Các lựa chọn</label>
+              <Label className="text-sm font-bold">Các lựa chọn</Label>
               <div className="mt-2">
                 <div className="space-y-2 max-h-60 overflow-y-auto pr-2">
                   {options.map((opt, idx) => (
@@ -110,7 +111,7 @@ export default function CreatePollDialog({ open, onOpenChange, chatRoomId }: Rea
                         value={opt}
                         onChange={(e) => updateOption(idx, e.target.value)}
                         placeholder={`Lựa chọn ${idx + 1}`}
-                        className="rounded-md w-130"
+                        className="rounded-xl w-130 focus:ring-0 focus-visible:ring-0"
                       />
                       {options.length > 2 && idx !== 0 && idx !== 1 && (
                         <div
@@ -125,12 +126,12 @@ export default function CreatePollDialog({ open, onOpenChange, chatRoomId }: Rea
                   ))}
                 </div>
 
-                <div className="flex items-center justify-between mt-2 w-130">
+                <div className="flex items-center justify-between mt-4 w-130">
                   <Button
-                    variant="link"
+                    variant="outline"
                     size="sm"
                     onClick={addOption}
-                    className="px-0 has-[>svg]:px-0"
+                    className="px-2! has-[>svg]:px-0 text-primary hover:text-primary border-primary rounded-xl"
                     disabled={options.length >= 10}
                   >
                     <Plus className="h-4 w-4" /> Thêm lựa chọn
@@ -143,7 +144,7 @@ export default function CreatePollDialog({ open, onOpenChange, chatRoomId }: Rea
 
           <div className="w-72 shrink-0 space-y-4">
             <div className="h-40">
-              <label className="text-sm font-bold text-primary">Thời hạn bình chọn</label>
+              <Label className="text-sm font-bold">Thời hạn bình chọn</Label>
               <div className="mt-2">
                 <DatePicker
                   value={deadline}
@@ -155,7 +156,7 @@ export default function CreatePollDialog({ open, onOpenChange, chatRoomId }: Rea
             </div>
 
             <div>
-              <div className="text-sm font-bold text-primary mb-2">Thiết lập nâng cao</div>
+              <div className="text-sm font-bold mb-2">Thiết lập nâng cao</div>
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <div className="text-sm">Ghim lên đầu trò chuyện</div>
@@ -190,10 +191,10 @@ export default function CreatePollDialog({ open, onOpenChange, chatRoomId }: Rea
           <div className="flex w-full items-center justify-between gap-4">
             <div />
             <div className="flex items-center gap-2">
-              <Button variant="ghost" onClick={() => onOpenChange(false)}>
+              <Button variant="destructive" className="rounded-xl" onClick={() => onOpenChange(false)}>
                 Hủy
               </Button>
-              <Button onClick={handleCreate} disabled={!canCreate || isCreating}>
+              <Button onClick={handleCreate} className="rounded-xl" disabled={!canCreate || isCreating}>
                 {isCreating ? 'Đang tạo...' : 'Tạo bình chọn'}
               </Button>
             </div>

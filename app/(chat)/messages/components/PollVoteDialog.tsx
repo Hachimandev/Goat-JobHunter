@@ -18,7 +18,7 @@ import { useUser } from '@/hooks/useUser';
 import { isCompanyResponse } from '@/utils/slug';
 import { CompanyResponse, MeResponse, UserResponse } from '@/types/dto';
 import { useAddOptionsMutation, useClosePollMutation } from '@/services/poll/pollApi';
-import { text } from 'stream/consumers';
+import { Input } from '@/components/ui/input';
 
 interface PollVoteDialogProps {
   open: boolean;
@@ -419,8 +419,8 @@ export default function PollVoteDialog({ open, onOpenChange, poll }: Readonly<Po
                             <div
                               className={
                                 percent > 0
-                                  ? 'text-sm font-bold text-white truncate absolute top-2 left-1 p-1 transition-colors duration-300'
-                                  : 'text-sm font-bold text-primary truncate absolute top-2 left-1 p-1 transition-colors duration-300'
+                                  ? 'text-sm text-white truncate absolute top-2 left-1 p-1 transition-colors duration-300'
+                                  : 'text-sm text-primary truncate absolute top-2 left-1 p-1 transition-colors duration-300'
                               }
                             >
                               {opt.text}
@@ -484,7 +484,7 @@ export default function PollVoteDialog({ open, onOpenChange, poll }: Readonly<Po
                             {newOpt.text ? (
                               <span className="text-sm font-bold text-primary truncate">{newOpt.text}</span>
                             ) : (
-                              <input
+                              <Input
                                 type="text"
                                 placeholder="Nhập lựa chọn..."
                                 value={newOpt.text}
@@ -518,15 +518,17 @@ export default function PollVoteDialog({ open, onOpenChange, poll }: Readonly<Po
           </div>
 
           {poll.allowAddOption && !poll.isClosed && poll.options.length + newOptions.length < 10 && (
-            <div
-              className="font-bold text-primary cursor-pointer flex items-center gap-2 hover:opacity-80 transition-opacity mt-4"
+            <Button
+              className="rounded-xl w-full text-primary cursor-pointer"
+              size="sm"
+              variant="secondary"
               onClick={() => {
                 const newId = `new-${Date.now()}`;
                 setNewOptions((prev) => [...prev, { id: newId, text: '' }]);
               }}
             >
               + Thêm lựa chọn
-            </div>
+            </Button>
           )}
         </div>
 
@@ -566,11 +568,17 @@ export default function PollVoteDialog({ open, onOpenChange, poll }: Readonly<Po
             )}
           </div>
           <div className="flex w-full items-center justify-end gap-2">
-            <Button variant="ghost" onClick={() => onOpenChange(false)} disabled={isVoting || isAddingOptions}>
+            <Button
+              variant="destructive"
+              className="rounded-xl"
+              size="sm"
+              onClick={() => onOpenChange(false)}
+              disabled={isVoting || isAddingOptions}
+            >
               Đóng
             </Button>
             {!poll.isClosed && (
-              <Button onClick={handleConfirm} disabled={isVoting || isAddingOptions}>
+              <Button onClick={handleConfirm} disabled={isVoting || isAddingOptions} className="rounded-xl" size="sm">
                 {isVoting || isAddingOptions ? 'Đang gửi...' : 'Xác nhận'}
               </Button>
             )}

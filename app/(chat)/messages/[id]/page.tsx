@@ -230,7 +230,7 @@ export default function ChatRoomPage() {
   const isActiveGroupCall = activeCallRoomType === ChatRoomType.GROUP;
   const isCurrentUserCallInitiator = Boolean(currentCall?.initiatorAccountId === user?.accountId);
   const canCurrentUserEndActiveCall = Boolean(!isActiveGroupCall || isCurrentUserCallInitiator);
-  const canCurrentUserLeaveActiveCall = Boolean(currentCall);
+  const canCurrentUserLeaveActiveCall = Boolean(currentCall) && currentCall?.chatRoomType === ChatRoomType.GROUP;
 
   const handleJoinOngoingGroupCall = useCallback(async () => {
     if (!ongoingGroupCall || isJoiningOngoingCall) {
@@ -420,7 +420,7 @@ export default function ChatRoomPage() {
   if (isLoadingInitialMessages || isLoadingChatRoom) {
     return (
       <div className="flex-1 flex items-center justify-center bg-background">
-        <Loader2 className="animate-spin" />
+        <Loader2 className="animate-spin mr-2" />
         <p className="text-muted-foreground">Đang tải...</p>
       </div>
     );

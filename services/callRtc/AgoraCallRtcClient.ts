@@ -138,6 +138,7 @@ class AgoraCallRtcClient {
         console.log('Token length in client side what is used in join function: ', tokenLength);
         console.log('joinAndPublish info: ', { appId, channelName, uid, tokenLength });
 
+        await this.cleanupLocalTracks();
         this.state.uid = await client.join(appId, channelName, token, uid);
 
         const audioTrack = await this.createLocalAudioTrack();
@@ -154,6 +155,7 @@ class AgoraCallRtcClient {
         this.connectionState = 'failed';
         this.emitConnectionState('failed');
         this.callbacks.onError?.('Không thể kết nối media cuộc gọi.', sessionId);
+        await this.cleanupLocalTracks();
         await this.cleanupInternal();
 
         console.log('error in joinAndPublish in AgoraCallRtcClient :', error);
@@ -279,21 +281,17 @@ class AgoraCallRtcClient {
   };
 
   private cleanupInternal = async () => {
-    const { client, localAudioTrack, localVideoTrack, preferredDevices } = this.state;
+    const { client, preferredDevices } = this.state;
 
-    if (localAudioTrack) {
-      localAudioTrack.stop();
-      localAudioTrack.close();
-    }
-
-    if (localVideoTrack) {
-      localVideoTrack.stop();
-      localVideoTrack.close();
-    }
+    await this.cleanupLocalTracks();
 
     if (client) {
       client.removeAllListeners();
-      await client.leave();
+      try {
+        await client.leave();
+      } catch (error) {
+        console.warn('Unable to leave Agora client cleanly during cleanup:', error);
+      }
     }
 
     this.state = {
@@ -336,6 +334,42 @@ class AgoraCallRtcClient {
       AGC: true,
       ...(this.state.preferredDevices.microphoneId ? { microphoneId: this.state.preferredDevices.microphoneId } : {}),
     });
+  };
+
+  private cleanupLocalTracks = async () => {
+    const { localAudioTrack, localVideoTrack } = this.state;
+
+    if (localVideoTrack) {
+      try {
+        localVideoTrack.stop();
+      } catch (error) {
+        console.warn('Unable to stop local video track during cleanup:', error);
+      }
+
+      try {
+        localVideoTrack.close();
+      } catch (error) {
+        console.warn('Unable to close local video track during cleanup:', error);
+      }
+
+      this.state.localVideoTrack = null;
+    }
+
+    if (localAudioTrack) {
+      try {
+        localAudioTrack.stop();
+      } catch (error) {
+        console.warn('Unable to stop local audio track during cleanup:', error);
+      }
+
+      try {
+        localAudioTrack.close();
+      } catch (error) {
+        console.warn('Unable to close local audio track during cleanup:', error);
+      }
+
+      this.state.localAudioTrack = null;
+    }
   };
 
   private createLocalVideoTrack = async () => {
