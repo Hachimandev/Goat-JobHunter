@@ -573,6 +573,33 @@ public class AiServiceImpl implements AiService {
         );
     }
 
+    @Override
+    public String summarizeMessagesWithAi(String messageContent) throws InvalidException {
+        String prompt = String.format(
+                """
+                Bạn là trợ lý AI hỗ trợ tóm tắt cuộc trò chuyện.
+                Hãy tóm tắt những tin nhắn sau một cách ngắn gọn, dễ hiểu (tối đa 150 từ).
+                Chỉ trả về tóm tắt, không thêm bất kỳ giải thích hoặc định dạng khác.
+                Viết bằng Tiếng Việt.
+                
+                Các tin nhắn:
+                %s
+                """,
+                messageContent
+        );
+
+        try {
+            GenerateContentResponse response = this.client.models
+                    .generateContent(model, prompt, null);
+
+            String summary = response.text();
+            return summary != null && !summary.isBlank() ? summary : "Không thể tóm tắt được.";
+        } catch (Exception e) {
+            log.error("Error calling AI service: {}", e.getMessage());
+            throw new InvalidException("Không thể tóm tắt tin nhắn. Vui lòng thử lại sau.");
+        }
+    }
+
     private ResumeEvaluationAiResponse evaluateResumeByUrl(String resumeUrl) throws InvalidException {
         String prompt = """
         Bạn là chuyên gia HR chuyên nghiệp.
@@ -973,7 +1000,6 @@ public class AiServiceImpl implements AiService {
 
             return response.text();
         } catch (Exception e) {
-            e.printStackTrace();
             return "Xin lỗi, hiện tại tôi không thể xử lý yêu cầu. Vui lòng thử lại sau.";
         }
     }

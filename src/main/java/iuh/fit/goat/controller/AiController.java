@@ -6,11 +6,16 @@ import iuh.fit.goat.dto.request.conversation.ConversationCreateRequest;
 import iuh.fit.goat.dto.request.conversation.ConversationPinUpdateRequest;
 import iuh.fit.goat.dto.request.conversation.ConversationTitleUpdateRequest;
 import iuh.fit.goat.dto.response.ResultPaginationResponse;
+import iuh.fit.goat.dto.response.chat.MessageSummaryResponse;
 import iuh.fit.goat.dto.response.conversation.ConversationPinnedResponse;
 import iuh.fit.goat.dto.response.conversation.ConversationResponse;
+import iuh.fit.goat.entity.Account;
 import iuh.fit.goat.exception.InvalidException;
+import iuh.fit.goat.service.AccountService;
 import iuh.fit.goat.service.AiService;
+import iuh.fit.goat.service.ChatRoomService;
 import iuh.fit.goat.service.ConversationService;
+import iuh.fit.goat.util.SecurityUtil;
 import iuh.fit.goat.util.annotation.ApiMessage;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -27,6 +32,8 @@ import java.util.List;
 public class AiController {
     private final AiService aiService;
     private final ConversationService conversationService;
+    private final AccountService accountService;
+    private final ChatRoomService chatRoomService;
 
     @PostMapping("/chat")
     public ResponseEntity<String> chatWithAi(@Valid @RequestBody ChatRequest request) throws InvalidException {
@@ -93,6 +100,17 @@ public class AiController {
             Pageable pageable
     ) throws InvalidException {
         ResultPaginationResponse response = this.conversationService.getConversationMessages(conversationId, pageable);
+        return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/chatRooms/{id}/unread-summary")
+    public ResponseEntity<MessageSummaryResponse> getUnreadMessagesSummary(@PathVariable Long id) throws InvalidException {
+        String email = SecurityUtil.getCurrentUserLogin().orElseThrow(() -> new InvalidException("User not authenticated"));
+
+        Account currentAccount = this.accountService.handleGetAccountByEmail(email);
+        if (currentAccount == null) throw new InvalidException("User not found");
+
+        MessageSummaryResponse response = this.chatRoomService.getUnreadMessagesSummary(currentAccount, id);
         return ResponseEntity.ok(response);
     }
 }

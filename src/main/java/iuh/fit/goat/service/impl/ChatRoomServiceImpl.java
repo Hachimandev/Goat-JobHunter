@@ -7,6 +7,7 @@ import iuh.fit.goat.dto.request.message.MessageToNewChatRoom;
 import iuh.fit.goat.dto.response.chat.ChatRoomResponse;
 import iuh.fit.goat.dto.response.ResultPaginationResponse;
 import iuh.fit.goat.dto.response.chat.GroupMemberResponse;
+import iuh.fit.goat.dto.response.chat.MessageSummaryResponse;
 import iuh.fit.goat.dto.response.chat.UnreadMessageResponse;
 import iuh.fit.goat.entity.*;
 import iuh.fit.goat.enumeration.ChatRole;
@@ -19,12 +20,13 @@ import iuh.fit.goat.exception.InvalidException;
 import iuh.fit.goat.repository.AccountRepository;
 import iuh.fit.goat.repository.ChatMemberRepository;
 import iuh.fit.goat.repository.ChatRoomRepository;
+import iuh.fit.goat.repository.MessageRepository;
 import iuh.fit.goat.repository.UserRelationshipRepository;
+import iuh.fit.goat.service.AiService;
 import iuh.fit.goat.service.ChatRoomService;
 import iuh.fit.goat.service.MessageService;
 import iuh.fit.goat.service.NotificationService;
 import iuh.fit.goat.util.EntityUtil;
-import iuh.fit.goat.util.MessageHelper;
 import iuh.fit.goat.util.SecurityUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -44,11 +46,15 @@ import java.util.*;
 public class ChatRoomServiceImpl implements ChatRoomService {
     private final MessageService messageService;
     private final NotificationService notificationService;
+    private final AiService aiService;
 
     private final ChatRoomRepository chatRoomRepository;
     private final ChatMemberRepository chatMemberRepository;
     private final AccountRepository accountRepository;
     private final UserRelationshipRepository userRelationshipRepository;
+    private final MessageRepository messageRepository;
+
+    private final int SUMMARY_THRESHOLD = 10;
 
     @Override
     @Transactional(readOnly = true)
@@ -648,7 +654,44 @@ public class ChatRoomServiceImpl implements ChatRoomService {
                 Math.max(member.getUnreadCount(), 0L)
             ))
             .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public MessageSummaryResponse getUnreadMessagesSummary(Account currentAccount, Long chatRoomId) throws InvalidException {
+        ChatRoom chatRoom = this.chatRoomRepository.findByRoomId(chatRoomId)
+                .orElseThrow(() -> new InvalidException("Chat room not found"));
+        getCurrentMemberInChatRoom(chatRoom, currentAccount.getAccountId());
+
+        ChatMember currentMember = getCurrentMemberInChatRoom(chatRoom, currentAccount.getAccountId());
+        long unreadCount = currentMember.getUnreadCount();
+
+        MessageSummaryResponse.MessageSummaryResponseBuilder builder = MessageSummaryResponse.builder()
+                .chatRoomId(chatRoomId)
+                .unreadCount(unreadCount)
+                .isSummarized(false)
+                .summary("");
+
+        if (unreadCount < SUMMARY_THRESHOLD) return builder.build();
+
+        try {
+            String lastReadMessageSk = currentMember.getLastReadMessageSk();
+            List<Message> unreadMessages = fetchUnreadMessages(chatRoomId, lastReadMessageSk);
+
+            if (unreadMessages.isEmpty())  return builder.build();
+
+            String messagesToSummarize = buildMessageContent(unreadMessages);
+
+            String summary = this.aiService.summarizeMessagesWithAi(messagesToSummarize);
+
+            builder.isSummarized(true).summary(summary);
+        } catch (Exception e) {
+            log.error("Error summarizing messages for chatRoom {}: {}", chatRoomId, e.getMessage());
+            return builder.isSummarized(false).build();
         }
+
+        return builder.build();
+    }
 
     // =============== HELPER METHODS FOR GROUP CHAT ====================
 
@@ -1101,5 +1144,39 @@ public class ChatRoomServiceImpl implements ChatRoomService {
     }
 
     private record BlockStatus(boolean blocked, boolean blockedByMe, Long counterpartAccountId) {
+    }
+
+    private List<Message> fetchUnreadMessages(Long chatRoomId, String lastReadMessageSk) {
+        List<Message> allMessages = this.messageRepository.findMessagesByChatRoom(
+                chatRoomId.toString(),
+                100,
+                false
+        );
+
+        if (lastReadMessageSk == null || lastReadMessageSk.isBlank()) return allMessages;
+
+        return allMessages.stream()
+                .filter(msg -> msg.getMessageSk() != null && msg.getMessageSk().compareTo(lastReadMessageSk) > 0)
+                .toList();
+    }
+
+    private String buildMessageContent(List<Message> messages) {
+        StringBuilder sb = new StringBuilder();
+
+        messages.stream()
+                .sorted((m1, m2) -> {
+                    if (m1.getMessageSk() == null || m2.getMessageSk() == null) return 0;
+                    return m1.getMessageSk().compareTo(m2.getMessageSk());
+                })
+                .forEach(msg -> {
+                    String senderName = msg.getSender() != null && msg.getSender().getFullName() != null
+                            ? msg.getSender().getFullName()
+                            : "Unknown";
+                    String content = msg.getContent() != null ? msg.getContent() : "[Media/File/Poll]";
+
+                    sb.append(senderName).append(": ").append(content).append("\n");
+                });
+
+        return sb.toString();
     }
 }

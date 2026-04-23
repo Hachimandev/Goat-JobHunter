@@ -18,10 +18,7 @@ import iuh.fit.goat.exception.ConflictException;
 import iuh.fit.goat.exception.InvalidException;
 import iuh.fit.goat.exception.NotFoundException;
 import iuh.fit.goat.exception.PermissionException;
-import iuh.fit.goat.service.AccountService;
-import iuh.fit.goat.service.ChatRoomService;
-import iuh.fit.goat.service.MessageService;
-import iuh.fit.goat.service.PinnedMessageService;
+import iuh.fit.goat.service.*;
 import iuh.fit.goat.util.SecurityUtil;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -61,6 +58,7 @@ public class ChatRoomController {
         }
 
         ResultPaginationResponse response = this.chatRoomService.getMyChatRooms(currentAccount.getAccountId(), pageable);
+
         return ResponseEntity.ok(response);
     }
 
@@ -81,6 +79,7 @@ public class ChatRoomController {
         }
 
         ChatRoomResponse response = this.chatRoomService.getDetailChatRoomInformation(currentAccount, id);
+
         return ResponseEntity.ok(response);
     }
 
@@ -338,7 +337,6 @@ public class ChatRoomController {
         }
 
         throw new InvalidException("At least one file or text content is required");
-//        return this.messageService.sendMessage(id, request, currentUser);
     }
 
     @PostMapping("/{id}/messages/contact")
