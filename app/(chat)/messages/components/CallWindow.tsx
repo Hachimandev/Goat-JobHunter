@@ -39,8 +39,11 @@ type CallWindowProps = {
   chatRoomName: string;
   chatRoomAvatar?: string | null;
   isEndingCall: boolean;
+  isLeavingCall: boolean;
   canCurrentUserEndCall: boolean;
-  handleCloseCallAction: () => Promise<void> | void;
+  canCurrentUserLeaveCall: boolean;
+  handleEndCallAction: () => Promise<void> | void;
+  handleLeaveCallAction: () => Promise<void> | void;
   handleToggleLocalAudio: () => Promise<void> | void;
   handleToggleLocalVideo: () => Promise<void> | void;
   availableCallDevices: CallDeviceInventory;
@@ -69,8 +72,11 @@ export function CallWindow({
   chatRoomName,
   chatRoomAvatar,
   isEndingCall,
+  isLeavingCall,
   canCurrentUserEndCall,
-  handleCloseCallAction,
+  canCurrentUserLeaveCall,
+  handleEndCallAction,
+  handleLeaveCallAction,
   handleToggleLocalAudio,
   handleToggleLocalVideo,
   availableCallDevices,
@@ -471,18 +477,35 @@ export function CallWindow({
           </Button>
         )}
 
-        <Button
-          variant="destructive"
-          size="icon"
-          className="rounded-full"
-          disabled={isEndingCall}
-          title={canCurrentUserEndCall ? 'Kết thúc cuộc gọi' : 'Rời cuộc gọi'}
-          onClick={() => {
-            void handleCloseCallAction();
-          }}
-        >
-          {canCurrentUserEndCall ? <PhoneOff /> : <DoorOpen />}
-        </Button>
+        {canCurrentUserLeaveCall && (
+          <Button
+            variant={canCurrentUserEndCall ? 'secondary' : 'destructive'}
+            size="icon"
+            className="rounded-full"
+            disabled={isLeavingCall}
+            title="Rời cuộc gọi"
+            onClick={() => {
+              void handleLeaveCallAction();
+            }}
+          >
+            <DoorOpen />
+          </Button>
+        )}
+
+        {canCurrentUserEndCall && (
+          <Button
+            variant="destructive"
+            size="icon"
+            className="rounded-full"
+            disabled={isEndingCall}
+            title="Kết thúc cuộc gọi"
+            onClick={() => {
+              void handleEndCallAction();
+            }}
+          >
+            <PhoneOff />
+          </Button>
+        )}
       </div>
 
       <CallDeviceSettingsDialog

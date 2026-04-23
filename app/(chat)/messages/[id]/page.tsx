@@ -227,19 +227,10 @@ export default function ChatRoomPage() {
   const activeCallRoomType = currentCall?.chatRoomType || currentChatRoom?.type;
   const activeCallRoomName = currentCall?.chatRoomName || currentChatRoom?.name;
   const activeCallRoomAvatar = currentCall?.chatRoomAvatar || currentChatRoom?.avatar || null;
-  const canCurrentUserEndActiveCall = Boolean(
-    activeCallRoomType !== ChatRoomType.GROUP || currentCall?.initiatorAccountId === user?.accountId,
-  );
-  const isClosingCall = canCurrentUserEndActiveCall ? isEndingCall : isLeavingCall;
-
-  const handleCloseCallAction = useCallback(async () => {
-    if (canCurrentUserEndActiveCall) {
-      await handleEndCall();
-      return;
-    }
-
-    await handleLeaveCall();
-  }, [canCurrentUserEndActiveCall, handleEndCall, handleLeaveCall]);
+  const isActiveGroupCall = activeCallRoomType === ChatRoomType.GROUP;
+  const isCurrentUserCallInitiator = Boolean(currentCall?.initiatorAccountId === user?.accountId);
+  const canCurrentUserEndActiveCall = Boolean(!isActiveGroupCall || isCurrentUserCallInitiator);
+  const canCurrentUserLeaveActiveCall = Boolean(currentCall);
 
   const handleJoinOngoingGroupCall = useCallback(async () => {
     if (!ongoingGroupCall || isJoiningOngoingCall) {
@@ -537,9 +528,12 @@ export default function ChatRoomPage() {
           chatRoomType={activeCallRoomType}
           chatRoomName={activeCallRoomName}
           chatRoomAvatar={activeCallRoomAvatar}
-          isEndingCall={isClosingCall}
+          isEndingCall={isEndingCall}
+          isLeavingCall={isLeavingCall}
           canCurrentUserEndCall={canCurrentUserEndActiveCall}
-          handleCloseCallAction={handleCloseCallAction}
+          canCurrentUserLeaveCall={canCurrentUserLeaveActiveCall}
+          handleEndCallAction={handleEndCall}
+          handleLeaveCallAction={handleLeaveCall}
           handleToggleLocalAudio={handleToggleLocalAudio}
           handleToggleLocalVideo={handleToggleLocalVideo}
           availableCallDevices={availableCallDevices}
