@@ -148,7 +148,7 @@ public class ChatCallServiceImpl implements ChatCallService {
         participant.setDeclined(false);
         this.chatCallParticipantRepository.save(participant);
 
-        if (!isGroupCall(session) && countActiveParticipants(sessionId) == 0) {
+        if (countActiveParticipants(sessionId) == 0) {
             session.setStatus(ChatCallSessionStatus.ENDED);
             session.setEndReason(ChatCallEndReason.HANGUP);
             session.setEndedAt(Instant.now());

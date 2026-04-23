@@ -198,6 +198,88 @@ class ChatCallServiceImplTest {
     }
 
     @Test
+    void leaveCall_shouldKeepGroupCallActiveWhenParticipantsRemain() throws Exception {
+        Account initiator = mock(Account.class);
+        when(initiator.getAccountId()).thenReturn(10L);
+
+        Account otherParticipantAccount = mock(Account.class);
+        when(otherParticipantAccount.getAccountId()).thenReturn(11L);
+
+        ChatRoom room = new ChatRoom();
+        room.setRoomId(99L);
+        room.setType(ChatRoomType.GROUP);
+
+        ChatCallSession session = new ChatCallSession();
+        session.setCallSessionId(123L);
+        session.setChatRoom(room);
+        session.setInitiator(initiator);
+        session.setStatus(ChatCallSessionStatus.ACTIVE);
+        session.setCallType(ChatCallType.VOICE);
+
+        ChatCallParticipant initiatorParticipant = new ChatCallParticipant();
+        initiatorParticipant.setSession(session);
+        initiatorParticipant.setAccount(initiator);
+        initiatorParticipant.setJoinedAt(Instant.now());
+
+        ChatCallParticipant otherParticipant = new ChatCallParticipant();
+        otherParticipant.setSession(session);
+        otherParticipant.setAccount(otherParticipantAccount);
+        otherParticipant.setJoinedAt(Instant.now());
+
+        when(this.chatRoomService.isUserInChatRoom(99L, 10L)).thenReturn(true);
+        when(this.chatCallSessionRepository.findByCallSessionIdAndDeletedAtIsNull(123L)).thenReturn(Optional.of(session));
+        when(this.chatCallParticipantRepository.findBySessionCallSessionIdAndAccountAccountIdAndDeletedAtIsNull(123L, 10L))
+                .thenReturn(Optional.of(initiatorParticipant));
+        when(this.chatCallParticipantRepository.findBySessionCallSessionIdAndDeletedAtIsNull(123L))
+                .thenReturn(List.of(initiatorParticipant, otherParticipant));
+        when(this.chatRoomService.getDetailChatRoomInformation(initiator, 99L))
+                .thenReturn(ChatRoomResponse.builder().roomId(99L).type(ChatRoomType.GROUP).name("Group").build());
+
+        ChatCallSessionResponse response = this.service.leaveCall(initiator, 99L, 123L);
+
+        assertEquals(ChatCallSessionStatus.ACTIVE, response.getStatus());
+        verify(this.chatCallSessionRepository, never()).save(any(ChatCallSession.class));
+        verify(this.messageService, never()).createAndSendCallMessage(any(Long.class), any(Account.class), any(ChatCallSession.class));
+    }
+
+    @Test
+    void leaveCall_shouldAutoEndGroupCallWhenLastParticipantLeaves() throws Exception {
+        Account account = mock(Account.class);
+        when(account.getAccountId()).thenReturn(10L);
+
+        ChatRoom room = new ChatRoom();
+        room.setRoomId(99L);
+        room.setType(ChatRoomType.GROUP);
+
+        ChatCallSession session = new ChatCallSession();
+        session.setCallSessionId(123L);
+        session.setChatRoom(room);
+        session.setInitiator(account);
+        session.setStatus(ChatCallSessionStatus.ACTIVE);
+        session.setCallType(ChatCallType.VOICE);
+
+        ChatCallParticipant participant = new ChatCallParticipant();
+        participant.setSession(session);
+        participant.setAccount(account);
+        participant.setJoinedAt(Instant.now());
+
+        when(this.chatRoomService.isUserInChatRoom(99L, 10L)).thenReturn(true);
+        when(this.chatCallSessionRepository.findByCallSessionIdAndDeletedAtIsNull(123L)).thenReturn(Optional.of(session));
+        when(this.chatCallParticipantRepository.findBySessionCallSessionIdAndAccountAccountIdAndDeletedAtIsNull(123L, 10L))
+                .thenReturn(Optional.of(participant));
+        when(this.chatCallParticipantRepository.findBySessionCallSessionIdAndDeletedAtIsNull(123L))
+                .thenReturn(List.of(participant));
+        when(this.chatCallSessionRepository.save(any(ChatCallSession.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(this.chatRoomService.getDetailChatRoomInformation(account, 99L))
+                .thenReturn(ChatRoomResponse.builder().roomId(99L).type(ChatRoomType.GROUP).name("Group").build());
+
+        ChatCallSessionResponse response = this.service.leaveCall(account, 99L, 123L);
+
+        assertEquals(ChatCallSessionStatus.ENDED, response.getStatus());
+        verify(this.messageService).createAndSendCallMessage(99L, account, session);
+    }
+
+    @Test
     void declineCall_shouldEndDirectCallWithNoAnswer() throws Exception {
         Account recipient = mock(Account.class);
         when(recipient.getAccountId()).thenReturn(11L);
