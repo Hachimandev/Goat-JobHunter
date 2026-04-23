@@ -230,7 +230,7 @@ export default function ChatRoomPage() {
   const isActiveGroupCall = activeCallRoomType === ChatRoomType.GROUP;
   const isCurrentUserCallInitiator = Boolean(currentCall?.initiatorAccountId === user?.accountId);
   const canCurrentUserEndActiveCall = Boolean(!isActiveGroupCall || isCurrentUserCallInitiator);
-  const canCurrentUserLeaveActiveCall = Boolean(currentCall);
+  const canCurrentUserLeaveActiveCall = Boolean(currentCall) && currentCall?.chatRoomType === ChatRoomType.GROUP;
 
   const handleJoinOngoingGroupCall = useCallback(async () => {
     if (!ongoingGroupCall || isJoiningOngoingCall) {
