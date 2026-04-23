@@ -16,6 +16,11 @@ public interface ChatCallParticipantRepository extends JpaRepository<ChatCallPar
             Long accountId
     );
 
+    Optional<ChatCallParticipant> findBySessionCallSessionIdAndAccountAccountIdAndLeftAtIsNullAndDeclinedFalseAndDeletedAtIsNull(
+            Long callSessionId,
+            Long accountId
+    );
+
         boolean existsByAccountAccountIdAndLeftAtIsNullAndDeletedAtIsNullAndSessionStatusInAndSessionDeletedAtIsNullAndSessionCallSessionIdNot(
             Long accountId,
             Collection<ChatCallSessionStatus> statuses,

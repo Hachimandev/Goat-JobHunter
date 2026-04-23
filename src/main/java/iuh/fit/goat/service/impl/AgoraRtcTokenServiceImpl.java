@@ -68,6 +68,13 @@ public class AgoraRtcTokenServiceImpl implements AgoraRtcTokenService {
             throw new InvalidException("Requested session does not match active call session");
         }
 
+        this.chatCallParticipantRepository
+                .findBySessionCallSessionIdAndAccountAccountIdAndLeftAtIsNullAndDeclinedFalseAndDeletedAtIsNull(
+                        activeSession.getCallSessionId(),
+                        currentAccount.getAccountId()
+                )
+                .orElseThrow(() -> new PermissionException("User is not an active participant in this call session"));
+
         String channelName = buildChannelName(chatRoomId, activeSession.getAgoraChannelName());
         ensureUidNotReusedAcrossActiveSessions(currentAccount.getAccountId(), activeSession.getCallSessionId());
         int uid = toAgoraUid(currentAccount.getAccountId(), activeSession.getCallSessionId(), channelName);
