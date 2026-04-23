@@ -420,7 +420,7 @@ export default function ChatRoomPage() {
   if (isLoadingInitialMessages || isLoadingChatRoom) {
     return (
       <div className="flex-1 flex items-center justify-center bg-background">
-        <Loader2 className="animate-spin" />
+        <Loader2 className="animate-spin mr-2" />
         <p className="text-muted-foreground">Đang tải...</p>
       </div>
     );

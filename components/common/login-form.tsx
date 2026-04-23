@@ -62,6 +62,27 @@ export function LoginForm({ className, ...props }: React.ComponentProps<'div'>) 
     }
   };
 
+  const loginWithCongHai = async () => {
+    onSubmit({
+      email: 'conghai.tpma@gmail.com',
+      password: '12345678x@X',
+    });
+  };
+
+  const loginWithHaiTruong = async () => {
+    onSubmit({
+      email: 'haitruong.tpma@gmail.com',
+      password: '12345678x@X',
+    });
+  };
+
+  const loginWithFedora = async () => {
+    onSubmit({
+      email: 'fedorasky215@gmail.com',
+      password: '12345678x@X',
+    });
+  };
+
   return (
     <div className={cn('flex flex-col gap-6 w-md', className)} {...props}>
       <Card>
@@ -135,6 +156,33 @@ export function LoginForm({ className, ...props }: React.ComponentProps<'div'>) 
               )}
               <Button type="submit" className="rounded-xl w-full" disabled={isSubmitting}>
                 {isSubmitting ? 'Đang đăng nhập...' : 'Đăng nhập'}
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                className="rounded-xl w-full"
+                disabled={isSubmitting}
+                onClick={loginWithCongHai}
+              >
+                Đăng nhập với account Conghai
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                className="rounded-xl w-full"
+                disabled={isSubmitting}
+                onClick={loginWithHaiTruong}
+              >
+                Đăng nhập với account Haitruong
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                className="rounded-xl w-full"
+                disabled={isSubmitting}
+                onClick={loginWithFedora}
+              >
+                Đăng nhập với account fedora
               </Button>
               <FieldDescription className="text-center text-gray-400">
                 Chưa có tài khoản?{' '}
