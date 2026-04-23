@@ -9,6 +9,7 @@ import FriendshipInviteToastListener from '@/components/common/FriendshipInviteT
 import MessageTextListener from '@/components/common/MessageTextListener';
 import './globals.css';
 import 'react-photo-album/styles.css';
+import UIGuardWrapper from '@/components/common/UIGuardWrapper';
 
 const geistSans = Geist({
   variable: '--font-geist-sans',
@@ -34,12 +35,14 @@ export default function RootLayout({
     <html lang="vi" suppressHydrationWarning>
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
         <ReduxProvider>
-          <NotificationListener />
-          <UserProfileRealtimeListener />
-          <FriendshipRealtimeListener />
-          <FriendshipInviteToastListener />
-          <MessageTextListener />
-          {children}
+          <UIGuardWrapper>
+            <NotificationListener />
+            <UserProfileRealtimeListener />
+            <FriendshipRealtimeListener />
+            <FriendshipInviteToastListener />
+            <MessageTextListener />
+            {children}
+          </UIGuardWrapper>
         </ReduxProvider>
         <Toaster position="top-right" duration={3000} />
       </body>

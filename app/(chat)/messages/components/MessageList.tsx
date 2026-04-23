@@ -170,10 +170,6 @@ export function MessageList({
     collapsedMapRef.current = collapsedMap;
   }, [collapsedMap]);
 
-  useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
-
   const resolveViewport = useCallback(() => {
     return scrollAreaContainerRef.current?.querySelector('[data-slot="scroll-area-viewport"]') as HTMLDivElement | null;
   }, []);
@@ -206,7 +202,16 @@ export function MessageList({
     if (!onLoadOlderMessages || !hasOlderMessages || isLoadingOlderMessages || hasTriggeredTopLoadRef.current) {
       return;
     }
-  }, [hasOlderMessages, isLoadingOlderMessages, onLoadOlderMessages, updateNearBottom]);
+
+    hasTriggeredTopLoadRef.current = true;
+    topLoadAnchorRef.current = {
+      scrollHeight: viewport.scrollHeight,
+      scrollTop: viewport.scrollTop,
+      messageCount: messages.length,
+    };
+
+    void onLoadOlderMessages();
+  }, [hasOlderMessages, isLoadingOlderMessages, messages.length, onLoadOlderMessages, updateNearBottom]);
 
   useEffect(() => {
     const viewport = resolveViewport();
@@ -223,28 +228,6 @@ export function MessageList({
       viewport.removeEventListener('scroll', handleScroll);
     };
   }, [handleScroll, resolveViewport, updateNearBottom]);
-
-  useEffect(() => {
-    if (isLoadingOlderMessages) {
-      return;
-    }
-
-    const viewport = viewportRef.current;
-    const topLoadAnchor = topLoadAnchorRef.current;
-
-    if (!viewport || !topLoadAnchor) {
-      return;
-    }
-
-    if (messages.length > topLoadAnchor.messageCount) {
-      const nextScrollTop = viewport.scrollHeight - topLoadAnchor.scrollHeight + topLoadAnchor.scrollTop;
-      viewport.scrollTop = Math.max(0, nextScrollTop);
-    }
-
-    topLoadAnchorRef.current = null;
-    hasTriggeredTopLoadRef.current = false;
-    updateNearBottom();
-  }, [isLoadingOlderMessages, messages.length, updateNearBottom]);
 
   useEffect(() => {
     if (isLoadingOlderMessages) {

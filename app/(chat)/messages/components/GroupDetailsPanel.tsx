@@ -141,7 +141,7 @@ export function GroupDetailsPanel({
         <div className="absolute inset-0 border-l border-border bg-card flex flex-col h-full min-h-0 z-0">
           <div className="h-16 border-b border-border flex items-center justify-between px-4 flex-none">
             <h2 className="font-semibold text-sm">Thông tin nhóm</h2>
-            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onClose}>
+            <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full" onClick={onClose}>
               <X className="h-5 w-5" />
             </Button>
           </div>

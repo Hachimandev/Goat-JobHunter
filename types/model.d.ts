@@ -1,6 +1,9 @@
 import {
   ApplicationStatus,
+  CallEndReasonEnum,
   ChatRoomType,
+  CallStatusEnum,
+  CallTypeEnum,
   CompanySize,
   Education,
   Gender,
@@ -376,6 +379,14 @@ export type MessageReplyContext = {
   originalMessageHidden: boolean;
 };
 
+export type MessageCallContext = {
+  sessionId: number;
+  startedAt?: string | null;
+  endedAt?: string | null;
+  durationSeconds?: number | null;
+  endReason?: CallEndReasonEnum | null;
+};
+
 export type MessageMediaItem = {
   url: string;
   mediaType: 'image' | 'video' | 'audio';
@@ -403,6 +414,7 @@ export type MessageType = {
   isForwarded?: boolean;
   originalMessageId?: string;
   contactCard?: ContactCardContext | null;
+  callContext?: MessageCallContext | null;
   createdAt: string;
   updatedAt: string;
   role?: MessageTypeRole; // temporary field to avoid error for build in chat container
@@ -421,6 +433,7 @@ export type MessageResponse = {
   isForwarded: boolean;
   originalMessageId?: string | null;
   contactCard?: ContactCardContext | null;
+  callContext?: MessageCallContext | null;
   createdAt: string; // Instant -> ISO string
   updatedAt: string; // Instant -> ISO string
 };
@@ -463,6 +476,58 @@ export type ChatRoom = {
   blockedByMe: boolean;
   counterpartAccountId: number;
   deletedAt?: string | null;
+};
+
+export type CallParticipant = {
+  account: {
+    accountId: number;
+    avatar?: string | null;
+    username: string;
+    fullName: string;
+    email: string;
+  };
+  publisher: boolean;
+  joinedAt: string;
+  leftAt?: string | null;
+};
+
+export type CallRtcCredentials = {
+  sessionId: number;
+  appId: string;
+  channelName: string;
+  token: string;
+  uid: number;
+  expiresAtEpochMs: number;
+  ttlSeconds: number;
+  publisher: boolean;
+};
+
+export type CallTokenResponse = {
+  sessionId: number;
+  appId: string;
+  channelName: string;
+  uid: number;
+  token: string;
+  expiresAtEpochMs: number;
+  ttlSeconds: number;
+  publisher: boolean;
+};
+
+export type CallSession = {
+  sessionId: number;
+  chatRoomId: number;
+  chatRoomType?: ChatRoomType;
+  chatRoomName?: string | null;
+  chatRoomAvatar?: string | null;
+  status: CallStatusEnum;
+  agoraChannelName: string;
+  initiatorAccountId: number;
+  startedAt: string;
+  endedAt?: string | null;
+  endReason?: CallEndReasonEnum | null;
+  participants: CallParticipant[];
+  callType?: CallTypeEnum;
+  rtc?: CallRtcCredentials;
 };
 
 export type Resume = {

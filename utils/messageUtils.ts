@@ -43,6 +43,10 @@ export const getMessageTypePreviewText = (messageType: MessageTypeEnum | null | 
     return '[Danh thiếp]';
   }
 
+  if (messageType === MessageTypeEnum.CALL) {
+    return '[Cuộc gọi]';
+  }
+
   return DEFAULT_TEXT_MESSAGE_PREVIEW;
 };
 

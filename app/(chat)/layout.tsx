@@ -7,6 +7,7 @@ import { SidebarNav } from '@/app/(chat)/SidebarNav';
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { PendingMessagesProvider } from '@/contexts/PendingMessagesContext';
+import CallRealtimeListener from '@/components/common/CallRealtimeListener';
 
 interface ChatLayoutProps {
   readonly children: React.ReactNode;
@@ -26,6 +27,7 @@ export default function ChatLayout({ children }: ChatLayoutProps) {
 
   return (
     <PendingMessagesProvider>
+      <CallRealtimeListener />
       <div className="h-screen flex overflow-hidden bg-gray-50">
         <SidebarNav />
 

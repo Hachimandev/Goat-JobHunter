@@ -11,7 +11,7 @@ import { MessageResponse } from '@/types/model';
 import { MessageTypeEnum } from '@/types/enum';
 import { useChatRooms } from '@/app/(chat)/messages/hooks/useChatRooms';
 import type { ForwardMessageSubmitResult } from '@/hooks/useChatRoomAndMessageActions';
-import { Loader2, Search, X, ImageIcon, Video, Music, FileText } from 'lucide-react';
+import { Loader2, Search, X, ImageIcon, Video, Music, FileText, PhoneOff } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { getMessagePreviewText } from '@/utils/messageUtils';
@@ -86,6 +86,8 @@ export function ForwardMessageModal({
             ? Video
             : message.messageType === MessageTypeEnum.AUDIO
               ? Music
+              : message.messageType === MessageTypeEnum.CALL
+                ? PhoneOff
               : FileText;
 
     return {

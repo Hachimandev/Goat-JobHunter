@@ -42,6 +42,7 @@ import FriendActionButtons from '@/components/common/FriendActionButtons';
 import { getMessageMediaPhotos } from '@/utils/formatChatMediaForPhotoAlbum';
 import { MessageMediaGallery } from './MessageMediaGallery';
 import { UserHoverCard } from '@/app/(social-hub)/hub/fyp/component/UserHoverCard';
+import CallCard from './CallCard';
 
 interface MessageBubbleProps {
   message: MessageResponse;
@@ -111,7 +112,8 @@ export function MessageBubble({
     [isRecalled, type],
   );
   const isContactCard = useMemo(() => !isRecalled && type === MessageTypeEnum.CONTACT_CARD, [isRecalled, type]);
-  const shouldRenderDetachedBubble = isMedia || isContactCard;
+  const isCall = useMemo(() => !isRecalled && type === MessageTypeEnum.CALL, [isRecalled, type]);
+  const shouldRenderDetachedBubble = isMedia || isContactCard || isCall;
 
   const isSystem = useMemo(() => type === MessageTypeEnum.SYSTEM, [type]);
   const isReplyableType = useMemo(
@@ -293,6 +295,10 @@ export function MessageBubble({
           {showActionButton && <FriendActionButtons targetUserId={accountId} className="mt-3" />}
         </div>
       );
+    }
+
+    if (type === MessageTypeEnum.CALL) {
+      return <CallCard callContext={message.callContext} isOwn={isOwn} />;
     }
 
     return (

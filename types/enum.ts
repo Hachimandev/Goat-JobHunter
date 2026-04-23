@@ -93,6 +93,7 @@ export enum MessageTypeEnum {
   MEDIA = 'MEDIA',
   FILE = 'FILE',
   CONTACT_CARD = 'CONTACT_CARD',
+  CALL = 'CALL',
   SYSTEM = 'SYSTEM',
   POLL = 'POLL',
 }
@@ -141,4 +142,24 @@ export enum ChatRoomType {
   GROUP = 'GROUP',
   BROADCAST = 'BROADCAST',
   AI = 'AI',
+}
+
+export enum CallTypeEnum {
+  VOICE = 'VOICE',
+  VIDEO = 'VIDEO',
+}
+
+export enum CallStatusEnum {
+  PENDING = 'PENDING',
+  ACTIVE = 'ACTIVE',
+  ENDED = 'ENDED',
+  CANCELLED = 'CANCELLED',
+}
+
+export enum CallEndReasonEnum {
+  HANGUP = 'HANGUP',
+  NO_ANSWER = 'NO_ANSWER',
+  TIMEOUT = 'TIMEOUT',
+  REMOVED = 'REMOVED',
+  NETWORK_ERROR = 'NETWORK_ERROR',
 }

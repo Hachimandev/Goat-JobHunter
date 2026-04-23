@@ -1,4 +1,4 @@
-import { ChatRoom, MessageResponse, PinnedMessage } from '@/types/model';
+import { CallSession, ChatRoom, MessageResponse, PinnedMessage } from '@/types/model';
 import { ChatHeader } from './ChatHeader';
 import { MessageInput } from './MessageInput';
 import { MessageList } from './MessageList';
@@ -50,6 +50,14 @@ interface ChatWindowProps {
   onClearChat?: () => Promise<void> | void;
   pinnedMessages?: PinnedMessage[];
   isLoadingPinnedMessages?: boolean;
+  onStartVoiceCall?: () => void;
+  onStartVideoCall?: () => void;
+  showOngoingCallInfo?: boolean;
+  callSession?: CallSession | null;
+  ongoingParticipantsCount?: number;
+  canJoinOngoingCall?: boolean;
+  isJoiningOngoingCall?: boolean;
+  onJoinOngoingCall?: () => void;
 }
 
 export function ChatWindow({
@@ -82,6 +90,14 @@ export function ChatWindow({
   isPinningMessage,
   pinnedMessages = [],
   isLoadingPinnedMessages = false,
+  onStartVoiceCall,
+  onStartVideoCall,
+  showOngoingCallInfo = false,
+  callSession = null,
+  ongoingParticipantsCount = 0,
+  canJoinOngoingCall = false,
+  isJoiningOngoingCall = false,
+  onJoinOngoingCall,
 }: Readonly<ChatWindowProps>) {
   const { isOpen: isDetailsOpen, toggle, close } = useDetailsPanelState();
   const [isPinnedPanelOpen, setIsPinnedPanelOpen] = useState(false);
@@ -126,6 +142,15 @@ export function ChatWindow({
           onOpenSearch={handleOpenSearch}
           pinnedMessagesCount={pinnedMessages.length}
           readOnly={isDissolved}
+          disableCallActions={isChatLocked}
+          onStartVoiceCall={onStartVoiceCall}
+          onStartVideoCall={onStartVideoCall}
+          showOngoingCallInfo={showOngoingCallInfo}
+          callSession={callSession}
+          ongoingParticipantsCount={ongoingParticipantsCount}
+          canJoinOngoingCall={canJoinOngoingCall}
+          isJoiningOngoingCall={isJoiningOngoingCall}
+          onJoinOngoingCall={onJoinOngoingCall}
         />
         <MessageList
           messages={messages}
