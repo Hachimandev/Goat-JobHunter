@@ -60,6 +60,13 @@ export type AIMessageViewModel = AIMessage & {
   errorMessage?: string;
 };
 
+export type MessageSummary = {
+  chatRoomId: number;
+  unreadCount: number;
+  summary: string;
+  isSummarized: boolean;
+};
+
 export type GetConversationsResponse = IBackendRes<IModelPaginate<AIConversation>>;
 
 export type ConversationResponse = IBackendRes<AIConversation>;
@@ -67,3 +74,5 @@ export type ConversationResponse = IBackendRes<AIConversation>;
 export type ConversationPinnedResponse = IBackendRes<{ conversationId: number; pinned: boolean }>;
 
 export type GetMessageOfConversationResponse = IBackendRes<IModelPaginate<AIMessage>>;
+
+export type GetUnreadMessagesSummaryResponse = IBackendRes<MessageSummary>;

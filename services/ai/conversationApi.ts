@@ -11,6 +11,7 @@ import {
   GetMessageOfConversationResponse,
   RenameConversationRequest,
   UpdateConversationPinRequest,
+  GetUnreadMessagesSummaryResponse,
 } from '@/services/ai/conversationType';
 
 export const conversationApi = api.injectEndpoints({
@@ -141,6 +142,13 @@ export const conversationApi = api.injectEndpoints({
         { type: 'AIMessage', id: conversationId },
       ],
     }),
+
+    getUnreadMessagesSummary: builder.query<GetUnreadMessagesSummaryResponse, { id: number }>({
+      query: ({ id }) => ({
+        url: `/ai/chatRooms/${id}/unread-summary`,
+        method: 'GET',
+      }),
+    }),
   }),
 });
 
@@ -162,4 +170,6 @@ export const {
   useDeleteConversationMutation,
 
   useGetConversationMessagesQuery,
+  useLazyGetConversationMessagesQuery,
+  useLazyGetUnreadMessagesSummaryQuery,
 } = conversationApi;
