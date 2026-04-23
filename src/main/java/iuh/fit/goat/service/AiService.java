@@ -30,4 +30,6 @@ public interface AiService {
     List<String> generateBlogTags(String content);
 
     ResumeEvaluationResponse evaluateResume(String resumeUrl) throws InvalidException;
+
+    String summarizeMessagesWithAi(String messageContent) throws InvalidException;
 }
