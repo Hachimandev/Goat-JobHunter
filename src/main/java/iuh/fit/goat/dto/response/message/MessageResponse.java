@@ -1,6 +1,7 @@
 package iuh.fit.goat.dto.response.message;
 
 import iuh.fit.goat.entity.embeddable.SenderInfo;
+import iuh.fit.goat.enumeration.ChatCallEndReason;
 import iuh.fit.goat.enumeration.MediaType;
 import iuh.fit.goat.enumeration.MessageType;
 import iuh.fit.goat.enumeration.Visibility;
@@ -27,6 +28,7 @@ public class MessageResponse {
     private String replyToMessageId;
     private ReplyContext replyContext;
     private ContactCardContext contactCard;
+    private CallContext callContext;
     private Boolean isHidden;
     private Boolean isForwarded;
     private String originalMessageId;
@@ -74,5 +76,18 @@ public class MessageResponse {
         private String bio;
         private String coverPhoto;
         private Visibility visibility;
+    }
+
+    @Getter
+    @Setter
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @Builder
+    public static class CallContext {
+        private Long sessionId;
+        private Instant startedAt;
+        private Instant endedAt;
+        private Long durationSeconds;
+        private ChatCallEndReason endReason;
     }
 }

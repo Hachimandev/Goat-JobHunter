@@ -41,3 +41,7 @@ out/
 # Agents
 .agents
 skills-lock.json
+.opencode
+opencode.json
+.worktrees/
+docs

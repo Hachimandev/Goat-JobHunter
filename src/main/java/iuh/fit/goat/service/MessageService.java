@@ -9,6 +9,7 @@ import iuh.fit.goat.dto.response.message.MessageResponse;
 import iuh.fit.goat.dto.response.ResultPaginationResponse;
 import iuh.fit.goat.dto.response.poll.PollResponse;
 import iuh.fit.goat.entity.Account;
+import iuh.fit.goat.entity.ChatCallSession;
 import iuh.fit.goat.entity.Message;
 import iuh.fit.goat.exception.ConflictException;
 import iuh.fit.goat.exception.InvalidException;
@@ -68,4 +69,6 @@ public interface MessageService {
     void createAndSendSystemMessage(Long chatRoomId, MessageEvent type, Account actor, Object... params);
 
     void createAndSendPollMessage(Long chatRoomId, MessageEvent type, Account actor, PollResponse poll);
+
+    void createAndSendCallMessage(Long chatRoomId, Account actor, ChatCallSession session);
 }

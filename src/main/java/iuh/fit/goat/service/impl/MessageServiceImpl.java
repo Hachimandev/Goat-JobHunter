@@ -13,11 +13,13 @@ import iuh.fit.goat.dto.response.ResultPaginationResponse;
 import iuh.fit.goat.dto.response.StorageResponse;
 import iuh.fit.goat.dto.response.poll.PollResponse;
 import iuh.fit.goat.entity.Account;
+import iuh.fit.goat.entity.ChatCallSession;
 import iuh.fit.goat.entity.ChatMember;
 import iuh.fit.goat.entity.ChatRoom;
 import iuh.fit.goat.entity.Company;
 import iuh.fit.goat.entity.Message;
 import iuh.fit.goat.entity.User;
+import iuh.fit.goat.entity.embeddable.CallSummary;
 import iuh.fit.goat.entity.embeddable.MediaItem;
 import iuh.fit.goat.entity.embeddable.SenderInfo;
 import iuh.fit.goat.enumeration.ChatRoomType;
@@ -37,6 +39,7 @@ import iuh.fit.goat.repository.UserRelationshipRepository;
 import iuh.fit.goat.repository.UserRepository;
 import iuh.fit.goat.service.MessageService;
 import iuh.fit.goat.service.StorageService;
+import iuh.fit.goat.util.EntityUtil;
 import iuh.fit.goat.util.MessageHelper;
 import iuh.fit.goat.util.MessageMapper;
 import lombok.RequiredArgsConstructor;
@@ -50,6 +53,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.*;
 import java.util.function.Predicate;
@@ -965,10 +969,43 @@ public class MessageServiceImpl implements MessageService {
         if(poll.getPinned() != null && poll.getPinned()) {
             this.messageRepository.pinMessage(
                     chatRoomId.toString(), poll.getMessageId(),
-                    actor instanceof Company company ? company.getName() : ((User) Objects.requireNonNull(actor)).getFullName()
+                    resolveAccountDisplayName(actor)
             );
         }
 
+        sendMessageToUsers(chatRoomId, savedMessage);
+    }
+
+    @Override
+    public void createAndSendCallMessage(Long chatRoomId, Account actor, ChatCallSession session) {
+        if (chatRoomId == null || actor == null || session == null || session.getCallSessionId() == null) {
+            return;
+        }
+
+        Instant endedAt = session.getEndedAt() != null ? session.getEndedAt() : Instant.now();
+        Instant startedAt = session.getStartedAt();
+        String messageId = generateMessageId();
+
+        Message callMessage = Message.builder()
+                .messageSk(Message.buildMessageSk(endedAt.toEpochMilli(), messageId))
+                .chatRoomId(chatRoomId.toString())
+                .messageId(messageId)
+                .sender(buildSenderInfo(actor))
+                .content("[Cuộc gọi]")
+                .mediaItems(null)
+                .callSummary(buildCallSummary(session, startedAt, endedAt))
+                .messageType(MessageType.CALL)
+                .replyTo(null)
+                .isHidden(false)
+                .isForwarded(false)
+                .originalMessageId(null)
+                .createdAt(endedAt)
+                .updatedAt(endedAt)
+                .build();
+
+        Message savedMessage = this.messageRepository.saveMessage(callMessage);
+        updateChatRoomSummaryFromMessage(savedMessage);
+        incrementUnreadCountForRecipients(chatRoomId, actor != null ? actor.getAccountId() : null);
         sendMessageToUsers(chatRoomId, savedMessage);
     }
 
@@ -1900,7 +1937,8 @@ public class MessageServiceImpl implements MessageService {
                 .messageId(forwardedMessageId)
                 .sender(buildSenderInfo(currentAccount))
                 .content(sourceMessage.getContent())
-            .mediaItems(cloneMediaItems(sourceMessage.getMediaItems()))
+                .mediaItems(cloneMediaItems(sourceMessage.getMediaItems()))
+                .callSummary(cloneCallSummary(sourceMessage.getCallSummary()))
                 .messageType(sourceMessage.getMessageType())
                 .replyTo(null)
                 .isHidden(false)
@@ -1932,6 +1970,20 @@ public class MessageServiceImpl implements MessageService {
         }
 
         return clonedItems.isEmpty() ? null : clonedItems;
+    }
+
+    private CallSummary cloneCallSummary(CallSummary sourceCallSummary) {
+        if (sourceCallSummary == null) {
+            return null;
+        }
+
+        return CallSummary.builder()
+                .sessionId(sourceCallSummary.getSessionId())
+                .startedAt(sourceCallSummary.getStartedAt())
+                .endedAt(sourceCallSummary.getEndedAt())
+                .durationSeconds(sourceCallSummary.getDurationSeconds())
+                .endReason(sourceCallSummary.getEndReason())
+                .build();
     }
 
     private List<Message> collectCascadeRecallMessages(Message rootMessage) {
@@ -2263,6 +2315,21 @@ public class MessageServiceImpl implements MessageService {
                 || messageType == MessageType.FILE;
     }
 
+    private CallSummary buildCallSummary(ChatCallSession session, Instant startedAt, Instant endedAt) {
+        long durationSeconds = 0L;
+        if (startedAt != null && endedAt != null && !endedAt.isBefore(startedAt)) {
+            durationSeconds = Duration.between(startedAt, endedAt).getSeconds();
+        }
+
+        return CallSummary.builder()
+                .sessionId(session.getCallSessionId())
+                .startedAt(startedAt)
+                .endedAt(endedAt)
+                .durationSeconds(durationSeconds)
+                .endReason(session.getEndReason())
+                .build();
+    }
+
     private boolean isUserInChatRoom(Long chatRoomId, Long accountId) {
         if (chatRoomId == null || accountId == null) {
             return false;
@@ -2376,18 +2443,62 @@ public class MessageServiceImpl implements MessageService {
     }
 
     private SenderInfo buildSenderInfo(Account account) {
-        String fullName = account instanceof Company ? ((Company) account).getName()
-                : ((User) account).getFullName();
+        if (account == null) {
+            return SenderInfo.builder().build();
+        }
 
-        String avatar = account instanceof Company ? ((Company) account).getLogo()
-                : account.getAvatar();
+        Account resolvedAccount = EntityUtil.unproxy(account);
+        String fullName = resolveAccountDisplayName(resolvedAccount);
+        String avatar = resolveAccountAvatar(resolvedAccount);
 
         return SenderInfo.builder()
-                .accountId(account.getAccountId())
+                .accountId(resolvedAccount.getAccountId())
                 .fullName(fullName)
-                .username(account.getUsername())
-                .email(account.getEmail())
+                .username(resolvedAccount.getUsername())
+                .email(resolvedAccount.getEmail())
                 .avatar(avatar)
                 .build();
+    }
+
+    private String resolveAccountDisplayName(Account account) {
+        if (account == null) {
+            return null;
+        }
+
+        Account resolvedAccount = EntityUtil.unproxy(account);
+
+        if (resolvedAccount instanceof Company companyAccount
+                && companyAccount.getName() != null
+                && !companyAccount.getName().isBlank()) {
+            return companyAccount.getName();
+        }
+
+        if (resolvedAccount instanceof User userAccount
+                && userAccount.getFullName() != null
+                && !userAccount.getFullName().isBlank()) {
+            return userAccount.getFullName();
+        }
+
+        if (resolvedAccount.getUsername() != null && !resolvedAccount.getUsername().isBlank()) {
+            return resolvedAccount.getUsername();
+        }
+
+        return resolvedAccount.getEmail();
+    }
+
+    private String resolveAccountAvatar(Account account) {
+        if (account == null) {
+            return null;
+        }
+
+        Account resolvedAccount = EntityUtil.unproxy(account);
+
+        if (resolvedAccount instanceof Company companyAccount
+                && companyAccount.getLogo() != null
+                && !companyAccount.getLogo().isBlank()) {
+            return companyAccount.getLogo();
+        }
+
+        return resolvedAccount.getAvatar();
     }
 }

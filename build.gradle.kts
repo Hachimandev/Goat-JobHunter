@@ -47,12 +47,12 @@ dependencies {
 	implementation("com.google.genai:google-genai:1.28.0")
 	implementation("net.datafaker:datafaker:2.5.3")
 	implementation("org.springframework.boot:spring-boot-starter-websocket")
+	implementation("org.springframework:spring-test")
 	implementation("org.postgresql:postgresql:42.7.8")
 	implementation("org.liquibase:liquibase-core:5.0.1")
 	implementation("io.awspring.cloud:spring-cloud-starter-aws-secrets-manager-config:2.4.4")
     implementation("software.amazon.awssdk:dynamodb")
     implementation("software.amazon.awssdk:dynamodb-enhanced")
-	implementation("org.springframework:spring-test:7.0.6")
 	implementation("nl.basjes.parse.useragent:yauaa:8.1.1")
 
 	implementation("commons-io:commons-io:2.19.0")
@@ -63,7 +63,6 @@ dependencies {
 
 	testImplementation("org.springframework.boot:spring-boot-starter-test")
 	testImplementation("org.springframework.security:spring-security-test")
-	testImplementation("org.springframework:spring-test:7.0.6")
 	testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
 

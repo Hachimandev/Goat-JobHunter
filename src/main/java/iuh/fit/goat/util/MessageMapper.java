@@ -2,6 +2,7 @@ package iuh.fit.goat.util;
 
 import iuh.fit.goat.dto.response.message.MessageResponse;
 import iuh.fit.goat.entity.Message;
+import iuh.fit.goat.entity.embeddable.CallSummary;
 import iuh.fit.goat.entity.embeddable.MediaItem;
 import iuh.fit.goat.enumeration.MediaType;
 import iuh.fit.goat.enumeration.MessageType;
@@ -42,6 +43,7 @@ public final class MessageMapper {
         response.setReplyToMessageId(message.getReplyTo());
         response.setReplyContext(replyContext);
         response.setContactCard(contactCardContext);
+        response.setCallContext(mapCallContext(message.getCallSummary()));
         response.setIsHidden(message.getIsHidden());
         response.setIsForwarded(Boolean.TRUE.equals(message.getIsForwarded()));
         response.setOriginalMessageId(message.getOriginalMessageId());
@@ -101,6 +103,20 @@ public final class MessageMapper {
         }
 
         return mapped;
+    }
+
+    private static MessageResponse.CallContext mapCallContext(CallSummary callSummary) {
+        if (callSummary == null) {
+            return null;
+        }
+
+        return MessageResponse.CallContext.builder()
+                .sessionId(callSummary.getSessionId())
+                .startedAt(callSummary.getStartedAt())
+                .endedAt(callSummary.getEndedAt())
+                .durationSeconds(callSummary.getDurationSeconds())
+                .endReason(callSummary.getEndReason())
+                .build();
     }
 
     private static boolean isLegacySingleMediaMessage(Message message) {
