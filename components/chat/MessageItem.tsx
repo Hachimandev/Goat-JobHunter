@@ -23,6 +23,7 @@ interface MessageItemProps {
   isSending?: boolean;
   currentUser?: any;
   showPoll?: boolean;
+  isGroupChat?: boolean;
 }
 
 const isS3ImageUrl = (url: string) =>
@@ -48,6 +49,7 @@ export const MessageItem = ({
   isSending,
   currentUser,
   showPoll = false,
+  isGroupChat = false,
 }: MessageItemProps) => {
   const [visible, setIsVisible] = useState(false);
   const [imageIndex, setImageIndex] = useState(0);
@@ -326,6 +328,9 @@ export const MessageItem = ({
         { alignItems: isMe ? "flex-end" : "flex-start" },
       ]}
     >
+      {isGroupChat && !isMe && (
+        <Text style={styles.senderNameTop}>{item.sender?.fullName}</Text>
+      )}
       <View
         style={[
           // styles.rowContainer,
@@ -537,4 +542,10 @@ const styles = StyleSheet.create({
   },
   pollEventText: { fontSize: 12, color: "#4B5563", marginLeft: 6 },
   viewLink: { fontSize: 12, color: "#0084FF", fontWeight: "bold" },
+  senderNameTop: {
+    fontSize: 12,
+    color: "#666",
+    marginBottom: 2,
+    marginLeft: 38,
+  },
 });
