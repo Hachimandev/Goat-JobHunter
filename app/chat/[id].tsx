@@ -475,6 +475,7 @@ export default function ChatDetailScreen() {
                 ] === item.messageId
               }
               onNavigateToMessage={handleNavigateToMessage}
+              isGroupChat={chatRoomData?.data?.type === "GROUP"}
             />
           )}
           onScrollToIndexFailed={(info) => {
