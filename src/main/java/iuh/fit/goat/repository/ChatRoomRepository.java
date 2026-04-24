@@ -19,7 +19,7 @@ import java.util.Optional;
 @Repository
 public interface ChatRoomRepository extends JpaRepository<ChatRoom, Long> {
 
-    Optional<ChatRoom> findByRoomId(Long chatRoomId);
+//    Optional<ChatRoom> findByRoomId(Long chatRoomId);
 
         boolean existsByRoomIdAndDeletedAtIsNull(Long chatRoomId);
 
@@ -137,4 +137,7 @@ public interface ChatRoomRepository extends JpaRepository<ChatRoom, Long> {
                         @Param("userId1") Long userId1,
                         @Param("userId2") Long userId2
         );
+
+    @EntityGraph(attributePaths = {"members", "members.account"})
+    Optional<ChatRoom> findByRoomId(Long roomId);
 }

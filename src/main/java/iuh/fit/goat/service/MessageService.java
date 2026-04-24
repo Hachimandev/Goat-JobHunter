@@ -41,9 +41,9 @@ public interface MessageService {
 
     List<Message> sendContactCardMessages(Long chatRoomId, List<Long> userIds, Account currentAccount) throws InvalidException;
 
-    void sendMessageToUsers(Long chatRoomId, Message message);
-
-    MessageResponse toMessageResponse(Message message);
+//    void sendMessageToUsers(Long chatRoomId, Message message);
+//
+//    MessageResponse toMessageResponse(Message message);
 
     List<MessageResponse> toMessageResponses(List<Message> messages);
 

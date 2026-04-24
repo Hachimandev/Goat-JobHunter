@@ -39,12 +39,15 @@ import iuh.fit.goat.repository.UserRelationshipRepository;
 import iuh.fit.goat.repository.UserRepository;
 import iuh.fit.goat.service.MessageService;
 import iuh.fit.goat.service.StorageService;
+import iuh.fit.goat.service.async.AsyncMessageDispatchService;
+import iuh.fit.goat.service.cache.BlockedInteractionCacheService;
+import iuh.fit.goat.service.cache.ChatRoomCacheService;
+import iuh.fit.goat.service.helper.MessageHelper;
 import iuh.fit.goat.util.EntityUtil;
-import iuh.fit.goat.util.MessageHelper;
-import iuh.fit.goat.util.MessageMapper;
+import iuh.fit.goat.util.MessageUtil;
+import iuh.fit.goat.util.PerformanceMonitor;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Pageable;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
@@ -58,7 +61,6 @@ import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Predicate;
-import java.util.stream.Collectors;
 
 @Service
 @Slf4j
@@ -72,6 +74,12 @@ public class MessageServiceImpl implements MessageService {
     private final ChatMemberRepository chatMemberRepository;
     private final UserRelationshipRepository userRelationshipRepository;
     private final UserRepository userRepository;
+
+    private final BlockedInteractionCacheService blockedInteractionCache;
+    private final AsyncMessageDispatchService asyncMessageDispatch;
+    private final ChatRoomCacheService chatRoomCache;
+    private final SimpMessagingTemplate messagingTemplate;
+    private final MessageHelper messageHelper;
 
     private static final long MAX_FILE_SIZE = 20 * 1024 * 1024; // 20MB
     private static final int MAX_MEDIA_ITEMS_PER_MESSAGE = 10;
@@ -94,8 +102,6 @@ public class MessageServiceImpl implements MessageService {
     private static final int maxCursorPageSize = 50;
     private static final int cursorBatchQuerySize = 40;
     private static final int replyLookupScanLimit = 400;
-
-    private final SimpMessagingTemplate messagingTemplate;
 
     // ========== PUBLIC API METHODS ==========
 
@@ -219,18 +225,20 @@ public class MessageServiceImpl implements MessageService {
         return buildPaginationResponse(result, pageNumber, pageSize, searchResult.matchedCount());
     }
 
-    /**
-    * Send text message.
-     */
     @Override
-    @Transactional
     public Message sendMessage(Long chatRoomId, MessageCreateRequest request, Account currentAccount) throws InvalidException
     {
-        ChatRoom chatRoom = this.chatRoomRepository.findById(chatRoomId)
-                .orElseThrow(() -> new InvalidException("Chat Room not found"));
-        this.validateNoBlockedDirectInteraction(chatRoom, currentAccount.getAccountId());
+        ChatRoom chatRoom = this.chatRoomCache.getCached(chatRoomId);
+        
+        if (chatRoom == null) {
+            chatRoom = this.chatRoomRepository.findByRoomId(chatRoomId).orElseThrow(() -> new InvalidException("Chat Room not found"));
+            this.chatRoomCache.cache(chatRoom);
+        }
+        
+        this.validateNoBlockedDirectInteractionOptimized(chatRoom, chatRoom.getMembers(), currentAccount.getAccountId());
 
-        String replyToMessageId = normalizeReplyToMessageId(request != null ? request.getReplyToMessageId() : null);
+        String replyToMessageId = this.messageHelper.normalizeReplyToMessageId(request != null ? request.getReplyToMessageId() : null);
+
         validateReplyTarget(chatRoomId.toString(), replyToMessageId);
 
         String messageId = generateMessageId();
@@ -254,176 +262,70 @@ public class MessageServiceImpl implements MessageService {
                 .updatedAt(now)
                 .build();
 
-        return this.saveAndDispatchMessage(chatRoomId, message, currentAccount);
+        Message result = this.messageHelper.saveAndDispatchMessageOptimized(chatRoomId, message, currentAccount);
+
+        return result;
+    }
+
+    private void validateNoBlockedDirectInteractionOptimized(
+            ChatRoom chatRoom,
+            List<ChatMember> preloadedMembers,
+            Long currentAccountId
+    ) throws InvalidException
+    {
+        if (chatRoom.getType() != ChatRoomType.DIRECT) return;
+
+        Long peerAccountId = null;
+        if (preloadedMembers != null && !preloadedMembers.isEmpty()) {
+            log.debug("✅ Using preloaded members (size={})", preloadedMembers.size());
+            for (ChatMember chatMember : preloadedMembers) {
+                if (chatMember != null) {
+                    Account account = chatMember.getAccount();
+                    if (account != null && account.getAccountId() != currentAccountId) {
+                        peerAccountId = account.getAccountId();
+                        break;
+                    }
+                }
+            }
+        }
+
+        if (peerAccountId == null) {
+            log.warn("⚠️ Preloaded members empty/null, querying database for members");
+            peerAccountId = this.chatMemberRepository.findByRoomRoomIdAndDeletedAtIsNull(chatRoom.getRoomId())
+                    .stream()
+                    .map(ChatMember::getAccount)
+                    .filter(Objects::nonNull)
+                    .map(Account::getAccountId)
+                    .filter(accountId -> !Objects.equals(accountId, currentAccountId))
+                    .findFirst()
+                    .orElseThrow(() -> new InvalidException("Direct chat room has invalid members"));
+        }
+
+        UserRelationshipRepository.PairIds pair = UserRelationshipRepository.PairIds.of(currentAccountId, peerAccountId);
+        
+        Boolean cachedBlocked = this.blockedInteractionCache.isBlocked(pair.pairLowId(), pair.pairHighId());
+        if (cachedBlocked != null) {
+            log.info("✅ Cache HIT for blocked check");
+            if (cachedBlocked) throw new BlockedInteractionException("Cannot send message because this pair is blocked");
+            return;
+        }
+
+        log.warn("⚠️ Cache MISS for blocked check - querying database");
+        boolean blocked = this.userRelationshipRepository
+                .existsByPairLowUser_AccountIdAndPairHighUser_AccountIdAndRelationshipStateAndDeletedAtIsNull(
+                        pair.pairLowId(),
+                        pair.pairHighId(),
+                        RelationshipState.BLOCKED
+                );
+
+        this.blockedInteractionCache.putBlocked(pair.pairLowId(), pair.pairHighId(), blocked);
+
+        if (blocked) throw new BlockedInteractionException("Cannot send message because this pair is blocked");
     }
 
     /**
      * Send messages with files (batch operation)
      */
-//    @Override
-//    @Transactional
-//    public List<Message> sendMessagesWithFiles(
-//            Long chatRoomId,
-//            MessageCreateRequest request,
-//            List<MultipartFile> files,
-//            Account currentAccount
-//    ) throws InvalidException {
-//        ChatRoom chatRoom = this.chatRoomRepository.findById(chatRoomId)
-//                .orElseThrow(() -> new InvalidException("Chat Room not found"));
-//        this.validateNoBlockedDirectInteraction(chatRoom, currentAccount.getAccountId());
-//
-//        String replyToMessageId = normalizeReplyToMessageId(request != null ? request.getReplyToMessageId() : null);
-//        validateReplyTarget(chatRoomId.toString(), replyToMessageId);
-//        String normalizedContent = normalizeMessageContent(request != null ? request.getContent() : null);
-//
-//        List<Message> createdMessages = new ArrayList<>();
-//        boolean mediaMessageCreated = false;
-//        try {
-//            // Process files first
-//            if (files != null && !files.isEmpty()) {
-//                List<MultipartFile> mediaFiles = new ArrayList<>();
-//                List<MultipartFile> nonMediaFiles = new ArrayList<>();
-//
-//                for (MultipartFile file : files) {
-//                    validateFile(file);
-//
-//                    MediaType mediaType = determineMediaType(file.getContentType());
-//                    if (mediaType != null) {
-//                        mediaFiles.add(file);
-//                    } else {
-//                        nonMediaFiles.add(file);
-//                    }
-//                }
-//
-//                if (!mediaFiles.isEmpty()) {
-//                    validateMediaBatchConstraints(mediaFiles);
-//
-//                    if (mediaFiles.size() >= 2) {
-//                        List<MediaItem> mediaItems = new ArrayList<>();
-//                        int displayOrder = 0;
-//
-//                        for (MultipartFile mediaFile : mediaFiles) {
-//                            String mimeType = mediaFile.getContentType();
-//                            MediaType mediaType = determineMediaType(mimeType);
-//                            if (mediaType == null) {
-//                                continue;
-//                            }
-//
-//                            String folder = getFolderByMediaType(mediaType);
-//                            StorageResponse storageResponse = storageService.handleUploadFile(mediaFile, folder);
-//
-//                            mediaItems.add(MediaItem.builder()
-//                                    .url(storageResponse.getUrl())
-//                                    .mediaType(mediaType)
-//                                    .mimeType(mimeType)
-//                                    .sizeBytes(mediaFile.getSize())
-//                                    .displayOrder(displayOrder++)
-//                                    .build());
-//                        }
-//
-//                        if (!mediaItems.isEmpty()) {
-//                            Message mediaMessage = createMediaMessage(
-//                                    chatRoomId.toString(),
-//                                    mediaItems,
-//                                    normalizedContent,
-//                                    replyToMessageId,
-//                                    currentAccount
-//                            );
-//
-//                            Message savedMessage = messageRepository.saveMessage(mediaMessage);
-//                            updateChatRoomSummaryFromMessage(savedMessage);
-//                            createdMessages.add(savedMessage);
-//                            incrementUnreadCountForRecipients(chatRoomId, currentAccount.getAccountId());
-//                            sendMessageToUsers(chatRoomId, savedMessage);
-//
-//                            mediaMessageCreated = true;
-//                            log.info("Media batch message created: messageId={}, mediaItems={}, chatRoomId={}",
-//                                    savedMessage.getMessageId(),
-//                                    mediaItems.size(),
-//                                    chatRoomId);
-//                        }
-//                    } else {
-//                        MultipartFile mediaFile = mediaFiles.get(0);
-//                        MessageType messageType = determineLegacyMediaMessageType(mediaFile.getContentType());
-//
-//                        String folder = getFolderByMessageType(messageType);
-//                        StorageResponse storageResponse = storageService.handleUploadFile(mediaFile, folder);
-//                        String fileUrl = storageResponse.getUrl();
-//
-//                        Message fileMessage = createFileMessage(
-//                                chatRoomId.toString(),
-//                                fileUrl,
-//                                messageType,
-//                                replyToMessageId,
-//                                currentAccount
-//                        );
-//
-//                        Message savedMessage = messageRepository.saveMessage(fileMessage);
-//                        updateChatRoomSummaryFromMessage(savedMessage);
-//                        createdMessages.add(savedMessage);
-//                        incrementUnreadCountForRecipients(chatRoomId, currentAccount.getAccountId());
-//                        sendMessageToUsers(chatRoomId, savedMessage);
-//
-//                        log.info("Single media message created in legacy format: messageId={}, type={}, chatRoomId={}",
-//                                savedMessage.getMessageId(),
-//                                messageType,
-//                                chatRoomId);
-//                    }
-//                }
-//
-//                for (MultipartFile file : nonMediaFiles) {
-//                    MessageType messageType = determineMessageType(file.getContentType());
-//
-//                    String folder = getFolderByMessageType(messageType);
-//                    StorageResponse storageResponse = storageService.handleUploadFile(file, folder);
-//                    String fileUrl = storageResponse.getUrl();
-//
-//                    Message fileMessage = createFileMessage(
-//                            chatRoomId.toString(),
-//                            fileUrl,
-//                            messageType,
-//                            replyToMessageId,
-//                            currentAccount
-//                    );
-//
-//                    Message savedMessage = messageRepository.saveMessage(fileMessage);
-//                    updateChatRoomSummaryFromMessage(savedMessage);
-//                    createdMessages.add(savedMessage);
-//                    incrementUnreadCountForRecipients(chatRoomId, currentAccount.getAccountId());
-//                    sendMessageToUsers(chatRoomId, savedMessage);
-//
-//                    log.info("File message created: messageId={}, type={}, chatRoomId={}",
-//                            savedMessage.getMessageId(), messageType, chatRoomId);
-//                }
-//            }
-//
-//            // Process text content
-//            if (!mediaMessageCreated && normalizedContent != null) {
-//                MessageCreateRequest textRequest = new MessageCreateRequest(
-//                        normalizedContent,
-//                        replyToMessageId
-//                );
-//                Message textMessage = sendMessage(chatRoomId, textRequest, currentAccount);
-//                createdMessages.add(textMessage);
-//            }
-//
-//            if (createdMessages.isEmpty()) {
-//                throw new InvalidException("At least one file or text content is required");
-//            }
-//
-//            log.info("Batch message creation completed: {} messages created in chatRoom {}",
-//                    createdMessages.size(), chatRoomId);
-//
-//            return createdMessages;
-//
-//        } catch (BlockedInteractionException e) {
-//            throw e;
-//        } catch (Exception e) {
-//            log.error("Error creating messages", e);
-//            throw new InvalidException("Failed to create messages: " + e.getMessage());
-//        }
-//    }
-
     @Override
     @Transactional
     public List<Message> sendMessagesWithFiles(
@@ -435,7 +337,7 @@ public class MessageServiceImpl implements MessageService {
 
         validateNoBlockedDirectInteraction(chatRoom, currentAccount.getAccountId());
 
-        String replyToMessageId = normalizeReplyToMessageId(request != null ? request.getReplyToMessageId() : null);
+        String replyToMessageId = this.messageHelper.normalizeReplyToMessageId(request != null ? request.getReplyToMessageId() : null);
 
         validateReplyTarget(chatRoomId.toString(), replyToMessageId);
 
@@ -652,7 +554,7 @@ public class MessageServiceImpl implements MessageService {
             updateChatRoomSummaryFromMessage(savedMessage);
             createdMessages.add(savedMessage);
             incrementUnreadCountForRecipients(chatRoomId, currentAccount.getAccountId());
-            sendMessageToUsers(chatRoomId, savedMessage);
+            this.messageHelper.sendMessageToUsers(chatRoomId, savedMessage);
         }
 
         if (createdMessages.isEmpty()) {
@@ -661,22 +563,6 @@ public class MessageServiceImpl implements MessageService {
 
         log.info("CONTACT_CARD batch completed: {} cards sent in chatRoom {}", createdMessages.size(), chatRoomId);
         return createdMessages;
-    }
-
-    @Override
-    public void sendMessageToUsers(Long chatRoomId, Message message) {
-        if (chatRoomId == null) {
-            log.warn("Skip realtime emit because chatRoomId is null for messageId={}",
-                    message != null ? message.getMessageId() : null);
-            return;
-        }
-
-        sendMessageToUsers(chatRoomId.toString(), message);
-    }
-
-    @Override
-    public MessageResponse toMessageResponse(Message message) {
-        return toMessageResponse(message, Collections.emptyMap(), new HashMap<>(), new HashMap<>());
     }
 
     @Override
@@ -697,7 +583,7 @@ public class MessageServiceImpl implements MessageService {
         Map<Long, Optional<User>> contactLookupCache = preloadContactUsers(messages);
         List<MessageResponse> responses = new ArrayList<>(messages.size());
         for (Message message : messages) {
-            responses.add(toMessageResponse(message, localMessages, parentLookupCache, contactLookupCache));
+            responses.add(this.messageHelper.toMessageResponse(message, localMessages, parentLookupCache, contactLookupCache));
         }
 
         return responses;
@@ -710,7 +596,7 @@ public class MessageServiceImpl implements MessageService {
 
         incrementUnreadCountForRecipients(chatRoomId, currentAccount.getAccountId());
 
-        sendMessageToUsers(chatRoomId, savedMessage);
+        this.messageHelper.sendMessageToUsers(chatRoomId, savedMessage);
 
         return savedMessage;
     }
@@ -731,7 +617,7 @@ public class MessageServiceImpl implements MessageService {
                 continue;
             }
 
-            String replyToMessageId = normalizeReplyToMessageId(message.getReplyTo());
+            String replyToMessageId = this.messageHelper.normalizeReplyToMessageId(message.getReplyTo());
             if (replyToMessageId == null) {
                 continue;
             }
@@ -892,7 +778,7 @@ public class MessageServiceImpl implements MessageService {
                 affectedChatRoomIds.add(recalledMessage.getChatRoomId());
             }
 
-            sendMessageToUsers(recalledMessage.getChatRoomId(), recalledMessage);
+            this.messageHelper.sendMessageToUsers(recalledMessage.getChatRoomId(), recalledMessage);
         }
 
         Message revokedMessage = recalledMessages.stream()
@@ -981,11 +867,11 @@ public class MessageServiceImpl implements MessageService {
                 Message savedMessage = this.messageRepository.saveMessage(forwardedMessage);
                 updateChatRoomSummaryFromMessage(savedMessage);
                 incrementUnreadCountForRecipients(targetChatRoomId, currentAccount.getAccountId());
-                sendMessageToUsers(targetChatRoomId, savedMessage);
+                this.messageHelper.sendMessageToUsers(targetChatRoomId, savedMessage);
 
                 successes.add(ForwardMessageSuccessResponse.builder()
                         .targetChatRoomId(targetChatRoomId)
-                        .message(toMessageResponse(savedMessage))
+                        .message(this.messageHelper.toMessageResponse(savedMessage))
                         .build());
             } catch (RuntimeException e) {
                 log.error("Failed to forward messageId={} to chatRoomId={}", messageId, targetChatRoomId, e);
@@ -1103,7 +989,7 @@ public class MessageServiceImpl implements MessageService {
             Account actor,
             Object... params
     ) {
-        String content = MessageHelper.generateSystemMessage(type, actor, params);
+        String content = MessageUtil.generateSystemMessage(type, actor, params);
         String messageId = generateMessageId();
         Instant now = Instant.now();
         long timestamp = now.toEpochMilli();
@@ -1128,12 +1014,12 @@ public class MessageServiceImpl implements MessageService {
 
         Message savedMessage = messageRepository.saveMessage(systemMessage);
         incrementUnreadCountForRecipients(chatRoomId, actor != null ? actor.getAccountId() : null);
-        sendMessageToUsers(chatRoomId, savedMessage);
+        this.messageHelper.sendMessageToUsers(chatRoomId, savedMessage);
     }
 
     @Override
     public void createAndSendPollMessage(Long chatRoomId, MessageEvent type, Account actor, PollResponse poll) {
-        String content = MessageHelper.generateSystemMessage(type, actor, poll);
+        String content = MessageUtil.generateSystemMessage(type, actor, poll);
         Instant now = Instant.now();
         long timestamp = now.toEpochMilli();
 
@@ -1162,7 +1048,7 @@ public class MessageServiceImpl implements MessageService {
             );
         }
 
-        sendMessageToUsers(chatRoomId, savedMessage);
+        this.messageHelper.sendMessageToUsers(chatRoomId, savedMessage);
     }
 
     @Override
@@ -1195,7 +1081,7 @@ public class MessageServiceImpl implements MessageService {
         Message savedMessage = this.messageRepository.saveMessage(callMessage);
         updateChatRoomSummaryFromMessage(savedMessage);
         incrementUnreadCountForRecipients(chatRoomId, actor != null ? actor.getAccountId() : null);
-        sendMessageToUsers(chatRoomId, savedMessage);
+        this.messageHelper.sendMessageToUsers(chatRoomId, savedMessage);
     }
 
     private boolean isMediaType(MessageType type) {
@@ -1550,7 +1436,7 @@ public class MessageServiceImpl implements MessageService {
         Long senderAccountId = message.getSender() != null ? message.getSender().getAccountId() : null;
         String preview = Boolean.TRUE.equals(message.getIsHidden())
                 ? REVOKED_MESSAGE_PREVIEW
-                : MessageHelper.formatMessageContent(message);
+                : MessageUtil.formatMessageContent(message);
 
         this.chatRoomRepository.updateLastMessageSummary(
                 roomId,
@@ -1655,49 +1541,6 @@ public class MessageServiceImpl implements MessageService {
         return normalized;
     }
 
-    // ========== HELPER METHODS ==========
-
-    private MessageResponse toMessageResponse(
-            Message message,
-            Map<String, Message> localMessages,
-            Map<String, Optional<Message>> parentLookupCache,
-            Map<Long, Optional<User>> contactLookupCache
-    ) {
-        if (message == null) {
-            return null;
-        }
-
-        MessageResponse.ReplyContext replyContext = buildReplyContext(message, localMessages, parentLookupCache);
-        MessageResponse.ContactCardContext contactCardContext = buildContactCardContext(message, contactLookupCache);
-        return MessageMapper.toResponse(message, replyContext, contactCardContext);
-    }
-
-    private MessageResponse.ContactCardContext buildContactCardContext(
-            Message message,
-            Map<Long, Optional<User>> contactLookupCache
-    ) {
-        Long contactUserId = extractContactCardUserId(message);
-        if (contactUserId == null) {
-            return null;
-        }
-
-        User contactUser = resolveContactUser(contactUserId, contactLookupCache);
-        if (contactUser == null) {
-            return null;
-        }
-
-        return MessageResponse.ContactCardContext.builder()
-                .accountId(contactUser.getAccountId())
-                .fullName(contactUser.getFullName())
-                .username(contactUser.getUsername())
-                .avatar(contactUser.getAvatar())
-                .headline(contactUser.getHeadline())
-                .bio(contactUser.getBio())
-                .coverPhoto(contactUser.getCoverPhoto())
-                .visibility(contactUser.getVisibility())
-                .build();
-    }
-
     private Map<Long, Optional<User>> preloadContactUsers(List<Message> messages) {
         Map<Long, Optional<User>> contactLookupCache = new HashMap<>();
         if (messages == null || messages.isEmpty()) {
@@ -1706,7 +1549,7 @@ public class MessageServiceImpl implements MessageService {
 
         LinkedHashSet<Long> contactUserIds = new LinkedHashSet<>();
         for (Message message : messages) {
-            Long contactUserId = extractContactCardUserId(message);
+            Long contactUserId = this.messageHelper.extractContactCardUserId(message);
             if (contactUserId != null) {
                 contactUserIds.add(contactUserId);
             }
@@ -1728,188 +1571,6 @@ public class MessageServiceImpl implements MessageService {
         }
 
         return contactLookupCache;
-    }
-
-    private User resolveContactUser(Long contactUserId, Map<Long, Optional<User>> contactLookupCache) {
-        if (contactLookupCache != null && contactLookupCache.containsKey(contactUserId)) {
-            return contactLookupCache.get(contactUserId).orElse(null);
-        }
-
-        Optional<User> referencedUser = this.userRepository.findByAccountIdAndDeletedAtIsNull(contactUserId);
-        if (contactLookupCache != null) {
-            contactLookupCache.put(contactUserId, referencedUser);
-        }
-
-        return referencedUser.orElse(null);
-    }
-
-    private Long extractContactCardUserId(Message message) {
-        if (message == null || message.getMessageType() != MessageType.CONTACT_CARD) {
-            return null;
-        }
-
-        return parseContactCardUserId(message.getContent());
-    }
-
-    private Long parseContactCardUserId(String content) {
-        if (content == null || content.isBlank()) {
-            return null;
-        }
-
-        try {
-            long parsed = Long.parseLong(content.trim());
-            return parsed > 0 ? parsed : null;
-        } catch (NumberFormatException e) {
-            return null;
-        }
-    }
-
-    private MessageResponse.ReplyContext buildReplyContext(
-            Message message,
-            Map<String, Message> localMessages,
-            Map<String, Optional<Message>> parentLookupCache
-    ) {
-        String replyToMessageId = normalizeReplyToMessageId(message.getReplyTo());
-        if (replyToMessageId == null) {
-            return null;
-        }
-
-        String chatRoomId = message.getChatRoomId();
-        if (chatRoomId == null || chatRoomId.isBlank()) {
-            return MessageResponse.ReplyContext.builder()
-                    .originalMessageId(replyToMessageId)
-                    .originalContentPreview(UNAVAILABLE_MESSAGE_PREVIEW)
-                    .originalMessageUnavailable(true)
-                    .originalMessageHidden(false)
-                    .build();
-        }
-
-        Message originalMessage = resolveOriginalMessage(
-                chatRoomId,
-                replyToMessageId,
-                localMessages,
-                parentLookupCache
-        );
-
-        if (originalMessage == null) {
-            return MessageResponse.ReplyContext.builder()
-                    .originalMessageId(replyToMessageId)
-                    .originalContentPreview(UNAVAILABLE_MESSAGE_PREVIEW)
-                    .originalMessageUnavailable(true)
-                    .originalMessageHidden(false)
-                    .build();
-        }
-
-        boolean originalMessageHidden = Boolean.TRUE.equals(originalMessage.getIsHidden());
-
-        return MessageResponse.ReplyContext.builder()
-                .originalMessageId(
-                        originalMessage.getMessageId() != null
-                                ? originalMessage.getMessageId()
-                                : replyToMessageId
-                )
-                .originalSender(originalMessage.getSender())
-                .originalMessageType(originalMessage.getMessageType())
-                .originalContentPreview(
-                        originalMessageHidden
-                                ? REVOKED_MESSAGE_PREVIEW
-                                : buildOriginalMessagePreview(originalMessage)
-                )
-                .originalMessageUnavailable(false)
-                .originalMessageHidden(originalMessageHidden)
-                .build();
-    }
-
-    private Message resolveOriginalMessage(
-            String chatRoomId,
-            String replyToMessageId,
-            Map<String, Message> localMessages,
-            Map<String, Optional<Message>> parentLookupCache
-    ) {
-        if (localMessages != null && localMessages.containsKey(replyToMessageId)) {
-            return localMessages.get(replyToMessageId);
-        }
-
-        Optional<Message> parentMessage = findReplyTarget(chatRoomId, replyToMessageId, parentLookupCache);
-        return parentMessage.orElse(null);
-    }
-
-    private Optional<Message> findReplyTarget(
-            String chatRoomId,
-            String replyToMessageId,
-            Map<String, Optional<Message>> parentLookupCache
-    ) {
-        if (parentLookupCache != null && parentLookupCache.containsKey(replyToMessageId)) {
-            return parentLookupCache.get(replyToMessageId);
-        }
-
-        Optional<Message> parentMessage = this.messageRepository
-                .findByChatRoomIdAndMessageId(chatRoomId, replyToMessageId);
-
-        if (parentLookupCache != null) {
-            parentLookupCache.put(replyToMessageId, parentMessage);
-        }
-
-        return parentMessage;
-    }
-
-    private String buildOriginalMessagePreview(Message originalMessage) {
-        if (originalMessage == null) {
-            return UNAVAILABLE_MESSAGE_PREVIEW;
-        }
-
-        if (originalMessage.getMessageType() == MessageType.TEXT) {
-            return truncateReplyPreview(originalMessage.getContent());
-        }
-
-        if (originalMessage.getMessageType() == MessageType.MEDIA) {
-            return buildMediaPreview(originalMessage.getMediaItems());
-        }
-
-        if (originalMessage.getMessageType() == null) {
-            return UNAVAILABLE_MESSAGE_PREVIEW;
-        }
-
-        return originalMessage.getMessageType().name().toLowerCase(Locale.ROOT);
-    }
-
-    private String buildMediaPreview(List<MediaItem> mediaItems) {
-        if (mediaItems == null || mediaItems.isEmpty()) {
-            return MessageType.MEDIA.name().toLowerCase(Locale.ROOT);
-        }
-
-        MediaItem first = mediaItems.get(0);
-        if (first == null || first.getMediaType() == null) {
-            return MessageType.MEDIA.name().toLowerCase(Locale.ROOT);
-        }
-
-        return first.getMediaType().name().toLowerCase(Locale.ROOT);
-    }
-
-    private String truncateReplyPreview(String content) {
-        if (content == null || content.isBlank()) {
-            return "text";
-        }
-
-        String normalized = content.trim();
-        if (normalized.length() <= MAX_REPLY_PREVIEW_LENGTH) {
-            return normalized;
-        }
-
-        return normalized.substring(0, MAX_REPLY_PREVIEW_LENGTH) + "...";
-    }
-
-    private String normalizeReplyToMessageId(String replyToMessageId) {
-        if (replyToMessageId == null) {
-            return null;
-        }
-
-        String normalized = replyToMessageId.trim();
-        if (normalized.isEmpty()) {
-            return null;
-        }
-
-        return normalized;
     }
 
     private void validateReplyTarget(String chatRoomId, String replyToMessageId) throws InvalidException {
@@ -2313,9 +1974,7 @@ public class MessageServiceImpl implements MessageService {
     }
 
     private void validateNoBlockedDirectInteraction(ChatRoom chatRoom, Long currentAccountId) throws InvalidException {
-        if (chatRoom.getType() != ChatRoomType.DIRECT) {
-            return;
-        }
+        if (chatRoom.getType() != ChatRoomType.DIRECT) return;
 
         Long peerAccountId = this.chatMemberRepository.findByRoomRoomIdAndDeletedAtIsNull(chatRoom.getRoomId())
                 .stream()
@@ -2336,9 +1995,7 @@ public class MessageServiceImpl implements MessageService {
                         RelationshipState.BLOCKED
                 );
 
-        if (blocked) {
-            throw new BlockedInteractionException("Cannot send message because this pair is blocked");
-        }
+        if (blocked) throw new BlockedInteractionException("Cannot send message because this pair is blocked");
     }
 
     private List<Long> normalizeContactCardUserIds(List<Long> userIds) {
@@ -2368,19 +2025,6 @@ public class MessageServiceImpl implements MessageService {
                         pair.pairHighId(),
                         RelationshipState.FRIEND
                 );
-    }
-
-    private void sendMessageToUsers(String chatRoomId, Message message) {
-        if (chatRoomId == null || chatRoomId.isBlank() || message == null) {
-            log.warn("Skip realtime emit because payload is invalid: chatRoomId={}, messageNull={}",
-                    chatRoomId,
-                    message == null);
-            return;
-        }
-
-        log.debug("Sending realtime message to chatRoom: {}", chatRoomId);
-        MessageResponse payload = toMessageResponse(message);
-        messagingTemplate.convertAndSend("/topic/chatrooms/" + chatRoomId, payload);
     }
 
     private void sendMessageDeletedEvent(Long chatRoomId, MessageDeletedEventResponse event) {

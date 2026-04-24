@@ -13,7 +13,7 @@ import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 @UtilityClass
-public class MessageHelper {
+public class MessageUtil {
 
     public static String generateSystemMessage(MessageEvent type, Account actor, Object... params) {
         String actorName = getDisplayName(actor);
