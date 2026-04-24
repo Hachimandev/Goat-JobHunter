@@ -56,7 +56,9 @@ import java.net.URISyntaxException;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.*;
+import java.util.concurrent.CompletableFuture;
 import java.util.function.Predicate;
+import java.util.stream.Collectors;
 
 @Service
 @Slf4j
@@ -234,17 +236,14 @@ public class MessageServiceImpl implements MessageService {
         String messageId = generateMessageId();
         Instant now = Instant.now();
         long timestamp = now.toEpochMilli();
-
         String messageSk = Message.buildMessageSk(timestamp, messageId);
-
-        // Build sender information
         SenderInfo senderInfo = buildSenderInfo(currentAccount);
 
         Message message = Message.builder()
                 .messageSk(messageSk)
                 .chatRoomId(chatRoomId.toString())
                 .messageId(messageId)
-                .sender(senderInfo)  // NEW: Use embedded sender
+                .sender(senderInfo)
                 .content(Objects.requireNonNull(request).getContent())
                 .messageType(MessageType.TEXT)
                 .replyTo(replyToMessageId)
@@ -255,42 +254,197 @@ public class MessageServiceImpl implements MessageService {
                 .updatedAt(now)
                 .build();
 
-        log.info("Saving message - chatRoomId: {}, SK: {}", chatRoomId, messageSk);
-
-        Message savedMessage = messageRepository.saveMessage(message);
-        updateChatRoomSummaryFromMessage(savedMessage);
-        incrementUnreadCountForRecipients(chatRoomId, currentAccount.getAccountId());
-
-        log.info("Message created: messageId={}, chatRoomId={}", messageId, chatRoomId);
-
-        sendMessageToUsers(chatRoomId, savedMessage);
-
-        return savedMessage;
+        return this.saveAndDispatchMessage(chatRoomId, message, currentAccount);
     }
 
     /**
      * Send messages with files (batch operation)
      */
+//    @Override
+//    @Transactional
+//    public List<Message> sendMessagesWithFiles(
+//            Long chatRoomId,
+//            MessageCreateRequest request,
+//            List<MultipartFile> files,
+//            Account currentAccount
+//    ) throws InvalidException {
+//        ChatRoom chatRoom = this.chatRoomRepository.findById(chatRoomId)
+//                .orElseThrow(() -> new InvalidException("Chat Room not found"));
+//        this.validateNoBlockedDirectInteraction(chatRoom, currentAccount.getAccountId());
+//
+//        String replyToMessageId = normalizeReplyToMessageId(request != null ? request.getReplyToMessageId() : null);
+//        validateReplyTarget(chatRoomId.toString(), replyToMessageId);
+//        String normalizedContent = normalizeMessageContent(request != null ? request.getContent() : null);
+//
+//        List<Message> createdMessages = new ArrayList<>();
+//        boolean mediaMessageCreated = false;
+//        try {
+//            // Process files first
+//            if (files != null && !files.isEmpty()) {
+//                List<MultipartFile> mediaFiles = new ArrayList<>();
+//                List<MultipartFile> nonMediaFiles = new ArrayList<>();
+//
+//                for (MultipartFile file : files) {
+//                    validateFile(file);
+//
+//                    MediaType mediaType = determineMediaType(file.getContentType());
+//                    if (mediaType != null) {
+//                        mediaFiles.add(file);
+//                    } else {
+//                        nonMediaFiles.add(file);
+//                    }
+//                }
+//
+//                if (!mediaFiles.isEmpty()) {
+//                    validateMediaBatchConstraints(mediaFiles);
+//
+//                    if (mediaFiles.size() >= 2) {
+//                        List<MediaItem> mediaItems = new ArrayList<>();
+//                        int displayOrder = 0;
+//
+//                        for (MultipartFile mediaFile : mediaFiles) {
+//                            String mimeType = mediaFile.getContentType();
+//                            MediaType mediaType = determineMediaType(mimeType);
+//                            if (mediaType == null) {
+//                                continue;
+//                            }
+//
+//                            String folder = getFolderByMediaType(mediaType);
+//                            StorageResponse storageResponse = storageService.handleUploadFile(mediaFile, folder);
+//
+//                            mediaItems.add(MediaItem.builder()
+//                                    .url(storageResponse.getUrl())
+//                                    .mediaType(mediaType)
+//                                    .mimeType(mimeType)
+//                                    .sizeBytes(mediaFile.getSize())
+//                                    .displayOrder(displayOrder++)
+//                                    .build());
+//                        }
+//
+//                        if (!mediaItems.isEmpty()) {
+//                            Message mediaMessage = createMediaMessage(
+//                                    chatRoomId.toString(),
+//                                    mediaItems,
+//                                    normalizedContent,
+//                                    replyToMessageId,
+//                                    currentAccount
+//                            );
+//
+//                            Message savedMessage = messageRepository.saveMessage(mediaMessage);
+//                            updateChatRoomSummaryFromMessage(savedMessage);
+//                            createdMessages.add(savedMessage);
+//                            incrementUnreadCountForRecipients(chatRoomId, currentAccount.getAccountId());
+//                            sendMessageToUsers(chatRoomId, savedMessage);
+//
+//                            mediaMessageCreated = true;
+//                            log.info("Media batch message created: messageId={}, mediaItems={}, chatRoomId={}",
+//                                    savedMessage.getMessageId(),
+//                                    mediaItems.size(),
+//                                    chatRoomId);
+//                        }
+//                    } else {
+//                        MultipartFile mediaFile = mediaFiles.get(0);
+//                        MessageType messageType = determineLegacyMediaMessageType(mediaFile.getContentType());
+//
+//                        String folder = getFolderByMessageType(messageType);
+//                        StorageResponse storageResponse = storageService.handleUploadFile(mediaFile, folder);
+//                        String fileUrl = storageResponse.getUrl();
+//
+//                        Message fileMessage = createFileMessage(
+//                                chatRoomId.toString(),
+//                                fileUrl,
+//                                messageType,
+//                                replyToMessageId,
+//                                currentAccount
+//                        );
+//
+//                        Message savedMessage = messageRepository.saveMessage(fileMessage);
+//                        updateChatRoomSummaryFromMessage(savedMessage);
+//                        createdMessages.add(savedMessage);
+//                        incrementUnreadCountForRecipients(chatRoomId, currentAccount.getAccountId());
+//                        sendMessageToUsers(chatRoomId, savedMessage);
+//
+//                        log.info("Single media message created in legacy format: messageId={}, type={}, chatRoomId={}",
+//                                savedMessage.getMessageId(),
+//                                messageType,
+//                                chatRoomId);
+//                    }
+//                }
+//
+//                for (MultipartFile file : nonMediaFiles) {
+//                    MessageType messageType = determineMessageType(file.getContentType());
+//
+//                    String folder = getFolderByMessageType(messageType);
+//                    StorageResponse storageResponse = storageService.handleUploadFile(file, folder);
+//                    String fileUrl = storageResponse.getUrl();
+//
+//                    Message fileMessage = createFileMessage(
+//                            chatRoomId.toString(),
+//                            fileUrl,
+//                            messageType,
+//                            replyToMessageId,
+//                            currentAccount
+//                    );
+//
+//                    Message savedMessage = messageRepository.saveMessage(fileMessage);
+//                    updateChatRoomSummaryFromMessage(savedMessage);
+//                    createdMessages.add(savedMessage);
+//                    incrementUnreadCountForRecipients(chatRoomId, currentAccount.getAccountId());
+//                    sendMessageToUsers(chatRoomId, savedMessage);
+//
+//                    log.info("File message created: messageId={}, type={}, chatRoomId={}",
+//                            savedMessage.getMessageId(), messageType, chatRoomId);
+//                }
+//            }
+//
+//            // Process text content
+//            if (!mediaMessageCreated && normalizedContent != null) {
+//                MessageCreateRequest textRequest = new MessageCreateRequest(
+//                        normalizedContent,
+//                        replyToMessageId
+//                );
+//                Message textMessage = sendMessage(chatRoomId, textRequest, currentAccount);
+//                createdMessages.add(textMessage);
+//            }
+//
+//            if (createdMessages.isEmpty()) {
+//                throw new InvalidException("At least one file or text content is required");
+//            }
+//
+//            log.info("Batch message creation completed: {} messages created in chatRoom {}",
+//                    createdMessages.size(), chatRoomId);
+//
+//            return createdMessages;
+//
+//        } catch (BlockedInteractionException e) {
+//            throw e;
+//        } catch (Exception e) {
+//            log.error("Error creating messages", e);
+//            throw new InvalidException("Failed to create messages: " + e.getMessage());
+//        }
+//    }
+
     @Override
     @Transactional
     public List<Message> sendMessagesWithFiles(
-            Long chatRoomId,
-            MessageCreateRequest request,
-            List<MultipartFile> files,
-            Account currentAccount
-    ) throws InvalidException {
-        ChatRoom chatRoom = this.chatRoomRepository.findById(chatRoomId)
-                .orElseThrow(() -> new InvalidException("Chat Room not found"));
-        this.validateNoBlockedDirectInteraction(chatRoom, currentAccount.getAccountId());
+            Long chatRoomId, MessageCreateRequest request,
+            List<MultipartFile> files, Account currentAccount
+    ) throws InvalidException
+    {
+        ChatRoom chatRoom = this.chatRoomRepository.findById(chatRoomId).orElseThrow(() -> new InvalidException("Chat Room not found"));
+
+        validateNoBlockedDirectInteraction(chatRoom, currentAccount.getAccountId());
 
         String replyToMessageId = normalizeReplyToMessageId(request != null ? request.getReplyToMessageId() : null);
+
         validateReplyTarget(chatRoomId.toString(), replyToMessageId);
+
         String normalizedContent = normalizeMessageContent(request != null ? request.getContent() : null);
 
         List<Message> createdMessages = new ArrayList<>();
         boolean mediaMessageCreated = false;
+
         try {
-            // Process files first
             if (files != null && !files.isEmpty()) {
                 List<MultipartFile> mediaFiles = new ArrayList<>();
                 List<MultipartFile> nonMediaFiles = new ArrayList<>();
@@ -299,6 +453,7 @@ public class MessageServiceImpl implements MessageService {
                     validateFile(file);
 
                     MediaType mediaType = determineMediaType(file.getContentType());
+
                     if (mediaType != null) {
                         mediaFiles.add(file);
                     } else {
@@ -310,26 +465,43 @@ public class MessageServiceImpl implements MessageService {
                     validateMediaBatchConstraints(mediaFiles);
 
                     if (mediaFiles.size() >= 2) {
-                        List<MediaItem> mediaItems = new ArrayList<>();
-                        int displayOrder = 0;
+                        List<CompletableFuture<StorageResponse>> futures = new ArrayList<>();
+                        List<MediaType> mediaTypes = new ArrayList<>();
 
                         for (MultipartFile mediaFile : mediaFiles) {
                             String mimeType = mediaFile.getContentType();
                             MediaType mediaType = determineMediaType(mimeType);
-                            if (mediaType == null) {
-                                continue;
-                            }
+
+                            if (mediaType == null) continue;
+                            mediaTypes.add(mediaType);
 
                             String folder = getFolderByMediaType(mediaType);
-                            StorageResponse storageResponse = storageService.handleUploadFile(mediaFile, folder);
 
-                            mediaItems.add(MediaItem.builder()
-                                    .url(storageResponse.getUrl())
-                                    .mediaType(mediaType)
-                                    .mimeType(mimeType)
-                                    .sizeBytes(mediaFile.getSize())
-                                    .displayOrder(displayOrder++)
-                                    .build());
+                            futures.add(this.storageService.handleUploadFile(mediaFile, folder));
+                        }
+
+                        CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
+
+                        List<StorageResponse> responses =
+                                futures.stream()
+                                        .map(CompletableFuture::join)
+                                        .toList();
+
+                        List<MediaItem> mediaItems = new ArrayList<>();
+                        int displayOrder = 0;
+                        for (int i = 0; i < responses.size(); i++) {
+                            MultipartFile mediaFile = mediaFiles.get(i);
+                            StorageResponse response = responses.get(i);
+
+                            mediaItems.add(
+                                    MediaItem.builder()
+                                            .url(response.getUrl())
+                                            .mediaType(mediaTypes.get(i))
+                                            .mimeType(mediaFile.getContentType())
+                                            .sizeBytes(mediaFile.getSize())
+                                            .displayOrder(displayOrder++)
+                                            .build()
+                            );
                         }
 
                         if (!mediaItems.isEmpty()) {
@@ -341,96 +513,101 @@ public class MessageServiceImpl implements MessageService {
                                     currentAccount
                             );
 
-                            Message savedMessage = messageRepository.saveMessage(mediaMessage);
-                            updateChatRoomSummaryFromMessage(savedMessage);
-                            createdMessages.add(savedMessage);
-                            incrementUnreadCountForRecipients(chatRoomId, currentAccount.getAccountId());
-                            sendMessageToUsers(chatRoomId, savedMessage);
+                            Message saved = saveAndDispatchMessage(
+                                    chatRoomId,
+                                    mediaMessage,
+                                    currentAccount
+                            );
+
+                            createdMessages.add(saved);
 
                             mediaMessageCreated = true;
-                            log.info("Media batch message created: messageId={}, mediaItems={}, chatRoomId={}",
-                                    savedMessage.getMessageId(),
-                                    mediaItems.size(),
-                                    chatRoomId);
                         }
-                    } else {
-                        MultipartFile mediaFile = mediaFiles.get(0);
+
+                    }
+                    else {
+                        MultipartFile mediaFile = mediaFiles.getFirst();
                         MessageType messageType = determineLegacyMediaMessageType(mediaFile.getContentType());
-
                         String folder = getFolderByMessageType(messageType);
-                        StorageResponse storageResponse = storageService.handleUploadFile(mediaFile, folder);
-                        String fileUrl = storageResponse.getUrl();
 
-                        Message fileMessage = createFileMessage(
-                                chatRoomId.toString(),
-                                fileUrl,
-                                messageType,
-                                replyToMessageId,
-                                currentAccount
+                        StorageResponse response = this.storageService.handleUploadFile(
+                                                mediaFile,
+                                                folder
+                        ).join();
+
+                        Message message = createFileMessage(
+                                    chatRoomId.toString(),
+                                    response.getUrl(),
+                                    messageType,
+                                    replyToMessageId,
+                                    currentAccount
                         );
 
-                        Message savedMessage = messageRepository.saveMessage(fileMessage);
-                        updateChatRoomSummaryFromMessage(savedMessage);
-                        createdMessages.add(savedMessage);
-                        incrementUnreadCountForRecipients(chatRoomId, currentAccount.getAccountId());
-                        sendMessageToUsers(chatRoomId, savedMessage);
+                        Message saved = saveAndDispatchMessage(
+                                    chatRoomId,
+                                    message,
+                                    currentAccount
+                        );
 
-                        log.info("Single media message created in legacy format: messageId={}, type={}, chatRoomId={}",
-                                savedMessage.getMessageId(),
-                                messageType,
-                                chatRoomId);
+                        createdMessages.add(saved);
                     }
                 }
 
-                for (MultipartFile file : nonMediaFiles) {
-                    MessageType messageType = determineMessageType(file.getContentType());
+                if (!nonMediaFiles.isEmpty()) {
+                    List<CompletableFuture<Message>> futures = nonMediaFiles.stream()
+                                .map(file -> {
+                                    MessageType messageType = determineMessageType(file.getContentType());
+                                    String folder = getFolderByMessageType(messageType);
 
-                    String folder = getFolderByMessageType(messageType);
-                    StorageResponse storageResponse = storageService.handleUploadFile(file, folder);
-                    String fileUrl = storageResponse.getUrl();
+                                    return this.storageService.handleUploadFile(file, folder)
+                                            .thenApply(response -> {
+                                                Message message = createFileMessage(
+                                                        chatRoomId.toString(),
+                                                        response.getUrl(),
+                                                        messageType,
+                                                        replyToMessageId,
+                                                        currentAccount
+                                                );
 
-                    Message fileMessage = createFileMessage(
-                            chatRoomId.toString(),
-                            fileUrl,
-                            messageType,
-                            replyToMessageId,
-                            currentAccount
+                                                return saveAndDispatchMessage(
+                                                        chatRoomId,
+                                                        message,
+                                                        currentAccount
+                                                );
+
+                                            });
+                                })
+                                .toList();
+
+                    CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
+
+                    createdMessages.addAll(
+                            futures.stream().map(CompletableFuture::join).toList()
                     );
-
-                    Message savedMessage = messageRepository.saveMessage(fileMessage);
-                    updateChatRoomSummaryFromMessage(savedMessage);
-                    createdMessages.add(savedMessage);
-                    incrementUnreadCountForRecipients(chatRoomId, currentAccount.getAccountId());
-                    sendMessageToUsers(chatRoomId, savedMessage);
-
-                    log.info("File message created: messageId={}, type={}, chatRoomId={}",
-                            savedMessage.getMessageId(), messageType, chatRoomId);
                 }
             }
 
-            // Process text content
             if (!mediaMessageCreated && normalizedContent != null) {
                 MessageCreateRequest textRequest = new MessageCreateRequest(
-                        normalizedContent,
-                        replyToMessageId
+                            normalizedContent,
+                            replyToMessageId
                 );
-                Message textMessage = sendMessage(chatRoomId, textRequest, currentAccount);
+
+                Message textMessage = sendMessage(
+                            chatRoomId,
+                            textRequest,
+                            currentAccount
+                );
+
                 createdMessages.add(textMessage);
             }
 
-            if (createdMessages.isEmpty()) {
-                throw new InvalidException("At least one file or text content is required");
-            }
-
-            log.info("Batch message creation completed: {} messages created in chatRoom {}",
-                    createdMessages.size(), chatRoomId);
+            if (createdMessages.isEmpty()) throw new InvalidException("At least one file or text content is required");
 
             return createdMessages;
-
         } catch (BlockedInteractionException e) {
-            throw e;
+            throw new InvalidException("Cannot send message due to blocked interaction: " + e.getMessage());
         } catch (Exception e) {
-            log.error("Error creating messages", e);
             throw new InvalidException("Failed to create messages: " + e.getMessage());
         }
     }
@@ -524,6 +701,18 @@ public class MessageServiceImpl implements MessageService {
         }
 
         return responses;
+    }
+
+    private Message saveAndDispatchMessage(Long chatRoomId, Message message, Account currentAccount) {
+        Message savedMessage = this.messageRepository.saveMessage(message);
+
+        updateChatRoomSummaryFromMessage(savedMessage);
+
+        incrementUnreadCountForRecipients(chatRoomId, currentAccount.getAccountId());
+
+        sendMessageToUsers(chatRoomId, savedMessage);
+
+        return savedMessage;
     }
 
     private Map<String, Optional<Message>> preloadReplyTargets(

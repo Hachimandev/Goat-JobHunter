@@ -11,6 +11,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.io.FilenameUtils;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -20,6 +21,7 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.Date;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 
 @Service
 @Slf4j
@@ -32,7 +34,8 @@ public class StorageServiceImpl implements StorageService {
     private final AmazonS3 s3Client;
 
     @Override
-    public StorageResponse handleUploadFile(MultipartFile file, String folder) {
+    @Async
+    public CompletableFuture<StorageResponse> handleUploadFile(MultipartFile file, String folder) {
         String extension = FilenameUtils.getExtension(file.getOriginalFilename());
         String key = String.format(
                 "prod/%s/%s.%s",
@@ -61,7 +64,12 @@ public class StorageServiceImpl implements StorageService {
 
         String url = this.s3Client.getUrl(bucketName, key).toString();
 
-        return new StorageResponse(key, url);
+        return CompletableFuture.completedFuture(
+                StorageResponse.builder()
+                        .publicId(key)
+                        .url(url)
+                        .build()
+        );
     }
 
     @Override

@@ -34,6 +34,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
@@ -71,8 +72,8 @@ public class BlogServiceImpl implements BlogService {
             for (MultipartFile file : request.getFiles()) {
                 if (file.isEmpty()) continue;
                 FileUploadUtil.assertAllowed(file);
-                StorageResponse response = this.storageService.handleUploadFile(file, "blogs");
-                imageUrls.add(response.getUrl());
+                CompletableFuture<StorageResponse> response = this.storageService.handleUploadFile(file, "blogs");
+                imageUrls.add(response.join().getUrl());
             }
         }
 

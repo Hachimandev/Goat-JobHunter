@@ -5,8 +5,10 @@ import iuh.fit.goat.dto.response.StorageResponse;
 import iuh.fit.goat.exception.InvalidException;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.util.concurrent.CompletableFuture;
+
 public interface StorageService {
-    StorageResponse handleUploadFile(MultipartFile file, String folder);
+    CompletableFuture<StorageResponse> handleUploadFile(MultipartFile file, String folder);
 
     S3ObjectInputStream handleDownloadFile(String key);
 
