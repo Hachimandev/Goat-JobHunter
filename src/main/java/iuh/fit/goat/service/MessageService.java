@@ -45,7 +45,7 @@ public interface MessageService {
 //
 //    MessageResponse toMessageResponse(Message message);
 
-    List<MessageResponse> toMessageResponses(List<Message> messages);
+//    List<MessageResponse> toMessageResponses(List<Message> messages);
 
     ResultPaginationResponse getMediaMessagesByChatRoom(Long chatRoomId, Pageable pageable, Account currentAccount)
             throws InvalidException;

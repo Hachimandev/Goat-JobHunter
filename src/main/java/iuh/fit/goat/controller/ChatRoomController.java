@@ -321,7 +321,7 @@ public class ChatRoomController {
             log.info("Sending messages with {} files to chatRoom: {}", files.size(), id);
 
             List<Message> savedMessages = this.messageService.sendMessagesWithFiles(id, request, files, currentAccount);
-            List<MessageResponse> response = this.messageService.toMessageResponses(savedMessages);
+            List<MessageResponse> response = this.messageHelper.toMessageResponses(savedMessages);
             return ResponseEntity.ok(new ArrayList<>(response));
         }
 
@@ -360,7 +360,7 @@ public class ChatRoomController {
         }
 
         List<Message> savedMessages = this.messageService.sendContactCardMessages(id, request.getUserIds(), currentAccount);
-        List<MessageResponse> response = this.messageService.toMessageResponses(savedMessages);
+        List<MessageResponse> response = this.messageHelper.toMessageResponses(savedMessages);
         return ResponseEntity.ok(new ArrayList<>(response));
     }
 

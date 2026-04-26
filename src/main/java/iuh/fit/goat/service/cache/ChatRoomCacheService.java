@@ -32,6 +32,5 @@ public class ChatRoomCacheService {
     public void cache(ChatRoom chatRoom) {
         if (chatRoom == null || chatRoom.getRoomId() == null) return;
         this.chatRoomCache.put(chatRoom.getRoomId(), chatRoom);
-        log.debug("💾 ChatRoom cached: roomId={}", chatRoom.getRoomId());
     }
 }
