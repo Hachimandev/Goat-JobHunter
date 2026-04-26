@@ -115,7 +115,7 @@ export default function FriendActionButtons({
             title="Chặn người dùng"
           >
             {isBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldBan className="h-4 w-4 mr-1" />}
-            Chặn
+            {!iconOnly && 'Chặn'}
           </Button>
         )}
       </div>
@@ -137,7 +137,7 @@ export default function FriendActionButtons({
           title="Chấp nhận"
         >
           {isBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4 mr-1" />}
-          Chấp nhận
+          {!iconOnly && 'Chấp nhận'}
         </Button>
 
         <Button
@@ -153,7 +153,7 @@ export default function FriendActionButtons({
           title="Từ chối"
         >
           {isBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <X className="h-4 w-4 mr-1" />}
-          Từ chối
+          {!iconOnly && 'Từ chối'}
         </Button>
 
         {shouldShowBlockActions && (
@@ -166,7 +166,7 @@ export default function FriendActionButtons({
             title="Chặn người dùng"
           >
             {isBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldBan className="h-4 w-4 mr-1" />}
-            Chặn
+            {!iconOnly && 'Chặn'}
           </Button>
         )}
       </div>
@@ -189,7 +189,7 @@ export default function FriendActionButtons({
           title="Hủy lời mời"
         >
           {isBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <UserMinus className="h-4 w-4 mr-1" />}
-          Hủy lời mời
+          {!iconOnly && 'Hủy lời mời'}
         </Button>
 
         {shouldShowBlockActions && (
@@ -202,7 +202,7 @@ export default function FriendActionButtons({
             title="Chặn người dùng"
           >
             {isBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldBan className="h-4 w-4 mr-1" />}
-            Chặn
+            {!iconOnly && 'Chặn'}
           </Button>
         )}
       </div>
@@ -233,7 +233,7 @@ export default function FriendActionButtons({
           title="Chặn người dùng"
         >
           {isBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldBan className="h-4 w-4 mr-1" />}
-          Chặn
+          {!iconOnly && 'Chặn'}
         </Button>
       )}
     </div>

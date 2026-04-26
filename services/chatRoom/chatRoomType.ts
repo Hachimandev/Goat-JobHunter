@@ -12,6 +12,12 @@ export type FetchMessagesInChatRoomRequest = {
   size?: number;
 };
 
+export type FetchChatRoomAssetsRequest = {
+  chatRoomId: number;
+  page?: number;
+  size?: number;
+};
+
 export type SearchMessagesInChatRoomRequest = {
   chatRoomId: number;
   searchTerm: string;
@@ -21,7 +27,7 @@ export type SearchMessagesInChatRoomRequest = {
 
 export type FetchChatRoomsResponse = IBackendRes<IModelPaginate<ChatRoom>>;
 
-export type FetchMessagesInChatRoomResponse = IBackendRes<MessageResponse[]>;
+export type FetchMessagesInChatRoomResponse = IBackendRes<IModelPaginate<MessageResponse>>;
 
 export type SendMessageToChatRoomRequest = {
   chatRoomId: number;
@@ -42,6 +48,11 @@ export type SendContactCardsToChatRoomRequest = {
 };
 
 export type RecallMessageRequest = {
+  chatRoomId: number;
+  messageId: string;
+};
+
+export type HideMessageRequest = {
   chatRoomId: number;
   messageId: string;
 };
@@ -76,3 +87,14 @@ export type SendContactCardsSubmitResult = {
   successfulUserIds: number[];
   failedUserIds: number[];
 };
+
+export type CountUnreadMessagesRequest = {
+  page?: number;
+  size?: number;
+};
+export type CountUnreadMessagesResponse = IBackendRes<
+  {
+    chatRoomId: number;
+    unreadCount: number;
+  }[]
+>;

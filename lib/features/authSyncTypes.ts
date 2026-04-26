@@ -1,6 +1,19 @@
-import { LoginResponseDto, MeResponse, UserResponse } from '@/types/dto';
+import {
+  ApplicantResponse,
+  CompanyResponse,
+  LoginResponseDto,
+  MeResponse,
+  RecruiterResponse,
+  UserResponse,
+} from '@/types/dto';
 
-export type AuthUser = LoginResponseDto | UserResponse | MeResponse;
+export type AuthUser =
+  | LoginResponseDto
+  | UserResponse
+  | MeResponse
+  | CompanyResponse
+  | ApplicantResponse
+  | RecruiterResponse;
 
 export type UserSyncPayload = {
   user: AuthUser;

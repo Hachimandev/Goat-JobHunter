@@ -2,16 +2,19 @@
 
 import { ChatWindow } from '@/app/(chat)/messages/components/ChatWindow';
 import { ForwardMessageModal } from '@/app/(chat)/messages/components/ForwardMessageModal';
+import { usePaginatedChatMessages } from '@/app/(chat)/messages/hooks/usePaginatedChatMessages';
 import { useParams } from 'next/navigation';
-import { useFetchChatRoomsByIdQuery, useFetchMessagesInChatRoomQuery } from '@/services/chatRoom/chatRoomApi';
+import { useFetchChatRoomsByIdQuery } from '@/services/chatRoom/chatRoomApi';
+import { useGetCurrentCallQuery } from '@/services/chatRoom/call/callApi';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { subscribeToChatRoom, unsubscribeFromChatRoom } from '@/services/chatRoom/message/messageApi';
 import { useUser } from '@/hooks/useUser';
 import useChatRoomAndMessageActions from '@/hooks/useChatRoomAndMessageActions';
-import { MessageResponse, PinnedMessage } from '@/types/model';
-import { ChatRoomType } from '@/types/enum';
+import { CallSession, MessageResponse, PinnedMessage } from '@/types/model';
+import { CallStatusEnum, CallTypeEnum, ChatRoomType } from '@/types/enum';
+import { subscribeToChatRoom } from '@/services/chatRoom/message/messageApi';
 import { useAppSelector } from '@/lib/hooks';
 import { selectLastFriendshipRealtimeEventAt } from '@/lib/features/friendshipSlice';
+import { selectLastCallRealtimeEvent, selectLastCallRealtimeEventAt } from '@/lib/features/callSlice';
 import {
   usePinMessageMutation,
   useUnpinMessageMutation,
@@ -20,67 +23,96 @@ import {
 import { toast } from 'sonner';
 import { IBackendError } from '@/types/api';
 import { Loader2 } from 'lucide-react';
+import useCallRoomActions from '@/hooks/useCallRoomActions';
+import { CallWindow } from '@/app/(chat)/messages/components/CallWindow';
 
 export default function ChatRoomPage() {
   const params = useParams();
   const chatRoomId = params?.id as string;
+  const parsedChatRoomId = Number(chatRoomId);
+  const isInvalidChatRoomId = !chatRoomId || Number.isNaN(parsedChatRoomId);
   const { user } = useUser();
   const lastFriendshipRealtimeEventAt = useAppSelector(selectLastFriendshipRealtimeEventAt);
+  const lastCallRealtimeEvent = useAppSelector(selectLastCallRealtimeEvent);
+  const lastCallRealtimeEventAt = useAppSelector(selectLastCallRealtimeEventAt);
   const [forwardMessage, setForwardMessage] = useState<MessageResponse | null>(null);
   const [replyMessage, setReplyMessage] = useState<MessageResponse | null>(null);
   const [forwardModalOpen, setForwardModalOpen] = useState(false);
   const [pinnedMessageIds, setPinnedMessageIds] = useState<Set<string>>(new Set());
   const [pinningMessageIds, setPinningMessageIds] = useState<Set<string>>(new Set());
+  const [isJoiningOngoingCall, setIsJoiningOngoingCall] = useState(false);
 
   const {
     handleSendMessage,
     handleSendContactCards,
     handleDeleteMessage,
     handleForwardMessage,
+    handleHideMessage,
     handleRecallMessage,
     isDeletingMessage,
     isForwardingMessage,
+    isHidingMessage,
     isRecallingMessage,
   } = useChatRoomAndMessageActions();
 
-  // Subscribe vào chat room khi component mount
-  useEffect(() => {
-    if (chatRoomId && !isNaN(Number(chatRoomId))) {
-      subscribeToChatRoom(Number(chatRoomId));
-
-      return () => {
-        unsubscribeFromChatRoom(Number(chatRoomId));
-      };
-    }
-  }, [chatRoomId]);
-
   const [pinMessage] = usePinMessageMutation();
   const [unpinMessage] = useUnpinMessageMutation();
+  const {
+    currentCall,
+    callError,
+    rtcConnectionState,
+    localAudioEnabled,
+    localVideoEnabled,
+    participantMediaStates,
+    remoteAudioActive,
+    remoteVideoActive,
+    isLeavingCall,
+    isEndingCall,
+    availableCallDevices,
+    selectedCallDevices,
+    isLoadingCallDevices,
+    updatingCallDeviceKind,
+    handleStartCall,
+    handleEndCall,
+    handleLeaveCall,
+    handleJoinCallSession,
+    handleSelectCallDevice,
+    handleToggleLocalAudio,
+    handleToggleLocalVideo,
+    bindRtcContainers,
+    bindParticipantVideoContainer,
+  } = useCallRoomActions();
   const { data: pinnedMessagesData, isLoading: isLoadingPinnedMessages } = useGetPinnedMessagesQuery(
-    { chatRoomId: Number(chatRoomId) },
-    { skip: !chatRoomId || isNaN(Number(chatRoomId)) },
+    { chatRoomId: parsedChatRoomId },
+    { skip: isInvalidChatRoomId },
   );
 
-  const { data: messagesData, isLoading } = useFetchMessagesInChatRoomQuery(
-    {
-      chatRoomId: Number(chatRoomId),
-      size: 50,
-      page: 1,
-    },
-    { skip: !chatRoomId || isNaN(Number(chatRoomId)) },
-  );
+  const { messages, hasOlderMessages, isLoadingInitialMessages, isLoadingOlderMessages, loadOlderMessages } =
+    usePaginatedChatMessages(isInvalidChatRoomId ? null : parsedChatRoomId);
 
-  const { data: chatRoomsData, refetch: refetchChatRoom } = useFetchChatRoomsByIdQuery(Number(chatRoomId), {
-    skip: !chatRoomId || isNaN(Number(chatRoomId)),
+  const {
+    data: chatRoomsData,
+    refetch: refetchChatRoom,
+    isLoading: isLoadingChatRoom,
+  } = useFetchChatRoomsByIdQuery(parsedChatRoomId, {
+    skip: isInvalidChatRoomId,
   });
 
   useEffect(() => {
-    if (!lastFriendshipRealtimeEventAt || !chatRoomId || isNaN(Number(chatRoomId))) {
+    if (isInvalidChatRoomId) {
+      return;
+    }
+
+    subscribeToChatRoom(parsedChatRoomId);
+  }, [isInvalidChatRoomId, parsedChatRoomId]);
+
+  useEffect(() => {
+    if (!lastFriendshipRealtimeEventAt || isInvalidChatRoomId) {
       return;
     }
 
     void refetchChatRoom();
-  }, [chatRoomId, lastFriendshipRealtimeEventAt, refetchChatRoom]);
+  }, [isInvalidChatRoomId, lastFriendshipRealtimeEventAt, refetchChatRoom]);
 
   useEffect(() => {
     if (pinnedMessagesData?.data) {
@@ -93,18 +125,129 @@ export default function ChatRoomPage() {
     return chatRoomsData?.data || null;
   }, [chatRoomsData]);
 
-  const messages = useMemo(() => {
-    // Manually sort messages by createdAt ascending, fallback to empty array if no messages
-    return [...(messagesData?.data || [])].sort(
-      (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
-    );
-  }, [messagesData]);
+  const {
+    data: ongoingCallData,
+    isFetching: isFetchingOngoingCall,
+    isError: isOngoingCallError,
+    refetch: refetchOngoingCall,
+  } = useGetCurrentCallQuery(
+    { chatRoomId: parsedChatRoomId },
+    {
+      skip: isInvalidChatRoomId || currentChatRoom?.type !== ChatRoomType.GROUP,
+      pollingInterval: 10000,
+      refetchOnFocus: true,
+      refetchOnReconnect: true,
+    },
+  );
+
+  useEffect(() => {
+    if (currentChatRoom?.type !== ChatRoomType.GROUP || !lastCallRealtimeEventAt) {
+      return;
+    }
+
+    void refetchOngoingCall();
+  }, [currentChatRoom?.type, lastCallRealtimeEventAt, refetchOngoingCall]);
+
+  const ongoingGroupCall = useMemo(() => {
+    if (currentChatRoom?.type !== ChatRoomType.GROUP) {
+      return null;
+    }
+
+    const activeLocalCall =
+      currentCall?.chatRoomId === parsedChatRoomId &&
+      (currentCall.status === CallStatusEnum.ACTIVE || currentCall.status === CallStatusEnum.PENDING)
+        ? currentCall
+        : null;
+
+    const activeServerCall =
+      ongoingCallData?.data &&
+      (ongoingCallData.data.status === CallStatusEnum.ACTIVE || ongoingCallData.data.status === CallStatusEnum.PENDING)
+        ? ongoingCallData.data
+        : null;
+
+    let candidate: CallSession | null = activeLocalCall ?? activeServerCall;
+
+    if (activeLocalCall && activeServerCall && activeLocalCall.sessionId === activeServerCall.sessionId) {
+      candidate = {
+        ...activeServerCall,
+        rtc: activeLocalCall.rtc ?? activeServerCall.rtc,
+        callType: activeLocalCall.callType ?? activeServerCall.callType,
+      };
+    }
+
+    if (!candidate) {
+      return null;
+    }
+
+    const isRealtimeEndedEventForCandidate =
+      lastCallRealtimeEvent?.chatRoomId === parsedChatRoomId &&
+      lastCallRealtimeEvent.sessionId === candidate.sessionId &&
+      (lastCallRealtimeEvent.eventType === 'CALL_ENDED' ||
+        lastCallRealtimeEvent.status === CallStatusEnum.ENDED ||
+        lastCallRealtimeEvent.status === CallStatusEnum.CANCELLED);
+
+    if (isRealtimeEndedEventForCandidate || isOngoingCallError) {
+      return null;
+    }
+
+    return candidate;
+  }, [
+    currentCall,
+    currentChatRoom?.type,
+    isOngoingCallError,
+    lastCallRealtimeEvent,
+    ongoingCallData?.data,
+    parsedChatRoomId,
+  ]);
 
   const isDirectBlocked = currentChatRoom?.type === ChatRoomType.DIRECT && Boolean(currentChatRoom?.blocked);
   const isBlockedByMe = isDirectBlocked && Boolean(currentChatRoom?.blockedByMe);
   const blockedReason = isBlockedByMe
     ? 'Bạn đã chặn người này. Hãy bỏ chặn để tiếp tục nhắn tin.'
     : 'Bạn không thể nhắn tin với người này.';
+  const canRenderCallWindow =
+    Boolean(currentCall) &&
+    typeof user?.accountId === 'number' &&
+    Boolean(
+      currentCall?.participants.some(
+        (participant) => participant.account.accountId === user.accountId && !participant.leftAt,
+      ),
+    );
+  const isGroupCall = currentChatRoom?.type === ChatRoomType.GROUP;
+  const isCurrentUserInOngoingGroupCall =
+    Boolean(ongoingGroupCall) &&
+    typeof user?.accountId === 'number' &&
+    Boolean(
+      ongoingGroupCall?.participants.some(
+        (participant) => participant.account.accountId === user.accountId && !participant.leftAt,
+      ),
+    );
+  const canJoinOngoingGroupCall =
+    isGroupCall && Boolean(ongoingGroupCall) && !isCurrentUserInOngoingGroupCall && !canRenderCallWindow;
+  const activeCallRoomType = currentCall?.chatRoomType || currentChatRoom?.type;
+  const activeCallRoomName = currentCall?.chatRoomName || currentChatRoom?.name;
+  const activeCallRoomAvatar = currentCall?.chatRoomAvatar || currentChatRoom?.avatar || null;
+  const isActiveGroupCall = activeCallRoomType === ChatRoomType.GROUP;
+  const isCurrentUserCallInitiator = Boolean(currentCall?.initiatorAccountId === user?.accountId);
+  const canCurrentUserEndActiveCall = Boolean(!isActiveGroupCall || isCurrentUserCallInitiator);
+  const canCurrentUserLeaveActiveCall = Boolean(currentCall) && currentCall?.chatRoomType === ChatRoomType.GROUP;
+
+  const handleJoinOngoingGroupCall = useCallback(async () => {
+    if (!ongoingGroupCall || isJoiningOngoingCall) {
+      return;
+    }
+
+    setIsJoiningOngoingCall(true);
+    try {
+      await handleJoinCallSession(
+        ongoingGroupCall.chatRoomId,
+        ongoingGroupCall.sessionId,
+        ongoingGroupCall.callType ?? CallTypeEnum.VOICE,
+      );
+    } finally {
+      setIsJoiningOngoingCall(false);
+    }
+  }, [handleJoinCallSession, isJoiningOngoingCall, ongoingGroupCall]);
 
   const handleNavigateToMessage = useCallback((targetMessageId: string) => {
     if (!targetMessageId) return;
@@ -203,7 +346,7 @@ export default function ChatRoomPage() {
       try {
         setPinningMessageIds((prev) => new Set([...prev, messageId]));
         await pinMessage({
-          chatRoomId: Number(chatRoomId),
+          chatRoomId: parsedChatRoomId,
           messageId,
         }).unwrap();
         setPinnedMessageIds((prev) => new Set([...prev, messageId]));
@@ -218,7 +361,7 @@ export default function ChatRoomPage() {
         });
       }
     },
-    [chatRoomId, pinMessage],
+    [parsedChatRoomId, pinMessage],
   );
 
   const handleUnpinMessage = useCallback(
@@ -226,7 +369,7 @@ export default function ChatRoomPage() {
       try {
         setPinningMessageIds((prev) => new Set([...prev, messageId]));
         await unpinMessage({
-          chatRoomId: Number(chatRoomId),
+          chatRoomId: parsedChatRoomId,
           messageId,
         }).unwrap();
         setPinnedMessageIds((prev) => {
@@ -245,7 +388,7 @@ export default function ChatRoomPage() {
         });
       }
     },
-    [chatRoomId, unpinMessage],
+    [parsedChatRoomId, unpinMessage],
   );
 
   const handleOpenForwardModal = (message: MessageResponse) => {
@@ -265,7 +408,7 @@ export default function ChatRoomPage() {
       return null;
     }
 
-    const result = await handleForwardMessage(Number(chatRoomId), forwardMessage.messageId, targetChatRoomIds);
+    const result = await handleForwardMessage(parsedChatRoomId, forwardMessage.messageId, targetChatRoomIds);
 
     if (result && result.failedCount === 0) {
       handleForwardModalOpenChange(false);
@@ -274,10 +417,10 @@ export default function ChatRoomPage() {
     return result;
   };
 
-  if (isLoading) {
+  if (isLoadingInitialMessages || isLoadingChatRoom) {
     return (
       <div className="flex-1 flex items-center justify-center bg-background">
-        <Loader2 className="animate-spin" />
+        <Loader2 className="animate-spin mr-2" />
         <p className="text-muted-foreground">Đang tải...</p>
       </div>
     );
@@ -307,7 +450,7 @@ export default function ChatRoomPage() {
             return;
           }
 
-          await handleSendMessage(Number(chatRoomId), text, files, replyToMessageId);
+          await handleSendMessage(parsedChatRoomId, text, files, replyToMessageId);
           setReplyMessage(null);
         }}
         onSendContactCards={async (selectedUserIds) => {
@@ -315,20 +458,27 @@ export default function ChatRoomPage() {
             return null;
           }
 
-          return await handleSendContactCards(Number(chatRoomId), selectedUserIds);
+          return await handleSendContactCards(parsedChatRoomId, selectedUserIds);
         }}
         replyTarget={replyMessage}
         onCancelReply={() => setReplyMessage(null)}
         onReplyMessage={setReplyMessage}
         onNavigateToMessage={handleNavigateToMessage}
+        onLoadOlderMessages={loadOlderMessages}
+        hasOlderMessages={hasOlderMessages}
+        isLoadingOlderMessages={isLoadingOlderMessages}
         onForwardMessage={handleOpenForwardModal}
         isForwardingMessage={isForwardingMessage}
+        onHideMessage={async (messageId) => {
+          await handleHideMessage(parsedChatRoomId, messageId);
+        }}
+        isHidingMessage={isHidingMessage}
         onDeleteMessage={async (messageId) => {
-          await handleDeleteMessage(Number(chatRoomId), messageId);
+          await handleDeleteMessage(parsedChatRoomId, messageId);
         }}
         isDeletingMessage={isDeletingMessage}
         onRecallMessage={async (messageId) => {
-          await handleRecallMessage(Number(chatRoomId), messageId);
+          await handleRecallMessage(parsedChatRoomId, messageId);
         }}
         isRecallingMessage={isRecallingMessage}
         onPinMessage={handlePinMessage}
@@ -337,16 +487,64 @@ export default function ChatRoomPage() {
         isPinningMessage={(messageId: string) => pinningMessageIds.has(messageId)}
         pinnedMessages={pinnedMessagesData?.data || []}
         isLoadingPinnedMessages={isLoadingPinnedMessages}
+        onStartVoiceCall={async () => {
+          await handleStartCall(parsedChatRoomId, CallTypeEnum.VOICE);
+        }}
+        onStartVideoCall={async () => {
+          await handleStartCall(parsedChatRoomId, CallTypeEnum.VIDEO);
+        }}
+        showOngoingCallInfo={isGroupCall && Boolean(ongoingGroupCall)}
+        callSession={ongoingGroupCall}
+        ongoingParticipantsCount={
+          ongoingGroupCall?.participants.filter((participant) => !participant.leftAt).length ?? 0
+        }
+        canJoinOngoingCall={canJoinOngoingGroupCall}
+        isJoiningOngoingCall={isJoiningOngoingCall || isFetchingOngoingCall}
+        onJoinOngoingCall={() => {
+          void handleJoinOngoingGroupCall();
+        }}
       />
 
       <ForwardMessageModal
         open={forwardModalOpen}
         onOpenChange={handleForwardModalOpenChange}
-        sourceChatRoomId={Number(chatRoomId)}
+        sourceChatRoomId={parsedChatRoomId}
         message={forwardMessage}
         isSubmitting={isForwardingMessage}
         onConfirm={handleConfirmForward}
       />
+
+      {canRenderCallWindow && currentCall && activeCallRoomType && activeCallRoomName && (
+        <CallWindow
+          currentCall={currentCall}
+          callError={callError}
+          rtcConnectionState={rtcConnectionState}
+          localAudioEnabled={localAudioEnabled}
+          localVideoEnabled={localVideoEnabled}
+          participantMediaStates={participantMediaStates}
+          remoteAudioActive={remoteAudioActive}
+          remoteVideoActive={remoteVideoActive}
+          currentUserId={user.accountId}
+          chatRoomType={activeCallRoomType}
+          chatRoomName={activeCallRoomName}
+          chatRoomAvatar={activeCallRoomAvatar}
+          isEndingCall={isEndingCall}
+          isLeavingCall={isLeavingCall}
+          canCurrentUserEndCall={canCurrentUserEndActiveCall}
+          canCurrentUserLeaveCall={canCurrentUserLeaveActiveCall}
+          handleEndCallAction={handleEndCall}
+          handleLeaveCallAction={handleLeaveCall}
+          handleToggleLocalAudio={handleToggleLocalAudio}
+          handleToggleLocalVideo={handleToggleLocalVideo}
+          availableCallDevices={availableCallDevices}
+          selectedCallDevices={selectedCallDevices}
+          isLoadingCallDevices={isLoadingCallDevices}
+          updatingCallDeviceKind={updatingCallDeviceKind}
+          handleSelectCallDevice={handleSelectCallDevice}
+          bindRtcContainers={bindRtcContainers}
+          bindParticipantVideoContainer={bindParticipantVideoContainer}
+        />
+      )}
     </>
   );
 }

@@ -61,7 +61,7 @@ export function UserHoverCard({
       <HoverCardTrigger asChild>{children}</HoverCardTrigger>
       <HoverCardContent className="w-80 rounded-xl" align="start">
         <div className="space-y-4">
-          <div className="flex items-start gap-3">
+          <div className="flex items-center gap-3">
             <Avatar className="h-14 w-14">
               <AvatarImage src={avatar || '/placeholder.svg'} alt={fullName} />
               <AvatarFallback>{fullName[0]}</AvatarFallback>

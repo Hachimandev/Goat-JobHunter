@@ -6,12 +6,14 @@ import authReducer from './features/authSlice';
 import sendMailReducer from './features/sendMailSlice';
 import blogDetailReducer from './features/blogDetailSlice';
 import friendshipReducer from './features/friendshipSlice';
+import callReducer from './features/callSlice';
+import callDevicePreferencesReducer from './features/callDevicePreferencesSlice';
 
 const persistConfig = {
   key: 'root',
-  version: 1,
+  version: 2,
   storage,
-  whitelist: ['auth'], // Only persist auth state
+  whitelist: ['auth', 'callDevicePreferences'],
 };
 
 const rootReducer = combineReducers({
@@ -20,6 +22,8 @@ const rootReducer = combineReducers({
   sendMail: sendMailReducer,
   blogDetail: blogDetailReducer,
   friendship: friendshipReducer,
+  call: callReducer,
+  callDevicePreferences: callDevicePreferencesReducer,
 });
 
 const persistedReducer = persistReducer(persistConfig, rootReducer);

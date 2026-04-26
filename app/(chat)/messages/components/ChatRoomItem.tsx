@@ -1,90 +1,249 @@
 import { ChatRoom } from '@/types/model';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Users, X } from 'lucide-react';
+import { Users, X, Brain, Loader2 } from 'lucide-react';
+import { useLazyGetUnreadMessagesSummaryQuery } from '@/services/ai/conversationApi';
 import { ChatRoomType } from '@/types/enum';
 import { formatLastMessageTime } from '@/utils/formatDate';
 import { cn } from '@/lib/utils';
-import { useMemo } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { truncate } from 'lodash';
+import { Badge } from '@/components/ui/badge';
 
 interface ConversationItemProps {
   chatRoom: ChatRoom;
   active: boolean;
   onClick: () => void;
+  unreadMessagesCount: number;
 }
 
-export function ChatRoomItem({ chatRoom, active, onClick }: Readonly<ConversationItemProps>) {
+export function ChatRoomItem({ chatRoom, active, onClick, unreadMessagesCount }: Readonly<ConversationItemProps>) {
   const isGroup = chatRoom.type === ChatRoomType.GROUP;
   const isDissolved = Boolean(chatRoom.deletedAt && chatRoom.type === ChatRoomType.GROUP);
+
   const chatRoomTitle = chatRoom.name;
   const avatarFallback = chatRoomTitle.charAt(0).toUpperCase();
   const formattedTime = formatLastMessageTime(chatRoom.lastMessageTime);
 
+  const unreadBadgeText = useMemo(() => {
+    if (unreadMessagesCount <= 0) return null;
+    if (unreadMessagesCount < 10) return `${unreadMessagesCount}`;
+    return '9+';
+  }, [unreadMessagesCount]);
+
+  const [triggerUnreadSummary, { data: unreadSummaryData, isLoading: isSummaryLoading }] =
+    useLazyGetUnreadMessagesSummaryQuery();
+
+  const [aiSummaryOpen, setAiSummaryOpen] = useState(false);
+  const [aiSummaryText, setAiSummaryText] = useState<string | null>(null);
+  const [loadingMessage, setLoadingMessage] = useState<string | null>(null);
+  const [isSummarized, setIsSummarized] = useState(false);
+
+  /* Khi có summary trả về */
+  useEffect(() => {
+    const summary = unreadSummaryData?.data?.summary;
+
+    if (!isSummaryLoading && summary) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setAiSummaryText(summary);
+      setLoadingMessage(null);
+      setAiSummaryOpen(true);
+      setIsSummarized(true);
+    }
+  }, [isSummaryLoading, unreadSummaryData]);
+
+  /* Loading message theo thời gian */
+  useEffect(() => {
+    let t1: number | undefined;
+    let t2: number | undefined;
+    let t3: number | undefined;
+
+    if (aiSummaryOpen && isSummaryLoading) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setLoadingMessage(null);
+
+      t1 = window.setTimeout(() => setLoadingMessage('AI đang tóm tắt...'), 1000);
+
+      t2 = window.setTimeout(() => setLoadingMessage('Sắp xong rồi...'), 3000);
+
+      t3 = window.setTimeout(() => setLoadingMessage('Chà, bạn đã bỏ lỡ nhiều điều...'), 6000);
+    }
+
+    return () => {
+      if (t1) clearTimeout(t1);
+      if (t2) clearTimeout(t2);
+      if (t3) clearTimeout(t3);
+    };
+  }, [aiSummaryOpen, isSummaryLoading]);
+
   const chatRoomPreview = useMemo(() => {
-    // Nếu không có lastMessagePreview
     if (!chatRoom.lastMessagePreview) {
       return 'Chưa có tin nhắn nào';
     }
 
-    // Nhóm chat thì hiện tên nhóm
     if (isGroup) {
       return `${chatRoom.name}: ${chatRoom.lastMessagePreview}`;
     }
 
-    // Không phải nhóm chat, hiện tên người gửi cuối cùng, nếu là người dùng hiện tại thì hiển thị "Bạn"
     if (chatRoom.currentUserSentLastMessage) {
       return `Bạn: ${chatRoom.lastMessagePreview}`;
     }
 
-    // Ngược lại hiện tên người gửi cuối cùng
     return `${chatRoomTitle}: ${chatRoom.lastMessagePreview}`;
   }, [chatRoom.currentUserSentLastMessage, chatRoom.lastMessagePreview, chatRoom.name, chatRoomTitle, isGroup]);
 
-  return (
-    <button
-      onClick={onClick}
-      className={cn(
-        'flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-colors w-full',
-        active && 'bg-accent/50',
-        !active && 'hover:bg-accent/50',
-      )}
-    >
-      <div className="relative">
-        <Avatar className={cn('h-12 w-12 border', active && 'border-gray-300')}>
-          <AvatarImage src={chatRoom.avatar || undefined} alt={chatRoomTitle} />
-          <AvatarFallback>{avatarFallback}</AvatarFallback>
-        </Avatar>
-        {isGroup && !isDissolved && (
-          <div className="absolute -bottom-1 -right-1 bg-primary rounded-full p-1">
-            <Users className="h-3 w-3 text-primary-foreground" />
-          </div>
-        )}
-        {isDissolved && (
-          <div className="absolute -bottom-1 -right-1 bg-rose-600 rounded-full p-1" title="Nhóm đã giải tán">
-            <X className="h-3 w-3 text-white" />
-          </div>
-        )}
-      </div>
+  const resetSummaryState = () => {
+    setAiSummaryOpen(false);
+    setAiSummaryText(null);
+    setLoadingMessage(null);
+  };
 
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center justify-between gap-2 mb-1">
-          <div className="flex items-center min-w-0 gap-2">
-            <span className="font-medium truncate">{chatRoomTitle}</span>
-            {isDissolved && (
-              <span className="text-xs text-rose-600 font-medium whitespace-nowrap">Nhóm đã giải tán</span>
+  return (
+    <>
+      <button
+        onClick={onClick}
+        className={cn(
+          'relative flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-colors w-full group',
+          active && 'bg-accent/50',
+          !active && 'hover:bg-accent/50',
+        )}
+      >
+        <div className="relative">
+          <Avatar className={cn('h-12 w-12 border', active && 'border-gray-300')}>
+            <AvatarImage src={chatRoom.avatar || undefined} alt={chatRoomTitle} />
+            <AvatarFallback>{avatarFallback}</AvatarFallback>
+          </Avatar>
+
+          {isGroup && !isDissolved && (
+            <div className="absolute -bottom-1 -right-1 bg-primary rounded-full p-1">
+              <Users className="h-3 w-3 text-primary-foreground" />
+            </div>
+          )}
+
+          {isDissolved && (
+            <div className="absolute -bottom-1 -right-1 bg-rose-600 rounded-full p-1" title="Nhóm đã giải tán">
+              <X className="h-3 w-3 text-white" />
+            </div>
+          )}
+        </div>
+
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center justify-between gap-2 mb-1">
+            <div className="flex items-center min-w-0 gap-2">
+              <span className="font-medium truncate">{chatRoomTitle}</span>
+
+              {isDissolved && (
+                <span className="text-xs text-rose-600 font-medium whitespace-nowrap">Nhóm đã giải tán</span>
+              )}
+            </div>
+
+            {formattedTime && <span className="text-xs text-muted-foreground">{formattedTime}</span>}
+          </div>
+
+          <div className="flex justify-between items-center gap-2">
+            <p
+              className={cn(
+                'text-sm truncate text-start',
+                isDissolved && 'text-muted-foreground italic',
+                unreadBadgeText && 'text-muted-foreground font-bold',
+              )}
+            >
+              {truncate(chatRoomPreview, { length: 30 })}
+            </p>
+
+            <div className="flex items-center gap-2">
+              {unreadBadgeText && <Badge>{unreadBadgeText}</Badge>}
+
+              {unreadMessagesCount >= 10 && !isSummarized && (
+                <span
+                  role="button"
+                  title="AI tóm tắt"
+                  onClick={(e) => {
+                    e.stopPropagation();
+
+                    if (!isSummaryLoading) {
+                      setAiSummaryOpen(true);
+                      setAiSummaryText(null);
+                      setLoadingMessage('AI đang phân tích tin nhắn...');
+
+                      triggerUnreadSummary({
+                        id: chatRoom.roomId,
+                      });
+                    }
+                  }}
+                  className={cn(
+                    'p-1 rounded-full',
+                    isSummaryLoading ? 'bg-primary/20 cursor-not-allowed' : 'hover:bg-primary/70 cursor-pointer',
+                  )}
+                >
+                  {isSummaryLoading ? (
+                    <Loader2 className="h-5 w-5 animate-spin text-primary" />
+                  ) : (
+                    <Brain className="h-5 w-5 text-primary" />
+                  )}
+                </span>
+              )}
+            </div>
+          </div>
+        </div>
+      </button>
+
+      {aiSummaryOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center" onClick={resetSummaryState}>
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
+
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="relative z-50 w-[min(92%,42rem)] max-w-xl rounded-2xl bg-popover border shadow-xl overflow-hidden animate-in fade-in zoom-in-95"
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between px-5 py-4 border-b">
+              <div className="flex items-center gap-2">
+                <div className="p-2 rounded-lg bg-primary/10">
+                  <Brain className="h-5 w-5 text-primary" />
+                </div>
+
+                <div className="font-semibold text-sm">AI Tóm tắt tin nhắn chưa đọc</div>
+              </div>
+
+              <button
+                onClick={resetSummaryState}
+                className="p-1.5 rounded-lg hover:bg-accent transition cursor-pointer"
+              >
+                <X className="h-4 w-4 text-muted-foreground" />
+              </button>
+            </div>
+
+            {/* Body */}
+            <div className="px-5 py-4 max-h-[60vh] overflow-y-auto">
+              {isSummaryLoading || loadingMessage ? (
+                <div className="flex flex-col items-center justify-center gap-3 py-6">
+                  <Loader2 className="h-6 w-6 animate-spin text-primary" />
+
+                  <div className="text-sm text-muted-foreground text-center">
+                    {loadingMessage || 'AI đang phân tích tin nhắn...'}
+                  </div>
+                </div>
+              ) : (
+                <div className="text-sm whitespace-pre-line leading-relaxed bg-muted/40 p-4 rounded-xl border">
+                  {aiSummaryText ?? 'Không có nội dung tóm tắt'}
+                </div>
+              )}
+            </div>
+
+            {/* Footer */}
+            {!isSummaryLoading && (
+              <div className="flex justify-end px-5 py-3 border-t bg-muted/30">
+                <button
+                  onClick={resetSummaryState}
+                  className="px-3 py-1.5 text-sm rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition cursor-pointer"
+                >
+                  Đóng
+                </button>
+              </div>
             )}
           </div>
-          {formattedTime && <span className="text-xs text-muted-foreground shrink-0">{formattedTime}</span>}
         </div>
-        <p
-          className={cn(
-            'text-sm truncate text-start',
-            isDissolved ? 'text-muted-foreground italic' : 'text-muted-foreground',
-          )}
-        >
-          {truncate(chatRoomPreview, { length: 30 })}
-        </p>
-      </div>
-    </button>
+      )}
+    </>
   );
 }

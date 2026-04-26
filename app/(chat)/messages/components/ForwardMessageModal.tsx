@@ -11,11 +11,12 @@ import { MessageResponse } from '@/types/model';
 import { MessageTypeEnum } from '@/types/enum';
 import { useChatRooms } from '@/app/(chat)/messages/hooks/useChatRooms';
 import type { ForwardMessageSubmitResult } from '@/hooks/useChatRoomAndMessageActions';
-import { Loader2, Search, X, ImageIcon, Video, Music, FileText } from 'lucide-react';
+import { Loader2, Search, X, ImageIcon, Video, Music, FileText, PhoneOff } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { getMessagePreviewText } from '@/utils/messageUtils';
 import { useUser } from '@/hooks/useUser';
+import { getMessageMediaPhotos } from '@/utils/formatChatMediaForPhotoAlbum';
 
 interface ForwardMessageModalProps {
   open: boolean;
@@ -68,15 +69,26 @@ export function ForwardMessageModal({
       };
     }
 
+    const mediaPhotos = getMessageMediaPhotos(message);
+    const firstMediaKind = mediaPhotos[0]?.mediaKind;
+
     const Icon = message.isHidden
       ? FileText
-      : message.messageType === MessageTypeEnum.IMAGE
-        ? ImageIcon
-        : message.messageType === MessageTypeEnum.VIDEO
+      : message.messageType === MessageTypeEnum.MEDIA
+        ? firstMediaKind === 'video'
           ? Video
-          : message.messageType === MessageTypeEnum.AUDIO
+          : firstMediaKind === 'audio'
             ? Music
-            : FileText;
+            : ImageIcon
+        : message.messageType === MessageTypeEnum.IMAGE
+          ? ImageIcon
+          : message.messageType === MessageTypeEnum.VIDEO
+            ? Video
+            : message.messageType === MessageTypeEnum.AUDIO
+              ? Music
+              : message.messageType === MessageTypeEnum.CALL
+                ? PhoneOff
+              : FileText;
 
     return {
       text: getMessagePreviewText(message, 60),

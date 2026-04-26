@@ -2,14 +2,22 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { X, ChevronDown, UserPlus, Edit, Loader2, LogOut, Bell, PinIcon, Settings, Users } from 'lucide-react';
-import { SharedMediaGrid } from './SharedMediaGrid';
-import { SharedFilesList } from './SharedFilesList';
+import {
+  X,
+  ChevronDown,
+  UserPlus,
+  Edit,
+  Loader2,
+  LogOut,
+  Bell,
+  PinIcon,
+  Settings,
+  Users,
+  Notebook,
+} from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { ChatRoom } from '@/types/model';
-import { useFetchFilesInChatRoomQuery, useFetchMediaInChatRoomQuery } from '@/services/chatRoom/chatRoomApi';
 import { ManageGroupPanel } from './ManageGroupPanel';
 import { useGetMemberInGroupChatQuery, useAddMemberToGroupMutation } from '@/services/chatRoom/groupChat/groupChatApi';
 import { ChatMemberItem } from '@/app/(chat)/messages/components/ChatMemberItem';
@@ -28,6 +36,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import GroupNewsPanel from './GroupNewsPanel';
+import AssetTabSection from '@/app/(chat)/messages/components/AssetTabSection';
 
 interface GroupDetailsPanelProps {
   chatRoom: ChatRoom;
@@ -51,18 +61,7 @@ export function GroupDetailsPanel({
   const [editGroupModalOpen, setEditGroupModalOpen] = useState(false);
   const [leaveConfirmOpen, setLeaveConfirmOpen] = useState(false);
   const [managePanelOpen, setManagePanelOpen] = useState(false);
-
-  const {
-    data: filesData,
-    isLoading: isLoadingFile,
-    isError: isErrorFile,
-  } = useFetchFilesInChatRoomQuery({ chatRoomId: chatRoom.roomId }, { skip: !isOpen || !chatRoom });
-
-  const {
-    data: mediaData,
-    isLoading: isLoadingMedia,
-    isError: isErrorMedia,
-  } = useFetchMediaInChatRoomQuery({ chatRoomId: chatRoom.roomId }, { skip: !isOpen || !chatRoom });
+  const [newsPanelOpen, setNewsPanelOpen] = useState(false);
 
   const {
     data: memberData,
@@ -77,14 +76,6 @@ export function GroupDetailsPanel({
   const members = useMemo(() => {
     return memberData?.data || [];
   }, [memberData]);
-
-  const media = useMemo(() => {
-    return mediaData?.data || [];
-  }, [mediaData]);
-
-  const files = useMemo(() => {
-    return filesData?.data || [];
-  }, [filesData]);
 
   const { currentUserRole, currentUserId } = useMemo(() => {
     const currentMember = members.find((member) => member.accountId === user?.accountId);
@@ -124,7 +115,7 @@ export function GroupDetailsPanel({
         <div className="absolute inset-0 border-l border-border bg-card flex flex-col h-full min-h-0 z-0">
           <div className="h-16 border-b border-border flex items-center justify-between px-4 flex-none">
             <h2 className="font-semibold text-sm">Thông tin nhóm</h2>
-            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onClose}>
+            <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full" onClick={onClose}>
               <X className="h-5 w-5" />
             </Button>
           </div>
@@ -145,44 +136,71 @@ export function GroupDetailsPanel({
               </div>
 
               <div
-                className="grid grid-cols-[repeat(auto-fit,minmax(72px,auto))] justify-items-center"
+                className="grid grid-cols-[repeat(auto-fit,minmax(72px,auto))] justify-items-center gap-y-2"
                 hidden={readOnly}
               >
-                <div className="flex flex-col items-center gap-1 cursor-pointer">
-                  <div className="h-10 w-10 rounded-full bg-muted/10 flex items-center justify-center p-2 hover:bg-primary/50 transition-colors">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  className="flex flex-col items-center gap-1 h-auto p-0 hover:bg-transparent rounded-full"
+                >
+                  <div className="h-10 w-10 rounded-full bg-muted/10 flex items-center justify-center p-2 hover:bg-primary hover:text-white">
                     <Bell className="h-5 w-5" />
                   </div>
                   <span className="text-xs">Tắt thông báo</span>
-                </div>
-                <div className="flex flex-col items-center gap-1 cursor-pointer">
-                  <div className="h-10 w-10 rounded-full bg-muted/10 flex items-center justify-center p-2 hover:bg-primary/50 transition-colors">
+                </Button>
+
+                <Button
+                  type="button"
+                  variant="ghost"
+                  className="flex flex-col items-center gap-1 h-auto p-0 hover:bg-transparent rounded-full"
+                >
+                  <div className="h-10 w-10 rounded-full bg-muted/10 flex items-center justify-center p-2 hover:bg-primary hover:text-white">
                     <PinIcon className="h-5 w-5" />
                   </div>
                   <span className="text-xs">Ghim hội thoại</span>
-                </div>
+                </Button>
+
                 {canAddMember && (
-                  <div
-                    className="flex flex-col items-center gap-1 cursor-pointer"
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    className="flex flex-col items-center gap-1 h-auto p-0 hover:bg-transparent rounded-full"
                     onClick={() => setAddMemberModalOpen(true)}
                   >
-                    <div className="h-10 w-10 rounded-full bg-muted/10 flex items-center justify-center p-2 hover:bg-primary/50 transition-colors">
+                    <div className="h-10 w-10 rounded-full bg-muted/10 flex items-center justify-center p-2 hover:bg-primary hover:text-white">
                       <UserPlus className="h-5 w-5" />
                     </div>
                     <span className="text-xs">Thêm thành viên</span>
-                  </div>
+                  </Button>
                 )}
+
                 {canManageMembers && (
-                  <div
-                    className="flex flex-col items-center gap-1 cursor-pointer"
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    className="flex flex-col items-center gap-1 h-auto p-0 hover:bg-transparent rounded-full"
                     onClick={() => setManagePanelOpen(true)}
                   >
-                    <div className="h-10 w-10 rounded-full bg-muted/10 flex items-center justify-center p-2 hover:bg-primary/50 transition-colors">
+                    <div className="h-10 w-10 rounded-full bg-muted/10 flex items-center justify-center p-2 hover:bg-primary hover:text-white">
                       <Settings className="h-5 w-5" />
                     </div>
                     <span className="text-xs">Quản lý nhóm</span>
-                  </div>
+                  </Button>
                 )}
               </div>
+
+              <Separator />
+
+              <Button
+                type="button"
+                variant="secondary"
+                className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-accent/50 justify-start"
+                onClick={() => setNewsPanelOpen(true)}
+              >
+                <Notebook className="h-4 w-4" />
+                <span className="text-sm">Xem bảng tin nhóm</span>
+              </Button>
 
               <Separator />
 
@@ -239,32 +257,13 @@ export function GroupDetailsPanel({
                 </div>
               </Collapsible>
 
-              <Separator />
-
-              <Tabs defaultValue="media" className="w-full">
-                <TabsList className="grid w-full grid-cols-2">
-                  <TabsTrigger className="cursor-pointer" value="media">
-                    Phương tiện
-                  </TabsTrigger>
-                  <TabsTrigger className="cursor-pointer" value="files">
-                    Files
-                  </TabsTrigger>
-                </TabsList>
-                <TabsContent value="media" className="mt-4">
-                  <SharedMediaGrid media={media} isLoading={isLoadingMedia} isError={isErrorMedia} />
-                </TabsContent>
-                <TabsContent value="files" className="mt-4">
-                  <SharedFilesList files={files} isLoading={isLoadingFile} isError={isErrorFile} />
-                </TabsContent>
-              </Tabs>
-
               {canLeaveGroup && <Separator />}
 
               <div className="pb-2 space-y-1 mt-2">
                 {canLeaveGroup && !readOnly && (
                   <Button
-                    variant="ghost"
-                    className="w-full justify-start text-destructive hover:text-destructive rounded-xl"
+                    variant="destructive"
+                    className="w-full rounded-xl"
                     onClick={() => setLeaveConfirmOpen(true)}
                     disabled={isLeavingGroup}
                   >
@@ -282,11 +281,16 @@ export function GroupDetailsPanel({
                   </Button>
                 )}
               </div>
+
+              <Separator />
+
+              <AssetTabSection isDetailPanelOpen={isOpen} chatRoom={chatRoom} />
             </div>
           </ScrollArea>
         </div>
 
         <ManageGroupPanel open={managePanelOpen} onOpenChange={setManagePanelOpen} chatRoom={chatRoom} />
+        <GroupNewsPanel open={newsPanelOpen} onOpenChange={setNewsPanelOpen} chatRoomId={chatRoom.roomId} />
       </div>
 
       <SearchUsersModal
@@ -298,10 +302,8 @@ export function GroupDetailsPanel({
         isAddingMember={isAddingMember}
       />
 
-      {/* Edit Group Modal */}
       <EditGroupModal open={editGroupModalOpen} onOpenChange={setEditGroupModalOpen} chatRoom={chatRoom} />
 
-      {/* Leave Group Confirmation */}
       <AlertDialog open={leaveConfirmOpen} onOpenChange={setLeaveConfirmOpen}>
         <AlertDialogContent className="rounded-xl">
           <AlertDialogHeader>

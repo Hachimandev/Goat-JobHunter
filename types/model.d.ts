@@ -1,6 +1,9 @@
 import {
   ApplicationStatus,
+  CallEndReasonEnum,
   ChatRoomType,
+  CallStatusEnum,
+  CallTypeEnum,
   CompanySize,
   Education,
   Gender,
@@ -376,6 +379,22 @@ export type MessageReplyContext = {
   originalMessageHidden: boolean;
 };
 
+export type MessageCallContext = {
+  sessionId: number;
+  startedAt?: string | null;
+  endedAt?: string | null;
+  durationSeconds?: number | null;
+  endReason?: CallEndReasonEnum | null;
+};
+
+export type MessageMediaItem = {
+  url: string;
+  mediaType: 'image' | 'video' | 'audio';
+  mimeType: string;
+  sizeBytes: number;
+  displayOrder: number;
+};
+
 export type MessageType = {
   chatRoomId: string;
   messageId: string;
@@ -388,12 +407,14 @@ export type MessageType = {
   };
   content: string;
   messageType: MessageTypeEnum;
+  mediaItems?: MessageMediaItem[] | null;
   replyToMessageId?: string | null;
   replyContext?: MessageReplyContext | null;
   isHidden: boolean;
   isForwarded?: boolean;
   originalMessageId?: string;
   contactCard?: ContactCardContext | null;
+  callContext?: MessageCallContext | null;
   createdAt: string;
   updatedAt: string;
   role?: MessageTypeRole; // temporary field to avoid error for build in chat container
@@ -405,12 +426,14 @@ export type MessageResponse = {
   sender: SenderInfo;
   content: string;
   messageType: MessageTypeEnum;
+  mediaItems?: MessageMediaItem[] | null;
   replyToMessageId?: string | null;
   replyContext?: ReplyContext | null;
   isHidden: boolean;
   isForwarded: boolean;
   originalMessageId?: string | null;
   contactCard?: ContactCardContext | null;
+  callContext?: MessageCallContext | null;
   createdAt: string; // Instant -> ISO string
   updatedAt: string; // Instant -> ISO string
 };
@@ -453,6 +476,58 @@ export type ChatRoom = {
   blockedByMe: boolean;
   counterpartAccountId: number;
   deletedAt?: string | null;
+};
+
+export type CallParticipant = {
+  account: {
+    accountId: number;
+    avatar?: string | null;
+    username: string;
+    fullName: string;
+    email: string;
+  };
+  publisher: boolean;
+  joinedAt: string;
+  leftAt?: string | null;
+};
+
+export type CallRtcCredentials = {
+  sessionId: number;
+  appId: string;
+  channelName: string;
+  token: string;
+  uid: number;
+  expiresAtEpochMs: number;
+  ttlSeconds: number;
+  publisher: boolean;
+};
+
+export type CallTokenResponse = {
+  sessionId: number;
+  appId: string;
+  channelName: string;
+  uid: number;
+  token: string;
+  expiresAtEpochMs: number;
+  ttlSeconds: number;
+  publisher: boolean;
+};
+
+export type CallSession = {
+  sessionId: number;
+  chatRoomId: number;
+  chatRoomType?: ChatRoomType;
+  chatRoomName?: string | null;
+  chatRoomAvatar?: string | null;
+  status: CallStatusEnum;
+  agoraChannelName: string;
+  initiatorAccountId: number;
+  startedAt: string;
+  endedAt?: string | null;
+  endReason?: CallEndReasonEnum | null;
+  participants: CallParticipant[];
+  callType?: CallTypeEnum;
+  rtc?: CallRtcCredentials;
 };
 
 export type Resume = {
@@ -509,4 +584,47 @@ export type Interview = {
   updatedAt: string;
   createdBy: string;
   updatedBy: string;
+};
+
+export type PollOption = {
+  optionId: string;
+  text: string;
+  createdBy: string;
+  createdAt: string;
+  voteCount: number;
+  accountVoted: boolean;
+};
+
+export type Poll = {
+  pollId: string;
+  chatRoomId: number;
+  messageId: string;
+  createdBy: string;
+  question: string;
+  options: PollOption[];
+  multipleChoice: boolean;
+  allowAddOption: boolean;
+  pinned: boolean;
+  isClosed: boolean;
+  expiresAt?: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type PollVote = {
+  voteId: string;
+  poll: {
+    pollId: string;
+    question: string;
+  };
+  option: {
+    optionId: string;
+    text: string;
+  };
+  account: {
+    accountId: number;
+    fullName: string;
+    avatar: string;
+  };
+  createdAt: string;
 };

@@ -31,12 +31,20 @@ export const getMessageTypePreviewText = (messageType: MessageTypeEnum | null | 
     return '[Âm thanh]';
   }
 
+  if (messageType === MessageTypeEnum.MEDIA) {
+    return '[Phương tiện]';
+  }
+
   if (messageType === MessageTypeEnum.FILE) {
     return '[Tệp đính kèm]';
   }
 
   if (messageType === MessageTypeEnum.CONTACT_CARD) {
     return '[Danh thiếp]';
+  }
+
+  if (messageType === MessageTypeEnum.CALL) {
+    return '[Cuộc gọi]';
   }
 
   return DEFAULT_TEXT_MESSAGE_PREVIEW;

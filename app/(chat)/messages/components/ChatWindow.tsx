@@ -1,4 +1,4 @@
-import { ChatRoom, MessageResponse, PinnedMessage } from '@/types/model';
+import { CallSession, ChatRoom, MessageResponse, PinnedMessage } from '@/types/model';
 import { ChatHeader } from './ChatHeader';
 import { MessageInput } from './MessageInput';
 import { MessageList } from './MessageList';
@@ -32,8 +32,13 @@ interface ChatWindowProps {
   onCancelReply?: () => void;
   onReplyMessage?: (message: MessageResponse) => void;
   onNavigateToMessage?: (messageId: string) => void;
+  onLoadOlderMessages?: () => Promise<void> | void;
+  hasOlderMessages?: boolean;
+  isLoadingOlderMessages?: boolean;
   onForwardMessage?: (message: MessageResponse) => void;
   isForwardingMessage?: boolean;
+  onHideMessage?: (messageId: string) => Promise<void> | void;
+  isHidingMessage?: (messageId: string) => boolean;
   onDeleteMessage?: (messageId: string) => Promise<void> | void;
   isDeletingMessage?: (messageId: string) => boolean;
   onRecallMessage?: (messageId: string) => Promise<void> | void;
@@ -45,6 +50,14 @@ interface ChatWindowProps {
   onClearChat?: () => Promise<void> | void;
   pinnedMessages?: PinnedMessage[];
   isLoadingPinnedMessages?: boolean;
+  onStartVoiceCall?: () => void;
+  onStartVideoCall?: () => void;
+  showOngoingCallInfo?: boolean;
+  callSession?: CallSession | null;
+  ongoingParticipantsCount?: number;
+  canJoinOngoingCall?: boolean;
+  isJoiningOngoingCall?: boolean;
+  onJoinOngoingCall?: () => void;
 }
 
 export function ChatWindow({
@@ -60,8 +73,13 @@ export function ChatWindow({
   onCancelReply,
   onReplyMessage,
   onNavigateToMessage,
+  onLoadOlderMessages,
+  hasOlderMessages = false,
+  isLoadingOlderMessages = false,
   onForwardMessage,
   isForwardingMessage,
+  onHideMessage,
+  isHidingMessage,
   onDeleteMessage,
   isDeletingMessage,
   onRecallMessage,
@@ -72,6 +90,14 @@ export function ChatWindow({
   isPinningMessage,
   pinnedMessages = [],
   isLoadingPinnedMessages = false,
+  onStartVoiceCall,
+  onStartVideoCall,
+  showOngoingCallInfo = false,
+  callSession = null,
+  ongoingParticipantsCount = 0,
+  canJoinOngoingCall = false,
+  isJoiningOngoingCall = false,
+  onJoinOngoingCall,
 }: Readonly<ChatWindowProps>) {
   const { isOpen: isDetailsOpen, toggle, close } = useDetailsPanelState();
   const [isPinnedPanelOpen, setIsPinnedPanelOpen] = useState(false);
@@ -116,15 +142,29 @@ export function ChatWindow({
           onOpenSearch={handleOpenSearch}
           pinnedMessagesCount={pinnedMessages.length}
           readOnly={isDissolved}
+          disableCallActions={isChatLocked}
+          onStartVoiceCall={onStartVoiceCall}
+          onStartVideoCall={onStartVideoCall}
+          showOngoingCallInfo={showOngoingCallInfo}
+          callSession={callSession}
+          ongoingParticipantsCount={ongoingParticipantsCount}
+          canJoinOngoingCall={canJoinOngoingCall}
+          isJoiningOngoingCall={isJoiningOngoingCall}
+          onJoinOngoingCall={onJoinOngoingCall}
         />
         <MessageList
           messages={messages}
           currentUserId={currentUserId}
           isGroup={isGroup}
+          onLoadOlderMessages={onLoadOlderMessages}
+          hasOlderMessages={hasOlderMessages}
+          isLoadingOlderMessages={isLoadingOlderMessages}
           onReplyMessage={isDissolved ? undefined : onReplyMessage}
           onNavigateToMessage={isDissolved ? undefined : onNavigateToMessage}
           onForwardMessage={isDissolved ? undefined : onForwardMessage}
           isForwardingMessage={isDissolved ? false : isForwardingMessage}
+          onHideMessage={isDissolved || chatRoom.type === ChatRoomType.AI ? undefined : onHideMessage}
+          isHidingMessage={isDissolved || chatRoom.type === ChatRoomType.AI ? undefined : isHidingMessage}
           onDeleteMessage={isDissolved ? undefined : onDeleteMessage}
           isDeletingMessage={isDissolved ? undefined : isDeletingMessage}
           onRecallMessage={isDissolved ? undefined : onRecallMessage}

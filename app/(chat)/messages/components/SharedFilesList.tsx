@@ -2,14 +2,42 @@ import { Card } from '@/components/ui/card';
 import { FileText, FileArchive, Download, Loader2 } from 'lucide-react';
 import { MessageResponse } from '@/types/model';
 import { Button } from '@/components/ui/button';
+import { useCallback } from 'react';
+import { useInfiniteScroll } from '@/hooks/useInfiniteScroll';
 
 interface SharedFilesListProps {
   readonly files: MessageResponse[];
   readonly isLoading: boolean;
   readonly isError: boolean;
+  readonly hasMore?: boolean;
+  readonly isFetchingNext?: boolean;
+  readonly onLoadMore?: () => Promise<void>;
 }
 
-export function SharedFilesList({ files, isLoading, isError }: SharedFilesListProps) {
+export function SharedFilesList({
+  files,
+  isLoading,
+  isError,
+  hasMore = false,
+  isFetchingNext = false,
+  onLoadMore,
+}: SharedFilesListProps) {
+  const handleLoadMore = useCallback(() => {
+    if (!onLoadMore) {
+      return;
+    }
+
+    void onLoadMore();
+  }, [onLoadMore]);
+
+  const { targetRef } = useInfiniteScroll({
+    onLoadMore: handleLoadMore,
+    hasMore: Boolean(onLoadMore) && hasMore,
+    isLoading: isFetchingNext,
+    threshold: 0,
+    rootMargin: '240px',
+  });
+
   const getFileIcon = (type: string) => {
     if (type.includes('pdf')) return <FileText className="h-5 w-5" />;
     if (type.includes('zip') || type.includes('rar')) return <FileArchive className="h-5 w-5" />;
@@ -76,6 +104,14 @@ export function SharedFilesList({ files, isLoading, isError }: SharedFilesListPr
           </Card>
         );
       })}
+
+      {hasMore && !isFetchingNext && <div ref={targetRef} className="h-2 w-full" />}
+
+      {isFetchingNext && (
+        <div className="flex items-center justify-center py-4">
+          <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+        </div>
+      )}
     </div>
   );
 }
