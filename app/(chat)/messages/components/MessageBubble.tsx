@@ -597,24 +597,72 @@ export function MessageBubble({
   );
 }
 
-export function MessageBubbleLoading() {
+interface MessageBubbleLoadingProps {
+  contentPreview?: string;
+  fileCount?: number;
+  replySenderName?: string;
+  replyPreviewText?: string;
+}
+
+export function MessageBubbleLoading({
+  contentPreview,
+  fileCount = 0,
+  replySenderName,
+  replyPreviewText,
+}: Readonly<MessageBubbleLoadingProps>) {
+  const hasReplyContext = Boolean(replySenderName && replyPreviewText);
+  const hasContent = Boolean(contentPreview) && fileCount === 0;
+  const hasFiles = fileCount > 0;
+  const shouldShowSendingDots = hasFiles;
+
+  let attachmentText = '';
+
+  if (hasFiles) {
+    attachmentText = fileCount === 1 ? '[1 tệp đính kèm]' : `[${fileCount} tệp đính kèm]`;
+  }
+
+  const hasRenderablePreview = hasReplyContext || hasContent;
+
   return (
-    <div className="flex justify-end">
-      <div className={cn('max-w-[70%] rounded-2xl px-4 py-2', 'bg-primary text-primary-foreground rounded-2xl')}>
-        <div className="flex items-center gap-1">
-          <div
-            className="w-2 h-2 bg-primary-foreground/60 rounded-full animate-bounce"
-            style={{ animationDelay: '0ms' }}
-          />
-          <div
-            className="w-2 h-2 bg-primary-foreground/60 rounded-full animate-bounce"
-            style={{ animationDelay: '150ms' }}
-          />
-          <div
-            className="w-2 h-2 bg-primary-foreground/60 rounded-full animate-bounce"
-            style={{ animationDelay: '300ms' }}
-          />
+    <div className="flex justify-end mb-2">
+      <div className="flex flex-col items-end max-w-[70%]">
+        <div className={cn('w-full rounded-2xl px-4 py-2', 'bg-primary text-primary-foreground rounded-2xl')}>
+          {hasRenderablePreview && (
+            <div className="space-y-2">
+              {hasReplyContext && (
+                <div className="w-full text-left border-l-2 rounded-md px-2 py-1 bg-primary-foreground/15 border-primary-foreground/40 text-primary-foreground">
+                  <p className="text-xs font-semibold text-primary-foreground/90">{replySenderName}</p>
+                  <p className="text-xs line-clamp-2 text-primary-foreground/85">{replyPreviewText}</p>
+                </div>
+              )}
+
+              {hasContent && (
+                <p className="text-sm leading-relaxed whitespace-pre-wrap wrap-break-word">{contentPreview}</p>
+              )}
+
+              {hasFiles && <p className="text-xs text-primary-foreground/85">{attachmentText}</p>}
+            </div>
+          )}
+
+          {shouldShowSendingDots && (
+            <div className="flex items-center gap-1 mt-1 px-1" aria-label="Đang gửi tệp đính kèm">
+              <div
+                className="w-1.5 h-1.5 bg-muted-foreground/80 rounded-full animate-bounce"
+                style={{ animationDelay: '0ms' }}
+              />
+              <div
+                className="w-1.5 h-1.5 bg-muted-foreground/80 rounded-full animate-bounce"
+                style={{ animationDelay: '150ms' }}
+              />
+              <div
+                className="w-1.5 h-1.5 bg-muted-foreground/80 rounded-full animate-bounce"
+                style={{ animationDelay: '300ms' }}
+              />
+            </div>
+          )}
         </div>
+
+        {!shouldShowSendingDots && <span className="text-xs text-muted-foreground mt-1 px-1">Đã gửi</span>}
       </div>
     </div>
   );
