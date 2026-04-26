@@ -11,14 +11,19 @@ import iuh.fit.goat.dto.response.message.MessageDeletedEventResponse;
 import iuh.fit.goat.dto.response.message.MessageResponse;
 import iuh.fit.goat.dto.response.ResultPaginationResponse;
 import iuh.fit.goat.dto.response.StorageResponse;
+import iuh.fit.goat.dto.response.poll.PollResponse;
 import iuh.fit.goat.entity.Account;
+import iuh.fit.goat.entity.ChatCallSession;
 import iuh.fit.goat.entity.ChatMember;
 import iuh.fit.goat.entity.ChatRoom;
 import iuh.fit.goat.entity.Company;
 import iuh.fit.goat.entity.Message;
 import iuh.fit.goat.entity.User;
+import iuh.fit.goat.entity.embeddable.CallSummary;
+import iuh.fit.goat.entity.embeddable.MediaItem;
 import iuh.fit.goat.entity.embeddable.SenderInfo;
 import iuh.fit.goat.enumeration.ChatRoomType;
+import iuh.fit.goat.enumeration.MediaType;
 import iuh.fit.goat.enumeration.MessageType;
 import iuh.fit.goat.enumeration.RelationshipState;
 import iuh.fit.goat.exception.BlockedInteractionException;
@@ -28,15 +33,18 @@ import iuh.fit.goat.exception.NotFoundException;
 import iuh.fit.goat.exception.PermissionException;
 import iuh.fit.goat.repository.ChatMemberRepository;
 import iuh.fit.goat.repository.ChatRoomRepository;
+import iuh.fit.goat.repository.MessageHiddenRepository;
 import iuh.fit.goat.repository.MessageRepository;
 import iuh.fit.goat.repository.UserRelationshipRepository;
 import iuh.fit.goat.repository.UserRepository;
 import iuh.fit.goat.service.MessageService;
 import iuh.fit.goat.service.StorageService;
+import iuh.fit.goat.util.EntityUtil;
 import iuh.fit.goat.util.MessageHelper;
 import iuh.fit.goat.util.MessageMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Pageable;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
@@ -45,8 +53,10 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.*;
+import java.util.function.Predicate;
 
 @Service
 @Slf4j
@@ -54,6 +64,7 @@ import java.util.*;
 public class MessageServiceImpl implements MessageService {
     private final StorageService storageService;
 
+    private final MessageHiddenRepository messageHiddenRepository;
     private final MessageRepository messageRepository;
     private final ChatRoomRepository chatRoomRepository;
     private final ChatMemberRepository chatMemberRepository;
@@ -61,6 +72,8 @@ public class MessageServiceImpl implements MessageService {
     private final UserRepository userRepository;
 
     private static final long MAX_FILE_SIZE = 20 * 1024 * 1024; // 20MB
+    private static final int MAX_MEDIA_ITEMS_PER_MESSAGE = 10;
+    private static final long MAX_MEDIA_BATCH_SIZE = 100 * 1024 * 1024; // 100MB
     private static final int MAX_FORWARD_TARGETS = 20;
     private static final String MESSAGE_DELETED_EVENT = "MESSAGE_DELETED";
     private static final String DELETE_TYPE_ORIGINAL = "original";
@@ -72,6 +85,14 @@ public class MessageServiceImpl implements MessageService {
     private static final int MAX_SEARCH_PAGE_SIZE = 50;
     private static final int MAX_SEARCH_TERM_LENGTH = 100;
     private static final int SEARCH_SCAN_LIMIT = 3000;
+    private static final int DEFAULT_CURSOR_BATCH_QUERY_SIZE = 40;
+    private static final int MAX_CURSOR_BATCH_QUERY_SIZE = 100;
+    private static final int DEFAULT_REPLY_LOOKUP_SCAN_LIMIT = 400;
+    private static final int MAX_SEARCH_TOP_UP_ROUNDS = 2;
+    private static final int maxCursorPageSize = 50;
+    private static final int cursorBatchQuerySize = 40;
+    private static final int replyLookupScanLimit = 400;
+
     private final SimpMessagingTemplate messagingTemplate;
 
     // ========== PUBLIC API METHODS ==========
@@ -101,32 +122,32 @@ public class MessageServiceImpl implements MessageService {
     * Get messages sorted by newest first.
      */
     @Override
-    public List<Message> getMessagesByChatRoom(Long chatRoomId, Pageable pageable) {
-        if (chatRoomId == null) {
-            throw new IllegalArgumentException("Chat room ID cannot be null");
-        }
-
-        int requestedSize = pageable.getPageSize();
-
-        log.info("Fetching up to {} messages for chatRoom: {}", requestedSize, chatRoomId);
-
-        List<Message> messages = messageRepository.findMessagesByChatRoom(
-                chatRoomId.toString(),
-                requestedSize,
-                true // include hidden messages
+    public ResultPaginationResponse getMessagesByChatRoom(Long chatRoomId, Pageable pageable, Account currentAccount)
+            throws InvalidException {
+        return getPaginatedMessagesByChatRoom(
+                chatRoomId,
+                pageable,
+                currentAccount,
+                true,
+                null,
+                true
         );
-
-        log.info("Retrieved {} messages for chatRoom: {}", messages.size(), chatRoomId);
-
-        return messages;
     }
 
     @Override
     @Transactional(readOnly = true)
-    public ResultPaginationResponse searchMessagesByChatRoom(Long chatRoomId, String searchTerm, Pageable pageable)
+    public ResultPaginationResponse searchMessagesByChatRoom(
+            Long chatRoomId,
+            String searchTerm,
+            Pageable pageable,
+            Account currentAccount
+    )
             throws InvalidException {
         if (chatRoomId == null) {
             throw new InvalidException("Chat room ID cannot be null");
+        }
+        if (currentAccount == null) {
+            throw new InvalidException("Current account is invalid");
         }
 
         this.chatRoomRepository.findById(chatRoomId)
@@ -138,7 +159,7 @@ public class MessageServiceImpl implements MessageService {
 
         String normalizedSearchTerm = normalizeSearchTerm(searchTerm);
         if (normalizedSearchTerm == null) {
-            return buildSearchPaginationResponse(Collections.emptyList(), pageNumber, pageSize, 0);
+            return buildPaginationResponse(Collections.emptyList(), pageNumber, pageSize, 0);
         }
 
         MessageRepository.MessageSearchResult searchResult = this.messageRepository.searchMessagesByChatRoom(
@@ -157,8 +178,43 @@ public class MessageServiceImpl implements MessageService {
                     SEARCH_SCAN_LIMIT);
         }
 
-        List<MessageResponse> result = toMessageResponses(searchResult.messages());
-        return buildSearchPaginationResponse(result, pageNumber, pageSize, searchResult.matchedCount());
+        List<Message> visibleMessages = new ArrayList<>(
+                filterHiddenMessagesForUser(searchResult.messages(), currentAccount.getAccountId())
+        );
+
+        int nextPage = pageNumber + 1;
+        int topUpRound = 0;
+        while (visibleMessages.size() < pageSize
+                && topUpRound < MAX_SEARCH_TOP_UP_ROUNDS
+                && searchResult.messages().size() >= pageSize) {
+            MessageRepository.MessageSearchResult nextPageResult = this.messageRepository.searchMessagesByChatRoom(
+                    chatRoomId.toString(),
+                    normalizedSearchTerm,
+                    nextPage,
+                    pageSize,
+                    SEARCH_SCAN_LIMIT
+            );
+
+            if (nextPageResult.messages().isEmpty()) {
+                break;
+            }
+
+            visibleMessages.addAll(filterHiddenMessagesForUser(nextPageResult.messages(), currentAccount.getAccountId()));
+
+            if (nextPageResult.messages().size() < pageSize) {
+                break;
+            }
+
+            nextPage++;
+            topUpRound++;
+        }
+
+        List<Message> pageMessages = visibleMessages.size() > pageSize
+                ? new ArrayList<>(visibleMessages.subList(0, pageSize))
+                : visibleMessages;
+
+        List<MessageResponse> result = toMessageResponses(pageMessages);
+        return buildPaginationResponse(result, pageNumber, pageSize, searchResult.matchedCount());
     }
 
     /**
@@ -189,7 +245,7 @@ public class MessageServiceImpl implements MessageService {
                 .chatRoomId(chatRoomId.toString())
                 .messageId(messageId)
                 .sender(senderInfo)  // NEW: Use embedded sender
-                .content(request.getContent())
+                .content(Objects.requireNonNull(request).getContent())
                 .messageType(MessageType.TEXT)
                 .replyTo(replyToMessageId)
                 .isHidden(false)
@@ -202,9 +258,10 @@ public class MessageServiceImpl implements MessageService {
         log.info("Saving message - chatRoomId: {}, SK: {}", chatRoomId, messageSk);
 
         Message savedMessage = messageRepository.saveMessage(message);
+        updateChatRoomSummaryFromMessage(savedMessage);
+        incrementUnreadCountForRecipients(chatRoomId, currentAccount.getAccountId());
 
-        log.info("Message created: messageId={}, chatRoomId={}",
-            messageId, chatRoomId);
+        log.info("Message created: messageId={}, chatRoomId={}", messageId, chatRoomId);
 
         sendMessageToUsers(chatRoomId, savedMessage);
 
@@ -228,16 +285,105 @@ public class MessageServiceImpl implements MessageService {
 
         String replyToMessageId = normalizeReplyToMessageId(request != null ? request.getReplyToMessageId() : null);
         validateReplyTarget(chatRoomId.toString(), replyToMessageId);
+        String normalizedContent = normalizeMessageContent(request != null ? request.getContent() : null);
 
         List<Message> createdMessages = new ArrayList<>();
+        boolean mediaMessageCreated = false;
         try {
             // Process files first
             if (files != null && !files.isEmpty()) {
+                List<MultipartFile> mediaFiles = new ArrayList<>();
+                List<MultipartFile> nonMediaFiles = new ArrayList<>();
+
                 for (MultipartFile file : files) {
                     validateFile(file);
 
-                    String mimeType = file.getContentType();
-                    MessageType messageType = determineMessageType(mimeType);
+                    MediaType mediaType = determineMediaType(file.getContentType());
+                    if (mediaType != null) {
+                        mediaFiles.add(file);
+                    } else {
+                        nonMediaFiles.add(file);
+                    }
+                }
+
+                if (!mediaFiles.isEmpty()) {
+                    validateMediaBatchConstraints(mediaFiles);
+
+                    if (mediaFiles.size() >= 2) {
+                        List<MediaItem> mediaItems = new ArrayList<>();
+                        int displayOrder = 0;
+
+                        for (MultipartFile mediaFile : mediaFiles) {
+                            String mimeType = mediaFile.getContentType();
+                            MediaType mediaType = determineMediaType(mimeType);
+                            if (mediaType == null) {
+                                continue;
+                            }
+
+                            String folder = getFolderByMediaType(mediaType);
+                            StorageResponse storageResponse = storageService.handleUploadFile(mediaFile, folder);
+
+                            mediaItems.add(MediaItem.builder()
+                                    .url(storageResponse.getUrl())
+                                    .mediaType(mediaType)
+                                    .mimeType(mimeType)
+                                    .sizeBytes(mediaFile.getSize())
+                                    .displayOrder(displayOrder++)
+                                    .build());
+                        }
+
+                        if (!mediaItems.isEmpty()) {
+                            Message mediaMessage = createMediaMessage(
+                                    chatRoomId.toString(),
+                                    mediaItems,
+                                    normalizedContent,
+                                    replyToMessageId,
+                                    currentAccount
+                            );
+
+                            Message savedMessage = messageRepository.saveMessage(mediaMessage);
+                            updateChatRoomSummaryFromMessage(savedMessage);
+                            createdMessages.add(savedMessage);
+                            incrementUnreadCountForRecipients(chatRoomId, currentAccount.getAccountId());
+                            sendMessageToUsers(chatRoomId, savedMessage);
+
+                            mediaMessageCreated = true;
+                            log.info("Media batch message created: messageId={}, mediaItems={}, chatRoomId={}",
+                                    savedMessage.getMessageId(),
+                                    mediaItems.size(),
+                                    chatRoomId);
+                        }
+                    } else {
+                        MultipartFile mediaFile = mediaFiles.get(0);
+                        MessageType messageType = determineLegacyMediaMessageType(mediaFile.getContentType());
+
+                        String folder = getFolderByMessageType(messageType);
+                        StorageResponse storageResponse = storageService.handleUploadFile(mediaFile, folder);
+                        String fileUrl = storageResponse.getUrl();
+
+                        Message fileMessage = createFileMessage(
+                                chatRoomId.toString(),
+                                fileUrl,
+                                messageType,
+                                replyToMessageId,
+                                currentAccount
+                        );
+
+                        Message savedMessage = messageRepository.saveMessage(fileMessage);
+                        updateChatRoomSummaryFromMessage(savedMessage);
+                        createdMessages.add(savedMessage);
+                        incrementUnreadCountForRecipients(chatRoomId, currentAccount.getAccountId());
+                        sendMessageToUsers(chatRoomId, savedMessage);
+
+                        log.info("Single media message created in legacy format: messageId={}, type={}, chatRoomId={}",
+                                savedMessage.getMessageId(),
+                                messageType,
+                                chatRoomId);
+                    }
+                }
+
+                for (MultipartFile file : nonMediaFiles) {
+                    MessageType messageType = determineMessageType(file.getContentType());
 
                     String folder = getFolderByMessageType(messageType);
                     StorageResponse storageResponse = storageService.handleUploadFile(file, folder);
@@ -252,7 +398,9 @@ public class MessageServiceImpl implements MessageService {
                     );
 
                     Message savedMessage = messageRepository.saveMessage(fileMessage);
+                    updateChatRoomSummaryFromMessage(savedMessage);
                     createdMessages.add(savedMessage);
+                    incrementUnreadCountForRecipients(chatRoomId, currentAccount.getAccountId());
                     sendMessageToUsers(chatRoomId, savedMessage);
 
                     log.info("File message created: messageId={}, type={}, chatRoomId={}",
@@ -261,9 +409,9 @@ public class MessageServiceImpl implements MessageService {
             }
 
             // Process text content
-            if (request != null && request.getContent() != null && !request.getContent().isBlank()) {
+            if (!mediaMessageCreated && normalizedContent != null) {
                 MessageCreateRequest textRequest = new MessageCreateRequest(
-                        request.getContent(),
+                        normalizedContent,
                         replyToMessageId
                 );
                 Message textMessage = sendMessage(chatRoomId, textRequest, currentAccount);
@@ -324,7 +472,9 @@ public class MessageServiceImpl implements MessageService {
 
             Message contactCardMessage = this.createContactCardMessage(chatRoomId.toString(), userId, currentAccount);
             Message savedMessage = this.messageRepository.saveMessage(contactCardMessage);
+            updateChatRoomSummaryFromMessage(savedMessage);
             createdMessages.add(savedMessage);
+            incrementUnreadCountForRecipients(chatRoomId, currentAccount.getAccountId());
             sendMessageToUsers(chatRoomId, savedMessage);
         }
 
@@ -366,7 +516,7 @@ public class MessageServiceImpl implements MessageService {
             localMessages.putIfAbsent(message.getMessageId(), message);
         }
 
-        Map<String, Optional<Message>> parentLookupCache = new HashMap<>();
+        Map<String, Optional<Message>> parentLookupCache = preloadReplyTargets(messages, localMessages);
         Map<Long, Optional<User>> contactLookupCache = preloadContactUsers(messages);
         List<MessageResponse> responses = new ArrayList<>(messages.size());
         for (Message message : messages) {
@@ -376,61 +526,132 @@ public class MessageServiceImpl implements MessageService {
         return responses;
     }
 
-    @Override
-    public List<Message> getMediaMessagesByChatRoom(Long chatRoomId, Pageable pageable) throws InvalidException {
-        if (chatRoomId == null) {
-            throw new InvalidException("Chat room ID cannot be null");
+    private Map<String, Optional<Message>> preloadReplyTargets(
+            List<Message> messages,
+            Map<String, Message> localMessages
+    ) {
+        Map<String, Optional<Message>> parentLookupCache = new HashMap<>();
+        if (messages == null || messages.isEmpty()) {
+            return parentLookupCache;
         }
 
-        chatRoomRepository.findById(chatRoomId).orElseThrow(() -> new InvalidException("Chat Room not found"));
+        Map<String, LinkedHashSet<String>> replyIdsByChatRoom = new HashMap<>();
 
-        int requestedSize = pageable.getPageSize();
+        for (Message message : messages) {
+            if (message == null) {
+                continue;
+            }
 
-        log.info("Fetching up to {} media messages for chatRoom: {}", requestedSize, chatRoomId);
+            String replyToMessageId = normalizeReplyToMessageId(message.getReplyTo());
+            if (replyToMessageId == null) {
+                continue;
+            }
 
-        List<Message> allMessages = messageRepository.findMessagesByChatRoom(
-                chatRoomId.toString(),
-                requestedSize * 3, // Fetch more to filter
-                false
-        );
+            if (localMessages != null && localMessages.containsKey(replyToMessageId)) {
+                parentLookupCache.put(replyToMessageId, Optional.ofNullable(localMessages.get(replyToMessageId)));
+                continue;
+            }
 
-        List<Message> mediaMessages = allMessages.stream()
-                .filter(msg -> isMediaType(msg.getMessageType()))
-                .limit(requestedSize)
-                .toList();
+            String chatRoomId = message.getChatRoomId();
+            if (chatRoomId == null || chatRoomId.isBlank()) {
+                continue;
+            }
 
-        log.info("Retrieved {} media messages for chatRoom: {}", mediaMessages.size(), chatRoomId);
+            replyIdsByChatRoom
+                    .computeIfAbsent(chatRoomId, ignored -> new LinkedHashSet<>())
+                    .add(replyToMessageId);
+        }
 
-        return mediaMessages;
+        for (Map.Entry<String, LinkedHashSet<String>> entry : replyIdsByChatRoom.entrySet()) {
+            String chatRoomId = entry.getKey();
+            LinkedHashSet<String> replyIds = entry.getValue();
+            if (replyIds == null || replyIds.isEmpty()) {
+                continue;
+            }
+
+            Map<String, Message> matchedParents = this.messageRepository
+                    .findByChatRoomIdAndMessageIds(
+                        chatRoomId,
+                        replyIds,
+                        resolveReplyLookupScanLimit()
+                    );
+
+            for (String replyId : replyIds) {
+                if (parentLookupCache.containsKey(replyId)) {
+                    continue;
+                }
+                parentLookupCache.put(replyId, Optional.ofNullable(matchedParents.get(replyId)));
+            }
+        }
+
+        return parentLookupCache;
+    }
+
+    private int resolveReplyLookupScanLimit() {
+        return replyLookupScanLimit > 0 ? replyLookupScanLimit : DEFAULT_REPLY_LOOKUP_SCAN_LIMIT;
     }
 
     @Override
-    public List<Message> getFileMessagesByChatRoom(Long chatRoomId, Pageable pageable) throws InvalidException {
+    public ResultPaginationResponse getMediaMessagesByChatRoom(Long chatRoomId, Pageable pageable, Account currentAccount)
+            throws InvalidException {
+        return getPaginatedMessagesByChatRoom(
+                chatRoomId,
+                pageable,
+                currentAccount,
+                false,
+                message -> message != null && isMediaType(message.getMessageType()),
+                false
+        );
+    }
+
+    @Override
+    public ResultPaginationResponse getFileMessagesByChatRoom(Long chatRoomId, Pageable pageable, Account currentAccount)
+            throws InvalidException {
+        return getPaginatedMessagesByChatRoom(
+                chatRoomId,
+                pageable,
+                currentAccount,
+                false,
+                message -> message != null && message.getMessageType() == MessageType.FILE,
+                false
+        );
+    }
+
+    @Override
+    @Transactional
+    public void hideMessageForMe(Long chatRoomId, String messageId, Account currentAccount)
+            throws InvalidException, NotFoundException, PermissionException {
         if (chatRoomId == null) {
             throw new InvalidException("Chat room ID cannot be null");
         }
+        if (messageId == null || messageId.isBlank()) {
+            throw new InvalidException("Message ID cannot be blank");
+        }
+        if (currentAccount == null) {
+            throw new InvalidException("Current account is invalid");
+        }
 
-        chatRoomRepository.findById(chatRoomId)
-                .orElseThrow(() -> new InvalidException("Chat Room not found"));
+        this.chatRoomRepository.findById(chatRoomId)
+                .orElseThrow(() -> new NotFoundException("Chat room not found"));
 
-        int requestedSize = pageable.getPageSize();
+        if (!isUserInChatRoom(chatRoomId, currentAccount.getAccountId())) {
+            throw new PermissionException("Current user is not a member of this chat room");
+        }
 
-        log.info("Fetching up to {} file messages for chatRoom: {}", requestedSize, chatRoomId);
+        Message message = this.messageRepository
+                .findByChatRoomIdAndMessageId(chatRoomId.toString(), messageId)
+                .orElseThrow(() -> new NotFoundException("Message not found"));
 
-        List<Message> allMessages = messageRepository.findMessagesByChatRoom(
-                chatRoomId.toString(),
-                requestedSize * 3, // Fetch more to filter
-                false
+        this.messageHiddenRepository.hideMessageForUser(
+                message.getMessageId(),
+                currentAccount.getAccountId(),
+                Instant.now()
         );
 
-        List<Message> fileMessages = allMessages.stream()
-                .filter(msg -> msg.getMessageType() == MessageType.FILE)
-                .limit(requestedSize)
-                .toList();
-
-        log.info("Retrieved {} file messages for chatRoom: {}", fileMessages.size(), chatRoomId);
-
-        return fileMessages;
+        log.info("Message hidden for current user: chatRoomId={}, messageId={}, accountId={}",
+                chatRoomId,
+                messageId,
+                currentAccount.getAccountId());
     }
 
     @Override
@@ -489,6 +710,8 @@ public class MessageServiceImpl implements MessageService {
                 .filter(recalledMessage -> messageId.equals(recalledMessage.getMessageId()))
                 .findFirst()
                 .orElse(message);
+
+            refreshChatRoomSummaries(affectedChatRoomIds);
 
         log.info("Cascade message revoke completed: messageId={}, rootChatRoomId={}, byAccountId={}, totalCandidates={}, totalRecalled={}, affectedChatRooms={}",
                 messageId,
@@ -567,6 +790,8 @@ public class MessageServiceImpl implements MessageService {
             try {
                 Message forwardedMessage = createForwardedMessage(sourceMessage, targetChatRoomId, currentAccount);
                 Message savedMessage = this.messageRepository.saveMessage(forwardedMessage);
+                updateChatRoomSummaryFromMessage(savedMessage);
+                incrementUnreadCountForRecipients(targetChatRoomId, currentAccount.getAccountId());
                 sendMessageToUsers(targetChatRoomId, savedMessage);
 
                 successes.add(ForwardMessageSuccessResponse.builder()
@@ -669,6 +894,8 @@ public class MessageServiceImpl implements MessageService {
             }
         }
 
+        refreshChatRoomSummaries(affectedChatRoomIds);
+
         log.info("Cascade permanent delete completed: messageId={}, rootChatRoomId={}, byAccountId={}, totalCandidates={}, totalDeleted={}, affectedChatRooms={}",
                 messageId,
                 chatRoomId,
@@ -711,16 +938,85 @@ public class MessageServiceImpl implements MessageService {
                 .build();
 
         Message savedMessage = messageRepository.saveMessage(systemMessage);
+        incrementUnreadCountForRecipients(chatRoomId, actor != null ? actor.getAccountId() : null);
         sendMessageToUsers(chatRoomId, savedMessage);
+    }
 
-        log.info("System message created: type={}, chatRoomId={}", type, chatRoomId);
+    @Override
+    public void createAndSendPollMessage(Long chatRoomId, MessageEvent type, Account actor, PollResponse poll) {
+        String content = MessageHelper.generateSystemMessage(type, actor, poll);
+        Instant now = Instant.now();
+        long timestamp = now.toEpochMilli();
+
+        String messageId = type == MessageEvent.POLL_CREATED ? poll.getMessageId() : generateMessageId();
+        String messageSk = Message.buildMessageSk(timestamp, poll.getMessageId());
+        SenderInfo senderInfo = buildSenderInfo(actor);
+
+        Message message = Message.builder()
+                .messageId(messageId)
+                .messageSk(messageSk)
+                .chatRoomId(chatRoomId.toString())
+                .sender(senderInfo)
+                .content(content)
+                .messageType(MessageType.POLL)
+                .isHidden(false)
+                .isForwarded(false)
+                .originalMessageId(null)
+                .createdAt(Instant.now())
+                .updatedAt(Instant.now())
+                .build();
+        Message savedMessage = messageRepository.saveMessage(message);
+        if(poll.getPinned() != null && poll.getPinned()) {
+            this.messageRepository.pinMessage(
+                    chatRoomId.toString(), poll.getMessageId(),
+                    resolveAccountDisplayName(actor)
+            );
+        }
+
+        sendMessageToUsers(chatRoomId, savedMessage);
+    }
+
+    @Override
+    public void createAndSendCallMessage(Long chatRoomId, Account actor, ChatCallSession session) {
+        if (chatRoomId == null || actor == null || session == null || session.getCallSessionId() == null) {
+            return;
+        }
+
+        Instant endedAt = session.getEndedAt() != null ? session.getEndedAt() : Instant.now();
+        Instant startedAt = session.getStartedAt();
+        String messageId = generateMessageId();
+
+        Message callMessage = Message.builder()
+                .messageSk(Message.buildMessageSk(endedAt.toEpochMilli(), messageId))
+                .chatRoomId(chatRoomId.toString())
+                .messageId(messageId)
+                .sender(buildSenderInfo(actor))
+                .content("[Cuộc gọi]")
+                .mediaItems(null)
+                .callSummary(buildCallSummary(session, startedAt, endedAt))
+                .messageType(MessageType.CALL)
+                .replyTo(null)
+                .isHidden(false)
+                .isForwarded(false)
+                .originalMessageId(null)
+                .createdAt(endedAt)
+                .updatedAt(endedAt)
+                .build();
+
+        Message savedMessage = this.messageRepository.saveMessage(callMessage);
+        updateChatRoomSummaryFromMessage(savedMessage);
+        incrementUnreadCountForRecipients(chatRoomId, actor != null ? actor.getAccountId() : null);
+        sendMessageToUsers(chatRoomId, savedMessage);
     }
 
     private boolean isMediaType(MessageType type) {
-        return type == MessageType.IMAGE || type == MessageType.VIDEO || type == MessageType.AUDIO;
+        return type == MessageType.MEDIA
+                || type == MessageType.IMAGE
+                || type == MessageType.VIDEO
+                || type == MessageType.AUDIO;
     }
 
-    private ResultPaginationResponse buildSearchPaginationResponse(
+    private ResultPaginationResponse buildPaginationResponse(
             List<MessageResponse> messages,
             int pageNumber,
             int pageSize,
@@ -749,6 +1045,408 @@ public class MessageServiceImpl implements MessageService {
         }
 
         return Math.min(requestedPageSize, MAX_SEARCH_PAGE_SIZE);
+    }
+
+    private int resolveRequestedSize(Pageable pageable, int fallbackSize) {
+        int requestedSize = (pageable == null || pageable.getPageSize() <= 0)
+                ? fallbackSize
+                : pageable.getPageSize();
+
+        int safeMaxPageSize = maxCursorPageSize > 0 ? maxCursorPageSize : fallbackSize;
+        return Math.min(requestedSize, safeMaxPageSize);
+    }
+
+    private int resolveCursorBatchQuerySize(int pageSize) {
+        int recommended = Math.max(pageSize * 2, DEFAULT_CURSOR_BATCH_QUERY_SIZE);
+        int configured = cursorBatchQuerySize > 0 ? cursorBatchQuerySize : recommended;
+        int bounded = Math.min(configured, MAX_CURSOR_BATCH_QUERY_SIZE);
+        return Math.max(bounded, Math.max(pageSize, 1));
+    }
+
+    private ResultPaginationResponse getPaginatedMessagesByChatRoom(
+            Long chatRoomId,
+            Pageable pageable,
+            Account currentAccount,
+            boolean includeGloballyHidden,
+            Predicate<Message> messageFilter,
+            boolean updateLastReadMessage
+    ) throws InvalidException {
+        if (chatRoomId == null) {
+            throw new InvalidException("Chat room ID cannot be null");
+        }
+        if (currentAccount == null) {
+            throw new InvalidException("Current account is invalid");
+        }
+
+        this.chatRoomRepository.findById(chatRoomId)
+                .orElseThrow(() -> new InvalidException("Chat Room not found"));
+
+        int pageNumber = pageable != null ? Math.max(pageable.getPageNumber(), 0) : 0;
+        int pageSize = resolveRequestedSize(pageable, DEFAULT_SEARCH_PAGE_SIZE);
+        int batchQuerySize = resolveCursorBatchQuerySize(pageSize);
+
+        Long currentAccountId = currentAccount.getAccountId();
+
+        CursorResolution cursorResolution = resolvePageStartCursor(
+                chatRoomId,
+                currentAccountId,
+                pageSize,
+                pageNumber,
+                batchQuerySize,
+                includeGloballyHidden,
+                messageFilter
+        );
+
+        List<Message> pageMessages;
+        boolean hasMore;
+        if (cursorResolution.reachedEndBeforePage()) {
+            pageMessages = Collections.emptyList();
+            hasMore = false;
+        } else {
+            FilteredPageSlice pageSlice = fetchFilteredPageSlice(
+                    chatRoomId.toString(),
+                    cursorResolution.startCursor(),
+                    pageSize,
+                    batchQuerySize,
+                    includeGloballyHidden,
+                    currentAccountId,
+                    messageFilter
+            );
+
+            pageMessages = pageSlice.messages();
+            hasMore = pageSlice.hasMore();
+        }
+
+        if (updateLastReadMessage) {
+            updateLastReadMessageOnFirstPage(chatRoomId, pageNumber, pageMessages, currentAccount);
+        }
+
+        List<MessageResponse> result = toMessageResponses(pageMessages);
+        long totalVisibleMessages = cursorResolution.reachedEndBeforePage()
+                ? resolveAndCacheTotalForEndPage(
+                        pageSize,
+                        pageNumber,
+                        cursorResolution.exactTotalWhenEnd()
+                )
+                : resolveAndCacheTotal(
+                        pageSize,
+                        pageNumber,
+                        pageMessages.size(),
+                        hasMore
+                );
+
+        return buildPaginationResponse(result, pageNumber, pageSize, totalVisibleMessages);
+    }
+
+    private FilteredPageSlice fetchFilteredPageSlice(
+            String chatRoomId,
+            String startCursor,
+            int pageSize,
+            int batchQuerySize,
+            boolean includeGloballyHidden,
+            Long accountId,
+            Predicate<Message> messageFilter
+    ) {
+        List<Message> pageMessages = new ArrayList<>(pageSize);
+        String queryCursor = startCursor;
+
+        while (pageMessages.size() < pageSize) {
+            MessageRepository.MessageCursorBatchResult batchResult = this.messageRepository
+                    .queryMessageBatchByChatRoomWithCursor(chatRoomId, queryCursor, batchQuerySize);
+
+            List<Message> rawBatchMessages = batchResult.messages();
+            if (rawBatchMessages.isEmpty()) {
+                return new FilteredPageSlice(pageMessages, null, false);
+            }
+
+            List<Message> visibleMessages = filterMessagesForPagination(
+                    rawBatchMessages,
+                    includeGloballyHidden,
+                    accountId,
+                    messageFilter
+            );
+
+            String lastReturnedMessageSk = null;
+            for (Message message : visibleMessages) {
+                if (pageMessages.size() >= pageSize) {
+                    break;
+                }
+
+                pageMessages.add(message);
+                lastReturnedMessageSk = message != null ? message.getMessageSk() : null;
+            }
+
+            if (pageMessages.size() >= pageSize) {
+                boolean hasMoreInCurrentBatch = hasRawItemsAfterMessage(rawBatchMessages, lastReturnedMessageSk);
+                boolean hasMore = hasMoreInCurrentBatch || batchResult.hasMore();
+                String nextCursor = hasMore
+                        ? this.messageRepository.createCursorToken(chatRoomId, lastReturnedMessageSk)
+                        : null;
+
+                if (hasMore && (nextCursor == null || nextCursor.isBlank())) {
+                    nextCursor = batchResult.nextCursor();
+                }
+
+                return new FilteredPageSlice(pageMessages, nextCursor, hasMore);
+            }
+
+            if (!batchResult.hasMore()) {
+                return new FilteredPageSlice(pageMessages, null, false);
+            }
+
+            queryCursor = batchResult.nextCursor();
+            if (queryCursor == null || queryCursor.isBlank()) {
+                return new FilteredPageSlice(pageMessages, null, false);
+            }
+        }
+
+        return new FilteredPageSlice(pageMessages, null, false);
+    }
+
+    private boolean hasRawItemsAfterMessage(List<Message> rawMessages, String messageSk) {
+        if (rawMessages == null || rawMessages.isEmpty() || messageSk == null || messageSk.isBlank()) {
+            return false;
+        }
+
+        for (int index = 0; index < rawMessages.size(); index++) {
+            Message current = rawMessages.get(index);
+            if (current == null || current.getMessageSk() == null) {
+                continue;
+            }
+
+            if (messageSk.equals(current.getMessageSk())) {
+                return index < rawMessages.size() - 1;
+            }
+        }
+
+        return false;
+    }
+
+    private CursorResolution resolvePageStartCursor(
+            Long chatRoomId,
+            Long accountId,
+            int pageSize,
+            int pageNumber,
+            int batchQuerySize,
+            boolean includeGloballyHidden,
+            Predicate<Message> messageFilter
+    ) {
+        if (pageNumber <= 0) {
+            return new CursorResolution(null, false, null);
+        }
+
+        String cursor = null;
+        for (int currentPage = 0; currentPage < pageNumber; currentPage++) {
+            FilteredPageSlice pageSlice = fetchFilteredPageSlice(
+                    chatRoomId.toString(),
+                    cursor,
+                    pageSize,
+                    batchQuerySize,
+                    includeGloballyHidden,
+                    accountId,
+                    messageFilter
+            );
+
+            String nextPageCursor = pageSlice.nextCursor();
+            if (nextPageCursor == null) {
+                long exactTotal = (long) currentPage * pageSize + pageSlice.messages().size();
+                return new CursorResolution(null, true, exactTotal);
+            }
+
+            cursor = nextPageCursor;
+        }
+
+        return new CursorResolution(cursor, false, null);
+    }
+
+    private long resolveAndCacheTotal(
+            int pageSize,
+            int pageNumber,
+            int currentPageItemCount,
+            boolean hasMore
+    ) {
+        long lowerBound = (long) pageNumber * pageSize + currentPageItemCount;
+        if (!hasMore) {
+            return lowerBound;
+        }
+
+        long minimumForNextPage = ((long) pageNumber + 1) * pageSize + 1;
+        return Math.max(lowerBound, minimumForNextPage);
+    }
+
+    private long resolveAndCacheTotalForEndPage(
+            int pageSize,
+            int pageNumber,
+            Long exactTotalWhenEnd
+    ) {
+        if (exactTotalWhenEnd != null) {
+            return exactTotalWhenEnd;
+        }
+
+        return Math.max((long) pageNumber * pageSize, 0L);
+    }
+
+    private record FilteredPageSlice(List<Message> messages, String nextCursor, boolean hasMore) {
+    }
+
+    private record CursorResolution(String startCursor, boolean reachedEndBeforePage, Long exactTotalWhenEnd) {
+    }
+
+    private List<Message> filterMessagesForPagination(
+            List<Message> messages,
+            boolean includeGloballyHidden,
+            Long accountId,
+            Predicate<Message> messageFilter
+    ) {
+        if (messages == null || messages.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        List<Message> globallyVisibleMessages = messages.stream()
+                .filter(Objects::nonNull)
+                .filter(message -> includeGloballyHidden || !Boolean.TRUE.equals(message.getIsHidden()))
+                .toList();
+
+        List<Message> visibleMessages = filterHiddenMessagesForUser(globallyVisibleMessages, accountId);
+        if (messageFilter == null) {
+            return visibleMessages;
+        }
+
+        return visibleMessages.stream()
+                .filter(messageFilter)
+                .toList();
+    }
+
+    private void updateLastReadMessageOnFirstPage(
+            Long chatRoomId,
+            int pageNumber,
+            List<Message> pageMessages,
+            Account currentAccount
+    ) {
+        if (pageNumber != 0 || pageMessages == null || pageMessages.isEmpty()) {
+            return;
+        }
+
+        Message latestMessage = pageMessages.getFirst();
+        String latestMessageSk = latestMessage.getMessageSk();
+        if (latestMessageSk == null || latestMessageSk.isBlank()) {
+            return;
+        }
+
+        this.chatMemberRepository.markConversationAsRead(
+                chatRoomId,
+                currentAccount.getAccountId(),
+                latestMessageSk
+        );
+    }
+
+    private void incrementUnreadCountForRecipients(Long chatRoomId, Long senderAccountId) {
+        if (chatRoomId == null || senderAccountId == null) {
+            return;
+        }
+
+        this.chatMemberRepository.incrementUnreadCountForRecipients(chatRoomId, senderAccountId, 1L);
+    }
+
+    private void updateChatRoomSummaryFromMessage(Message message) {
+        if (message == null || message.getMessageType() == MessageType.SYSTEM) {
+            return;
+        }
+
+        Long roomId = parseChatRoomId(message.getChatRoomId());
+        if (roomId == null) {
+            return;
+        }
+
+        Long senderAccountId = message.getSender() != null ? message.getSender().getAccountId() : null;
+        String preview = Boolean.TRUE.equals(message.getIsHidden())
+                ? REVOKED_MESSAGE_PREVIEW
+                : MessageHelper.formatMessageContent(message);
+
+        this.chatRoomRepository.updateLastMessageSummary(
+                roomId,
+                message.getMessageId(),
+                senderAccountId,
+                preview,
+                message.getCreatedAt()
+        );
+    }
+
+    private void refreshChatRoomSummaries(Collection<String> chatRoomIds) {
+        if (chatRoomIds == null || chatRoomIds.isEmpty()) {
+            return;
+        }
+
+        for (String chatRoomId : chatRoomIds) {
+            refreshChatRoomSummary(chatRoomId);
+        }
+    }
+
+    private void refreshChatRoomSummary(String chatRoomId) {
+        Long roomId = parseChatRoomId(chatRoomId);
+        if (roomId == null) {
+            return;
+        }
+
+        Optional<Message> latestMessage = this.messageRepository.findLastMessageByConversation(chatRoomId);
+        if (latestMessage.isEmpty()) {
+            this.chatRoomRepository.clearLastMessageSummary(roomId);
+            return;
+        }
+
+        updateChatRoomSummaryFromMessage(latestMessage.get());
+    }
+
+    private Long parseChatRoomId(String chatRoomId) {
+        if (chatRoomId == null || chatRoomId.isBlank()) {
+            return null;
+        }
+
+        try {
+            return Long.parseLong(chatRoomId);
+        } catch (NumberFormatException e) {
+            log.warn("Invalid chatRoomId format for summary update: {}", chatRoomId);
+            return null;
+        }
+    }
+
+    private List<Message> filterHiddenMessagesForUser(List<Message> messages, Long accountId) {
+        if (messages == null || messages.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        if (accountId == null) {
+            return messages;
+        }
+
+        List<String> messageIds = messages.stream()
+                .map(Message::getMessageId)
+                .filter(messageId -> messageId != null && !messageId.isBlank())
+                .distinct()
+                .toList();
+
+        if (messageIds.isEmpty()) {
+            return messages;
+        }
+
+        Set<String> hiddenMessageIds = this.messageHiddenRepository.findHiddenMessageIdsForUser(messageIds, accountId);
+        if (hiddenMessageIds.isEmpty()) {
+            return messages;
+        }
+
+        List<Message> visibleMessages = new ArrayList<>(messages.size());
+        for (Message message : messages) {
+            if (message == null) {
+                continue;
+            }
+
+            String messageId = message.getMessageId();
+            if (messageId == null || !hiddenMessageIds.contains(messageId)) {
+                visibleMessages.add(message);
+            }
+        }
+
+        return visibleMessages;
     }
 
     private String normalizeSearchTerm(String searchTerm) throws InvalidException {
@@ -975,11 +1673,28 @@ public class MessageServiceImpl implements MessageService {
             return truncateReplyPreview(originalMessage.getContent());
         }
 
+        if (originalMessage.getMessageType() == MessageType.MEDIA) {
+            return buildMediaPreview(originalMessage.getMediaItems());
+        }
+
         if (originalMessage.getMessageType() == null) {
             return UNAVAILABLE_MESSAGE_PREVIEW;
         }
 
         return originalMessage.getMessageType().name().toLowerCase(Locale.ROOT);
+    }
+
+    private String buildMediaPreview(List<MediaItem> mediaItems) {
+        if (mediaItems == null || mediaItems.isEmpty()) {
+            return MessageType.MEDIA.name().toLowerCase(Locale.ROOT);
+        }
+
+        MediaItem first = mediaItems.get(0);
+        if (first == null || first.getMediaType() == null) {
+            return MessageType.MEDIA.name().toLowerCase(Locale.ROOT);
+        }
+
+        return first.getMediaType().name().toLowerCase(Locale.ROOT);
     }
 
     private String truncateReplyPreview(String content) {
@@ -1023,12 +1738,53 @@ public class MessageServiceImpl implements MessageService {
     }
 
     private MessageType determineMessageType(String mimeType) {
-        if (mimeType == null) return MessageType.FILE;
-        String type = mimeType.toLowerCase();
-        if (type.startsWith("image/")) return MessageType.IMAGE;
-        if (type.startsWith("video/")) return MessageType.VIDEO;
-        if (type.startsWith("audio/")) return MessageType.AUDIO;
+        MediaType mediaType = determineMediaType(mimeType);
+        if (mediaType != null) {
+            return MessageType.MEDIA;
+        }
+
         return MessageType.FILE;
+    }
+
+    private MessageType determineLegacyMediaMessageType(String mimeType) {
+        MediaType mediaType = determineMediaType(mimeType);
+        if (mediaType == null) {
+            return MessageType.FILE;
+        }
+
+        return switch (mediaType) {
+            case IMAGE -> MessageType.IMAGE;
+            case VIDEO -> MessageType.VIDEO;
+            case AUDIO -> MessageType.AUDIO;
+        };
+    }
+
+    private MediaType determineMediaType(String mimeType) {
+        if (mimeType == null) {
+            return null;
+        }
+
+        String normalized = mimeType.toLowerCase(Locale.ROOT);
+        if (normalized.startsWith("image/")) {
+            return MediaType.IMAGE;
+        }
+        if (normalized.startsWith("video/")) {
+            return MediaType.VIDEO;
+        }
+        if (normalized.startsWith("audio/")) {
+            return MediaType.AUDIO;
+        }
+
+        return null;
+    }
+
+    private String normalizeMessageContent(String content) {
+        if (content == null) {
+            return null;
+        }
+
+        String normalized = content.trim();
+        return normalized.isEmpty() ? null : normalized;
     }
 
     private void validateFile(MultipartFile file) throws InvalidException {
@@ -1046,6 +1802,28 @@ public class MessageServiceImpl implements MessageService {
         }
     }
 
+    private void validateMediaBatchConstraints(List<MultipartFile> mediaFiles) throws InvalidException {
+        if (mediaFiles == null || mediaFiles.isEmpty()) {
+            return;
+        }
+
+        if (mediaFiles.size() > MAX_MEDIA_ITEMS_PER_MESSAGE) {
+            throw new InvalidException("Cannot upload more than " + MAX_MEDIA_ITEMS_PER_MESSAGE + " media items per message");
+        }
+
+        long totalSize = 0L;
+        for (MultipartFile mediaFile : mediaFiles) {
+            if (mediaFile == null) {
+                continue;
+            }
+
+            totalSize += mediaFile.getSize();
+            if (totalSize > MAX_MEDIA_BATCH_SIZE) {
+                throw new InvalidException("Total media payload exceeds maximum size of 100MB");
+            }
+        }
+    }
+
     private String getFolderByMessageType(MessageType type) {
         return switch (type) {
             case IMAGE -> "images";
@@ -1053,6 +1831,44 @@ public class MessageServiceImpl implements MessageService {
             case AUDIO -> "audios";
             default -> "files";
         };
+    }
+
+    private String getFolderByMediaType(MediaType mediaType) {
+        return switch (mediaType) {
+            case IMAGE -> "images";
+            case VIDEO -> "videos";
+            case AUDIO -> "audios";
+        };
+    }
+
+    private Message createMediaMessage(
+            String chatRoomId,
+            List<MediaItem> mediaItems,
+            String content,
+            String replyToMessageId,
+            Account currentAccount
+    ) {
+        String messageId = generateMessageId();
+        Instant now = Instant.now();
+        long timestamp = now.toEpochMilli();
+
+        String messageSk = Message.buildMessageSk(timestamp, messageId);
+
+        return Message.builder()
+                .messageSk(messageSk)
+                .chatRoomId(chatRoomId)
+                .messageId(messageId)
+                .sender(buildSenderInfo(currentAccount))
+                .content(content)
+                .mediaItems(cloneMediaItems(mediaItems))
+                .messageType(MessageType.MEDIA)
+                .replyTo(replyToMessageId)
+                .isHidden(false)
+                .isForwarded(false)
+                .originalMessageId(null)
+                .createdAt(now)
+                .updatedAt(now)
+                .build();
     }
 
     private Message createFileMessage(
@@ -1077,6 +1893,7 @@ public class MessageServiceImpl implements MessageService {
                 .messageId(messageId)
                 .sender(senderInfo)  // NEW: Use embedded sender
                 .content(fileUrl)
+                .mediaItems(null)
                 .messageType(messageType)
                 .replyTo(replyToMessageId)
                 .isHidden(false)
@@ -1098,6 +1915,7 @@ public class MessageServiceImpl implements MessageService {
                 .messageId(messageId)
                 .sender(buildSenderInfo(currentAccount))
                 .content(String.valueOf(referencedUserId))
+            .mediaItems(null)
                 .messageType(MessageType.CONTACT_CARD)
                 .replyTo(null)
                 .isHidden(false)
@@ -1119,6 +1937,8 @@ public class MessageServiceImpl implements MessageService {
                 .messageId(forwardedMessageId)
                 .sender(buildSenderInfo(currentAccount))
                 .content(sourceMessage.getContent())
+                .mediaItems(cloneMediaItems(sourceMessage.getMediaItems()))
+                .callSummary(cloneCallSummary(sourceMessage.getCallSummary()))
                 .messageType(sourceMessage.getMessageType())
                 .replyTo(null)
                 .isHidden(false)
@@ -1126,6 +1946,43 @@ public class MessageServiceImpl implements MessageService {
                 .originalMessageId(sourceMessage.getMessageId())
                 .createdAt(now)
                 .updatedAt(now)
+                .build();
+    }
+
+    private List<MediaItem> cloneMediaItems(List<MediaItem> sourceMediaItems) {
+        if (sourceMediaItems == null || sourceMediaItems.isEmpty()) {
+            return null;
+        }
+
+        List<MediaItem> clonedItems = new ArrayList<>();
+        for (MediaItem mediaItem : sourceMediaItems) {
+            if (mediaItem == null || mediaItem.getUrl() == null || mediaItem.getUrl().isBlank()) {
+                continue;
+            }
+
+            clonedItems.add(MediaItem.builder()
+                    .url(mediaItem.getUrl())
+                    .mediaType(mediaItem.getMediaType())
+                    .mimeType(mediaItem.getMimeType())
+                    .sizeBytes(mediaItem.getSizeBytes())
+                    .displayOrder(mediaItem.getDisplayOrder())
+                    .build());
+        }
+
+        return clonedItems.isEmpty() ? null : clonedItems;
+    }
+
+    private CallSummary cloneCallSummary(CallSummary sourceCallSummary) {
+        if (sourceCallSummary == null) {
+            return null;
+        }
+
+        return CallSummary.builder()
+                .sessionId(sourceCallSummary.getSessionId())
+                .startedAt(sourceCallSummary.getStartedAt())
+                .endedAt(sourceCallSummary.getEndedAt())
+                .durationSeconds(sourceCallSummary.getDurationSeconds())
+                .endReason(sourceCallSummary.getEndReason())
                 .build();
     }
 
@@ -1170,6 +2027,7 @@ public class MessageServiceImpl implements MessageService {
 
             message.setIsHidden(true);
             message.setContent(null);
+            message.setMediaItems(null);
             message.setUpdatedAt(recallTime);
 
             Message savedMessage = this.messageRepository.saveMessage(message);
@@ -1377,15 +2235,57 @@ public class MessageServiceImpl implements MessageService {
     }
 
     private void cleanupMessageBinaryContent(Message message) throws InvalidException {
-        if (message == null || message.getMessageType() == null) {
+        if (message == null) {
             return;
         }
 
-        if (!isBinaryMessageType(message.getMessageType())) {
+        MessageType messageType = message.getMessageType();
+        boolean hasMediaItems = message.getMediaItems() != null && !message.getMediaItems().isEmpty();
+
+        if (!hasMediaItems && !isBinaryMessageType(messageType)) {
             return;
         }
 
-        String content = message.getContent();
+        LinkedHashSet<String> storageKeys = new LinkedHashSet<>();
+        collectStorageKeysFromMediaItems(message.getMediaItems(), storageKeys);
+
+        if (requiresLegacyContentCleanup(messageType)) {
+            addStorageKeyFromContent(message.getContent(), storageKeys);
+        }
+
+        for (String key : storageKeys) {
+            deleteStorageObjectByKey(message.getMessageId(), key);
+        }
+    }
+
+    private void collectStorageKeysFromMediaItems(List<MediaItem> mediaItems, Set<String> storageKeys)
+            throws InvalidException {
+        if (mediaItems == null || mediaItems.isEmpty()) {
+            return;
+        }
+
+        for (MediaItem mediaItem : mediaItems) {
+            if (mediaItem == null || mediaItem.getUrl() == null || mediaItem.getUrl().isBlank()) {
+                continue;
+            }
+
+            String key = extractStorageKey(mediaItem.getUrl());
+            if (key == null || key.isBlank()) {
+                throw new InvalidException("Cannot determine storage key for deleting media item content");
+            }
+
+            storageKeys.add(key);
+        }
+    }
+
+    private boolean requiresLegacyContentCleanup(MessageType messageType) {
+        return messageType == MessageType.IMAGE
+                || messageType == MessageType.VIDEO
+                || messageType == MessageType.AUDIO
+                || messageType == MessageType.FILE;
+    }
+
+    private void addStorageKeyFromContent(String content, Set<String> storageKeys) throws InvalidException {
         if (content == null || content.isBlank()) {
             return;
         }
@@ -1395,26 +2295,48 @@ public class MessageServiceImpl implements MessageService {
             throw new InvalidException("Cannot determine storage key for deleting message content");
         }
 
+        storageKeys.add(key);
+    }
+
+    private void deleteStorageObjectByKey(String messageId, String key) throws InvalidException {
         try {
             this.storageService.handleDeleteFile(key);
         } catch (Exception e) {
-            log.error("Failed to delete storage object for messageId={}", message.getMessageId(), e);
+            log.error("Failed to delete storage object for messageId={}", messageId, e);
             throw new InvalidException("Failed to delete message file from storage");
         }
     }
 
     private boolean isBinaryMessageType(MessageType messageType) {
-        return messageType == MessageType.IMAGE
+        return messageType == MessageType.MEDIA
+                || messageType == MessageType.IMAGE
                 || messageType == MessageType.VIDEO
                 || messageType == MessageType.AUDIO
                 || messageType == MessageType.FILE;
     }
 
+    private CallSummary buildCallSummary(ChatCallSession session, Instant startedAt, Instant endedAt) {
+        long durationSeconds = 0L;
+        if (startedAt != null && endedAt != null && !endedAt.isBefore(startedAt)) {
+            durationSeconds = Duration.between(startedAt, endedAt).getSeconds();
+        }
+
+        return CallSummary.builder()
+                .sessionId(session.getCallSessionId())
+                .startedAt(startedAt)
+                .endedAt(endedAt)
+                .durationSeconds(durationSeconds)
+                .endReason(session.getEndReason())
+                .build();
+    }
+
     private boolean isUserInChatRoom(Long chatRoomId, Long accountId) {
-        List<ChatMember> members = this.chatMemberRepository.findByRoomRoomIdAndDeletedAtIsNull(chatRoomId);
-        return members.stream()
-                .anyMatch(member -> member.getAccount() != null
-                        && Objects.equals(member.getAccount().getAccountId(), accountId));
+        if (chatRoomId == null || accountId == null) {
+            return false;
+        }
+
+        return this.chatMemberRepository
+            .existsByRoomRoomIdAndAccountAccountIdAndDeletedAtIsNull(chatRoomId, accountId);
     }
 
     private List<Long> normalizeTargetChatRoomIds(ForwardMessageRequest request) throws InvalidException {
@@ -1449,9 +2371,32 @@ public class MessageServiceImpl implements MessageService {
             throw new InvalidException("System messages cannot be forwarded");
         }
 
-        if (sourceMessage.getContent() == null || sourceMessage.getContent().isBlank()) {
+        if (!hasForwardablePayload(sourceMessage)) {
             throw new InvalidException("Cannot forward an empty message");
         }
+    }
+
+    private boolean hasForwardablePayload(Message sourceMessage) {
+        if (sourceMessage == null) {
+            return false;
+        }
+
+        if (sourceMessage.getContent() != null && !sourceMessage.getContent().isBlank()) {
+            return true;
+        }
+
+        List<MediaItem> mediaItems = sourceMessage.getMediaItems();
+        if (mediaItems == null || mediaItems.isEmpty()) {
+            return false;
+        }
+
+        for (MediaItem mediaItem : mediaItems) {
+            if (mediaItem != null && mediaItem.getUrl() != null && !mediaItem.getUrl().isBlank()) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private ForwardMessageFailureResponse buildForwardFailure(Long targetChatRoomId, String code, String message) {
@@ -1498,18 +2443,62 @@ public class MessageServiceImpl implements MessageService {
     }
 
     private SenderInfo buildSenderInfo(Account account) {
-        String fullName = account instanceof Company ? ((Company) account).getName()
-                : ((User) account).getFullName();
+        if (account == null) {
+            return SenderInfo.builder().build();
+        }
 
-        String avatar = account instanceof Company ? ((Company) account).getLogo()
-                : account.getAvatar();
+        Account resolvedAccount = EntityUtil.unproxy(account);
+        String fullName = resolveAccountDisplayName(resolvedAccount);
+        String avatar = resolveAccountAvatar(resolvedAccount);
 
         return SenderInfo.builder()
-                .accountId(account.getAccountId())
+                .accountId(resolvedAccount.getAccountId())
                 .fullName(fullName)
-                .username(account.getUsername())
-                .email(account.getEmail())
+                .username(resolvedAccount.getUsername())
+                .email(resolvedAccount.getEmail())
                 .avatar(avatar)
                 .build();
+    }
+
+    private String resolveAccountDisplayName(Account account) {
+        if (account == null) {
+            return null;
+        }
+
+        Account resolvedAccount = EntityUtil.unproxy(account);
+
+        if (resolvedAccount instanceof Company companyAccount
+                && companyAccount.getName() != null
+                && !companyAccount.getName().isBlank()) {
+            return companyAccount.getName();
+        }
+
+        if (resolvedAccount instanceof User userAccount
+                && userAccount.getFullName() != null
+                && !userAccount.getFullName().isBlank()) {
+            return userAccount.getFullName();
+        }
+
+        if (resolvedAccount.getUsername() != null && !resolvedAccount.getUsername().isBlank()) {
+            return resolvedAccount.getUsername();
+        }
+
+        return resolvedAccount.getEmail();
+    }
+
+    private String resolveAccountAvatar(Account account) {
+        if (account == null) {
+            return null;
+        }
+
+        Account resolvedAccount = EntityUtil.unproxy(account);
+
+        if (resolvedAccount instanceof Company companyAccount
+                && companyAccount.getLogo() != null
+                && !companyAccount.getLogo().isBlank()) {
+            return companyAccount.getLogo();
+        }
+
+        return resolvedAccount.getAvatar();
     }
 }

@@ -2,8 +2,10 @@ package iuh.fit.goat.util;
 
 import iuh.fit.goat.common.MessageEvent;
 import iuh.fit.goat.dto.response.message.MessageResponse;
+import iuh.fit.goat.dto.response.poll.PollResponse;
 import iuh.fit.goat.entity.Account;
 import iuh.fit.goat.entity.Company;
+import iuh.fit.goat.entity.Message;
 import iuh.fit.goat.entity.User;
 import iuh.fit.goat.enumeration.ChatRole;
 import lombok.experimental.UtilityClass;
@@ -78,6 +80,41 @@ public class MessageHelper {
                         MessageEvent.MESSAGE_UNPINNED, actorName, formatMessageContent(message), messageId
                 );
             }
+
+            case POLL_CREATED -> {
+                PollResponse poll = (PollResponse) params[0];
+
+                yield String.format("(event:%s) %s đã tạo cuộc bình chọn mới: %s (Xem %s)",
+                        MessageEvent.POLL_CREATED, actorName, poll.getQuestion(), poll.getPollId());
+            }
+
+            case POLL_VOTED -> {
+                PollResponse poll = (PollResponse) params[0];
+
+                yield String.format("(event:%s) %s đã tham gia cuộc bình chọn: %s (Xem %s)",
+                        MessageEvent.POLL_VOTED, actorName, poll.getQuestion(), poll.getPollId());
+            }
+
+            case POLL_UNVOTED -> {
+                PollResponse poll = (PollResponse) params[0];
+
+                yield String.format("(event:%s) %s đã không tham gia cuộc bình chọn: %s (Xem %s)",
+                        MessageEvent.POLL_UNVOTED, actorName, poll.getQuestion(), poll.getPollId());
+            }
+
+            case POLL_OPTION_ADDED -> {
+                PollResponse poll = (PollResponse) params[0];
+
+                yield String.format("(event:%s) %s đã thêm một lựa chọn trong: %s (Xem %s)",
+                        MessageEvent.POLL_OPTION_ADDED, actorName, poll.getQuestion(), poll.getPollId());
+            }
+
+            case POLL_CLOSED -> {
+                PollResponse poll = (PollResponse) params[0];
+
+                yield String.format("(event:%s) %s đã đóng cuộc bình chọn: %s (Xem %s)",
+                        MessageEvent.POLL_CLOSED, actorName, poll.getQuestion(), poll.getPollId());
+            }
         };
     }
 
@@ -98,15 +135,34 @@ public class MessageHelper {
         };
     }
 
-    private static String formatMessageContent(MessageResponse message) {
+    public static String formatMessageContent(MessageResponse message) {
         String MESSAGE_FALLBACK = "Không thể tải tin nhắn này.";
         return switch (message.getMessageType()) {
             case TEXT -> message.getContent() != null ? message.getContent() : MESSAGE_FALLBACK;
+            case MEDIA -> "[Phương tiện]";
             case IMAGE -> "[Hình ảnh]";
             case VIDEO -> "[Video]";
             case FILE -> "[Tệp tin]";
             case AUDIO -> "[Âm thanh]";
             case CONTACT_CARD -> "[Danh thiếp]";
+            case CALL -> "[Cuộc gọi]";
+            case POLL -> "[Cuộc bình chọn]";
+            default -> "[Tin nhắn không xác định]";
+        };
+    }
+
+    public static String formatMessageContent(Message message) {
+        String MESSAGE_FALLBACK = "Không thể tải tin nhắn này.";
+        return switch (message.getMessageType()) {
+            case TEXT -> message.getContent() != null ? message.getContent() : MESSAGE_FALLBACK;
+            case MEDIA -> "[Phương tiện]";
+            case IMAGE -> "[Hình ảnh]";
+            case VIDEO -> "[Video]";
+            case FILE -> "[Tệp tin]";
+            case AUDIO -> "[Âm thanh]";
+            case CONTACT_CARD -> "[Danh thiếp]";
+            case CALL -> "[Cuộc gọi]";
+            case POLL -> "[Cuộc bình chọn]";
             default -> "[Tin nhắn không xác định]";
         };
     }

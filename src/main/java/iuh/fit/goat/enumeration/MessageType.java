@@ -4,9 +4,11 @@ import lombok.Getter;
 
 @Getter
 public enum MessageType {
-    TEXT("text"), IMAGE("image"),
+    TEXT("text"), MEDIA("media"), IMAGE("image"),
     AUDIO("audio"), VIDEO("Video"), FILE("file"),
     CONTACT_CARD("contact_card"),
+    CALL("call"),
+    POLL("poll"), // For poll, voting messages
     SYSTEM("system"); // For system messages like user joined, added, left, user role changed, etc.
 
     private final String value;

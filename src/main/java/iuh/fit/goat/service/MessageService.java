@@ -7,7 +7,9 @@ import iuh.fit.goat.dto.response.message.ForwardMessageResponse;
 import iuh.fit.goat.dto.response.message.MessageDeletedEventResponse;
 import iuh.fit.goat.dto.response.message.MessageResponse;
 import iuh.fit.goat.dto.response.ResultPaginationResponse;
+import iuh.fit.goat.dto.response.poll.PollResponse;
 import iuh.fit.goat.entity.Account;
+import iuh.fit.goat.entity.ChatCallSession;
 import iuh.fit.goat.entity.Message;
 import iuh.fit.goat.exception.ConflictException;
 import iuh.fit.goat.exception.InvalidException;
@@ -22,9 +24,15 @@ public interface MessageService {
 
     Message getLastMessageByChatRoom(Long chatRoomId) throws InvalidException;
 
-    List<Message> getMessagesByChatRoom(Long chatRoomId, Pageable pageable);
+    ResultPaginationResponse getMessagesByChatRoom(Long chatRoomId, Pageable pageable, Account currentAccount)
+            throws InvalidException;
 
-    ResultPaginationResponse searchMessagesByChatRoom(Long chatRoomId, String searchTerm, Pageable pageable)
+    ResultPaginationResponse searchMessagesByChatRoom(
+            Long chatRoomId,
+            String searchTerm,
+            Pageable pageable,
+            Account currentAccount
+    )
             throws InvalidException;
 
     Message sendMessage(Long chatRoomId, MessageCreateRequest request, Account currentAccount) throws InvalidException;
@@ -39,9 +47,14 @@ public interface MessageService {
 
     List<MessageResponse> toMessageResponses(List<Message> messages);
 
-    List<Message> getMediaMessagesByChatRoom(Long chatRoomId, Pageable pageable) throws InvalidException;
+    ResultPaginationResponse getMediaMessagesByChatRoom(Long chatRoomId, Pageable pageable, Account currentAccount)
+            throws InvalidException;
 
-    List<Message> getFileMessagesByChatRoom(Long chatRoomId, Pageable pageable) throws InvalidException;
+    ResultPaginationResponse getFileMessagesByChatRoom(Long chatRoomId, Pageable pageable, Account currentAccount)
+            throws InvalidException;
+
+    void hideMessageForMe(Long chatRoomId, String messageId, Account currentAccount)
+            throws InvalidException, NotFoundException, PermissionException;
 
     Message revokeMessage(Long chatRoomId, String messageId, Account currentAccount)
             throws InvalidException, NotFoundException, ConflictException, PermissionException;
@@ -54,4 +67,8 @@ public interface MessageService {
             throws InvalidException, NotFoundException, PermissionException;
 
     void createAndSendSystemMessage(Long chatRoomId, MessageEvent type, Account actor, Object... params);
+
+    void createAndSendPollMessage(Long chatRoomId, MessageEvent type, Account actor, PollResponse poll);
+
+    void createAndSendCallMessage(Long chatRoomId, Account actor, ChatCallSession session);
 }

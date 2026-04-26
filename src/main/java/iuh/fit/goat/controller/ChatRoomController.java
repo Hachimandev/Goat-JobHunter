@@ -8,6 +8,7 @@ import iuh.fit.goat.dto.request.message.MessageToNewChatRoom;
 import iuh.fit.goat.dto.response.ResultPaginationResponse;
 import iuh.fit.goat.dto.response.chat.ChatRoomResponse;
 import iuh.fit.goat.dto.response.chat.GroupMemberResponse;
+import iuh.fit.goat.dto.response.chat.UnreadMessageResponse;
 import iuh.fit.goat.dto.response.message.ForwardMessageResponse;
 import iuh.fit.goat.dto.response.message.MessageDeletedEventResponse;
 import iuh.fit.goat.dto.response.message.MessageResponse;
@@ -17,15 +18,13 @@ import iuh.fit.goat.exception.ConflictException;
 import iuh.fit.goat.exception.InvalidException;
 import iuh.fit.goat.exception.NotFoundException;
 import iuh.fit.goat.exception.PermissionException;
-import iuh.fit.goat.service.AccountService;
-import iuh.fit.goat.service.ChatRoomService;
-import iuh.fit.goat.service.MessageService;
-import iuh.fit.goat.service.PinnedMessageService;
+import iuh.fit.goat.service.*;
 import iuh.fit.goat.util.SecurityUtil;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -47,7 +46,9 @@ public class ChatRoomController {
     private final PinnedMessageService pinnedMessageService;
 
     @GetMapping("/me")
-    public ResponseEntity<?> getMyChatRooms(Pageable pageable) throws InvalidException {
+        public ResponseEntity<ResultPaginationResponse> getMyChatRooms(
+            @PageableDefault(size = 20) Pageable pageable
+        ) throws InvalidException {
         String email = SecurityUtil.getCurrentUserLogin()
                 .orElseThrow(() -> new InvalidException("User not authenticated"));
 
@@ -57,7 +58,14 @@ public class ChatRoomController {
         }
 
         ResultPaginationResponse response = this.chatRoomService.getMyChatRooms(currentAccount.getAccountId(), pageable);
+
         return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/me/unread-count")
+    public ResponseEntity<List<UnreadMessageResponse>> countUnreadMessagesByCurrentAccount(Pageable pageable) throws InvalidException {
+        List<UnreadMessageResponse> responses = this.chatRoomService.getUnreadMessages(pageable);
+        return ResponseEntity.ok(responses);
     }
 
     @GetMapping("/{id}")
@@ -71,11 +79,15 @@ public class ChatRoomController {
         }
 
         ChatRoomResponse response = this.chatRoomService.getDetailChatRoomInformation(currentAccount, id);
+
         return ResponseEntity.ok(response);
     }
 
     @GetMapping("/{id}/messages")
-    public ResponseEntity<List<MessageResponse>> getMessagesInChatRoom(@PathVariable Long id, Pageable pageable) throws InvalidException {
+    public ResponseEntity<ResultPaginationResponse> getMessagesInChatRoom(
+            @PathVariable Long id,
+            @PageableDefault(size = 20) Pageable pageable
+    ) throws InvalidException {
         String email = SecurityUtil.getCurrentUserLogin()
                 .orElseThrow(() -> new InvalidException("User not authenticated"));
 
@@ -84,8 +96,7 @@ public class ChatRoomController {
             throw new InvalidException("User not found");
         }
 
-        List<Message> messages = this.chatRoomService.getMessagesInChatRoom(currentAccount, id, pageable);
-        List<MessageResponse> response = this.messageService.toMessageResponses(messages);
+        ResultPaginationResponse response = this.chatRoomService.getMessagesInChatRoom(currentAccount, id, pageable);
         return ResponseEntity.ok(response);
     }
 
@@ -102,9 +113,9 @@ public class ChatRoomController {
     }
 
     @GetMapping("/{id}/media")
-    public ResponseEntity<List<MessageResponse>> getMediaMessagesInChatRoom(
+    public ResponseEntity<ResultPaginationResponse> getMediaMessagesInChatRoom(
             @PathVariable Long id,
-            Pageable pageable
+            @PageableDefault(size = 20) Pageable pageable
     ) throws InvalidException {
         String email = SecurityUtil.getCurrentUserLogin().orElseThrow(() -> new InvalidException("User not authenticated"));
 
@@ -113,15 +124,14 @@ public class ChatRoomController {
             throw new InvalidException("User not found");
         }
 
-        List<Message> mediaMessages = this.chatRoomService.getMediaMessagesInChatRoom(currentAccount, id, pageable);
-        List<MessageResponse> response = this.messageService.toMessageResponses(mediaMessages);
+        ResultPaginationResponse response = this.chatRoomService.getMediaMessagesInChatRoom(currentAccount, id, pageable);
         return ResponseEntity.ok(response);
     }
 
     @GetMapping("/{id}/file")
-    public ResponseEntity<List<MessageResponse>> getFileMessagesInChatRoom(
+    public ResponseEntity<ResultPaginationResponse> getFileMessagesInChatRoom(
             @PathVariable Long id,
-            Pageable pageable
+            @PageableDefault(size = 20) Pageable pageable
     ) throws InvalidException {
         String email = SecurityUtil.getCurrentUserLogin().orElseThrow(() -> new InvalidException("User not authenticated"));
 
@@ -130,8 +140,7 @@ public class ChatRoomController {
             throw new InvalidException("User not found");
         }
 
-        List<Message> fileMessages = this.chatRoomService.getFileMessagesInChatRoom(currentAccount, id, pageable);
-        List<MessageResponse> response = this.messageService.toMessageResponses(fileMessages);
+        ResultPaginationResponse response = this.chatRoomService.getFileMessagesInChatRoom(currentAccount, id, pageable);
         return ResponseEntity.ok(response);
     }
 
@@ -328,7 +337,6 @@ public class ChatRoomController {
         }
 
         throw new InvalidException("At least one file or text content is required");
-//        return this.messageService.sendMessage(id, request, currentUser);
     }
 
     @PostMapping("/{id}/messages/contact")
@@ -351,6 +359,16 @@ public class ChatRoomController {
         List<Message> savedMessages = this.messageService.sendContactCardMessages(id, request.getUserIds(), currentAccount);
         List<MessageResponse> response = this.messageService.toMessageResponses(savedMessages);
         return ResponseEntity.ok(new ArrayList<>(response));
+    }
+
+    @PostMapping("/{chatRoomId}/messages/{messageId}/hide")
+    public ResponseEntity<Void> hideMessageForMe(
+            @PathVariable Long chatRoomId,
+            @PathVariable String messageId
+    ) throws InvalidException, NotFoundException, PermissionException {
+        Account currentAccount = getCurrentAccount();
+        this.messageService.hideMessageForMe(chatRoomId, messageId, currentAccount);
+        return ResponseEntity.ok().build();
     }
 
     @DeleteMapping("/{chatRoomId}/messages/{messageId}")

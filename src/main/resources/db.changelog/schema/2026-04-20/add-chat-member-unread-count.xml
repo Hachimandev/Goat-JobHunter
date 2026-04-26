@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+                      http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-5.0.xsd"
+        objectQuotingStrategy="QUOTE_ONLY_RESERVED_WORDS">
+
+    <changeSet id="20260420-1-add-chat-members-unread-count" author="copilot">
+        <addColumn tableName="chat_members">
+            <column name="unread_count" type="BIGINT" defaultValueNumeric="0">
+                <constraints nullable="false"/>
+            </column>
+        </addColumn>
+    </changeSet>
+
+    <changeSet id="20260420-2-idx-chat-members-room-deleted" author="copilot">
+        <createIndex indexName="idx_chat_members_room_deleted" tableName="chat_members" unique="false">
+            <column name="room_id"/>
+            <column name="deleted_at"/>
+        </createIndex>
+    </changeSet>
+
+    <changeSet id="20260420-3-idx-chat-members-account-deleted" author="copilot">
+        <createIndex indexName="idx_chat_members_account_deleted" tableName="chat_members" unique="false">
+            <column name="account_id"/>
+            <column name="deleted_at"/>
+        </createIndex>
+    </changeSet>
+
+</databaseChangeLog>

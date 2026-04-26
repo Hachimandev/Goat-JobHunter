@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+                      http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-5.0.xsd"
+        objectQuotingStrategy="QUOTE_ONLY_RESERVED_WORDS">
+
+    <changeSet id="20260420-4-add-chat-room-summary-fields" author="copilot">
+        <addColumn tableName="chat_rooms">
+            <column name="last_message_id" type="VARCHAR(255)"/>
+            <column name="last_message_sender_account_id" type="BIGINT"/>
+            <column name="last_message_preview" type="TEXT"/>
+            <column name="last_message_time" type="DATETIME"/>
+        </addColumn>
+    </changeSet>
+
+    <changeSet id="20260420-5-idx-chat-rooms-last-message-time" author="copilot">
+        <createIndex indexName="idx_chat_rooms_last_message_time" tableName="chat_rooms" unique="false">
+            <column name="last_message_time"/>
+        </createIndex>
+    </changeSet>
+
+</databaseChangeLog>
