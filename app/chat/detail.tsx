@@ -1,24 +1,37 @@
+import { GroupManagementPanel } from "@/components/chat/GroupManagementPanel";
+import { EditGroupModal } from "@/components/chat/EditGroupModal";
+import { useUser } from "@/hooks/useUser";
 import {
+  useFetchChatRoomsByIdQuery,
   useFetchFilesInChatRoomQuery,
   useFetchMediaInChatRoomQuery,
 } from "@/services/chatRoom/chatRoomApi";
+import { useGetMemberInGroupChatQuery } from "@/services/chatRoom/groupChat/groupChatApi";
 import { Ionicons } from "@expo/vector-icons";
-import { router, useLocalSearchParams } from "expo-router";
-import { useState } from "react";
+import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
+
+import React, { useState } from "react";
 import { Image, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function ChatDetail() {
-  const { id, name, avatar, messages } = useLocalSearchParams<{
+  const { id, name, avatar } = useLocalSearchParams<{
     id: string;
     name: string;
     avatar: string;
-    messages: string;
   }>();
+  const { user } = useUser();
   const chatRoomId = Number(id);
-  const parsedMessages = messages ? JSON.parse(messages) : [];
+  const [activeTab, setActiveTab] = useState<"media" | "files" | "group">(
+    "media",
+  );
+  const [isEditModalVisible, setIsEditModalVisible] = useState(false);
 
-  const [activeTab, setActiveTab] = useState<"media" | "files">("media");
+  const { data: chatRoomData, refetch: refetchChatRoom } = useFetchChatRoomsByIdQuery(chatRoomId, {
+    skip: !chatRoomId,
+  });
+  const chatRoom = chatRoomData?.data;
+  const isGroupChat = chatRoom?.type === "GROUP";
 
   const { data: mediaData } = useFetchMediaInChatRoomQuery(
     { chatRoomId },
@@ -28,9 +41,28 @@ export default function ChatDetail() {
     { chatRoomId },
     { skip: !chatRoomId },
   );
+  const { data: membersData, refetch } = useGetMemberInGroupChatQuery(
+    chatRoomId,
+    {
+      skip: !isGroupChat || !chatRoomId,
+    },
+  );
 
-  const media = mediaData?.data || [];
-  const files = filesData?.data || [];
+  const media = mediaData?.data?.result || [];
+  const files = filesData?.data?.result || [];
+  const members = membersData?.data || [];
+
+  // Check if user is owner
+  const isOwner = members.some(
+    (m) => m.accountId === user?.accountId && m.role === "OWNER",
+  );
+
+  useFocusEffect(
+    React.useCallback(() => {
+      refetch();
+      refetchChatRoom();
+    }, [refetch, refetchChatRoom]),
+  );
 
   return (
     <SafeAreaView style={styles.container}>
@@ -46,29 +78,42 @@ export default function ChatDetail() {
       {/* PROFILE */}
       <View style={styles.profile}>
         <Image
-          source={{ uri: avatar || "https://i.pravatar.cc/150?img=12" }}
+          source={{ uri: chatRoomData?.data?.avatar || avatar || "https://i.pravatar.cc/150?img=12" }}
           style={styles.avatar}
         />
-        <Text style={styles.name}>{name}</Text>
+        <View style={styles.nameContainer}>
+          <Text style={styles.name}>{chatRoomData?.data?.name || name || "Nhóm"}</Text>
+          {isGroupChat && (isOwner || members.find((m) => m.accountId === user?.accountId)?.role === "MODERATOR") && (
+            <TouchableOpacity
+              onPress={() => setIsEditModalVisible(true)}
+              style={styles.editGroupButton}
+            >
+              <Ionicons name="pencil" size={16} color="#007AFF" />
+              <Text style={styles.editGroupButtonText}>Chỉnh sửa</Text>
+            </TouchableOpacity>
+          )}
+        </View>
       </View>
 
       {/* QUICK ACTIONS */}
-      <View style={styles.quickActions}>
-        <TouchableOpacity style={styles.quickItem}>
-          <Ionicons name="person-outline" size={20} />
-          <Text style={styles.quickText}>Profile</Text>
-        </TouchableOpacity>
+      {!isGroupChat && (
+        <View style={styles.quickActions}>
+          <TouchableOpacity style={styles.quickItem}>
+            <Ionicons name="person-outline" size={20} />
+            <Text style={styles.quickText}>Profile</Text>
+          </TouchableOpacity>
 
-        <TouchableOpacity style={styles.quickItem}>
-          <Ionicons name="notifications-off-outline" size={20} />
-          <Text style={styles.quickText}>Tắt thông báo</Text>
-        </TouchableOpacity>
+          <TouchableOpacity style={styles.quickItem}>
+            <Ionicons name="notifications-off-outline" size={20} />
+            <Text style={styles.quickText}>Tắt thông báo</Text>
+          </TouchableOpacity>
 
-        <TouchableOpacity style={styles.quickItem}>
-          <Ionicons name="ban-outline" size={20} />
-          <Text style={styles.quickText}>Chặn</Text>
-        </TouchableOpacity>
-      </View>
+          <TouchableOpacity style={styles.quickItem}>
+            <Ionicons name="ban-outline" size={20} />
+            <Text style={styles.quickText}>Chặn</Text>
+          </TouchableOpacity>
+        </View>
+      )}
 
       {/* TABS */}
       <View style={styles.tabContainer}>
@@ -85,6 +130,15 @@ export default function ChatDetail() {
         >
           <Text>Files</Text>
         </TouchableOpacity>
+
+        {isGroupChat && (
+          <TouchableOpacity
+            style={[styles.tab, activeTab === "group" && styles.activeTab]}
+            onPress={() => setActiveTab("group")}
+          >
+            <Text>Nhóm</Text>
+          </TouchableOpacity>
+        )}
       </View>
 
       {/* CONTENT */}
@@ -103,19 +157,41 @@ export default function ChatDetail() {
           ) : (
             <Text style={styles.emptyText}>Chưa có phương tiện nào</Text>
           )
-        ) : files.length > 0 ? (
-          files.map((file: any, index: number) => (
-            <View key={file.messageId ?? index} style={styles.fileItem}>
-              <Ionicons name="document-text-outline" size={20} />
-              <Text style={{ marginLeft: 10 }}>
-                {file.content.split("/").pop()}
-              </Text>
-            </View>
-          ))
-        ) : (
-          <Text style={styles.emptyText}>Chưa có file nào</Text>
-        )}
+        ) : activeTab === "files" ? (
+          files.length > 0 ? (
+            files.map((file: any, index: number) => (
+              <View key={file.messageId ?? index} style={styles.fileItem}>
+                <Ionicons name="document-text-outline" size={20} />
+                <Text style={{ marginLeft: 10 }}>
+                  {file.content.split("/").pop()}
+                </Text>
+              </View>
+            ))
+          ) : (
+            <Text style={styles.emptyText}>Chưa có file nào</Text>
+          )
+        ) : activeTab === "group" ? (
+          <GroupManagementPanel
+            groupName={chatRoomData?.data?.name || name || "Nhóm"}
+            groupId={chatRoomId}
+            groupAvatar={chatRoomData?.data?.avatar || avatar || ""}
+            isOwner={isOwner}
+            onRefetch={refetchChatRoom}
+          />
+        ) : null}
       </View>
+
+      <EditGroupModal
+        visible={isEditModalVisible}
+        groupId={chatRoomId}
+        groupName={chatRoomData?.data?.name || name || "Nhóm"}
+        groupAvatar={chatRoomData?.data?.avatar || avatar || ""}
+        onClose={() => setIsEditModalVisible(false)}
+        onSuccess={() => {
+          refetch();
+        }}
+        onRefetch={refetchChatRoom}
+      />
     </SafeAreaView>
   );
 }
@@ -201,6 +277,28 @@ const styles = StyleSheet.create({
     marginTop: 10,
     fontSize: 18,
     fontWeight: "600",
+  },
+
+  nameContainer: {
+    alignItems: "center",
+    marginTop: 10,
+  },
+
+  editGroupButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    backgroundColor: "#E5F3FF",
+  },
+
+  editGroupButtonText: {
+    marginLeft: 6,
+    fontSize: 13,
+    fontWeight: "500",
+    color: "#007AFF",
   },
 
   quickActions: {

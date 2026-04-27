@@ -1,5 +1,7 @@
 import { api } from "@/services/api";
 import {
+  CountUnreadMessagesRequest,
+  CountUnreadMessagesResponse,
   FetchChatRoomsRequest,
   FetchChatRoomsResponse,
   FetchMessagesInChatRoomRequest,
@@ -12,6 +14,7 @@ import { ChatRoom, MessageType } from "@/types/model";
 import { pinnedMessageApi } from "./pinned_message/pinnedMessageApi";
 
 export const chatRoomApi = api.injectEndpoints({
+  overrideExisting: true,
   endpoints: (builder) => ({
     // Fetch chat rooms of the current user
     fetchChatRooms: builder.query<
@@ -121,7 +124,7 @@ export const chatRoomApi = api.injectEndpoints({
             page: 1,
           })(state);
 
-        const originalMsg = messagesCache?.data?.data?.find(
+        const originalMsg = messagesCache?.data?.data?.result?.find(
           (m: any) => m.messageId === replyToMessageId,
         );
 
@@ -130,7 +133,7 @@ export const chatRoomApi = api.injectEndpoints({
             "fetchMessagesInChatRoom",
             { chatRoomId, size: 50, page: 1 },
             (draft) => {
-              if (draft && draft.data) {
+              if (draft?.data?.result) {
                 const optimisticMsg: any = {
                   messageId: tempId,
                   content: content || "",
@@ -145,7 +148,7 @@ export const chatRoomApi = api.injectEndpoints({
                       }
                     : null,
                 };
-                draft.data.unshift(optimisticMsg);
+                draft.data.result.unshift(optimisticMsg);
               }
             },
           ),
@@ -156,13 +159,13 @@ export const chatRoomApi = api.injectEndpoints({
           dispatch(
             chatRoomApi.util.updateQueryData(
               "fetchMessagesInChatRoom",
-              { chatRoomId, size: 50, page: 1 },
+              { chatRoomId, size: 50, page: 0 },
               (draft) => {
-                if (draft?.data) {
-                  const index = draft.data.findIndex(
+                if (draft?.data?.result) {
+                  const index = draft.data.result.findIndex(
                     (m) => m.messageId === tempId,
                   );
-                  if (index !== -1) draft.data[index] = newMessage;
+                  if (index !== -1) draft.data.result[index] = newMessage;
                 }
               },
             ),
@@ -269,10 +272,14 @@ export const chatRoomApi = api.injectEndpoints({
               "fetchMessagesInChatRoom",
               { chatRoomId, page: 0, size: 50 },
               (draft) => {
-                const msg = draft?.data?.find((m) => m.messageId === messageId);
-                if (msg) {
-                  msg.isHidden = true;
-                  msg.content = "Tin nhắn đã được thu hồi";
+                if (draft?.data?.result) {
+                  const msg = draft.data.result.find(
+                    (m) => m.messageId === messageId,
+                  );
+                  if (msg) {
+                    msg.isHidden = true;
+                    msg.content = "Tin nhắn đã được thu hồi";
+                  }
                 }
               },
             ),
@@ -305,8 +312,8 @@ export const chatRoomApi = api.injectEndpoints({
               "fetchMessagesInChatRoom",
               { chatRoomId, page: 0, size: 50 },
               (draft) => {
-                if (draft?.data) {
-                  draft.data = draft.data.filter(
+                if (draft?.data?.result) {
+                  draft.data.result = draft.data.result.filter(
                     (m) => m.messageId !== messageId,
                   );
                 }
@@ -325,6 +332,27 @@ export const chatRoomApi = api.injectEndpoints({
           console.error("Failed to delete message permanent:", error);
         }
       },
+    }),
+
+    countUnreadMessagesByCurrentAccount: builder.query<
+      CountUnreadMessagesResponse,
+      CountUnreadMessagesRequest
+    >({
+      query: ({ page = 1, size = 50 }) => ({
+        url: "/chatrooms/me/unread-count",
+        method: "GET",
+        params: { page, size },
+      }),
+      providesTags: (result) =>
+        result?.data
+          ? [
+              ...result.data.map(({ chatRoomId }) => ({
+                type: "ChatRoom" as const,
+                id: chatRoomId,
+              })),
+              { type: "ChatRoom", id: "LIST" },
+            ]
+          : [{ type: "ChatRoom", id: "LIST" }],
     }),
 
     forwardMessageBatch: builder.mutation<
@@ -375,5 +403,6 @@ export const {
   useLazyCheckExistingChatRoomQuery,
   useRevokeMessageMutation,
   useDeleteMessagePermanentMutation,
+  useCountUnreadMessagesByCurrentAccountQuery,
   useForwardMessageBatchMutation,
 } = chatRoomApi;

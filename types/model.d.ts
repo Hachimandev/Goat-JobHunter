@@ -187,6 +187,14 @@ export type CommentType = {
   createdAt: string;
 };
 
+export type MessageMediaItem = {
+  url: string;
+  mediaType: "image" | "video" | "audio";
+  mimeType: string;
+  sizeBytes: number;
+  displayOrder: number;
+};
+
 export type MessageType = {
   chatRoomBucket: string;
   messageSk: string;
@@ -201,6 +209,7 @@ export type MessageType = {
   };
   content: string;
   messageType: MessageTypeEnum;
+  mediaItems?: MessageMediaItem[] | null;
   replyTo?: string;
   isHidden: boolean;
   createdAt: string;
@@ -212,6 +221,7 @@ export type MessageType = {
     contentPreview: string;
   };
   isForwarded?: boolean;
+  poll?: Poll;
 };
 
 export type ChatRoom = {
@@ -226,6 +236,7 @@ export type ChatRoom = {
   blocked?: boolean;
   blockedByMe?: boolean;
   counterpartAccountId?: number;
+  deletedAt?: string | null;
 };
 
 export type Application = {
@@ -268,4 +279,47 @@ export type PinnedMessage = {
   pinnedBy: string;
   pinnedAt: string;
   message: MessageType;
+};
+
+export type PollOption = {
+  optionId: string;
+  text: string;
+  createdBy: string;
+  createdAt: string;
+  voteCount: number;
+  accountVoted: boolean;
+};
+
+export type Poll = {
+  pollId: string;
+  chatRoomId: number;
+  messageId: string;
+  createdBy: string;
+  question: string;
+  options: PollOption[];
+  multipleChoice: boolean;
+  allowAddOption: boolean;
+  pinned: boolean;
+  isClosed: boolean;
+  expiresAt?: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type PollVote = {
+  voteId: string;
+  poll: {
+    pollId: string;
+    question: string;
+  };
+  option: {
+    optionId: string;
+    text: string;
+  };
+  account: {
+    accountId: number;
+    fullName: string;
+    avatar: string;
+  };
+  createdAt: string;
 };

@@ -14,7 +14,9 @@ export type FetchMessagesInChatRoomRequest = {
 
 export type FetchChatRoomsResponse = IBackendRes<IModelPaginate<ChatRoom>>;
 
-export type FetchMessagesInChatRoomResponse = IBackendRes<MessageType[]>;
+export type FetchMessagesInChatRoomResponse = IBackendRes<
+  IModelPaginate<MessageType>
+>;
 
 export type SendMessageToChatRoomRequest = {
   chatRoomId: number;
@@ -28,3 +30,15 @@ export type SendMessageToNewChatRoomRequest = {
   content?: string;
   files?: File[];
 };
+
+export type UnreadMessageResponse = {
+  chatRoomId: number;
+  unreadCount: number;
+};
+
+export type CountUnreadMessagesRequest = {
+  page?: number;
+  size?: number;
+};
+
+export type CountUnreadMessagesResponse = IBackendRes<UnreadMessageResponse[]>;

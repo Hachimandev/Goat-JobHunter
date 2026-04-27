@@ -1,6 +1,12 @@
 import BottomSheet from "@gorhom/bottom-sheet";
-import { router, useLocalSearchParams } from "expo-router";
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -22,7 +28,9 @@ import { ForwardModal } from "@/components/chat/ForwardModal";
 import { MessageActionsSheet } from "@/components/chat/MessageActionsSheet";
 import { MessageItem } from "@/components/chat/MessageItem";
 
+import { PollVoteModal } from "@/components/chat/PollVoteModal";
 import useChatActionsMobile from "@/hooks/useChatActionsMobile";
+import { useDissolveGroup } from "@/hooks/useDissolveGroup";
 import { useNotificationManager } from "@/hooks/useNotificationManager";
 import { useUser } from "@/hooks/useUser";
 import {
@@ -37,6 +45,8 @@ import {
 } from "@/services/chatRoom/pinned_message/pinnedMessageApi";
 import { MessageType } from "@/types/model";
 import { Ionicons } from "@expo/vector-icons";
+import { useHeaderHeight } from "@react-navigation/elements";
+import * as Clipboard from "expo-clipboard";
 import * as DocumentPicker from "expo-document-picker";
 
 type PinnedMessage = {
@@ -54,6 +64,7 @@ export default function ChatDetailScreen() {
   const { setActiveChatRoom } = useNotificationManager();
   const [forwardMessageBatch] = useForwardMessageBatchMutation();
   const [showForwardToast, setShowForwardToast] = useState(false);
+  const headerHeight = useHeaderHeight();
 
   const { data: pinnedData, refetch: refetchPinned } =
     useGetPinnedMessagesQuery(
@@ -111,13 +122,18 @@ export default function ChatDetailScreen() {
   const [selectedImages, setSelectedImages] = useState<any[]>([]);
   const [isEmojiOpen, setIsEmojiOpen] = useState(false);
   const [isForwardModalOpen, setIsForwardModalOpen] = useState(false);
+  const [isBannerDismissed, setIsBannerDismissed] = useState(false);
 
   const flatListRef = useRef<FlatList>(null);
 
   const handleNavigateToMessage = (messageId: string) => {
-    if (!messagesData?.data) return;
+    const currentMessages = Array.isArray(messagesData?.data?.result)
+      ? messagesData.data.result
+      : [];
 
-    const index = messagesData.data.findIndex((m) => m.messageId === messageId);
+    if (!currentMessages.length) return;
+
+    const index = currentMessages.findIndex((m) => m.messageId === messageId);
 
     if (index !== -1) {
       flatListRef.current?.scrollToIndex({
@@ -147,19 +163,37 @@ export default function ChatDetailScreen() {
     data: messagesData,
     isLoading,
     refetch,
+    isFetching,
   } = useFetchMessagesInChatRoomQuery(
     { chatRoomId, size: 50, page: 0 },
     { skip: !chatRoomId, pollingInterval: 5000 },
   );
 
-  const { data: chatRoomData } = useFetchChatRoomsByIdQuery(chatRoomId, {
-    skip: !chatRoomId,
-  });
+  const { data: chatRoomData, refetch: refetchChatRoom } =
+    useFetchChatRoomsByIdQuery(chatRoomId, {
+      skip: !chatRoomId,
+      pollingInterval: 3000,
+    });
 
   useEffect(() => {
     setActiveChatRoom(chatRoomId);
+    if (chatRoomId) {
+      refetch();
+    }
     return () => setActiveChatRoom(null);
   }, [chatRoomId]);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (chatRoomId) {
+        refetchChatRoom();
+      }
+    }, [chatRoomId, refetchChatRoom]),
+  );
+
+  const messagesList = Array.isArray(messagesData?.data?.result)
+    ? messagesData.data.result
+    : [];
 
   const onSend = async () => {
     if (
@@ -194,13 +228,68 @@ export default function ChatDetailScreen() {
   };
 
   const handleLongPress = useCallback((message: MessageType) => {
-    setSelectedMessage(message);
-    bottomSheetRef.current?.expand();
+    if (message.messageType === "POLL") {
+      const pollData = (message as any).poll;
+      if (pollData) {
+        setSelectedPoll(pollData);
+        setIsVoteModalOpen(true);
+      }
+    } else {
+      setSelectedMessage(message);
+      bottomSheetRef.current?.expand();
+    }
   }, []);
 
-  const isDirectBlocked = chatRoomData?.data?.blocked || false;
+  const { handleLeaveGroup } = useDissolveGroup();
 
-  if (isLoading && !messagesData) {
+  const handleDeleteAllMessages = async () => {
+    if (chatRoomId && name) {
+      await handleLeaveGroup(Number(chatRoomId), name);
+    }
+  };
+
+  const isDirectBlocked = chatRoomData?.data?.blocked || false;
+  const isGroupDissolved =
+    chatRoomData?.data?.deletedAt !== null &&
+    chatRoomData?.data?.deletedAt !== undefined;
+
+  const handleCopyMessage = async () => {
+    if (!selectedMessage) return;
+
+    const contentToCopy =
+      selectedMessage.mediaItems?.[0]?.url || selectedMessage.content;
+
+    if (contentToCopy) {
+      await Clipboard.setStringAsync(contentToCopy);
+      bottomSheetRef.current?.close();
+    }
+  };
+
+  const [selectedPoll, setSelectedPoll] = useState<any>(null);
+  const [isVoteModalOpen, setIsVoteModalOpen] = useState(false);
+
+  const extractPollId = (content: string) => {
+    const match = content.match(/poll_([a-z0-9]+)/);
+    return match ? match[0] : null;
+  };
+  const latestPollMessageIdByPollId = useMemo(() => {
+    const map: Record<string, any> = {};
+    for (const m of messagesList) {
+      if (m.messageType !== "POLL") continue;
+
+      const pid = extractPollId(m.content);
+      if (!pid) continue;
+
+      const prev = map[pid];
+      if (!prev) map[pid] = m;
+      else if (new Date(m.createdAt) > new Date(prev.createdAt)) map[pid] = m;
+    }
+    const result: Record<string, string> = {};
+    for (const k of Object.keys(map)) result[k] = map[k].messageId;
+    return result;
+  }, [messagesList]);
+
+  if (isLoading && messagesList.length === 0) {
     return <ActivityIndicator style={styles.loadingCenter} color="#0084FF" />;
   }
 
@@ -209,20 +298,20 @@ export default function ChatDetailScreen() {
       <KeyboardAvoidingView
         style={styles.flex1}
         behavior={Platform.OS === "ios" ? "padding" : undefined}
-        keyboardVerticalOffset={Platform.OS === "ios" ? 90 : 0}
+        keyboardVerticalOffset={headerHeight}
       >
         <ChatHeader
-          name={name}
-          avatar={avatar}
+          name={chatRoomData?.data?.name || name}
+          avatar={chatRoomData?.data?.avatar || avatar}
           status="Đang hoạt động"
           onPressInfo={() =>
             router.push({
               pathname: "/chat/detail",
               params: {
                 id: chatRoomId.toString(),
-                name,
-                avatar,
-                messages: JSON.stringify(messagesData?.data || []),
+                name: chatRoomData?.data?.name || name,
+                avatar: chatRoomData?.data?.avatar || avatar,
+                messages: JSON.stringify(messagesList || []),
               },
             })
           }
@@ -277,6 +366,7 @@ export default function ChatDetailScreen() {
             </TouchableOpacity>
           </View>
         )}
+
         <Modal visible={isPinnedListOpen} transparent animationType="fade">
           <View style={styles.overlay}>
             <View style={styles.pinnedListBox}>
@@ -338,9 +428,37 @@ export default function ChatDetailScreen() {
           </View>
         </Modal>
 
+        {isGroupDissolved && !isBannerDismissed && (
+          <View style={styles.dissolvedBanner}>
+            <View style={styles.dissolvedBannerContent}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.dissolvedBannerTitle}>
+                  Nhóm đã bị giải tán
+                </Text>
+                <Text style={styles.dissolvedBannerDesc}>
+                  Bạn có thể rời khỏi nhóm này
+                </Text>
+              </View>
+              <TouchableOpacity
+                onPress={handleDeleteAllMessages}
+                style={styles.dissolvedBannerBtn}
+              >
+                <Text style={styles.dissolvedBannerBtnText}>Rời</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => setIsBannerDismissed(true)}
+                style={{ marginLeft: 10 }}
+              >
+                <Ionicons name="close" size={20} color="#999" />
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
+
         <FlatList
           ref={flatListRef}
-          data={messagesData?.data || []}
+          data={messagesList}
+          style={styles.flex1}
           inverted
           keyExtractor={(item) => item.messageId}
           contentContainerStyle={styles.listContent}
@@ -350,7 +468,14 @@ export default function ChatDetailScreen() {
               isMe={item.sender?.accountId === user?.accountId}
               currentUser={user}
               onLongPress={handleLongPress}
+              showPoll={
+                item.messageType === "POLL" &&
+                latestPollMessageIdByPollId[
+                  extractPollId(item.content) || ""
+                ] === item.messageId
+              }
               onNavigateToMessage={handleNavigateToMessage}
+              isGroupChat={chatRoomData?.data?.type === "GROUP"}
             />
           )}
           onScrollToIndexFailed={(info) => {
@@ -359,6 +484,13 @@ export default function ChatDetailScreen() {
               animated: true,
             });
           }}
+          ListEmptyComponent={
+            !isLoading ? (
+              <View style={styles.emptyContainer}>
+                <Text style={styles.emptyText}>Chưa có tin nhắn nào</Text>
+              </View>
+            ) : null
+          }
         />
 
         <ChatInput
@@ -385,13 +517,22 @@ export default function ChatDetailScreen() {
             setSelectedFiles((prev) => prev.filter((_, i) => i !== idx))
           }
           onOpenEmoji={() => setIsEmojiOpen(true)}
-          disabled={isDirectBlocked}
+          disabled={isDirectBlocked || isGroupDissolved}
+          disabledReason={
+            isGroupDissolved
+              ? "Nhóm đã bị giải tán"
+              : isDirectBlocked
+                ? "Bạn bị chặn"
+                : undefined
+          }
         />
       </KeyboardAvoidingView>
 
       <MessageActionsSheet
         ref={bottomSheetRef}
         selectedMessage={selectedMessage}
+        onCopy={handleCopyMessage}
+        isGroupDissolved={isGroupDissolved}
         onReply={() => {
           setReplyTarget(selectedMessage);
           bottomSheetRef.current?.close();
@@ -445,6 +586,15 @@ export default function ChatDetailScreen() {
           </View>
         </View>
       )}
+      <PollVoteModal
+        visible={isVoteModalOpen}
+        poll={selectedPoll}
+        currentUser={user}
+        onClose={() => {
+          setIsVoteModalOpen(false);
+          setSelectedPoll(null);
+        }}
+      />
     </SafeAreaView>
   );
 }
@@ -454,6 +604,17 @@ const styles = StyleSheet.create({
   flex1: { flex: 1 },
   listContent: { paddingHorizontal: 15, paddingBottom: 10 },
   loadingCenter: { flex: 1, justifyContent: "center", alignItems: "center" },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingVertical: 50,
+  },
+  emptyText: {
+    fontSize: 14,
+    color: "#999",
+    fontWeight: "500",
+  },
   toastContainer: {
     position: "absolute",
     bottom: 100,
@@ -508,6 +669,48 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: "#333",
     marginTop: 2,
+  },
+  dissolvedBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    backgroundColor: "#FFE5E5",
+    borderBottomWidth: 1,
+    borderColor: "#FFD4D4",
+    gap: 10,
+  },
+  dissolvedBannerContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    flex: 1,
+    gap: 10,
+  },
+  dissolvedBannerTitle: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#FF3B30",
+  },
+  dissolvedBannerDesc: {
+    fontSize: 12,
+    color: "#999",
+    marginTop: 2,
+  },
+  dissolvedBannerBtn: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    backgroundColor: "#FF3B30",
+    borderRadius: 6,
+  },
+  dissolvedBannerBtnText: {
+    color: "#fff",
+    fontSize: 13,
+    fontWeight: "600",
+  },
+  dissolvedText: {
+    fontSize: 13,
+    color: "#FF3B30",
+    fontWeight: "600",
   },
   overlay: {
     position: "absolute",
