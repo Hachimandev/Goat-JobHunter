@@ -152,11 +152,12 @@ class ChatRoomInviteFlowTests {
     }
 
     @Test
-    void rotateInviteLink_shouldRequireOwnerAndInvalidateOldTokenKeepingEnabled() throws Exception {
+    void rotateInviteLink_shouldRequireOwnerAndInvalidateOldTokenForJoin() throws Exception {
         Applicant owner = createApplicant("rotate-owner");
         Applicant member = createApplicant("rotate-member");
+        Applicant joiner = createApplicant("rotate-joiner");
 
-        ChatRoom room = createRoom("rotate-token-old", false);
+        ChatRoom room = createRoom("rotate-token-old", true);
         room = chatRoomRepository.saveAndFlush(room);
         final Long roomId = room.getRoomId();
         addMember(room, owner, ChatRole.OWNER);
@@ -167,19 +168,26 @@ class ChatRoomInviteFlowTests {
         InviteLinkResponse response = chatRoomService.rotateInviteLink(owner, roomId);
         assertEquals(roomId, response.getRoomId());
         assertNotEquals("rotate-token-old", response.getInviteToken());
-        assertFalse(response.isInviteEnabled());
+        assertTrue(response.isInviteEnabled());
         assertNotNull(response.getInviteRotatedAt());
 
+        assertThrows(NotFoundException.class, () -> chatRoomService.joinByInvite(joiner, "rotate-token-old"));
+        JoinByInviteResponse joined = chatRoomService.joinByInvite(joiner, response.getInviteToken());
+        assertTrue(joined.isJoined());
+        assertEquals(roomId, joined.getRoomId());
+
         ChatRoom reloaded = chatRoomRepository.findByRoomIdAndDeletedAtIsNull(roomId).orElseThrow();
-        assertFalse(reloaded.isInviteEnabled());
+        assertTrue(reloaded.isInviteEnabled());
         assertNotEquals("rotate-token-old", reloaded.getInviteToken());
         assertTrue(chatRoomRepository.findByInviteTokenAndDeletedAtIsNull("rotate-token-old").isEmpty());
+        assertTrue(chatMemberRepository.existsByRoomRoomIdAndAccountAccountIdAndDeletedAtIsNull(roomId, joiner.getAccountId()));
     }
 
     @Test
     void toggleInviteLink_shouldRequireOwnerAndOnlyToggleEnabledState() throws Exception {
         Applicant owner = createApplicant("toggle-owner");
         Applicant member = createApplicant("toggle-member");
+        Applicant joiner = createApplicant("toggle-joiner");
 
         ChatRoom room = createRoom("toggle-token", true);
         room.setInviteRotatedAt(Instant.parse("2026-04-28T10:00:00Z"));
@@ -194,11 +202,22 @@ class ChatRoomInviteFlowTests {
         assertFalse(toggled.isInviteEnabled());
         assertEquals("toggle-token", toggled.getInviteToken());
         assertEquals(Instant.parse("2026-04-28T10:00:00Z"), toggled.getInviteRotatedAt());
+        assertThrows(InvalidException.class, () -> chatRoomService.joinByInvite(joiner, "toggle-token"));
+
+        InviteLinkResponse reEnabled = chatRoomService.toggleInviteLink(owner, roomId, true);
+        assertTrue(reEnabled.isInviteEnabled());
+        assertEquals("toggle-token", reEnabled.getInviteToken());
+        assertEquals(Instant.parse("2026-04-28T10:00:00Z"), reEnabled.getInviteRotatedAt());
+
+        JoinByInviteResponse joined = chatRoomService.joinByInvite(joiner, "toggle-token");
+        assertTrue(joined.isJoined());
+        assertEquals(roomId, joined.getRoomId());
 
         ChatRoom reloaded = chatRoomRepository.findByRoomIdAndDeletedAtIsNull(roomId).orElseThrow();
-        assertFalse(reloaded.isInviteEnabled());
+        assertTrue(reloaded.isInviteEnabled());
         assertEquals("toggle-token", reloaded.getInviteToken());
         assertEquals(Instant.parse("2026-04-28T10:00:00Z"), reloaded.getInviteRotatedAt());
+        assertTrue(chatMemberRepository.existsByRoomRoomIdAndAccountAccountIdAndDeletedAtIsNull(roomId, joiner.getAccountId()));
     }
 
     @Test
