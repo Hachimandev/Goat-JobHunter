@@ -19,7 +19,7 @@ import {
 } from '@/services/chatRoom/invite/inviteApi';
 import { IBackendError } from '@/types/api';
 import { QRCode } from 'antd';
-import { Loader2, RefreshCw } from 'lucide-react';
+import { Copy, Loader2, RefreshCw } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
 
@@ -44,6 +44,16 @@ export default function InviteLinkPanel({ roomId, canManageInvite }: Readonly<In
       toast.success('Đã làm mới link mời');
     } catch (error) {
       toast.error((error as IBackendError).data?.message || 'Không thể làm mới link mời');
+    }
+  };
+
+  const handleCopyInviteLink = async () => {
+    if (!invite?.inviteLink) return;
+    try {
+      await navigator.clipboard.writeText(invite.inviteLink);
+      toast.success('Đã sao chép link mời');
+    } catch {
+      toast.error('Không thể sao chép link mời');
     }
   };
 
@@ -114,6 +124,18 @@ export default function InviteLinkPanel({ roomId, canManageInvite }: Readonly<In
                 {invite.inviteEnabled ? 'Đang bật' : 'Đang tắt'}
               </span>
             </div>
+
+            <Button
+              type="button"
+              size="sm"
+              variant="secondary"
+              className="w-fit rounded-xl"
+              onClick={handleCopyInviteLink}
+              disabled={!invite.inviteLink}
+            >
+              <Copy className="h-4 w-4" />
+              Sao chép link
+            </Button>
 
             <div className="flex justify-center rounded-lg border border-dashed border-border py-4">
               <QRCode value={invite.inviteLink} size={170} />
