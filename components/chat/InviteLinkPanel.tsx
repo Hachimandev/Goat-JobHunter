@@ -1,0 +1,231 @@
+import { useGetInviteLinkQuery } from "@/services/chatRoom/invite/inviteApi";
+import * as Clipboard from "expo-clipboard";
+import { Copy, RotateCcw } from "lucide-react-native";
+import React, { useState } from "react";
+import {
+  ActivityIndicator,
+  Alert,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
+
+interface InviteLinkPanelProps {
+  roomId: number;
+  isOwner?: boolean;
+}
+
+export function InviteLinkPanel({ roomId, isOwner = false }: InviteLinkPanelProps) {
+  const { data: inviteData, isLoading, refetch } = useGetInviteLinkQuery(roomId);
+  const invite = inviteData?.data;
+  const [isRotating, setIsRotating] = useState(false);
+
+  const handleCopyLink = async () => {
+    if (!invite?.inviteLink) return;
+    try {
+      await Clipboard.setStringAsync(invite.inviteLink);
+      Alert.alert("Thành công", "Đã sao chép link mời");
+    } catch {
+      Alert.alert("Lỗi", "Không thể sao chép link mời");
+    }
+  };
+
+  const handleRotate = async () => {
+    setIsRotating(true);
+    try {
+      await refetch();
+    } finally {
+      setIsRotating(false);
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <View style={styles.container}>
+        <ActivityIndicator size="large" color="#2563eb" />
+      </View>
+    );
+  }
+
+  if (!invite) {
+    return (
+      <View style={styles.container}>
+        <Text style={styles.errorText}>Không thể tải thông tin link mời</Text>
+      </View>
+    );
+  }
+
+  return (
+    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+      <View style={styles.section}>
+        <Text style={styles.title}>Link mời nhóm</Text>
+
+        <View style={styles.linkBox}>
+          <Text style={styles.link} numberOfLines={2}>
+            {invite.inviteLink}
+          </Text>
+          <TouchableOpacity
+            style={styles.copyButton}
+            onPress={handleCopyLink}
+            disabled={!invite.inviteLink}
+          >
+            <Copy size={16} color="#fff" />
+            <Text style={styles.copyButtonText}>Sao chép</Text>
+          </TouchableOpacity>
+        </View>
+
+        <View style={styles.statusRow}>
+          <Text style={styles.statusLabel}>Trạng thái:</Text>
+          <Text
+            style={[
+              styles.statusBadge,
+              invite.inviteEnabled
+                ? styles.statusBadgeEnabled
+                : styles.statusBadgeDisabled,
+            ]}
+          >
+            {invite.inviteEnabled ? "Đang bật" : "Đang tắt"}
+          </Text>
+        </View>
+
+        {isOwner && (
+          <TouchableOpacity
+            style={styles.rotateButton}
+            onPress={handleRotate}
+            disabled={isRotating}
+          >
+            <RotateCcw size={16} color="#fff" />
+            <Text style={styles.rotateButtonText}>
+              {isRotating ? "Đang xoay..." : "Xoay lại"}
+            </Text>
+          </TouchableOpacity>
+        )}
+      </View>
+
+      <View style={styles.section}>
+        <Text style={styles.title}>Thông tin chia sẻ</Text>
+        <View style={styles.infoBox}>
+          <Text style={styles.infoText}>
+            ✓ Share link này để mời bạn bè tham gia nhóm
+          </Text>
+          <Text style={styles.infoText}>
+            ✓ Bạn có thể xoay lại link để vô hiệu hóa link cũ
+          </Text>
+          <Text style={styles.infoText}>
+            ✓ Chỉ chủ nhóm mới có thể quản lý link mời
+          </Text>
+        </View>
+      </View>
+    </ScrollView>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: "#f8fafc",
+    padding: 16,
+  },
+  content: {
+    paddingBottom: 24,
+  },
+  section: {
+    marginBottom: 24,
+    backgroundColor: "#fff",
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#e2e8f0",
+    padding: 16,
+    gap: 12,
+  },
+  title: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#0f172a",
+  },
+  linkBox: {
+    backgroundColor: "#f1f5f9",
+    borderRadius: 8,
+    padding: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  link: {
+    flex: 1,
+    fontSize: 12,
+    color: "#475569",
+    fontFamily: "monospace",
+  },
+  copyButton: {
+    backgroundColor: "#2563eb",
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  copyButtonText: {
+    color: "#fff",
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  statusRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  statusLabel: {
+    fontSize: 14,
+    color: "#64748b",
+  },
+  statusBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 4,
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  statusBadgeEnabled: {
+    backgroundColor: "#dcfce7",
+    color: "#166534",
+  },
+  statusBadgeDisabled: {
+    backgroundColor: "#fee2e2",
+    color: "#991b1b",
+  },
+  rotateButton: {
+    backgroundColor: "#2563eb",
+    borderRadius: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+  },
+  rotateButtonText: {
+    color: "#fff",
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  infoBox: {
+    backgroundColor: "#f1f5f9",
+    borderRadius: 8,
+    padding: 12,
+    gap: 8,
+  },
+  infoText: {
+    fontSize: 13,
+    color: "#475569",
+    lineHeight: 18,
+  },
+  errorText: {
+    fontSize: 14,
+    color: "#ef4444",
+    textAlign: "center",
+  },
+});

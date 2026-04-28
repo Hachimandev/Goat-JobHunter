@@ -25,6 +25,7 @@ import EmojiPicker from "rn-emoji-keyboard";
 import { ChatHeader } from "@/components/chat/ChatHeader";
 import { ChatInput } from "@/components/chat/ChatInput";
 import { ForwardModal } from "@/components/chat/ForwardModal";
+import { InviteLinkPanel } from "@/components/chat/InviteLinkPanel";
 import { MessageActionsSheet } from "@/components/chat/MessageActionsSheet";
 import { MessageItem } from "@/components/chat/MessageItem";
 
@@ -122,6 +123,7 @@ export default function ChatDetailScreen() {
   const [selectedImages, setSelectedImages] = useState<any[]>([]);
   const [isEmojiOpen, setIsEmojiOpen] = useState(false);
   const [isForwardModalOpen, setIsForwardModalOpen] = useState(false);
+  const [isInvitePanelOpen, setIsInvitePanelOpen] = useState(false);
   const [isBannerDismissed, setIsBannerDismissed] = useState(false);
 
   const flatListRef = useRef<FlatList>(null);
@@ -314,6 +316,11 @@ export default function ChatDetailScreen() {
                 messages: JSON.stringify(messagesList || []),
               },
             })
+          }
+          onPressInvite={
+            chatRoomData?.data?.type === "GROUP"
+              ? () => setIsInvitePanelOpen(true)
+              : undefined
           }
         />
 
@@ -595,6 +602,24 @@ export default function ChatDetailScreen() {
           setSelectedPoll(null);
         }}
       />
+
+      <Modal
+        visible={isInvitePanelOpen}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setIsInvitePanelOpen(false)}
+      >
+        <SafeAreaView style={styles.modalContainer}>
+          <View style={styles.modalHeader}>
+            <TouchableOpacity onPress={() => setIsInvitePanelOpen(false)}>
+              <Ionicons name="close" size={24} color="#000" />
+            </TouchableOpacity>
+            <Text style={styles.modalTitle}>Mời vào nhóm</Text>
+            <View style={{ width: 24 }} />
+          </View>
+          <InviteLinkPanel roomId={chatRoomId} isOwner={true} />
+        </SafeAreaView>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -749,5 +774,24 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     borderBottomWidth: 1,
     borderColor: "#eee",
+  },
+  modalContainer: {
+    flex: 1,
+    backgroundColor: "#f8fafc",
+  },
+  modalHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderColor: "#e2e8f0",
+    backgroundColor: "#fff",
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#0f172a",
   },
 });
