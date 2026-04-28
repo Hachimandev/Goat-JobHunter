@@ -38,6 +38,8 @@ import {
 } from '@/components/ui/alert-dialog';
 import GroupNewsPanel from './GroupNewsPanel';
 import AssetTabSection from '@/app/(chat)/messages/components/AssetTabSection';
+import InviteLinkPanel from './InviteLinkPanel';
+import { ChatRoomType } from '@/types/enum';
 
 interface GroupDetailsPanelProps {
   chatRoom: ChatRoom;
@@ -201,6 +203,12 @@ export function GroupDetailsPanel({
                 <Notebook className="h-4 w-4" />
                 <span className="text-sm">Xem bảng tin nhóm</span>
               </Button>
+
+              <Separator />
+
+              {chatRoom.type === ChatRoomType.GROUP && (
+                <InviteLinkPanel roomId={chatRoom.roomId} canManageInvite={currentUserRole === 'OWNER'} />
+              )}
 
               <Separator />
 
