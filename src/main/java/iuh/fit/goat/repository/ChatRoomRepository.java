@@ -140,4 +140,8 @@ public interface ChatRoomRepository extends JpaRepository<ChatRoom, Long> {
 
     @EntityGraph(attributePaths = {"members", "members.account"})
     Optional<ChatRoom> findByRoomId(Long roomId);
+
+    boolean existsByInviteToken(String inviteToken);
+
+    Optional<ChatRoom> findByInviteTokenAndInviteEnabledTrueAndDeletedAtIsNull(String inviteToken);
 }

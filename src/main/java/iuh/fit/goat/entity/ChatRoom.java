@@ -44,6 +44,15 @@ public class ChatRoom extends BaseEntity {
     @Column(name = "last_message_time")
     private Instant lastMessageTime;
 
+    @Column(name = "invite_token", nullable = false, unique = true)
+    private String inviteToken;
+
+    @Column(name = "invite_rotated_at")
+    private Instant inviteRotatedAt;
+
+    @Column(name = "invite_enabled", nullable = false)
+    private Boolean inviteEnabled = Boolean.TRUE;
+
     @OneToMany(mappedBy = "room", fetch = LAZY, cascade = {PERSIST, MERGE, REMOVE})
     @JsonIgnore
     @Filter(
