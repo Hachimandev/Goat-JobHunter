@@ -9,6 +9,7 @@ import iuh.fit.goat.dto.response.ResultPaginationResponse;
 import iuh.fit.goat.dto.response.chat.ChatRoomResponse;
 import iuh.fit.goat.dto.response.chat.GroupMemberResponse;
 import iuh.fit.goat.dto.response.chat.InviteLinkResponse;
+import iuh.fit.goat.dto.response.chat.InviteTokenPreviewResponse;
 import iuh.fit.goat.dto.response.chat.JoinByInviteResponse;
 import iuh.fit.goat.dto.response.chat.UnreadMessageResponse;
 import iuh.fit.goat.dto.response.message.ForwardMessageResponse;
@@ -240,6 +241,13 @@ public class ChatRoomController {
         Account currentAccount = getCurrentAccount();
         InviteLinkResponse response = this.chatRoomService
                 .toggleInviteLink(currentAccount, roomId, request.getEnabled());
+        return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/invite-preview/{token}")
+    public ResponseEntity<InviteTokenPreviewResponse> getInvitePreview(@PathVariable String token)
+            throws InvalidException, NotFoundException {
+        InviteTokenPreviewResponse response = this.chatRoomService.getInvitePreview(token);
         return ResponseEntity.ok(response);
     }
 

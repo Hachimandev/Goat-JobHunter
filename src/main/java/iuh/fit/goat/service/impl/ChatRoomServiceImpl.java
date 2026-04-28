@@ -8,6 +8,7 @@ import iuh.fit.goat.dto.response.chat.ChatRoomResponse;
 import iuh.fit.goat.dto.response.ResultPaginationResponse;
 import iuh.fit.goat.dto.response.chat.GroupMemberResponse;
 import iuh.fit.goat.dto.response.chat.InviteLinkResponse;
+import iuh.fit.goat.dto.response.chat.InviteTokenPreviewResponse;
 import iuh.fit.goat.dto.response.chat.JoinByInviteResponse;
 import iuh.fit.goat.dto.response.chat.MessageSummaryResponse;
 import iuh.fit.goat.dto.response.chat.UnreadMessageResponse;
@@ -735,6 +736,21 @@ public class ChatRoomServiceImpl implements ChatRoomService {
         ChatRoom saved = this.chatRoomRepository.saveAndFlush(room);
 
         return mapInviteLinkResponse(saved);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public InviteTokenPreviewResponse getInvitePreview(String inviteToken) throws InvalidException, NotFoundException {
+        ChatRoom room = this.chatRoomRepository.findByInviteTokenAndDeletedAtIsNull(inviteToken)
+                .orElseThrow(() -> new NotFoundException("Invite token not found"));
+        validateGroupChatRoom(room);
+
+        return InviteTokenPreviewResponse.builder()
+                .roomId(room.getRoomId())
+                .roomName(room.getName())
+                .roomAvatar(room.getAvatar())
+                .inviteEnabled(room.isInviteEnabled())
+                .build();
     }
 
     @Override

@@ -3,6 +3,7 @@ package fit.se.Goat_TimKiemViecLam;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import iuh.fit.goat.controller.ChatRoomController;
 import iuh.fit.goat.dto.response.chat.InviteLinkResponse;
+import iuh.fit.goat.dto.response.chat.InviteTokenPreviewResponse;
 import iuh.fit.goat.dto.response.chat.JoinByInviteResponse;
 import iuh.fit.goat.entity.Applicant;
 import iuh.fit.goat.service.AccountService;
@@ -27,6 +28,7 @@ import java.time.Instant;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -69,7 +71,7 @@ class ChatRoomControllerInviteEndpointsTests {
         Applicant currentAccount = new Applicant();
         currentAccount.setAccountId(7L);
         currentAccount.setEmail(CURRENT_EMAIL);
-        when(accountService.handleGetAccountByEmail(CURRENT_EMAIL)).thenReturn(currentAccount);
+        lenient().when(accountService.handleGetAccountByEmail(CURRENT_EMAIL)).thenReturn(currentAccount);
     }
 
     @AfterEach
@@ -153,6 +155,26 @@ class ChatRoomControllerInviteEndpointsTests {
                 .andExpect(jsonPath("$.joined").value(true));
 
         verify(chatRoomService).joinByInvite(any(), eq("join-token-404"));
+    }
+
+    @Test
+    void getInvitePreview_shouldReturnRoomMetadataByToken() throws Exception {
+        InviteTokenPreviewResponse response = InviteTokenPreviewResponse.builder()
+                .roomId(505L)
+                .roomName("Backend Team")
+                .roomAvatar("https://cdn.test/rooms/backend.png")
+                .inviteEnabled(true)
+                .build();
+        when(chatRoomService.getInvitePreview("invite-token-505")).thenReturn(response);
+
+        mockMvc.perform(get("/api/v1/chatrooms/invite-preview/{token}", "invite-token-505"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.roomId").value(505L))
+                .andExpect(jsonPath("$.roomName").value("Backend Team"))
+                .andExpect(jsonPath("$.roomAvatar").value("https://cdn.test/rooms/backend.png"))
+                .andExpect(jsonPath("$.inviteEnabled").value(true));
+
+        verify(chatRoomService).getInvitePreview("invite-token-505");
     }
 
     private record ToggleBody(Boolean enabled) {}
