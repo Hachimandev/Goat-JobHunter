@@ -1,4 +1,4 @@
-import { useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useState } from "react";
 import {
   ActivityIndicator,
@@ -17,6 +17,7 @@ import { useUser } from "../../hooks/useUser";
 
 export default function SignInScreen() {
   const router = useRouter();
+  const { redirect } = useLocalSearchParams<{ redirect?: string }>();
   const { signIn, isSigningIn } = useUser();
 
   const [email, setEmail] = useState("");
@@ -51,15 +52,19 @@ export default function SignInScreen() {
       const result = await signIn(email, password);
 
       if (result.success) {
+        const redirectPath =
+          typeof redirect === "string" && redirect.length > 0
+            ? redirect
+            : "/(tabs)/chat";
         if (Platform.OS === "web") {
           // Trên web, chuyển trang ngay lập tức, không dùng Alert
-          router.replace("/(tabs)/chat");
+          router.replace(redirectPath);
         } else {
           // Trên mobile, giữ nguyên Alert
           Alert.alert("Thành công", "Đăng nhập thành công!", [
             {
               text: "OK",
-              onPress: () => router.replace("/(tabs)/chat"),
+              onPress: () => router.replace(redirectPath),
             },
           ]);
         }

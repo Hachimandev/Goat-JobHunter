@@ -62,6 +62,7 @@ export const api = createApi({
     "Recruiter",
     "ChatRoom",
     "PinnedMessage",
+    "ChatInvite",
   ],
   endpoints: () => ({}),
 });
