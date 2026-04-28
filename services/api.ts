@@ -75,6 +75,7 @@ export const api = createApi({
     'PinnedMessage',
     'Review',
     'ChatRoom',
+    'ChatInvite',
     'ChatMember',
     'Resume',
     'Reaction',
