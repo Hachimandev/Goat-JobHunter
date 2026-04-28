@@ -5,10 +5,14 @@ import iuh.fit.goat.dto.request.message.MessageToNewChatRoom;
 import iuh.fit.goat.dto.response.ResultPaginationResponse;
 import iuh.fit.goat.dto.response.chat.ChatRoomResponse;
 import iuh.fit.goat.dto.response.chat.GroupMemberResponse;
+import iuh.fit.goat.dto.response.chat.InviteLinkResponse;
+import iuh.fit.goat.dto.response.chat.JoinByInviteResponse;
 import iuh.fit.goat.dto.response.chat.MessageSummaryResponse;
 import iuh.fit.goat.dto.response.chat.UnreadMessageResponse;
 import iuh.fit.goat.entity.*;
+import iuh.fit.goat.exception.ConflictException;
 import iuh.fit.goat.exception.InvalidException;
+import iuh.fit.goat.exception.NotFoundException;
 import org.springframework.data.domain.Pageable;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -64,4 +68,12 @@ public interface ChatRoomService {
     List<UnreadMessageResponse> getUnreadMessages(Pageable pageable) throws InvalidException;
 
     MessageSummaryResponse getUnreadMessagesSummary(Account currentAccount, Long chatRoomId) throws InvalidException;
+
+    InviteLinkResponse getInviteLink(Account currentAccount, Long roomId) throws InvalidException, NotFoundException;
+
+    InviteLinkResponse rotateInviteLink(Account currentAccount, Long roomId) throws InvalidException, NotFoundException;
+
+    InviteLinkResponse toggleInviteLink(Account currentAccount, Long roomId, boolean enabled) throws InvalidException, NotFoundException;
+
+    JoinByInviteResponse joinByInvite(Account currentAccount, String inviteToken) throws InvalidException, NotFoundException, ConflictException;
 }

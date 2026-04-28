@@ -1,10 +1,26 @@
 package fit.se.Goat_TimKiemViecLam;
 
-import iuh.fit.goat.entity.ChatRoom;
-import iuh.fit.goat.enumeration.ChatRoomType;
 import iuh.fit.goat.GoatTimKiemViecLamApplication;
+import iuh.fit.goat.dto.response.chat.InviteLinkResponse;
+import iuh.fit.goat.dto.response.chat.JoinByInviteResponse;
+import iuh.fit.goat.entity.Applicant;
+import iuh.fit.goat.entity.ChatMember;
+import iuh.fit.goat.entity.ChatRoom;
+import iuh.fit.goat.enumeration.ChatRole;
+import iuh.fit.goat.enumeration.ChatRoomType;
+import iuh.fit.goat.exception.ConflictException;
+import iuh.fit.goat.exception.InvalidException;
+import iuh.fit.goat.exception.NotFoundException;
+import iuh.fit.goat.repository.ChatMemberRepository;
 import iuh.fit.goat.repository.ChatRoomRepository;
 import iuh.fit.goat.repository.CompanyRepository;
+import iuh.fit.goat.repository.MessageRepository;
+import iuh.fit.goat.repository.UserRelationshipRepository;
+import iuh.fit.goat.service.AiService;
+import iuh.fit.goat.service.ChatRoomService;
+import iuh.fit.goat.service.MessageService;
+import iuh.fit.goat.service.NotificationService;
+import iuh.fit.goat.service.impl.ChatRoomServiceImpl;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
@@ -12,6 +28,7 @@ import org.springframework.boot.test.autoconfigure.orm.jpa.TestEntityManager;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.FilterType;
+import org.springframework.context.annotation.Import;
 import org.springframework.test.context.ContextConfiguration;
 
 import java.time.Instant;
@@ -26,6 +43,7 @@ import static org.junit.jupiter.api.Assertions.*;
         },
         excludeFilters = @ComponentScan.Filter(type = FilterType.ASSIGNABLE_TYPE, classes = CompanyRepository.class)
 )
+@Import(ChatRoomServiceImpl.class)
 @ContextConfiguration(classes = GoatTimKiemViecLamApplication.class)
 class ChatRoomInviteFlowTests {
 
@@ -33,10 +51,31 @@ class ChatRoomInviteFlowTests {
     private ChatRoomRepository chatRoomRepository;
 
     @Autowired
+    private ChatMemberRepository chatMemberRepository;
+
+    @Autowired
+    private ChatRoomService chatRoomService;
+
+    @Autowired
     private TestEntityManager testEntityManager;
 
     @MockBean
     private CompanyRepository companyRepository;
+
+    @MockBean
+    private MessageService messageService;
+
+    @MockBean
+    private NotificationService notificationService;
+
+    @MockBean
+    private AiService aiService;
+
+    @MockBean
+    private UserRelationshipRepository userRelationshipRepository;
+
+    @MockBean
+    private MessageRepository messageRepository;
 
     @Test
     void shouldSaveAndLoadInviteFieldsThroughJpa() {
@@ -78,13 +117,127 @@ class ChatRoomInviteFlowTests {
         assertTrue(lookup.isEmpty());
     }
 
+    @Test
+    void getInviteLink_shouldAllowMemberAndRejectNonMember() throws Exception {
+        Applicant owner = createApplicant("owner");
+        Applicant member = createApplicant("member");
+        Applicant outsider = createApplicant("outsider");
+
+        ChatRoom room = createRoom("member-token-001", true);
+        room = chatRoomRepository.saveAndFlush(room);
+        final Long roomId = room.getRoomId();
+        addMember(room, owner, ChatRole.OWNER);
+        addMember(room, member, ChatRole.MEMBER);
+
+        InviteLinkResponse response = chatRoomService.getInviteLink(member, roomId);
+        assertEquals(roomId, response.getRoomId());
+        assertEquals("member-token-001", response.getInviteToken());
+        assertTrue(response.isInviteEnabled());
+        assertNotNull(response.getInviteLink());
+
+        assertThrows(InvalidException.class, () -> chatRoomService.getInviteLink(outsider, roomId));
+    }
+
+    @Test
+    void rotateInviteLink_shouldRequireOwnerAndInvalidateOldTokenKeepingEnabled() throws Exception {
+        Applicant owner = createApplicant("rotate-owner");
+        Applicant member = createApplicant("rotate-member");
+
+        ChatRoom room = createRoom("rotate-token-old", false);
+        room = chatRoomRepository.saveAndFlush(room);
+        final Long roomId = room.getRoomId();
+        addMember(room, owner, ChatRole.OWNER);
+        addMember(room, member, ChatRole.MEMBER);
+
+        assertThrows(InvalidException.class, () -> chatRoomService.rotateInviteLink(member, roomId));
+
+        InviteLinkResponse response = chatRoomService.rotateInviteLink(owner, roomId);
+        assertEquals(roomId, response.getRoomId());
+        assertNotEquals("rotate-token-old", response.getInviteToken());
+        assertFalse(response.isInviteEnabled());
+        assertNotNull(response.getInviteRotatedAt());
+
+        ChatRoom reloaded = chatRoomRepository.findByRoomIdAndDeletedAtIsNull(roomId).orElseThrow();
+        assertFalse(reloaded.isInviteEnabled());
+        assertNotEquals("rotate-token-old", reloaded.getInviteToken());
+        assertTrue(chatRoomRepository.findByInviteTokenAndDeletedAtIsNull("rotate-token-old").isEmpty());
+    }
+
+    @Test
+    void toggleInviteLink_shouldRequireOwnerAndOnlyToggleEnabledState() throws Exception {
+        Applicant owner = createApplicant("toggle-owner");
+        Applicant member = createApplicant("toggle-member");
+
+        ChatRoom room = createRoom("toggle-token", true);
+        room.setInviteRotatedAt(Instant.parse("2026-04-28T10:00:00Z"));
+        room = chatRoomRepository.saveAndFlush(room);
+        final Long roomId = room.getRoomId();
+        addMember(room, owner, ChatRole.OWNER);
+        addMember(room, member, ChatRole.MEMBER);
+
+        assertThrows(InvalidException.class, () -> chatRoomService.toggleInviteLink(member, roomId, false));
+
+        InviteLinkResponse toggled = chatRoomService.toggleInviteLink(owner, roomId, false);
+        assertFalse(toggled.isInviteEnabled());
+        assertEquals("toggle-token", toggled.getInviteToken());
+        assertEquals(Instant.parse("2026-04-28T10:00:00Z"), toggled.getInviteRotatedAt());
+
+        ChatRoom reloaded = chatRoomRepository.findByRoomIdAndDeletedAtIsNull(roomId).orElseThrow();
+        assertFalse(reloaded.isInviteEnabled());
+        assertEquals("toggle-token", reloaded.getInviteToken());
+        assertEquals(Instant.parse("2026-04-28T10:00:00Z"), reloaded.getInviteRotatedAt());
+    }
+
+    @Test
+    void joinByInvite_shouldValidateRulesAndCreateMembership() throws Exception {
+        Applicant owner = createApplicant("join-owner");
+        Applicant existing = createApplicant("join-existing");
+        Applicant joiner = createApplicant("joiner");
+
+        ChatRoom room = createRoom("join-token-disabled", false);
+        room = chatRoomRepository.saveAndFlush(room);
+        addMember(room, owner, ChatRole.OWNER);
+        addMember(room, existing, ChatRole.MEMBER);
+
+        assertThrows(NotFoundException.class, () -> chatRoomService.joinByInvite(joiner, "not-found-token"));
+        assertThrows(InvalidException.class, () -> chatRoomService.joinByInvite(null, "join-token-disabled"));
+
+        room.setInviteEnabled(true);
+        chatRoomRepository.saveAndFlush(room);
+
+        assertThrows(InvalidException.class, () -> chatRoomService.joinByInvite(null, "join-token-disabled"));
+        assertThrows(ConflictException.class, () -> chatRoomService.joinByInvite(existing, "join-token-disabled"));
+
+        JoinByInviteResponse response = chatRoomService.joinByInvite(joiner, "join-token-disabled");
+        assertTrue(response.isJoined());
+        assertEquals(room.getRoomId(), response.getRoomId());
+        assertTrue(chatMemberRepository.existsByRoomRoomIdAndAccountAccountIdAndDeletedAtIsNull(room.getRoomId(), joiner.getAccountId()));
+    }
+
+    private Applicant createApplicant(String seed) {
+        Applicant applicant = new Applicant();
+        applicant.setUsername(seed + "_username");
+        applicant.setEmail(seed + "@mail.test");
+        applicant.setPassword("pwd123");
+        applicant.setFullName("User " + seed);
+        return testEntityManager.persistAndFlush(applicant);
+    }
+
+    private ChatMember addMember(ChatRoom room, Applicant account, ChatRole role) {
+        ChatMember member = new ChatMember();
+        member.setRoom(room);
+        member.setAccount(account);
+        member.setRole(role);
+        room.getMembers().add(member);
+        return chatMemberRepository.saveAndFlush(member);
+    }
+
     private ChatRoom createRoom(String inviteToken, boolean inviteEnabled) {
         ChatRoom room = new ChatRoom();
-        room.setName("Task 1 Room " + inviteToken);
+        room.setName("Task 2 Room " + inviteToken);
         room.setType(ChatRoomType.GROUP);
         room.setInviteToken(inviteToken);
         room.setInviteEnabled(inviteEnabled);
         return room;
     }
-
 }
