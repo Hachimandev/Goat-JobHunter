@@ -39,7 +39,8 @@ import static org.junit.jupiter.api.Assertions.*;
 @DataJpaTest(
         properties = {
                 "spring.jpa.hibernate.ddl-auto=create-drop",
-                "spring.liquibase.enabled=false"
+                "spring.liquibase.enabled=false",
+                "goat.fe.url=http://localhost:3000/"
         },
         excludeFilters = @ComponentScan.Filter(type = FilterType.ASSIGNABLE_TYPE, classes = CompanyRepository.class)
 )
@@ -133,7 +134,7 @@ class ChatRoomInviteFlowTests {
         assertEquals(roomId, response.getRoomId());
         assertEquals("member-token-001", response.getInviteToken());
         assertTrue(response.isInviteEnabled());
-        assertNotNull(response.getInviteLink());
+        assertEquals("http://localhost:3000/invite/member-token-001", response.getInviteLink());
 
         assertThrows(InvalidException.class, () -> chatRoomService.getInviteLink(outsider, roomId));
     }
@@ -201,6 +202,7 @@ class ChatRoomInviteFlowTests {
 
         assertThrows(NotFoundException.class, () -> chatRoomService.joinByInvite(joiner, "not-found-token"));
         assertThrows(InvalidException.class, () -> chatRoomService.joinByInvite(null, "join-token-disabled"));
+        assertThrows(InvalidException.class, () -> chatRoomService.joinByInvite(joiner, "join-token-disabled"));
 
         room.setInviteEnabled(true);
         chatRoomRepository.saveAndFlush(room);

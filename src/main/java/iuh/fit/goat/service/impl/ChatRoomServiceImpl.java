@@ -34,6 +34,7 @@ import iuh.fit.goat.util.EntityUtil;
 import iuh.fit.goat.util.SecurityUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -60,6 +61,8 @@ public class ChatRoomServiceImpl implements ChatRoomService {
     private final MessageRepository messageRepository;
 
     private final int SUMMARY_THRESHOLD = 10;
+    @Value("${goat.fe.url}")
+    private String frontendBaseUrl;
 
     @Override
     @Transactional(readOnly = true)
@@ -702,6 +705,7 @@ public class ChatRoomServiceImpl implements ChatRoomService {
     @Transactional(readOnly = true)
     public InviteLinkResponse getInviteLink(Account currentAccount, Long roomId) throws InvalidException, NotFoundException {
         ChatRoom room = getInviteRoomById(roomId);
+        validateGroupChatRoom(room);
         validateMember(room, currentAccount);
         return mapInviteLinkResponse(room);
     }
@@ -710,6 +714,7 @@ public class ChatRoomServiceImpl implements ChatRoomService {
     @Transactional
     public InviteLinkResponse rotateInviteLink(Account currentAccount, Long roomId) throws InvalidException, NotFoundException {
         ChatRoom room = getInviteRoomById(roomId);
+        validateGroupChatRoom(room);
         validateOwner(room, currentAccount);
 
         room.setInviteToken(generateInviteToken());
@@ -723,6 +728,7 @@ public class ChatRoomServiceImpl implements ChatRoomService {
     @Transactional
     public InviteLinkResponse toggleInviteLink(Account currentAccount, Long roomId, boolean enabled) throws InvalidException, NotFoundException {
         ChatRoom room = getInviteRoomById(roomId);
+        validateGroupChatRoom(room);
         validateOwner(room, currentAccount);
 
         room.setInviteEnabled(enabled);
@@ -736,6 +742,7 @@ public class ChatRoomServiceImpl implements ChatRoomService {
     public JoinByInviteResponse joinByInvite(Account currentAccount, String inviteToken) throws InvalidException, NotFoundException, ConflictException {
         ChatRoom room = this.chatRoomRepository.findByInviteTokenAndDeletedAtIsNull(inviteToken)
                 .orElseThrow(() -> new NotFoundException("Invite token not found"));
+        validateGroupChatRoom(room);
 
         if (!room.isInviteEnabled()) {
             throw new InvalidException("Invite link is disabled");
@@ -865,7 +872,11 @@ public class ChatRoomServiceImpl implements ChatRoomService {
     }
 
     private String buildInviteLink(String inviteToken) {
-        return "invite://" + inviteToken;
+        String baseUrl = frontendBaseUrl != null ? frontendBaseUrl.trim() : "";
+        if (baseUrl.endsWith("/")) {
+            return baseUrl + "invite/" + inviteToken;
+        }
+        return baseUrl + "/invite/" + inviteToken;
     }
 
     private ChatMember getCurrentMemberInChatRoom(ChatRoom chatRoom, Long accountId) throws InvalidException {
