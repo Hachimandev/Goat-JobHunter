@@ -24,6 +24,12 @@
             WHERE invite_token IS NULL;
         </sql>
 
+        <sql dbms="h2">
+            UPDATE chat_rooms
+            SET invite_token = REPLACE(RANDOM_UUID(), '-', '')
+            WHERE invite_token IS NULL;
+        </sql>
+
         <addNotNullConstraint tableName="chat_rooms" columnName="invite_token" columnDataType="VARCHAR(255)"/>
         <addNotNullConstraint tableName="chat_rooms" columnName="invite_enabled" columnDataType="BOOLEAN"/>
         <addUniqueConstraint tableName="chat_rooms"
