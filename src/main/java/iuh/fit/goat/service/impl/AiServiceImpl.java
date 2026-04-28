@@ -98,14 +98,10 @@ public class AiServiceImpl implements AiService {
 
     private Account getCurrentAccount() throws InvalidException {
         String currentUserEmail = SecurityUtil.getCurrentUserEmail();
-        if (currentUserEmail == null || currentUserEmail.isBlank()) {
-            throw new InvalidException("User not authenticated");
-        }
+        if (currentUserEmail.isBlank()) throw new InvalidException("User not authenticated");
 
         Account currentAccount = this.accountService.handleGetAccountByEmail(currentUserEmail);
-        if (currentAccount == null) {
-            throw new InvalidException("User not found");
-        }
+        if (currentAccount == null) throw new InvalidException("User not found");
 
         return currentAccount;
     }
@@ -175,8 +171,9 @@ public class AiServiceImpl implements AiService {
     // Lấy vai trò của current user
     private Role getRoleFromUser(Account account) {
         String roleName = account.getRole().getName();
-        if (roleName.equals(iuh.fit.goat.common.Role.ADMIN.getValue())) return Role.ADMIN;
+        if (roleName.equals(Role.ADMIN.getValue())) return Role.ADMIN;
         if (roleName.equals(Role.COMPANY.getValue())) return Role.COMPANY;
+        if (roleName.equals(Role.RECRUITER.getValue())) return Role.RECRUITER;
         if (roleName.equals(Role.APPLICANT.getValue())) return Role.APPLICANT;
         return null;
     }

@@ -9,6 +9,7 @@ import iuh.fit.goat.repository.ChatRoomRepository;
 import iuh.fit.goat.repository.MessageRepository;
 import iuh.fit.goat.service.MessageService;
 import iuh.fit.goat.service.PinnedMessageService;
+import iuh.fit.goat.service.helper.MessageHelper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -26,6 +27,8 @@ public class PinnedMessageServiceImpl implements PinnedMessageService {
     private final MessageRepository messageRepository;
     private final ChatRoomRepository chatRoomRepository;
     private final AccountRepository accountRepository;
+
+    private final MessageHelper messageHelper;
 
     @Override
     @Transactional
@@ -179,7 +182,7 @@ public class PinnedMessageServiceImpl implements PinnedMessageService {
                 .pinnedAt(pinnedMessage.getPinnedAt())
                 .build();
 
-        if (message != null) response.setMessage(this.messageService.toMessageResponse(message));
+        if (message != null) response.setMessage(this.messageHelper.toMessageResponse(message));
 
         return response;
     }

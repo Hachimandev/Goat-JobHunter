@@ -9,6 +9,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.security.SecureRandom;
+import java.util.concurrent.CompletableFuture;
 import java.util.regex.Pattern;
 
 public class BasicUtil {
@@ -25,11 +26,11 @@ public class BasicUtil {
     }
 
     public static String uploadImage(MultipartFile file, String folder, StorageService storageService) throws InvalidException {
-        StorageResponse response = storageService.handleUploadFile(file, folder);
-        if (response == null || response.getUrl() == null) {
+        CompletableFuture<StorageResponse> response = storageService.handleUploadFile(file, folder);
+        if (response == null || response.join().getUrl() == null) {
             throw new InvalidException("Failed to upload file");
         }
-        return response.getUrl();
+        return response.join().getUrl();
     }
 
     public static MultipartFile convertToMultipartFile(String image) throws IOException {

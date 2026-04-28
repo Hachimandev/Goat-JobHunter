@@ -16,6 +16,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 
 @RestController
 @RequiredArgsConstructor
@@ -35,9 +36,9 @@ public class StorageController {
 
         FileUploadUtil.assertAllowed(file);
 
-        StorageResponse response = this.storageService.handleUploadFile(file, folder);
+        CompletableFuture<StorageResponse> response = this.storageService.handleUploadFile(file, folder);
 
-        return ResponseEntity.status(HttpStatus.OK).body(response);
+        return ResponseEntity.status(HttpStatus.OK).body(response.join());
     }
 
     @PostMapping("/multiple")
@@ -49,22 +50,20 @@ public class StorageController {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Files are empty. Please upload files");
         }
 
-        List<StorageResponse> responses = new ArrayList<>();
-
+        List<CompletableFuture<StorageResponse>> futures = new ArrayList<>();
         for (MultipartFile file : files) {
-            if (file.isEmpty()) {
-                continue;
-            }
-
+            if (file.isEmpty()) continue;
             FileUploadUtil.assertAllowed(file);
 
-            StorageResponse response = this.storageService.handleUploadFile(file, folder);
-            responses.add(response);
+            futures.add(this.storageService.handleUploadFile(file, folder));
         }
+        CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
 
-        if (responses.isEmpty()) {
+        if (futures.isEmpty()) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("All uploaded files are empty. Please upload valid files");
         }
+
+        List<StorageResponse> responses = futures.stream().map(CompletableFuture::join).toList();
 
         return ResponseEntity.status(HttpStatus.OK).body(responses);
     }

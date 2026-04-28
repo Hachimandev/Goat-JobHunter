@@ -41,11 +41,11 @@ public interface MessageService {
 
     List<Message> sendContactCardMessages(Long chatRoomId, List<Long> userIds, Account currentAccount) throws InvalidException;
 
-    void sendMessageToUsers(Long chatRoomId, Message message);
+//    void sendMessageToUsers(Long chatRoomId, Message message);
+//
+//    MessageResponse toMessageResponse(Message message);
 
-    MessageResponse toMessageResponse(Message message);
-
-    List<MessageResponse> toMessageResponses(List<Message> messages);
+//    List<MessageResponse> toMessageResponses(List<Message> messages);
 
     ResultPaginationResponse getMediaMessagesByChatRoom(Long chatRoomId, Pageable pageable, Account currentAccount)
             throws InvalidException;

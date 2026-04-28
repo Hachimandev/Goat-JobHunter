@@ -4,6 +4,7 @@ import lombok.*;
 
 @Data
 @AllArgsConstructor
+@Builder
 public class StorageResponse {
     private String publicId;
     private String url;
