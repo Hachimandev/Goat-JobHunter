@@ -8,6 +8,8 @@ import iuh.fit.goat.dto.request.message.MessageToNewChatRoom;
 import iuh.fit.goat.dto.response.ResultPaginationResponse;
 import iuh.fit.goat.dto.response.chat.ChatRoomResponse;
 import iuh.fit.goat.dto.response.chat.GroupMemberResponse;
+import iuh.fit.goat.dto.response.chat.InviteLinkResponse;
+import iuh.fit.goat.dto.response.chat.JoinByInviteResponse;
 import iuh.fit.goat.dto.response.chat.UnreadMessageResponse;
 import iuh.fit.goat.dto.response.message.ForwardMessageResponse;
 import iuh.fit.goat.dto.response.message.MessageDeletedEventResponse;
@@ -212,6 +214,41 @@ public class ChatRoomController {
         ChatMember updatedMember = this.chatRoomService.updateMemberRole(
                 currentAccount, chatRoomId, chatMemberId, request);
         return ResponseEntity.ok(updatedMember);
+    }
+
+    @GetMapping("/{roomId}/invite-link")
+    public ResponseEntity<InviteLinkResponse> getInviteLink(@PathVariable Long roomId)
+            throws InvalidException, NotFoundException {
+        Account currentAccount = getCurrentAccount();
+        InviteLinkResponse response = this.chatRoomService.getInviteLink(currentAccount, roomId);
+        return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/{roomId}/invite-link/rotate")
+    public ResponseEntity<InviteLinkResponse> rotateInviteLink(@PathVariable Long roomId)
+            throws InvalidException, NotFoundException {
+        Account currentAccount = getCurrentAccount();
+        InviteLinkResponse response = this.chatRoomService.rotateInviteLink(currentAccount, roomId);
+        return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/{roomId}/invite-link/toggle")
+    public ResponseEntity<InviteLinkResponse> toggleInviteLink(
+            @PathVariable Long roomId,
+            @Valid @RequestBody ToggleInviteLinkRequest request
+    ) throws InvalidException, NotFoundException {
+        Account currentAccount = getCurrentAccount();
+        InviteLinkResponse response = this.chatRoomService
+                .toggleInviteLink(currentAccount, roomId, request.getEnabled());
+        return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/join-by-invite")
+    public ResponseEntity<JoinByInviteResponse> joinByInvite(@Valid @RequestBody JoinByInviteRequest request)
+            throws InvalidException, NotFoundException, ConflictException {
+        Account currentAccount = getCurrentAccount();
+        JoinByInviteResponse response = this.chatRoomService.joinByInvite(currentAccount, request.getInviteToken());
+        return ResponseEntity.ok(response);
     }
 
     private Account getCurrentAccount() throws InvalidException {
