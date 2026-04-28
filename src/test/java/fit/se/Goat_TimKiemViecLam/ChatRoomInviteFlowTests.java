@@ -216,6 +216,46 @@ class ChatRoomInviteFlowTests {
         assertTrue(chatMemberRepository.existsByRoomRoomIdAndAccountAccountIdAndDeletedAtIsNull(room.getRoomId(), joiner.getAccountId()));
     }
 
+    @Test
+    void getInviteLink_shouldRejectDirectRoom() {
+        Applicant applicant = createApplicant("direct-get");
+        ChatRoom directRoom = chatRoomRepository.saveAndFlush(createRoom("direct-get-token", true, ChatRoomType.DIRECT));
+
+        InvalidException exception = assertThrows(InvalidException.class,
+                () -> chatRoomService.getInviteLink(applicant, directRoom.getRoomId()));
+        assertEquals("This operation is only available for group chats", exception.getMessage());
+    }
+
+    @Test
+    void rotateInviteLink_shouldRejectDirectRoom() {
+        Applicant applicant = createApplicant("direct-rotate");
+        ChatRoom directRoom = chatRoomRepository.saveAndFlush(createRoom("direct-rotate-token", true, ChatRoomType.DIRECT));
+
+        InvalidException exception = assertThrows(InvalidException.class,
+                () -> chatRoomService.rotateInviteLink(applicant, directRoom.getRoomId()));
+        assertEquals("This operation is only available for group chats", exception.getMessage());
+    }
+
+    @Test
+    void toggleInviteLink_shouldRejectDirectRoom() {
+        Applicant applicant = createApplicant("direct-toggle");
+        ChatRoom directRoom = chatRoomRepository.saveAndFlush(createRoom("direct-toggle-token", true, ChatRoomType.DIRECT));
+
+        InvalidException exception = assertThrows(InvalidException.class,
+                () -> chatRoomService.toggleInviteLink(applicant, directRoom.getRoomId(), false));
+        assertEquals("This operation is only available for group chats", exception.getMessage());
+    }
+
+    @Test
+    void joinByInvite_shouldRejectDirectRoomToken() {
+        Applicant applicant = createApplicant("direct-join");
+        ChatRoom directRoom = chatRoomRepository.saveAndFlush(createRoom("direct-join-token", true, ChatRoomType.DIRECT));
+
+        InvalidException exception = assertThrows(InvalidException.class,
+                () -> chatRoomService.joinByInvite(applicant, directRoom.getInviteToken()));
+        assertEquals("This operation is only available for group chats", exception.getMessage());
+    }
+
     private Applicant createApplicant(String seed) {
         Applicant applicant = new Applicant();
         applicant.setUsername(seed + "_username");
@@ -235,9 +275,13 @@ class ChatRoomInviteFlowTests {
     }
 
     private ChatRoom createRoom(String inviteToken, boolean inviteEnabled) {
+        return createRoom(inviteToken, inviteEnabled, ChatRoomType.GROUP);
+    }
+
+    private ChatRoom createRoom(String inviteToken, boolean inviteEnabled, ChatRoomType type) {
         ChatRoom room = new ChatRoom();
         room.setName("Task 2 Room " + inviteToken);
-        room.setType(ChatRoomType.GROUP);
+        room.setType(type);
         room.setInviteToken(inviteToken);
         room.setInviteEnabled(inviteEnabled);
         return room;
