@@ -129,7 +129,7 @@ public class ChatRoomServiceImpl implements ChatRoomService {
         return chatRoom.getMembers()
                 .stream()
                 .anyMatch(member ->
-                        member.getAccount() != null && member.getAccount().getAccountId() == accountId
+                        member.getAccount() != null && Objects.equals(member.getAccount().getAccountId(), accountId)
                 );
     }
 
@@ -882,7 +882,7 @@ public class ChatRoomServiceImpl implements ChatRoomService {
     private ChatMember getCurrentMemberInChatRoom(ChatRoom chatRoom, Long accountId) throws InvalidException {
         return chatRoom.getMembers().stream()
                 .filter(m -> m.getDeletedAt() == null &&
-                        m.getAccount().getAccountId() == accountId)
+                        Objects.equals(m.getAccount().getAccountId(), accountId))
                 .findFirst()
                 .orElseThrow(() -> new InvalidException("User is not a member of this chat room"));
     }

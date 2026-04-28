@@ -140,6 +140,18 @@ class ChatRoomInviteFlowTests {
     }
 
     @Test
+    void isUserInChatRoom_shouldUseValueEqualityForLargeAccountIds() {
+        ChatRoom room = createRoom("large-id-token", true);
+        Applicant member = new Applicant();
+        member.setAccountId(10_000L);
+        ChatMember chatMember = new ChatMember();
+        chatMember.setAccount(member);
+        room.getMembers().add(chatMember);
+
+        assertTrue(chatRoomService.isUserInChatRoom(room, Long.valueOf("10000")));
+    }
+
+    @Test
     void rotateInviteLink_shouldRequireOwnerAndInvalidateOldTokenKeepingEnabled() throws Exception {
         Applicant owner = createApplicant("rotate-owner");
         Applicant member = createApplicant("rotate-member");
