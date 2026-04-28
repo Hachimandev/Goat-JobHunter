@@ -744,6 +744,9 @@ public class ChatRoomServiceImpl implements ChatRoomService {
         ChatRoom room = this.chatRoomRepository.findByInviteTokenAndDeletedAtIsNull(inviteToken)
                 .orElseThrow(() -> new NotFoundException("Invite token not found"));
         validateGroupChatRoom(room);
+        if (!room.isInviteEnabled()) {
+            throw new NotFoundException("Invite token not found");
+        }
 
         return InviteTokenPreviewResponse.builder()
                 .roomId(room.getRoomId())

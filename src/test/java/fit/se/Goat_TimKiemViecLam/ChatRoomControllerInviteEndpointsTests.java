@@ -6,6 +6,8 @@ import iuh.fit.goat.dto.response.chat.InviteLinkResponse;
 import iuh.fit.goat.dto.response.chat.InviteTokenPreviewResponse;
 import iuh.fit.goat.dto.response.chat.JoinByInviteResponse;
 import iuh.fit.goat.entity.Applicant;
+import iuh.fit.goat.exception.GlobalExceptionHandler;
+import iuh.fit.goat.exception.NotFoundException;
 import iuh.fit.goat.service.AccountService;
 import iuh.fit.goat.service.ChatRoomService;
 import iuh.fit.goat.service.MessageService;
@@ -64,7 +66,9 @@ class ChatRoomControllerInviteEndpointsTests {
 
     @BeforeEach
     void setUp() {
-        mockMvc = MockMvcBuilders.standaloneSetup(chatRoomController).build();
+        mockMvc = MockMvcBuilders.standaloneSetup(chatRoomController)
+                .setControllerAdvice(new GlobalExceptionHandler())
+                .build();
         SecurityContextHolder.getContext()
                 .setAuthentication(new UsernamePasswordAuthenticationToken(CURRENT_EMAIL, "test-password"));
 
@@ -175,6 +179,34 @@ class ChatRoomControllerInviteEndpointsTests {
                 .andExpect(jsonPath("$.inviteEnabled").value(true));
 
         verify(chatRoomService).getInvitePreview("invite-token-505");
+    }
+
+    @Test
+    void getInvitePreview_shouldReturnNotFoundWhenInviteDisabled() throws Exception {
+        when(chatRoomService.getInvitePreview("invite-token-disabled"))
+                .thenThrow(new NotFoundException("Invite token not found"));
+
+        mockMvc.perform(get("/api/v1/chatrooms/invite-preview/{token}", "invite-token-disabled"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.statusCode").value(404))
+                .andExpect(jsonPath("$.message").value("Invite token not found"))
+                .andExpect(jsonPath("$.error").value("Not Found"));
+
+        verify(chatRoomService).getInvitePreview("invite-token-disabled");
+    }
+
+    @Test
+    void getInvitePreview_shouldReturnNotFoundWhenInviteTokenDoesNotExist() throws Exception {
+        when(chatRoomService.getInvitePreview("missing-token"))
+                .thenThrow(new NotFoundException("Invite token not found"));
+
+        mockMvc.perform(get("/api/v1/chatrooms/invite-preview/{token}", "missing-token"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.statusCode").value(404))
+                .andExpect(jsonPath("$.message").value("Invite token not found"))
+                .andExpect(jsonPath("$.error").value("Not Found"));
+
+        verify(chatRoomService).getInvitePreview("missing-token");
     }
 
     private record ToggleBody(Boolean enabled) {}
