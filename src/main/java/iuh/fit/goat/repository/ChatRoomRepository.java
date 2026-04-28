@@ -143,5 +143,7 @@ public interface ChatRoomRepository extends JpaRepository<ChatRoom, Long> {
 
     boolean existsByInviteToken(String inviteToken);
 
+    Optional<ChatRoom> findByInviteTokenAndDeletedAtIsNull(String inviteToken);
+
     Optional<ChatRoom> findByInviteTokenAndInviteEnabledTrueAndDeletedAtIsNull(String inviteToken);
 }

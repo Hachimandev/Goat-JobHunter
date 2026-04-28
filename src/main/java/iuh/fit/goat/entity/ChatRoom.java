@@ -51,7 +51,7 @@ public class ChatRoom extends BaseEntity {
     private Instant inviteRotatedAt;
 
     @Column(name = "invite_enabled", nullable = false)
-    private Boolean inviteEnabled = Boolean.TRUE;
+    private boolean inviteEnabled = true;
 
     @OneToMany(mappedBy = "room", fetch = LAZY, cascade = {PERSIST, MERGE, REMOVE})
     @JsonIgnore
