@@ -2,6 +2,7 @@ package iuh.fit.goat.common;
 
 public enum MessageEvent {
     MEMBER_ADDED,
+    MEMBER_JOINED_BY_INVITE,
     MEMBER_REMOVED,
     MEMBER_LEFT,
     ROLE_CHANGED,

@@ -1,6 +1,7 @@
 package fit.se.Goat_TimKiemViecLam;
 
 import iuh.fit.goat.GoatTimKiemViecLamApplication;
+import iuh.fit.goat.common.MessageEvent;
 import iuh.fit.goat.dto.response.chat.InviteLinkResponse;
 import iuh.fit.goat.dto.response.chat.JoinByInviteResponse;
 import iuh.fit.goat.entity.Applicant;
@@ -35,6 +36,7 @@ import java.time.Instant;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.verify;
 
 @DataJpaTest(
         properties = {
@@ -245,6 +247,26 @@ class ChatRoomInviteFlowTests {
         assertTrue(response.isJoined());
         assertEquals(room.getRoomId(), response.getRoomId());
         assertTrue(chatMemberRepository.existsByRoomRoomIdAndAccountAccountIdAndDeletedAtIsNull(room.getRoomId(), joiner.getAccountId()));
+    }
+
+    @Test
+    void joinByInvite_shouldCreateSystemMessageEvent() throws Exception {
+        Applicant owner = createApplicant("join-event-owner");
+        Applicant joiner = createApplicant("join-event-joiner");
+
+        ChatRoom room = createRoom("join-event-token", true);
+        room = chatRoomRepository.saveAndFlush(room);
+        addMember(room, owner, ChatRole.OWNER);
+
+        JoinByInviteResponse response = chatRoomService.joinByInvite(joiner, "join-event-token");
+
+        assertTrue(response.isJoined());
+        assertEquals(room.getRoomId(), response.getRoomId());
+        verify(messageService).createAndSendSystemMessage(
+                room.getRoomId(),
+                MessageEvent.MEMBER_JOINED_BY_INVITE,
+                joiner
+        );
     }
 
     @Test

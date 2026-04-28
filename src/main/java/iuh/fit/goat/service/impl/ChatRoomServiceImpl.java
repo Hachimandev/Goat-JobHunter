@@ -764,6 +764,12 @@ public class ChatRoomServiceImpl implements ChatRoomService {
         newMember.setRole(ChatRole.MEMBER);
         this.chatMemberRepository.saveAndFlush(newMember);
 
+        this.messageService.createAndSendSystemMessage(
+                room.getRoomId(),
+                MessageEvent.MEMBER_JOINED_BY_INVITE,
+                currentAccount
+        );
+
         return new JoinByInviteResponse(room.getRoomId(), true);
     }
 
