@@ -1,6 +1,7 @@
 import { api } from '@/services/api';
 import type {
   InviteLinkResponse,
+  InvitePreviewResponse,
   JoinByInviteRequest,
   JoinByInviteResponse,
   ToggleInviteRequest,
@@ -17,6 +18,13 @@ export const inviteApi = api.injectEndpoints({
         { type: 'ChatRoom', id: roomId },
         { type: 'ChatInvite', id: roomId },
       ],
+    }),
+
+    getInvitePreview: builder.query<InvitePreviewResponse, string>({
+      query: (token) => ({
+        url: `/chatrooms/invite-preview/${token}`,
+        method: 'GET',
+      }),
     }),
 
     rotateInviteLink: builder.mutation<InviteLinkResponse, number>({
@@ -49,6 +57,7 @@ export const inviteApi = api.injectEndpoints({
 
 export const {
   useGetInviteLinkQuery,
+  useGetInvitePreviewQuery,
   useRotateInviteLinkMutation,
   useToggleInviteLinkMutation,
   useJoinByInviteMutation,

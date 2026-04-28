@@ -21,5 +21,13 @@ export type JoinByInviteRequest = {
   inviteToken: string;
 };
 
+export type InvitePreviewPayload = {
+  roomId: number;
+  roomName: string;
+  roomAvatar: string | null;
+  inviteEnabled: boolean;
+};
+
 export type InviteLinkResponse = IBackendRes<InviteLinkPayload>;
 export type JoinByInviteResponse = IBackendRes<JoinByInvitePayload>;
+export type InvitePreviewResponse = IBackendRes<InvitePreviewPayload>;
