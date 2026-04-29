@@ -20,36 +20,33 @@ import java.util.Optional;
 public interface ChatRoomRepository extends JpaRepository<ChatRoom, Long> {
 
 //    Optional<ChatRoom> findByRoomId(Long chatRoomId);
-
-        boolean existsByRoomIdAndDeletedAtIsNull(Long chatRoomId);
+    
+    boolean existsByRoomIdAndDeletedAtIsNull(Long chatRoomId);
 
     Optional<ChatRoom> findByRoomIdAndDeletedAtIsNull(Long chatRoomId);
 
-        Page<ChatRoom> findByDeletedAtIsNull(Pageable pageable);
+    Page<ChatRoom> findByDeletedAtIsNull(Pageable pageable);
 
-                @Query("""
-                                SELECT cr.roomId FROM ChatRoom cr
-                                JOIN cr.members cm
-                                WHERE cm.account.accountId = :accountId
-                                        AND cm.deletedAt IS NULL
-                                        AND cr.deletedAt IS NULL
-                                ORDER BY COALESCE(cr.lastMessageTime, cr.updatedAt, cr.createdAt) DESC, cr.roomId DESC
-                """)
-                Page<Long> findChatRoomIdsByMemberAccountId(
-                                                @Param("accountId") Long accountId,
-                                                Pageable pageable
-                );
+    @Query("""
+        SELECT cr.roomId FROM ChatRoom cr
+        JOIN cr.members cm
+        WHERE cm.account.accountId = :accountId
+                AND cm.deletedAt IS NULL
+                AND cr.deletedAt IS NULL
+        ORDER BY COALESCE(cr.lastMessageTime, cr.updatedAt, cr.createdAt) DESC, cr.roomId DESC
+    """)
+    Page<Long> findChatRoomIdsByMemberAccountId(@Param("accountId") Long accountId, Pageable pageable);
 
-                @EntityGraph(attributePaths = {"members", "members.account"})
-                @Query("""
-                                SELECT DISTINCT cr FROM ChatRoom cr
-                                LEFT JOIN cr.members cm
-                                WHERE cr.roomId IN :roomIds
-                                        AND cr.deletedAt IS NULL
-                """)
-                List<ChatRoom> findRoomsWithMembersByRoomIds(
-                                                @Param("roomIds") List<Long> roomIds
-                );
+    @EntityGraph(attributePaths = {"members", "members.account"})
+    @Query("""
+                    SELECT DISTINCT cr FROM ChatRoom cr
+                    LEFT JOIN cr.members cm
+                    WHERE cr.roomId IN :roomIds
+                            AND cr.deletedAt IS NULL
+    """)
+    List<ChatRoom> findRoomsWithMembersByRoomIds(
+                                    @Param("roomIds") List<Long> roomIds
+    );
 
     @Query("""
         SELECT DISTINCT cr FROM ChatRoom cr
@@ -72,35 +69,35 @@ public interface ChatRoomRepository extends JpaRepository<ChatRoom, Long> {
     """)
     List<ChatRoom> findAllChatRoomsByMemberAccountId(@Param("accountId") Long accountId);
 
-        @Modifying
-        @Transactional
-        @Query("""
-                UPDATE ChatRoom cr
-                SET cr.lastMessageId = :lastMessageId,
-                        cr.lastMessageSenderAccountId = :senderAccountId,
-                        cr.lastMessagePreview = :lastMessagePreview,
-                        cr.lastMessageTime = :lastMessageTime
-                WHERE cr.roomId = :roomId
-        """)
-        int updateLastMessageSummary(
-                        @Param("roomId") Long roomId,
-                        @Param("lastMessageId") String lastMessageId,
-                        @Param("senderAccountId") Long senderAccountId,
-                        @Param("lastMessagePreview") String lastMessagePreview,
-                        @Param("lastMessageTime") Instant lastMessageTime
-        );
+    @Modifying
+    @Transactional
+    @Query("""
+            UPDATE ChatRoom cr
+            SET cr.lastMessageId = :lastMessageId,
+                    cr.lastMessageSenderAccountId = :senderAccountId,
+                    cr.lastMessagePreview = :lastMessagePreview,
+                    cr.lastMessageTime = :lastMessageTime
+            WHERE cr.roomId = :roomId
+    """)
+    int updateLastMessageSummary(
+                    @Param("roomId") Long roomId,
+                    @Param("lastMessageId") String lastMessageId,
+                    @Param("senderAccountId") Long senderAccountId,
+                    @Param("lastMessagePreview") String lastMessagePreview,
+                    @Param("lastMessageTime") Instant lastMessageTime
+    );
 
-        @Modifying
-        @Transactional
-        @Query("""
-                UPDATE ChatRoom cr
-                SET cr.lastMessageId = null,
-                        cr.lastMessageSenderAccountId = null,
-                        cr.lastMessagePreview = null,
-                        cr.lastMessageTime = null
-                WHERE cr.roomId = :roomId
-        """)
-        int clearLastMessageSummary(@Param("roomId") Long roomId);
+    @Modifying
+    @Transactional
+    @Query("""
+            UPDATE ChatRoom cr
+            SET cr.lastMessageId = null,
+                    cr.lastMessageSenderAccountId = null,
+                    cr.lastMessagePreview = null,
+                    cr.lastMessageTime = null
+            WHERE cr.roomId = :roomId
+    """)
+    int clearLastMessageSummary(@Param("roomId") Long roomId);
 
     @Query("SELECT DISTINCT cr FROM ChatRoom cr " +
             "JOIN cr.members m1 " +
@@ -115,29 +112,40 @@ public interface ChatRoomRepository extends JpaRepository<ChatRoom, Long> {
             @Param("userId2") Long userId2
     );
 
-        @Query("""
-                SELECT cr FROM ChatRoom cr
-                WHERE cr.type = 'DIRECT'
-                AND cr.deletedAt IS NULL
-                AND EXISTS (
-                        SELECT 1 FROM ChatMember cm1
-                        WHERE cm1.room = cr
-                        AND cm1.account.accountId = :userId1
-                        AND cm1.deletedAt IS NULL
-                )
-                AND EXISTS (
-                        SELECT 1 FROM ChatMember cm2
-                        WHERE cm2.room = cr
-                        AND cm2.account.accountId = :userId2
-                        AND cm2.deletedAt IS NULL
-                )
-                ORDER BY COALESCE(cr.updatedAt, cr.createdAt) DESC, cr.roomId DESC
-        """)
-        List<ChatRoom> findDirectChatRoomsBetweenUsersOrderByLatest(
-                        @Param("userId1") Long userId1,
-                        @Param("userId2") Long userId2
-        );
+    @Query("""
+            SELECT cr FROM ChatRoom cr
+            WHERE cr.type = 'DIRECT'
+            AND cr.deletedAt IS NULL
+            AND EXISTS (
+                    SELECT 1 FROM ChatMember cm1
+                    WHERE cm1.room = cr
+                    AND cm1.account.accountId = :userId1
+                    AND cm1.deletedAt IS NULL
+            )
+            AND EXISTS (
+                    SELECT 1 FROM ChatMember cm2
+                    WHERE cm2.room = cr
+                    AND cm2.account.accountId = :userId2
+                    AND cm2.deletedAt IS NULL
+            )
+            ORDER BY COALESCE(cr.updatedAt, cr.createdAt) DESC, cr.roomId DESC
+    """)
+    List<ChatRoom> findDirectChatRoomsBetweenUsersOrderByLatest(
+                    @Param("userId1") Long userId1,
+                    @Param("userId2") Long userId2
+    );
 
     @EntityGraph(attributePaths = {"members", "members.account"})
     Optional<ChatRoom> findByRoomId(Long roomId);
+
+    @Query("""
+        SELECT cr.roomId
+        FROM ChatRoom cr JOIN cr.members m1 JOIN m1.account
+        WHERE m1.account.accountId = :accountId
+        AND m1.deletedAt IS NULL AND cr.roomId IN :roomIds
+    """)
+    List<Long> findRoomIdsAccountBelongTo(
+            Long accountId,
+            List<Long> roomIds
+    );
 }
