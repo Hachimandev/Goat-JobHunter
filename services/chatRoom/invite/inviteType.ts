@@ -19,3 +19,17 @@ export type JoinByInvitePayload = {
 };
 
 export type JoinByInviteResponse = IBackendRes<JoinByInvitePayload>;
+
+export type InviteLinkPayload = {
+  roomId: number;
+  inviteToken: string;
+  inviteLink: string;
+  inviteEnabled: boolean;
+  inviteRotatedAt: string | null;
+};
+
+export type InviteLinkResponse = IBackendRes<InviteLinkPayload>;
+
+export type ToggleInviteRequest = {
+  enabled: boolean;
+};

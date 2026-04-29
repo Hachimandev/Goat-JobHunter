@@ -1,7 +1,10 @@
-import { useGetInviteLinkQuery } from "@/services/chatRoom/invite/inviteApi";
+import {
+  useGetInviteLinkQuery,
+  useRotateInviteLinkMutation,
+} from "@/services/chatRoom/invite/inviteApi";
 import * as Clipboard from "expo-clipboard";
 import { Copy, RotateCcw } from "lucide-react-native";
-import React, { useState } from "react";
+import React from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -18,9 +21,10 @@ interface InviteLinkPanelProps {
 }
 
 export function InviteLinkPanel({ roomId, isOwner = false }: InviteLinkPanelProps) {
-  const { data: inviteData, isLoading, refetch } = useGetInviteLinkQuery(roomId);
+  const { data: inviteData, isLoading } = useGetInviteLinkQuery(roomId);
   const invite = inviteData?.data;
-  const [isRotating, setIsRotating] = useState(false);
+  const [rotateInvite, { isLoading: isRotating }] =
+    useRotateInviteLinkMutation();
 
   const handleCopyLink = async () => {
     if (!invite?.inviteLink) return;
@@ -33,11 +37,11 @@ export function InviteLinkPanel({ roomId, isOwner = false }: InviteLinkPanelProp
   };
 
   const handleRotate = async () => {
-    setIsRotating(true);
     try {
-      await refetch();
-    } finally {
-      setIsRotating(false);
+      await rotateInvite(roomId).unwrap();
+      Alert.alert("Thành công", "Đã xoay lại link mời");
+    } catch {
+      Alert.alert("Lỗi", "Không thể xoay lại link mời");
     }
   };
 
