@@ -10,6 +10,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import {
@@ -19,6 +20,7 @@ import {
 } from '@/services/chatRoom/invite/inviteApi';
 import { IBackendError } from '@/types/api';
 import { QRCode } from 'antd';
+import { truncate } from 'lodash';
 import { Copy, Loader2, RefreshCw } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
@@ -81,9 +83,14 @@ export default function InviteLinkPanel({ roomId, canManageInvite }: Readonly<In
     <>
       <div className="space-y-4 rounded-xl border border-border p-4">
         <div className="flex items-start justify-between gap-3">
-          <div className="space-y-1">
-            <h3 className="text-sm font-semibold">Link mời vào nhóm</h3>
-            <p className="text-xs text-muted-foreground">Chia sẻ link hoặc quét QR để tham gia nhóm.</p>
+          <div className="flex items-center justify-between w-full">
+            <div className="space-y-1">
+              <h3 className="text-sm font-semibold">Link mời vào nhóm</h3>
+              <p className="text-xs text-muted-foreground">Chia sẻ link hoặc quét QR để tham gia nhóm.</p>
+            </div>
+            <Badge variant={invite?.inviteEnabled ? 'default' : 'destructive'}>
+              {invite?.inviteEnabled ? 'Đang bật' : 'Đang tắt'}
+            </Badge>
           </div>
           {canManageInvite && (
             <Button
@@ -115,27 +122,20 @@ export default function InviteLinkPanel({ roomId, canManageInvite }: Readonly<In
         {!isLoading && !isError && invite && (
           <div className="space-y-4">
             <div className="flex items-center justify-between gap-4">
-              <p className="text-xs text-muted-foreground break-all">{invite.inviteLink}</p>
-              <span
-                className={`shrink-0 rounded-full px-2 py-1 text-[11px] font-medium ${
-                  invite.inviteEnabled ? 'bg-emerald-100 text-emerald-700' : 'bg-muted text-muted-foreground'
-                }`}
+              <p className="text-sm text-primary break-all flex-1 cu" onClick={handleCopyInviteLink} title="Sao chép">
+                {truncate(invite.inviteLink, { length: 40 })}
+              </p>
+              <Button
+                size="icon-sm"
+                variant="ghost"
+                className="rounded-xl"
+                onClick={handleCopyInviteLink}
+                disabled={!invite.inviteLink}
+                title="Sao chép"
               >
-                {invite.inviteEnabled ? 'Đang bật' : 'Đang tắt'}
-              </span>
+                <Copy className="h-4 w-4" />
+              </Button>
             </div>
-
-            <Button
-              type="button"
-              size="sm"
-              variant="secondary"
-              className="w-fit rounded-xl"
-              onClick={handleCopyInviteLink}
-              disabled={!invite.inviteLink}
-            >
-              <Copy className="h-4 w-4" />
-              Sao chép link
-            </Button>
 
             <div className="flex justify-center rounded-lg border border-dashed border-border py-4">
               <QRCode value={invite.inviteLink} size={170} />
