@@ -2,6 +2,7 @@ import {
   useGetInviteLinkQuery,
   useRotateInviteLinkMutation,
 } from "@/services/chatRoom/invite/inviteApi";
+import { InviteQrCodeCard } from "./InviteQrCodeCard";
 import * as Clipboard from "expo-clipboard";
 import { Copy, RotateCcw } from "lucide-react-native";
 import React from "react";
@@ -107,6 +108,8 @@ export function InviteLinkPanel({ roomId, isOwner = false }: InviteLinkPanelProp
           </TouchableOpacity>
         )}
       </View>
+
+      {invite.inviteLink && <InviteQrCodeCard inviteLink={invite.inviteLink} />}
 
       <View style={styles.section}>
         <Text style={styles.title}>Thông tin chia sẻ</Text>
