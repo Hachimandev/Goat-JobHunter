@@ -11,6 +11,7 @@ import {
   ActivityIndicator,
   Image,
   SafeAreaView,
+  ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -59,17 +60,27 @@ export default function InviteTokenScreen() {
 
   if (!inviteToken) {
     return (
-      <SafeAreaView style={styles.container}>
-        <Text style={styles.title}>Link mời không hợp lệ</Text>
+      <SafeAreaView style={styles.container} testID="invite-safe-container">
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps="handled"
+        >
+          <Text style={styles.title}>Link mời không hợp lệ</Text>
+        </ScrollView>
       </SafeAreaView>
     );
   }
 
   if (isPreviewLoading) {
     return (
-      <SafeAreaView style={styles.container}>
-        <ActivityIndicator size="large" color="#2563eb" />
-        <Text style={styles.subtitle}>Đang tải thông tin lời mời...</Text>
+      <SafeAreaView style={styles.container} testID="invite-safe-container">
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps="handled"
+        >
+          <ActivityIndicator size="large" color="#2563eb" />
+          <Text style={styles.subtitle}>Đang tải thông tin lời mời...</Text>
+        </ScrollView>
       </SafeAreaView>
     );
   }
@@ -77,8 +88,12 @@ export default function InviteTokenScreen() {
   const actionDisabled = isJoining || (preview ? !preview.inviteEnabled : false);
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.card}>
+    <SafeAreaView style={styles.container} testID="invite-safe-container">
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        keyboardShouldPersistTaps="handled"
+      >
+        <View style={styles.card}>
         {preview?.roomAvatar ? (
           <Image source={{ uri: preview.roomAvatar }} style={styles.avatar} />
         ) : null}
@@ -112,6 +127,7 @@ export default function InviteTokenScreen() {
           )}
         </TouchableOpacity>
       </View>
+    </ScrollView>
     </SafeAreaView>
   );
 }
@@ -119,10 +135,14 @@ export default function InviteTokenScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: "#f8fafc",
+  },
+  scrollContent: {
+    flexGrow: 1,
     justifyContent: "center",
     alignItems: "center",
     padding: 16,
-    backgroundColor: "#f8fafc",
+    paddingVertical: 16,
   },
   card: {
     width: "100%",

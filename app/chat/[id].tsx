@@ -19,7 +19,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import EmojiPicker from "rn-emoji-keyboard";
 
 import { ChatHeader } from "@/components/chat/ChatHeader";
@@ -66,6 +66,7 @@ export default function ChatDetailScreen() {
   const [forwardMessageBatch] = useForwardMessageBatchMutation();
   const [showForwardToast, setShowForwardToast] = useState(false);
   const headerHeight = useHeaderHeight();
+  const insets = useSafeAreaInsets();
 
   const { data: pinnedData, refetch: refetchPinned } =
     useGetPinnedMessagesQuery(
@@ -610,7 +611,12 @@ export default function ChatDetailScreen() {
         onRequestClose={() => setIsInvitePanelOpen(false)}
       >
         <SafeAreaView style={styles.modalContainer}>
-          <View style={styles.modalHeader}>
+          <View 
+            style={[
+              styles.modalHeader, 
+              { paddingTop: Math.max(insets.top, 12) }
+            ]}
+          >
             <TouchableOpacity onPress={() => setIsInvitePanelOpen(false)}>
               <Ionicons name="close" size={24} color="#000" />
             </TouchableOpacity>

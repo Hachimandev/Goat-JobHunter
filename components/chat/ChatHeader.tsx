@@ -34,7 +34,11 @@ export const ChatHeader = ({
         />
 
         <View style={styles.headerInfo}>
-          <Text style={styles.headerTitle} numberOfLines={1}>
+          <Text 
+            style={styles.headerTitle} 
+            numberOfLines={1}
+            ellipsizeMode="tail"
+          >
             {name}
           </Text>
           <Text style={styles.headerStatus}>{status}</Text>
