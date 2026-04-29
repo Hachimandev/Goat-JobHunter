@@ -628,3 +628,20 @@ export type PollVote = {
   };
   createdAt: string;
 };
+
+export type Tag = {
+  tagId: number;
+  name: string;
+  color: string;
+  systemTag: boolean;
+};
+
+export type ChatRoomTagAssignment = {
+  assignmentId: number;
+  roomId: number;
+  accountId: number;
+  tagId: number;
+  tagName: string;
+  tagColor: string;
+  systemTag: boolean;
+};
