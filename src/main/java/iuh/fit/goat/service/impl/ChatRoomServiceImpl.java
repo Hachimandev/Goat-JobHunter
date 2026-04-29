@@ -186,6 +186,7 @@ public class ChatRoomServiceImpl implements ChatRoomService {
         ChatRoom chatRoom = new ChatRoom();
         chatRoom.setType(ChatRoomType.DIRECT);
         chatRoom.setName("Không có tên");
+        initializeInviteFields(chatRoom);
         chatRoom = this.chatRoomRepository.saveAndFlush(chatRoom);
 
         // Since current user is validated, create chat member
@@ -255,6 +256,7 @@ public class ChatRoomServiceImpl implements ChatRoomService {
         ChatRoom chatRoom = new ChatRoom();
         chatRoom.setType(ChatRoomType.DIRECT);
         chatRoom.setName("Không có tên");
+        initializeInviteFields(chatRoom);
         chatRoom = this.chatRoomRepository.saveAndFlush(chatRoom);
 
         // Create chat members
@@ -344,6 +346,7 @@ public class ChatRoomServiceImpl implements ChatRoomService {
             groupChatRoom.setAvatar(request.getAvatar());
         }
 
+        initializeInviteFields(groupChatRoom);
         groupChatRoom = this.chatRoomRepository.saveAndFlush(groupChatRoom);
 
         // Create chat members
@@ -884,6 +887,12 @@ public class ChatRoomServiceImpl implements ChatRoomService {
             token = UUID.randomUUID().toString().replace("-", "");
         } while (this.chatRoomRepository.existsByInviteToken(token));
         return token;
+    }
+
+    private void initializeInviteFields(ChatRoom chatRoom) {
+        chatRoom.setInviteToken(generateInviteToken());
+        chatRoom.setInviteRotatedAt(Instant.now());
+        chatRoom.setInviteEnabled(true);
     }
 
     private InviteLinkResponse mapInviteLinkResponse(ChatRoom room) {
