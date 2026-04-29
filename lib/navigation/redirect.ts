@@ -1,10 +1,26 @@
+import type { Href } from "expo-router";
+
+const DEFAULT_REDIRECT_PATH: Href = "/(tabs)/chat";
 const ALLOWED_PREFIXES = ["/invite/", "/(tabs)/chat", "/chat/"];
 
-export function normalizeRedirectPath(input?: string): string {
-  if (!input) return "/(tabs)/chat";
-  if (/^https?:\/\//i.test(input)) return "/(tabs)/chat";
-  const decoded = decodeURIComponent(input);
-  return ALLOWED_PREFIXES.some((p) => decoded.startsWith(p))
-    ? decoded
-    : "/(tabs)/chat";
+function safeDecodePath(input: string): string | null {
+  try {
+    return decodeURIComponent(input);
+  } catch {
+    return null;
+  }
+}
+
+export function normalizeRedirectPath(input?: string): Href {
+  const normalizedInput = input?.trim();
+
+  if (!normalizedInput) return DEFAULT_REDIRECT_PATH;
+  if (/^https?:\/\//i.test(normalizedInput)) return DEFAULT_REDIRECT_PATH;
+
+  const decoded = safeDecodePath(normalizedInput);
+  if (!decoded) return DEFAULT_REDIRECT_PATH;
+
+  return ALLOWED_PREFIXES.some((prefix) => decoded.startsWith(prefix))
+    ? (decoded as Href)
+    : DEFAULT_REDIRECT_PATH;
 }

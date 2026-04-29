@@ -62,19 +62,28 @@ export function InviteLinkPanel({ roomId, isOwner = false }: InviteLinkPanelProp
     );
   }
 
+  const hasShareableInvite = Boolean(invite.inviteEnabled && invite.inviteLink);
+  const inviteStatusMessage = invite.inviteEnabled
+    ? "Link mời đang hoạt động. Bạn có thể sao chép hoặc quét QR bên dưới."
+    : "Link mời hiện đang tắt. Bật lại từ backend hoặc xoay link trước khi chia sẻ.";
+
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={styles.content}
+      showsVerticalScrollIndicator={false}
+    >
       <View style={styles.section}>
         <Text style={styles.title}>Link mời nhóm</Text>
 
         <View style={styles.linkBox}>
-          <Text style={styles.link} numberOfLines={2}>
-            {invite.inviteLink}
+          <Text style={styles.link} numberOfLines={3}>
+            {invite.inviteLink || "Chưa có link mời khả dụng"}
           </Text>
           <TouchableOpacity
             style={styles.copyButton}
             onPress={handleCopyLink}
-            disabled={!invite.inviteLink}
+            disabled={!hasShareableInvite}
           >
             <Copy size={16} color="#fff" />
             <Text style={styles.copyButtonText}>Sao chép</Text>
@@ -95,6 +104,8 @@ export function InviteLinkPanel({ roomId, isOwner = false }: InviteLinkPanelProp
           </Text>
         </View>
 
+        <Text style={styles.statusHelpText}>{inviteStatusMessage}</Text>
+
         {isOwner && (
           <TouchableOpacity
             style={styles.rotateButton}
@@ -109,7 +120,18 @@ export function InviteLinkPanel({ roomId, isOwner = false }: InviteLinkPanelProp
         )}
       </View>
 
-      {invite.inviteLink && <InviteQrCodeCard inviteLink={invite.inviteLink} />}
+      {hasShareableInvite ? (
+        <InviteQrCodeCard inviteLink={invite.inviteLink} />
+      ) : (
+        <View style={styles.section}>
+          <Text style={styles.title}>Mã QR tham gia nhóm</Text>
+          <View style={styles.infoBox}>
+            <Text style={styles.infoText}>
+              Mã QR chỉ hiển thị khi link mời đang bật và có thể chia sẻ.
+            </Text>
+          </View>
+        </View>
+      )}
 
       <View style={styles.section}>
         <Text style={styles.title}>Thông tin chia sẻ</Text>
@@ -203,6 +225,11 @@ const styles = StyleSheet.create({
   statusBadgeDisabled: {
     backgroundColor: "#fee2e2",
     color: "#991b1b",
+  },
+  statusHelpText: {
+    fontSize: 13,
+    lineHeight: 18,
+    color: "#475569",
   },
   rotateButton: {
     backgroundColor: "#2563eb",

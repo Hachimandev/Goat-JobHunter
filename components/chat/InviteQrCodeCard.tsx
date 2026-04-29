@@ -9,14 +9,19 @@ interface InviteQrCodeCardProps {
 export function InviteQrCodeCard({ inviteLink }: InviteQrCodeCardProps) {
   const { width } = useWindowDimensions();
 
-  // Responsive QR size: max 220px or screen width - 96px padding
-  const qrSize = Math.min(width - 96, 220);
+  // Keep QR visible on narrow screens while preventing oversized render.
+  const qrSize = Math.max(Math.min(width - 96, 220), 140);
 
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Mã QR tham gia nhóm</Text>
       <View style={styles.qrContainer}>
-        <QRCode value={inviteLink} size={qrSize} />
+        <QRCode
+          value={inviteLink}
+          size={qrSize}
+          backgroundColor="#ffffff"
+          color="#0f172a"
+        />
       </View>
       <Text style={styles.hint}>Quét mã QR để tham gia nhóm</Text>
     </View>
@@ -41,7 +46,9 @@ const styles = StyleSheet.create({
   },
   qrContainer: {
     padding: 12,
-    backgroundColor: "#f1f5f9",
+    minWidth: 164,
+    minHeight: 164,
+    backgroundColor: "#f8fafc",
     borderRadius: 8,
     alignItems: "center",
     justifyContent: "center",

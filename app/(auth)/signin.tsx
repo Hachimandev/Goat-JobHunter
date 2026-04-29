@@ -16,7 +16,6 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useUser } from "../../hooks/useUser";
 import { normalizeRedirectPath } from "@/lib/navigation/redirect";
 
-
 export default function SignInScreen() {
   const router = useRouter();
   const { redirect } = useLocalSearchParams<{ redirect?: string }>();

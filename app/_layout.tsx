@@ -1,6 +1,6 @@
 import { NotificationProvider } from "@/components/notification/NotificationProvider";
 import { useNotificationManager } from "@/hooks/useNotificationManager";
-import { Stack, usePathname, useRouter } from "expo-router";
+import { Stack, usePathname, useRouter, type Href } from "expo-router";
 import React, { useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
@@ -28,9 +28,9 @@ function AuthChecker() {
   // Initialize notification manager globally
   useNotificationManager({ enabled: true, checkInterval: 3000 });
 
-  const signInRoute = useMemo(() => {
+  const signInRoute = useMemo<Href>(() => {
     if (pathname?.startsWith("/invite/")) {
-      return `/(auth)/signin?redirect=${encodeURIComponent(pathname)}`;
+      return `/(auth)/signin?redirect=${encodeURIComponent(pathname)}` as Href;
     }
     return "/(auth)/signin";
   }, [pathname]);
