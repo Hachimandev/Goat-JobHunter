@@ -14,6 +14,8 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useUser } from "../../hooks/useUser";
+import { normalizeRedirectPath } from "@/lib/navigation/redirect";
+
 
 export default function SignInScreen() {
   const router = useRouter();
@@ -52,10 +54,9 @@ export default function SignInScreen() {
       const result = await signIn(email, password);
 
       if (result.success) {
-        const redirectPath =
-          typeof redirect === "string" && redirect.length > 0
-            ? redirect
-            : "/(tabs)/chat";
+        const redirectPath = normalizeRedirectPath(
+          typeof redirect === "string" ? redirect : undefined
+        );
         if (Platform.OS === "web") {
           // Trên web, chuyển trang ngay lập tức, không dùng Alert
           router.replace(redirectPath);
