@@ -10,7 +10,7 @@ import { useUser } from '@/hooks/useUser';
 import { cn } from '@/lib/utils';
 import { zodResolver } from '@hookform/resolvers/zod';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import Image from 'next/image';
 import { Eye, EyeOff } from 'lucide-react';
@@ -19,6 +19,7 @@ import { useState } from 'react';
 export function LoginForm({ className, ...props }: React.ComponentProps<'div'>) {
   const { signIn } = useUser();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [showPassword, setShowPassword] = useState(false);
 
   const signInForm = useForm<TSignInSchema>({
@@ -41,11 +42,12 @@ export function LoginForm({ className, ...props }: React.ComponentProps<'div'>) 
       const result = await signIn(data);
 
       if (result.success) {
-        if (result.user?.role.name === 'SUPER_ADMIN') {
+        const redirect = searchParams.get('redirect');
+        if (result.user?.role.name === 'SUPER_ADMIN' && !redirect) {
           router.push('/dashboard');
           return;
         }
-        router.push('/messages');
+        router.push(redirect || '/messages');
         return;
       }
 
@@ -60,27 +62,6 @@ export function LoginForm({ className, ...props }: React.ComponentProps<'div'>) 
     } catch (error) {
       console.error('Login error:', error);
     }
-  };
-
-  const loginWithCongHai = async () => {
-    onSubmit({
-      email: 'conghai.tpma@gmail.com',
-      password: '12345678x@X',
-    });
-  };
-
-  const loginWithHaiTruong = async () => {
-    onSubmit({
-      email: 'haitruong.tpma@gmail.com',
-      password: '12345678x@X',
-    });
-  };
-
-  const loginWithFedora = async () => {
-    onSubmit({
-      email: 'fedorasky215@gmail.com',
-      password: '12345678x@X',
-    });
   };
 
   return (
@@ -156,33 +137,6 @@ export function LoginForm({ className, ...props }: React.ComponentProps<'div'>) 
               )}
               <Button type="submit" className="rounded-xl w-full" disabled={isSubmitting}>
                 {isSubmitting ? 'Đang đăng nhập...' : 'Đăng nhập'}
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                className="rounded-xl w-full"
-                disabled={isSubmitting}
-                onClick={loginWithCongHai}
-              >
-                Đăng nhập với account Conghai
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                className="rounded-xl w-full"
-                disabled={isSubmitting}
-                onClick={loginWithHaiTruong}
-              >
-                Đăng nhập với account Haitruong
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                className="rounded-xl w-full"
-                disabled={isSubmitting}
-                onClick={loginWithFedora}
-              >
-                Đăng nhập với account fedora
               </Button>
               <FieldDescription className="text-center text-gray-400">
                 Chưa có tài khoản?{' '}

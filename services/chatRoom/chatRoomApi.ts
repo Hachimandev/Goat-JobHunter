@@ -77,6 +77,15 @@ function getFirstPageMessageQueryArg(
   );
 }
 
+function getLatestNonSystemMessage(messages: MessageResponse[]): MessageResponse | null {
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    if (messages[index].messageType !== 'SYSTEM') {
+      return messages[index];
+    }
+  }
+  return null;
+}
+
 export const chatRoomApi = api.injectEndpoints({
   endpoints: (builder) => ({
     // Fetch chat rooms of the current user
@@ -222,7 +231,10 @@ export const chatRoomApi = api.injectEndpoints({
             }),
           );
 
-          const latestMessage = sentMessages[sentMessages.length - 1];
+          const latestMessage = getLatestNonSystemMessage(sentMessages);
+          if (!latestMessage) {
+            return;
+          }
 
           // Update chat rooms list cache
           dispatch(
@@ -300,7 +312,10 @@ export const chatRoomApi = api.injectEndpoints({
             }),
           );
 
-          const latestMessage = sentMessages[sentMessages.length - 1];
+          const latestMessage = getLatestNonSystemMessage(sentMessages);
+          if (!latestMessage) {
+            return;
+          }
 
           dispatch(
             chatRoomApi.util.updateQueryData(
