@@ -1,6 +1,7 @@
 package iuh.fit.goat.service.async;
 
 import iuh.fit.goat.entity.Message;
+import iuh.fit.goat.enumeration.MessageType;
 import iuh.fit.goat.repository.ChatMemberRepository;
 import iuh.fit.goat.repository.ChatRoomRepository;
 import lombok.RequiredArgsConstructor;
@@ -18,6 +19,11 @@ public class AsyncMessageDispatchService {
     @Async("messageDispatchExecutor")
     public void updateChatRoomSummaryAsync(Message message) {
         if (message == null || message.getMessageType() == null) return;
+
+        // Skip system messages - only user/media messages should appear in latestMessage preview
+        if (message.getMessageType().equals(MessageType.SYSTEM)) {
+            return;
+        }
 
         try {
             Long roomId = this.parseChatRoomId(message.getChatRoomId());

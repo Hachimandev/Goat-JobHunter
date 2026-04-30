@@ -7,6 +7,9 @@ import iuh.fit.goat.dto.request.message.MessageToNewChatRoom;
 import iuh.fit.goat.dto.response.chat.ChatRoomResponse;
 import iuh.fit.goat.dto.response.ResultPaginationResponse;
 import iuh.fit.goat.dto.response.chat.GroupMemberResponse;
+import iuh.fit.goat.dto.response.chat.InviteLinkResponse;
+import iuh.fit.goat.dto.response.chat.InviteTokenPreviewResponse;
+import iuh.fit.goat.dto.response.chat.JoinByInviteResponse;
 import iuh.fit.goat.dto.response.chat.MessageSummaryResponse;
 import iuh.fit.goat.dto.response.chat.UnreadMessageResponse;
 import iuh.fit.goat.entity.*;
@@ -16,7 +19,9 @@ import iuh.fit.goat.enumeration.RelationshipState;
 import iuh.fit.goat.enumeration.Visibility;
 import iuh.fit.goat.exception.AccountPrivateException;
 import iuh.fit.goat.exception.BlockedInteractionException;
+import iuh.fit.goat.exception.ConflictException;
 import iuh.fit.goat.exception.InvalidException;
+import iuh.fit.goat.exception.NotFoundException;
 import iuh.fit.goat.repository.AccountRepository;
 import iuh.fit.goat.repository.ChatMemberRepository;
 import iuh.fit.goat.repository.ChatRoomRepository;
@@ -30,12 +35,14 @@ import iuh.fit.goat.util.EntityUtil;
 import iuh.fit.goat.util.SecurityUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.*;
@@ -55,6 +62,8 @@ public class ChatRoomServiceImpl implements ChatRoomService {
     private final MessageRepository messageRepository;
 
     private final int SUMMARY_THRESHOLD = 10;
+    @Value("${goat.fe.url}")
+    private String frontendBaseUrl;
 
     @Override
     @Transactional(readOnly = true)
@@ -121,7 +130,7 @@ public class ChatRoomServiceImpl implements ChatRoomService {
         return chatRoom.getMembers()
                 .stream()
                 .anyMatch(member ->
-                        member.getAccount() != null && member.getAccount().getAccountId() == accountId
+                        member.getAccount() != null && Objects.equals(member.getAccount().getAccountId(), accountId)
                 );
     }
 
@@ -177,6 +186,7 @@ public class ChatRoomServiceImpl implements ChatRoomService {
         ChatRoom chatRoom = new ChatRoom();
         chatRoom.setType(ChatRoomType.DIRECT);
         chatRoom.setName("Không có tên");
+        initializeInviteFields(chatRoom);
         chatRoom = this.chatRoomRepository.saveAndFlush(chatRoom);
 
         // Since current user is validated, create chat member
@@ -246,6 +256,7 @@ public class ChatRoomServiceImpl implements ChatRoomService {
         ChatRoom chatRoom = new ChatRoom();
         chatRoom.setType(ChatRoomType.DIRECT);
         chatRoom.setName("Không có tên");
+        initializeInviteFields(chatRoom);
         chatRoom = this.chatRoomRepository.saveAndFlush(chatRoom);
 
         // Create chat members
@@ -335,6 +346,7 @@ public class ChatRoomServiceImpl implements ChatRoomService {
             groupChatRoom.setAvatar(request.getAvatar());
         }
 
+        initializeInviteFields(groupChatRoom);
         groupChatRoom = this.chatRoomRepository.saveAndFlush(groupChatRoom);
 
         // Create chat members
@@ -693,6 +705,96 @@ public class ChatRoomServiceImpl implements ChatRoomService {
         return builder.build();
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public InviteLinkResponse getInviteLink(Account currentAccount, Long roomId) throws InvalidException, NotFoundException {
+        ChatRoom room = getInviteRoomById(roomId);
+        validateGroupChatRoom(room);
+        validateMember(room, currentAccount);
+        return mapInviteLinkResponse(room);
+    }
+
+    @Override
+    @Transactional
+    public InviteLinkResponse rotateInviteLink(Account currentAccount, Long roomId) throws InvalidException, NotFoundException {
+        ChatRoom room = getInviteRoomById(roomId);
+        validateGroupChatRoom(room);
+        validateOwner(room, currentAccount);
+
+        room.setInviteToken(generateInviteToken());
+        room.setInviteRotatedAt(Instant.now());
+        ChatRoom saved = this.chatRoomRepository.saveAndFlush(room);
+
+        return mapInviteLinkResponse(saved);
+    }
+
+    @Override
+    @Transactional
+    public InviteLinkResponse toggleInviteLink(Account currentAccount, Long roomId, boolean enabled) throws InvalidException, NotFoundException {
+        ChatRoom room = getInviteRoomById(roomId);
+        validateGroupChatRoom(room);
+        validateOwner(room, currentAccount);
+
+        room.setInviteEnabled(enabled);
+        ChatRoom saved = this.chatRoomRepository.saveAndFlush(room);
+
+        return mapInviteLinkResponse(saved);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public InviteTokenPreviewResponse getInvitePreview(String inviteToken) throws InvalidException, NotFoundException {
+        ChatRoom room = this.chatRoomRepository.findByInviteTokenAndDeletedAtIsNull(inviteToken)
+                .orElseThrow(() -> new NotFoundException("Invite token not found"));
+        validateGroupChatRoom(room);
+        if (!room.isInviteEnabled()) {
+            throw new NotFoundException("Invite token not found");
+        }
+
+        return InviteTokenPreviewResponse.builder()
+                .roomId(room.getRoomId())
+                .roomName(room.getName())
+                .roomAvatar(room.getAvatar())
+                .inviteEnabled(room.isInviteEnabled())
+                .build();
+    }
+
+    @Override
+    @Transactional
+    public JoinByInviteResponse joinByInvite(Account currentAccount, String inviteToken) throws InvalidException, NotFoundException, ConflictException {
+        ChatRoom room = this.chatRoomRepository.findByInviteTokenAndDeletedAtIsNull(inviteToken)
+                .orElseThrow(() -> new NotFoundException("Invite token not found"));
+        validateGroupChatRoom(room);
+
+        if (!room.isInviteEnabled()) {
+            throw new InvalidException("Invite link is disabled");
+        }
+
+        if (currentAccount == null) {
+            throw new InvalidException("Current account is required");
+        }
+
+        boolean alreadyMember = this.chatMemberRepository
+                .existsByRoomRoomIdAndAccountAccountIdAndDeletedAtIsNull(room.getRoomId(), currentAccount.getAccountId());
+        if (alreadyMember) {
+            throw new ConflictException("User is already a member of this chat room");
+        }
+
+        ChatMember newMember = new ChatMember();
+        newMember.setRoom(room);
+        newMember.setAccount(currentAccount);
+        newMember.setRole(ChatRole.MEMBER);
+        this.chatMemberRepository.saveAndFlush(newMember);
+
+        this.messageService.createAndSendSystemMessage(
+                room.getRoomId(),
+                MessageEvent.MEMBER_JOINED_BY_INVITE,
+                currentAccount
+        );
+
+        return new JoinByInviteResponse(room.getRoomId(), true);
+    }
+
     // =============== HELPER METHODS FOR GROUP CHAT ====================
 
         private void validateChatRoomAccess(Long chatRoomId, Long accountId) throws InvalidException {
@@ -758,10 +860,63 @@ public class ChatRoomServiceImpl implements ChatRoomService {
         }
     }
 
+    private ChatRoom getInviteRoomById(Long roomId) throws NotFoundException {
+        return this.chatRoomRepository.findByRoomIdAndDeletedAtIsNull(roomId)
+                .orElseThrow(() -> new NotFoundException("Chat room not found"));
+    }
+
+    private void validateMember(ChatRoom room, Account currentAccount) throws InvalidException {
+        if (currentAccount == null) {
+            throw new InvalidException("Current account is required");
+        }
+
+        getCurrentMemberInChatRoom(room, currentAccount.getAccountId());
+    }
+
+    private void validateOwner(ChatRoom room, Account currentAccount) throws InvalidException {
+        validateMember(room, currentAccount);
+        ChatMember currentMember = getCurrentMemberInChatRoom(room, currentAccount.getAccountId());
+        if (currentMember.getRole() != ChatRole.OWNER) {
+            throw new InvalidException("Only room owner can manage invite link");
+        }
+    }
+
+    private String generateInviteToken() {
+        String token;
+        do {
+            token = UUID.randomUUID().toString().replace("-", "");
+        } while (this.chatRoomRepository.existsByInviteToken(token));
+        return token;
+    }
+
+    private void initializeInviteFields(ChatRoom chatRoom) {
+        chatRoom.setInviteToken(generateInviteToken());
+        chatRoom.setInviteRotatedAt(Instant.now());
+        chatRoom.setInviteEnabled(true);
+    }
+
+    private InviteLinkResponse mapInviteLinkResponse(ChatRoom room) {
+        return InviteLinkResponse.builder()
+                .roomId(room.getRoomId())
+                .inviteToken(room.getInviteToken())
+                .inviteLink(buildInviteLink(room.getInviteToken()))
+                .inviteEnabled(room.isInviteEnabled())
+                .inviteRotatedAt(room.getInviteRotatedAt())
+                .build();
+    }
+
+    private String buildInviteLink(String inviteToken) {
+        String baseUrl = frontendBaseUrl != null ? frontendBaseUrl.trim() : "";
+        if (baseUrl.endsWith("/")) {
+            return baseUrl + "invite/" + inviteToken;
+        }
+        return baseUrl + "/invite/" + inviteToken;
+    }
+
     private ChatMember getCurrentMemberInChatRoom(ChatRoom chatRoom, Long accountId) throws InvalidException {
         return chatRoom.getMembers().stream()
                 .filter(m -> m.getDeletedAt() == null &&
-                        m.getAccount().getAccountId() == accountId)
+                        Objects.equals(m.getAccount().getAccountId(), accountId))
                 .findFirst()
                 .orElseThrow(() -> new InvalidException("User is not a member of this chat room"));
     }

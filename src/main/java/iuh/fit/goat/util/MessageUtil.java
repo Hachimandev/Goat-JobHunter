@@ -25,6 +25,9 @@ public class MessageUtil {
                 yield String.format("(event:%s) %s đã thêm %s vào nhóm", MessageEvent.MEMBER_ADDED, actorName, memberName);
             }
 
+            case MEMBER_JOINED_BY_INVITE ->
+                    String.format("(event:%s) %s đã tham gia nhóm qua liên kết mời", MessageEvent.MEMBER_JOINED_BY_INVITE, actorName);
+
             case MEMBER_REMOVED -> {
                 String memberName = (String) params[0];
 
