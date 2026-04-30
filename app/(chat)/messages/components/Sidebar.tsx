@@ -21,7 +21,8 @@ import { isCompanyResponse } from '@/utils/slug';
 import { MeResponse, CompanyResponse, ApplicantResponse, RecruiterResponse } from '@/types/dto';
 import { subscribeToChatRoom } from '@/services/chatRoom/message/messageApi';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { useFetchTagsQuery } from '@/services/tag/tagApi';
+import { useFetchTagAssignmentsQuery, useFetchTagsQuery } from '@/services/tag/tagApi';
+import { Tag as TagType } from '@/types/model';
 
 export function Sidebar() {
   const { user: currentUser } = useUser();
@@ -29,6 +30,8 @@ export function Sidebar() {
   const { chatRooms, isLoading, isError, refetch, unreadCountsMap, refetchUnreadMessages } = useChatRooms({
     isSignedIn: !!currentUser,
   });
+  const { data: tagAssignmentsResponse } = useFetchTagAssignmentsQuery(undefined, { skip: !currentUser });
+
   const router = useRouter();
   const params = useParams();
   const activeChatRoomId = params?.id as string | undefined;
@@ -56,6 +59,25 @@ export function Sidebar() {
   const [indicatorStyle, setIndicatorStyle] = useState({ left: 0, width: 0 });
   const tags = useMemo(() => tagsResponse?.data?.result ?? [], [tagsResponse]);
   const tagOptions = useMemo(() => [...tags], [tags]);
+  const assignedTagsByRoomId = useMemo(() => {
+    const assignments = tagAssignmentsResponse?.data ?? [];
+    const tagById = new Map(tags.map((tag) => [tag.tagId, tag]));
+    const roomTagsMap = new Map<number, TagType>();
+
+    assignments.forEach((assignment) => {
+      const matchedTag = tagById.get(assignment.tagId);
+      const normalizedTag = matchedTag ?? {
+        tagId: assignment.tagId,
+        name: assignment.tagName,
+        color: assignment.tagColor,
+        systemTag: assignment.systemTag,
+      };
+
+      roomTagsMap.set(assignment.roomId, normalizedTag)
+    });
+
+    return roomTagsMap;
+  }, [tags, tagAssignmentsResponse]);
 
   useEffect(() => {
     const updateIndicator = () => {
@@ -247,6 +269,8 @@ export function Sidebar() {
                 unreadMessagesCount={unreadCountsMap.get(chatRoom.roomId) || 0}
                 active={activeChatRoomId === String(chatRoom.roomId)}
                 onClick={() => handleSelectConversation(chatRoom.roomId)}
+                assignedTag={assignedTagsByRoomId.get(chatRoom.roomId) ?? null}
+                tags={tags}
               />
             ))}
         </div>

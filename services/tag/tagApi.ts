@@ -1,5 +1,7 @@
 import { api } from '@/services/api';
 import {
+  AssignmentTagByRoomRequest,
+  AssignmentTagByRoomResponse,
   AssignmentTagRequest,
   AssignmentTagResponse,
   FetchRoomIdsByTagResponse,
@@ -63,20 +65,32 @@ export const tagApi = api.injectEndpoints({
         method: 'PUT',
         data,
       }),
-      invalidatesTags: (_, __, { roomIds }) => [
-        ...roomIds.map((id) => ({ type: 'ChatRoom' as const, id: String(id) })),
-        { type: 'ChatRoom', id: 'LIST' },
+      invalidatesTags: (_, __, { tagId }) => [
+        { type: 'Tag' as const, id: String(tagId) },
+        { type: 'Tag', id: 'LIST' },
       ],
     }),
 
-    removeTag: builder.mutation<void, number>({
-      query: (roomId) => ({
+    assignTagByRoom: builder.mutation<AssignmentTagByRoomResponse, AssignmentTagByRoomRequest>({
+      query: ({ roomId, tagId }) => ({
+        url: `/tags/${roomId}/assign`,
+        method: 'PUT',
+        params: { tagId },
+      }),
+      invalidatesTags: (_, __, tagId) => [
+        { type: 'Tag' as const, id: String(tagId) },
+        { type: 'Tag', id: 'LIST' },
+      ],
+    }),
+
+    removeTag: builder.mutation<void, { roomId: number }>({
+      query: ({ roomId }) => ({
         url: `/tags/${roomId}/assign`,
         method: 'DELETE',
       }),
-      invalidatesTags: (_, __, roomId) => [
-        { type: 'ChatRoom' as const, id: String(roomId) },
-        { type: 'ChatRoom', id: 'LIST' },
+      invalidatesTags: (_, __, tagId) => [
+        { type: 'Tag' as const, id: String(tagId) },
+        { type: 'Tag', id: 'LIST' },
       ],
     }),
 
@@ -85,13 +99,21 @@ export const tagApi = api.injectEndpoints({
         url: `/tags/${tagId}/rooms`,
         method: 'GET',
       }),
+      providesTags: (_, __, tagId) => [
+        { type: 'Tag' as const, id: String(tagId) },
+        { type: 'Tag', id: 'LIST' },
+      ],
+    }),
+
+    fetchTagAssignments: builder.query<AssignmentTagResponse, void>({
+      query: () => ({
+        url: `/tags/me`,
+        method: 'GET',
+      }),
       providesTags: (result) =>
         result?.data
-          ? [
-              ...result.data.map((id) => ({ type: 'ChatRoom' as const, id: String(id) })),
-              { type: 'ChatRoom', id: 'LIST' },
-            ]
-          : [{ type: 'ChatRoom', id: 'LIST' }],
+          ? [...result.data.map((tag) => ({ type: 'Tag' as const, id: tag.tagId })), { type: 'Tag', id: 'LIST' }]
+          : [{ type: 'Tag', id: 'LIST' }],
     }),
   }),
 });
@@ -102,6 +124,8 @@ export const {
   useDeleteTagMutation,
   useFetchTagsQuery,
   useAssignTagMutation,
+  useAssignTagByRoomMutation,
   useRemoveTagMutation,
   useFetchRoomIdsByTagQuery,
+  useFetchTagAssignmentsQuery,
 } = tagApi;

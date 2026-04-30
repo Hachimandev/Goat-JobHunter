@@ -26,3 +26,9 @@ export type AssignmentTagRequest = {
 export type AssignmentTagResponse = IBackendRes<ChatRoomTagAssignment[]>;
 
 export type FetchRoomIdsByTagResponse = IBackendRes<number[]>;
+
+export type AssignmentTagByRoomRequest = {
+    roomId: number;
+    tagId: number;
+}
+export type AssignmentTagByRoomResponse = IBackendRes<ChatRoomTagAssignment>;
