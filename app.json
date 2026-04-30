@@ -5,7 +5,7 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "myapp",
+    "scheme": "goatjobhunter",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "splash": {
@@ -18,10 +18,36 @@
       "bundleIdentifier": "com.anonymous.goatjobhuntermobile",
       "config": {
         "googleMapsApiKey": "YOUR_IOS_GOOGLE_MAPS_API_KEY"
+      },
+      "associatedDomains": [
+        "applinks:goat-jobhunter.click",
+        "applinks:www.goat-jobhunter.click"
+      ],
+      "infoPlist": {
+        "LSApplicationQueriesSchemes": ["goatjobhunter"]
       }
     },
     "android": {
-      "package": "com.anonymous.goatjobhuntermobile"
+      "package": "com.anonymous.goatjobhuntermobile",
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "autoVerify": true,
+          "data": [
+            {
+              "scheme": "https",
+              "host": "goat-jobhunter.click",
+              "pathPrefix": "/invite"
+            },
+            {
+              "scheme": "https",
+              "host": "www.goat-jobhunter.click",
+              "pathPrefix": "/invite"
+            }
+          ],
+          "category": ["BROWSABLE", "DEFAULT"]
+        }
+      ]
     },
     "web": {
       "bundler": "metro",

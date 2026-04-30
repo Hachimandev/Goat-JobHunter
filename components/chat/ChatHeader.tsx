@@ -8,6 +8,7 @@ interface ChatHeaderProps {
   avatar?: string;
   status?: string;
   onPressInfo?: () => void;
+  onPressInvite?: () => void;
 }
 
 export const ChatHeader = ({
@@ -15,6 +16,7 @@ export const ChatHeader = ({
   avatar,
   status = "Đang hoạt động",
   onPressInfo,
+  onPressInvite,
 }: ChatHeaderProps) => {
   return (
     <View style={styles.header}>
@@ -32,7 +34,11 @@ export const ChatHeader = ({
         />
 
         <View style={styles.headerInfo}>
-          <Text style={styles.headerTitle} numberOfLines={1}>
+          <Text 
+            style={styles.headerTitle} 
+            numberOfLines={1}
+            ellipsizeMode="tail"
+          >
             {name}
           </Text>
           <Text style={styles.headerStatus}>{status}</Text>
@@ -46,6 +52,11 @@ export const ChatHeader = ({
         <TouchableOpacity style={styles.headerBtn}>
           <Ionicons name="call" size={22} color="#0084FF" />
         </TouchableOpacity>
+        {onPressInvite && (
+          <TouchableOpacity style={styles.headerBtn} onPress={onPressInvite}>
+            <Ionicons name="share-social" size={24} color="#0084FF" />
+          </TouchableOpacity>
+        )}
         <TouchableOpacity style={styles.headerBtn} onPress={onPressInfo}>
           <Ionicons name="information-circle" size={24} color="#0084FF" />
         </TouchableOpacity>

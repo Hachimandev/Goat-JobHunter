@@ -19,12 +19,16 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import {
+  SafeAreaView,
+  useSafeAreaInsets,
+} from "react-native-safe-area-context";
 import EmojiPicker from "rn-emoji-keyboard";
 
 import { ChatHeader } from "@/components/chat/ChatHeader";
 import { ChatInput } from "@/components/chat/ChatInput";
 import { ForwardModal } from "@/components/chat/ForwardModal";
+import { InviteLinkPanel } from "@/components/chat/InviteLinkPanel";
 import { MessageActionsSheet } from "@/components/chat/MessageActionsSheet";
 import { MessageItem } from "@/components/chat/MessageItem";
 
@@ -65,6 +69,7 @@ export default function ChatDetailScreen() {
   const [forwardMessageBatch] = useForwardMessageBatchMutation();
   const [showForwardToast, setShowForwardToast] = useState(false);
   const headerHeight = useHeaderHeight();
+  const insets = useSafeAreaInsets();
 
   const { data: pinnedData, refetch: refetchPinned } =
     useGetPinnedMessagesQuery(
@@ -122,6 +127,7 @@ export default function ChatDetailScreen() {
   const [selectedImages, setSelectedImages] = useState<any[]>([]);
   const [isEmojiOpen, setIsEmojiOpen] = useState(false);
   const [isForwardModalOpen, setIsForwardModalOpen] = useState(false);
+  const [isInvitePanelOpen, setIsInvitePanelOpen] = useState(false);
   const [isBannerDismissed, setIsBannerDismissed] = useState(false);
 
   const flatListRef = useRef<FlatList>(null);
@@ -163,7 +169,6 @@ export default function ChatDetailScreen() {
     data: messagesData,
     isLoading,
     refetch,
-    isFetching,
   } = useFetchMessagesInChatRoomQuery(
     { chatRoomId, size: 50, page: 0 },
     { skip: !chatRoomId, pollingInterval: 5000 },
@@ -181,7 +186,7 @@ export default function ChatDetailScreen() {
       refetch();
     }
     return () => setActiveChatRoom(null);
-  }, [chatRoomId]);
+  }, [chatRoomId, refetch, setActiveChatRoom]);
 
   useFocusEffect(
     useCallback(() => {
@@ -191,9 +196,9 @@ export default function ChatDetailScreen() {
     }, [chatRoomId, refetchChatRoom]),
   );
 
-  const messagesList = Array.isArray(messagesData?.data?.result)
-    ? messagesData.data.result
-    : [];
+  const messagesList = useMemo(() => {
+    return Array.isArray(messagesData?.data?.result) ? messagesData.data.result : [];
+  }, [messagesData]);
 
   const onSend = async () => {
     if (
@@ -315,6 +320,11 @@ export default function ChatDetailScreen() {
               },
             })
           }
+          onPressInvite={
+            chatRoomData?.data?.type === "GROUP"
+              ? () => setIsInvitePanelOpen(true)
+              : undefined
+          }
         />
 
         {pinnedMessage && (
@@ -406,6 +416,7 @@ export default function ChatDetailScreen() {
 
                                 await refetchPinned();
                               } catch (e) {
+                                console.error("Lỗi bỏ ghim:", e);
                                 Alert.alert("Lỗi", "Không thể bỏ ghim");
                               }
                             },
@@ -595,6 +606,33 @@ export default function ChatDetailScreen() {
           setSelectedPoll(null);
         }}
       />
+
+      <Modal
+        visible={isInvitePanelOpen}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setIsInvitePanelOpen(false)}
+      >
+        <SafeAreaView style={styles.modalContainer}>
+          <View
+            style={[
+              styles.modalHeader,
+              { paddingTop: Math.max(insets.top, 12) },
+            ]}
+          >
+            <TouchableOpacity onPress={() => setIsInvitePanelOpen(false)}>
+              <Ionicons name="close" size={24} color="#000" />
+            </TouchableOpacity>
+            <Text style={styles.modalTitle}>Mời vào nhóm</Text>
+            <View style={{ width: 24 }} />
+          </View>
+          <InviteLinkPanel
+            roomId={chatRoomId}
+            isOwner={true}
+            setIsInvitePanelOpen={setIsInvitePanelOpen}
+          />
+        </SafeAreaView>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -749,5 +787,24 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     borderBottomWidth: 1,
     borderColor: "#eee",
+  },
+  modalContainer: {
+    flex: 1,
+    backgroundColor: "#f8fafc",
+  },
+  modalHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderColor: "#e2e8f0",
+    backgroundColor: "#fff",
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#0f172a",
   },
 });

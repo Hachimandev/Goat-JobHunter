@@ -1,7 +1,7 @@
 import { NotificationProvider } from "@/components/notification/NotificationProvider";
 import { useNotificationManager } from "@/hooks/useNotificationManager";
-import { Stack, useRouter } from "expo-router";
-import React, { useEffect, useState } from "react";
+import { Stack, usePathname, useRouter, type Href } from "expo-router";
+import React, { useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { Provider } from "react-redux";
@@ -21,11 +21,19 @@ import {
 function AuthChecker() {
   const dispatch = useAppDispatch();
   const router = useRouter();
+  const pathname = usePathname();
   const [hasToken, setHasToken] = useState(false);
   const [checkingToken, setCheckingToken] = useState(true);
 
   // Initialize notification manager globally
   useNotificationManager({ enabled: true, checkInterval: 3000 });
+
+  const signInRoute = useMemo<Href>(() => {
+    if (pathname?.startsWith("/invite/")) {
+      return `/(auth)/signin?redirect=${encodeURIComponent(pathname)}` as Href;
+    }
+    return "/(auth)/signin";
+  }, [pathname]);
 
   // Check if token exists
   useEffect(() => {
@@ -39,7 +47,7 @@ function AuthChecker() {
       // If no token, redirect to signin immediately
       if (!exists) {
         setCheckingToken(false);
-        router.replace("/(auth)/signin");
+        router.replace(signInRoute);
         return;
       }
 
@@ -53,7 +61,7 @@ function AuthChecker() {
       });
     };
     checkToken();
-  }, [router]);
+  }, [router, signInRoute]);
 
   // Fetch account if token exists
   const { data, isLoading, isError } = useGetMyAccountQuery(undefined, {
@@ -73,15 +81,17 @@ function AuthChecker() {
       dispatch(resetPendingNotifications());
 
       // Redirect to chat after user data is loaded
-      router.replace("/(tabs)/chat");
+      if (!pathname?.startsWith("/invite/")) {
+        router.replace("/(tabs)/chat");
+      }
     } else if (isError) {
       // Clear token if fetch failed
       tokenManager.clearTokens().catch((error) => {
         console.error("Error clearing tokens:", error);
       });
-      router.replace("/(auth)/signin");
+      router.replace(signInRoute);
     }
-  }, [data, isError, dispatch, router]);
+  }, [data, isError, dispatch, pathname, router, signInRoute]);
 
   // Connect WebSocket logout listener when user is authenticated
   // This handles force logout on app startup (auto-login scenario)
@@ -147,6 +157,8 @@ export default function RootLayout() {
               name="companies/[id]"
               options={{ headerShown: false }}
             />
+            <Stack.Screen name="invite/scan" options={{ headerShown: false }} />
+            <Stack.Screen name="invite/[token]" options={{ headerShown: false }} />
             <Stack.Screen name="(auth)" options={{ headerShown: false }} />
           </Stack>
           <NotificationProvider />
