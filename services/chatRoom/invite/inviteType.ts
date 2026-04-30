@@ -1,10 +1,12 @@
 import { IBackendRes } from "@/types/api";
+import { ChatRoomPrivacy } from "@/types/enum";
 
 export type InvitePreviewPayload = {
   roomId: number;
   roomName: string;
   roomAvatar: string | null;
   inviteEnabled: boolean;
+  privacy: ChatRoomPrivacy;
 };
 
 export type InvitePreviewResponse = IBackendRes<InvitePreviewPayload>;
@@ -26,6 +28,7 @@ export type InviteLinkPayload = {
   inviteLink: string;
   inviteEnabled: boolean;
   inviteRotatedAt: string | null;
+  privacy: ChatRoomPrivacy;
 };
 
 export type InviteLinkResponse = IBackendRes<InviteLinkPayload>;

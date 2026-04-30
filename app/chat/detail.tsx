@@ -9,10 +9,12 @@ import {
 import { useGetMemberInGroupChatQuery } from "@/services/chatRoom/groupChat/groupChatApi";
 import { Ionicons } from "@expo/vector-icons";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
+import { ChatRoomPrivacy } from "@/types/enum";
 
 import React, { useState } from "react";
 import { Image, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { GroupSettingPanel } from "@/components/chat/GroupSettingPanel";
 
 export default function ChatDetail() {
   const { id, name, avatar } = useLocalSearchParams<{
@@ -22,14 +24,15 @@ export default function ChatDetail() {
   }>();
   const { user } = useUser();
   const chatRoomId = Number(id);
-  const [activeTab, setActiveTab] = useState<"media" | "files" | "group">(
-    "media",
-  );
+  const [activeTab, setActiveTab] = useState<
+    "media" | "files" | "group" | "groupSetting"
+  >("media");
   const [isEditModalVisible, setIsEditModalVisible] = useState(false);
 
-  const { data: chatRoomData, refetch: refetchChatRoom } = useFetchChatRoomsByIdQuery(chatRoomId, {
-    skip: !chatRoomId,
-  });
+  const { data: chatRoomData, refetch: refetchChatRoom } =
+    useFetchChatRoomsByIdQuery(chatRoomId, {
+      skip: !chatRoomId,
+    });
   const chatRoom = chatRoomData?.data;
   const isGroupChat = chatRoom?.type === "GROUP";
 
@@ -78,20 +81,30 @@ export default function ChatDetail() {
       {/* PROFILE */}
       <View style={styles.profile}>
         <Image
-          source={{ uri: chatRoomData?.data?.avatar || avatar || "https://i.pravatar.cc/150?img=12" }}
+          source={{
+            uri:
+              chatRoomData?.data?.avatar ||
+              avatar ||
+              "https://i.pravatar.cc/150?img=12",
+          }}
           style={styles.avatar}
         />
         <View style={styles.nameContainer}>
-          <Text style={styles.name}>{chatRoomData?.data?.name || name || "Nhóm"}</Text>
-          {isGroupChat && (isOwner || members.find((m) => m.accountId === user?.accountId)?.role === "MODERATOR") && (
-            <TouchableOpacity
-              onPress={() => setIsEditModalVisible(true)}
-              style={styles.editGroupButton}
-            >
-              <Ionicons name="pencil" size={16} color="#007AFF" />
-              <Text style={styles.editGroupButtonText}>Chỉnh sửa</Text>
-            </TouchableOpacity>
-          )}
+          <Text style={styles.name}>
+            {chatRoomData?.data?.name || name || "Nhóm"}
+          </Text>
+          {isGroupChat &&
+            (isOwner ||
+              members.find((m) => m.accountId === user?.accountId)?.role ===
+                "MODERATOR") && (
+              <TouchableOpacity
+                onPress={() => setIsEditModalVisible(true)}
+                style={styles.editGroupButton}
+              >
+                <Ionicons name="pencil" size={16} color="#007AFF" />
+                <Text style={styles.editGroupButtonText}>Chỉnh sửa</Text>
+              </TouchableOpacity>
+            )}
         </View>
       </View>
 
@@ -139,6 +152,18 @@ export default function ChatDetail() {
             <Text>Nhóm</Text>
           </TouchableOpacity>
         )}
+
+        {isGroupChat && (
+          <TouchableOpacity
+            style={[
+              styles.tab,
+              activeTab === "groupSetting" && styles.activeTab,
+            ]}
+            onPress={() => setActiveTab("groupSetting")}
+          >
+            <Text>Cài đặt</Text>
+          </TouchableOpacity>
+        )}
       </View>
 
       {/* CONTENT */}
@@ -176,6 +201,16 @@ export default function ChatDetail() {
             groupId={chatRoomId}
             groupAvatar={chatRoomData?.data?.avatar || avatar || ""}
             isOwner={isOwner}
+            onRefetch={refetchChatRoom}
+          />
+        ) : activeTab === "groupSetting" ? (
+          <GroupSettingPanel
+            groupId={chatRoomId}
+            groupName={chatRoomData?.data?.name || name || "Nhóm"}
+            groupAvatar={chatRoomData?.data?.avatar || avatar || ""}
+            currentPrivacy={
+              chatRoomData?.data?.privacy || ChatRoomPrivacy.PUBLIC
+            }
             onRefetch={refetchChatRoom}
           />
         ) : null}
