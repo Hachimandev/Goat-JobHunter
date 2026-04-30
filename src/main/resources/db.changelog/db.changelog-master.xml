@@ -44,6 +44,8 @@
     <include file="db.changelog/schema/2026-04-22/add-declined-to-chat-call-participants.xml"/>
     <include file="db.changelog/schema/2026-04-23/add-call-type-to-chat-call-sessions.xml"/>
     <include file="db.changelog/schema/2026-04-28/add-chat-room-invite-fields.xml"/>
+    <include file="db.changelog/schema/2026-04-30/add-chat-room-privacy.xml"/>
+    <include file="db.changelog/schema/2026-04-30/create-chat-room-join-requests.xml"/>
     <include file="db.changelog/schema/2026-04-27/create-tag.xml"/>
     <include file="db.changelog/schema/2026-04-27/change-column.xml"/>
 

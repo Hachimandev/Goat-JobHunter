@@ -6,6 +6,7 @@ import iuh.fit.goat.dto.response.chat.InviteLinkResponse;
 import iuh.fit.goat.dto.response.chat.InviteTokenPreviewResponse;
 import iuh.fit.goat.dto.response.chat.JoinByInviteResponse;
 import iuh.fit.goat.entity.Applicant;
+import iuh.fit.goat.enumeration.ChatRoomPrivacy;
 import iuh.fit.goat.exception.GlobalExceptionHandler;
 import iuh.fit.goat.exception.NotFoundException;
 import iuh.fit.goat.service.AccountService;
@@ -91,6 +92,7 @@ class ChatRoomControllerInviteEndpointsTests {
                 .inviteLink("http://localhost:3000/invite/invite-token-101")
                 .inviteEnabled(true)
                 .inviteRotatedAt(Instant.parse("2026-04-28T12:00:00Z"))
+                .privacy(ChatRoomPrivacy.PUBLIC)
                 .build();
         when(chatRoomService.getInviteLink(any(), eq(101L))).thenReturn(response);
 
@@ -112,6 +114,7 @@ class ChatRoomControllerInviteEndpointsTests {
                 .inviteLink("http://localhost:3000/invite/invite-token-202")
                 .inviteEnabled(false)
                 .inviteRotatedAt(Instant.parse("2026-04-28T13:00:00Z"))
+                .privacy(ChatRoomPrivacy.PRIVATE)
                 .build();
         when(chatRoomService.rotateInviteLink(any(), eq(202L))).thenReturn(response);
 
@@ -132,6 +135,7 @@ class ChatRoomControllerInviteEndpointsTests {
                 .inviteLink("http://localhost:3000/invite/invite-token-303")
                 .inviteEnabled(false)
                 .inviteRotatedAt(Instant.parse("2026-04-28T14:00:00Z"))
+                .privacy(ChatRoomPrivacy.PUBLIC)
                 .build();
         when(chatRoomService.toggleInviteLink(any(), eq(303L), eq(false))).thenReturn(response);
 
@@ -148,7 +152,7 @@ class ChatRoomControllerInviteEndpointsTests {
 
     @Test
     void joinByInvite_shouldExposeRouteAndPayloadShape() throws Exception {
-        JoinByInviteResponse response = new JoinByInviteResponse(404L, true);
+        JoinByInviteResponse response = new JoinByInviteResponse(404L, true, "joined", null);
         when(chatRoomService.joinByInvite(any(), eq("join-token-404"))).thenReturn(response);
 
         mockMvc.perform(post("/api/v1/chatrooms/join-by-invite")
@@ -168,6 +172,7 @@ class ChatRoomControllerInviteEndpointsTests {
                 .roomName("Backend Team")
                 .roomAvatar("https://cdn.test/rooms/backend.png")
                 .inviteEnabled(true)
+                .privacy(ChatRoomPrivacy.PRIVATE)
                 .build();
         when(chatRoomService.getInvitePreview("invite-token-505")).thenReturn(response);
 
@@ -176,7 +181,8 @@ class ChatRoomControllerInviteEndpointsTests {
                 .andExpect(jsonPath("$.roomId").value(505L))
                 .andExpect(jsonPath("$.roomName").value("Backend Team"))
                 .andExpect(jsonPath("$.roomAvatar").value("https://cdn.test/rooms/backend.png"))
-                .andExpect(jsonPath("$.inviteEnabled").value(true));
+                .andExpect(jsonPath("$.inviteEnabled").value(true))
+                .andExpect(jsonPath("$.privacy").value("PRIVATE"));
 
         verify(chatRoomService).getInvitePreview("invite-token-505");
     }

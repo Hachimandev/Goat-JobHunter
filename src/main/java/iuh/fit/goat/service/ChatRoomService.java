@@ -4,6 +4,7 @@ import iuh.fit.goat.dto.request.chat.*;
 import iuh.fit.goat.dto.request.message.MessageToNewChatRoom;
 import iuh.fit.goat.dto.response.ResultPaginationResponse;
 import iuh.fit.goat.dto.response.chat.ChatRoomResponse;
+import iuh.fit.goat.dto.response.chat.ChatRoomJoinRequestResponse;
 import iuh.fit.goat.dto.response.chat.GroupMemberResponse;
 import iuh.fit.goat.dto.response.chat.InviteLinkResponse;
 import iuh.fit.goat.dto.response.chat.InviteTokenPreviewResponse;
@@ -79,4 +80,13 @@ public interface ChatRoomService {
     InviteTokenPreviewResponse getInvitePreview(String inviteToken) throws InvalidException, NotFoundException;
 
     JoinByInviteResponse joinByInvite(Account currentAccount, String inviteToken) throws InvalidException, NotFoundException, ConflictException;
+
+    List<ChatRoomJoinRequestResponse> getPendingJoinRequests(Account currentAccount, Long roomId)
+            throws InvalidException, NotFoundException;
+
+    void approveJoinRequest(Account currentAccount, Long roomId, Long requestId)
+            throws InvalidException, NotFoundException, ConflictException;
+
+    void rejectJoinRequest(Account currentAccount, Long roomId, Long requestId)
+            throws InvalidException, NotFoundException, ConflictException;
 }

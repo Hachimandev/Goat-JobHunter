@@ -7,6 +7,7 @@ import iuh.fit.goat.dto.request.message.MessageCreateRequest;
 import iuh.fit.goat.dto.request.message.MessageToNewChatRoom;
 import iuh.fit.goat.dto.response.ResultPaginationResponse;
 import iuh.fit.goat.dto.response.chat.ChatRoomResponse;
+import iuh.fit.goat.dto.response.chat.ChatRoomJoinRequestResponse;
 import iuh.fit.goat.dto.response.chat.GroupMemberResponse;
 import iuh.fit.goat.dto.response.chat.InviteLinkResponse;
 import iuh.fit.goat.dto.response.chat.InviteTokenPreviewResponse;
@@ -257,6 +258,34 @@ public class ChatRoomController {
         Account currentAccount = getCurrentAccount();
         JoinByInviteResponse response = this.chatRoomService.joinByInvite(currentAccount, request.getInviteToken());
         return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/{roomId}/join-requests/pending")
+    public ResponseEntity<List<ChatRoomJoinRequestResponse>> getPendingJoinRequests(@PathVariable Long roomId)
+            throws InvalidException, NotFoundException {
+        Account currentAccount = getCurrentAccount();
+        List<ChatRoomJoinRequestResponse> response = this.chatRoomService.getPendingJoinRequests(currentAccount, roomId);
+        return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/{roomId}/join-requests/{requestId}/approve")
+    public ResponseEntity<Void> approveJoinRequest(
+            @PathVariable Long roomId,
+            @PathVariable Long requestId
+    ) throws InvalidException, NotFoundException, ConflictException {
+        Account currentAccount = getCurrentAccount();
+        this.chatRoomService.approveJoinRequest(currentAccount, roomId, requestId);
+        return ResponseEntity.ok().build();
+    }
+
+    @PostMapping("/{roomId}/join-requests/{requestId}/reject")
+    public ResponseEntity<Void> rejectJoinRequest(
+            @PathVariable Long roomId,
+            @PathVariable Long requestId
+    ) throws InvalidException, NotFoundException, ConflictException {
+        Account currentAccount = getCurrentAccount();
+        this.chatRoomService.rejectJoinRequest(currentAccount, roomId, requestId);
+        return ResponseEntity.ok().build();
     }
 
     private Account getCurrentAccount() throws InvalidException {

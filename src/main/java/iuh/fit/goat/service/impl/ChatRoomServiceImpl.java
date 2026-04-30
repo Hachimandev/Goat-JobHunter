@@ -5,6 +5,7 @@ import iuh.fit.goat.dto.request.chat.*;
 import iuh.fit.goat.dto.request.message.MessageCreateRequest;
 import iuh.fit.goat.dto.request.message.MessageToNewChatRoom;
 import iuh.fit.goat.dto.response.chat.ChatRoomResponse;
+import iuh.fit.goat.dto.response.chat.ChatRoomJoinRequestResponse;
 import iuh.fit.goat.dto.response.ResultPaginationResponse;
 import iuh.fit.goat.dto.response.chat.GroupMemberResponse;
 import iuh.fit.goat.dto.response.chat.InviteLinkResponse;
@@ -14,6 +15,8 @@ import iuh.fit.goat.dto.response.chat.MessageSummaryResponse;
 import iuh.fit.goat.dto.response.chat.UnreadMessageResponse;
 import iuh.fit.goat.entity.*;
 import iuh.fit.goat.enumeration.ChatRole;
+import iuh.fit.goat.enumeration.ChatRoomJoinRequestStatus;
+import iuh.fit.goat.enumeration.ChatRoomPrivacy;
 import iuh.fit.goat.enumeration.ChatRoomType;
 import iuh.fit.goat.enumeration.RelationshipState;
 import iuh.fit.goat.enumeration.Visibility;
@@ -24,6 +27,7 @@ import iuh.fit.goat.exception.InvalidException;
 import iuh.fit.goat.exception.NotFoundException;
 import iuh.fit.goat.repository.AccountRepository;
 import iuh.fit.goat.repository.ChatMemberRepository;
+import iuh.fit.goat.repository.ChatRoomJoinRequestRepository;
 import iuh.fit.goat.repository.ChatRoomRepository;
 import iuh.fit.goat.repository.MessageRepository;
 import iuh.fit.goat.repository.UserRelationshipRepository;
@@ -57,6 +61,7 @@ public class ChatRoomServiceImpl implements ChatRoomService {
 
     private final ChatRoomRepository chatRoomRepository;
     private final ChatMemberRepository chatMemberRepository;
+    private final ChatRoomJoinRequestRepository chatRoomJoinRequestRepository;
     private final AccountRepository accountRepository;
     private final UserRelationshipRepository userRelationshipRepository;
     private final MessageRepository messageRepository;
@@ -419,6 +424,18 @@ public class ChatRoomServiceImpl implements ChatRoomService {
             );
         }
 
+        if (request.getPrivacy() != null && request.getPrivacy() != chatRoom.getPrivacy()) {
+            ChatRoomPrivacy oldPrivacy = chatRoom.getPrivacy();
+            chatRoom.setPrivacy(request.getPrivacy());
+            this.messageService.createAndSendSystemMessage(
+                    chatRoomId,
+                    MessageEvent.GROUP_PRIVACY_CHANGED,
+                    currentAccount,
+                    oldPrivacy,
+                    request.getPrivacy()
+            );
+        }
+
         return chatRoomRepository.save(chatRoom);
     }
 
@@ -756,6 +773,7 @@ public class ChatRoomServiceImpl implements ChatRoomService {
                 .roomName(room.getName())
                 .roomAvatar(room.getAvatar())
                 .inviteEnabled(room.isInviteEnabled())
+                .privacy(room.getPrivacy())
                 .build();
     }
 
@@ -780,6 +798,38 @@ public class ChatRoomServiceImpl implements ChatRoomService {
             throw new ConflictException("User is already a member of this chat room");
         }
 
+        if (room.getPrivacy() == ChatRoomPrivacy.PRIVATE) {
+            Optional<ChatRoomJoinRequest> existingPending = this.chatRoomJoinRequestRepository
+                    .findByRoomRoomIdAndAccountAccountIdAndStatusAndDeletedAtIsNull(
+                            room.getRoomId(),
+                            currentAccount.getAccountId(),
+                            ChatRoomJoinRequestStatus.PENDING
+                    );
+            if (existingPending.isPresent()) {
+                ChatRoomJoinRequest pendingRequest = existingPending.get();
+                return new JoinByInviteResponse(
+                        room.getRoomId(),
+                        false,
+                        "request_pending",
+                        pendingRequest.getRequestId()
+                );
+            }
+
+            ChatRoomJoinRequest request = new ChatRoomJoinRequest();
+            request.setRoom(room);
+            request.setAccount(currentAccount);
+            request.setStatus(ChatRoomJoinRequestStatus.PENDING);
+            request.setRequestedAt(Instant.now());
+            ChatRoomJoinRequest saved = this.chatRoomJoinRequestRepository.save(request);
+
+            return new JoinByInviteResponse(
+                    room.getRoomId(),
+                    false,
+                    "request_pending",
+                    saved.getRequestId()
+            );
+        }
+
         ChatMember newMember = new ChatMember();
         newMember.setRoom(room);
         newMember.setAccount(currentAccount);
@@ -792,7 +842,74 @@ public class ChatRoomServiceImpl implements ChatRoomService {
                 currentAccount
         );
 
-        return new JoinByInviteResponse(room.getRoomId(), true);
+        return new JoinByInviteResponse(room.getRoomId(), true, "joined", null);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<ChatRoomJoinRequestResponse> getPendingJoinRequests(Account currentAccount, Long roomId)
+            throws InvalidException, NotFoundException {
+        ChatRoom room = getInviteRoomById(roomId);
+        validateGroupChatRoom(room);
+        validateModeratorOrOwner(room, currentAccount, "manage join requests");
+
+        return this.chatRoomJoinRequestRepository
+                .findByRoomRoomIdAndStatusAndDeletedAtIsNullOrderByRequestedAtAscRequestIdAsc(
+                        roomId,
+                        ChatRoomJoinRequestStatus.PENDING
+                )
+                .stream()
+                .map(this::mapJoinRequestResponse)
+                .toList();
+    }
+
+    @Override
+    @Transactional
+    public void approveJoinRequest(Account currentAccount, Long roomId, Long requestId)
+            throws InvalidException, NotFoundException, ConflictException {
+        ChatRoom room = getInviteRoomById(roomId);
+        validateGroupChatRoom(room);
+        validateModeratorOrOwner(room, currentAccount, "approve join requests");
+
+        ChatRoomJoinRequest joinRequest = getPendingJoinRequestForUpdate(roomId, requestId);
+        Long requesterId = joinRequest.getAccount().getAccountId();
+        boolean alreadyMember = this.chatMemberRepository
+                .existsByRoomRoomIdAndAccountAccountIdAndDeletedAtIsNull(roomId, requesterId);
+        if (alreadyMember) {
+            throw new ConflictException("User is already a member of this chat room");
+        }
+
+        joinRequest.setStatus(ChatRoomJoinRequestStatus.APPROVED);
+        joinRequest.setRespondedAt(Instant.now());
+        joinRequest.setProcessedBy(currentAccount);
+        this.chatRoomJoinRequestRepository.save(joinRequest);
+
+        ChatMember newMember = new ChatMember();
+        newMember.setRoom(room);
+        newMember.setAccount(joinRequest.getAccount());
+        newMember.setRole(ChatRole.MEMBER);
+        this.chatMemberRepository.saveAndFlush(newMember);
+
+        this.messageService.createAndSendSystemMessage(
+                room.getRoomId(),
+                MessageEvent.MEMBER_JOINED_BY_INVITE,
+                joinRequest.getAccount()
+        );
+    }
+
+    @Override
+    @Transactional
+    public void rejectJoinRequest(Account currentAccount, Long roomId, Long requestId)
+            throws InvalidException, NotFoundException, ConflictException {
+        ChatRoom room = getInviteRoomById(roomId);
+        validateGroupChatRoom(room);
+        validateModeratorOrOwner(room, currentAccount, "reject join requests");
+
+        ChatRoomJoinRequest joinRequest = getPendingJoinRequestForUpdate(roomId, requestId);
+        joinRequest.setStatus(ChatRoomJoinRequestStatus.REJECTED);
+        joinRequest.setRespondedAt(Instant.now());
+        joinRequest.setProcessedBy(currentAccount);
+        this.chatRoomJoinRequestRepository.save(joinRequest);
     }
 
     // =============== HELPER METHODS FOR GROUP CHAT ====================
@@ -881,6 +998,12 @@ public class ChatRoomServiceImpl implements ChatRoomService {
         }
     }
 
+    private void validateModeratorOrOwner(ChatRoom room, Account currentAccount, String action) throws InvalidException {
+        validateMember(room, currentAccount);
+        ChatMember currentMember = getCurrentMemberInChatRoom(room, currentAccount.getAccountId());
+        validateModeratorOrOwnerPermission(currentMember, action);
+    }
+
     private String generateInviteToken() {
         String token;
         do {
@@ -902,6 +1025,7 @@ public class ChatRoomServiceImpl implements ChatRoomService {
                 .inviteLink(buildInviteLink(room.getInviteToken()))
                 .inviteEnabled(room.isInviteEnabled())
                 .inviteRotatedAt(room.getInviteRotatedAt())
+                .privacy(room.getPrivacy())
                 .build();
     }
 
@@ -925,6 +1049,39 @@ public class ChatRoomServiceImpl implements ChatRoomService {
         if (member.getRole() != ChatRole.OWNER && member.getRole() != ChatRole.MODERATOR) {
             throw new InvalidException("Only owners and moderators can " + action);
         }
+    }
+
+    private ChatRoomJoinRequest getPendingJoinRequestForUpdate(Long roomId, Long requestId)
+            throws NotFoundException, ConflictException {
+        ChatRoomJoinRequest request = this.chatRoomJoinRequestRepository.findByIdAndRoomIdForUpdate(requestId, roomId)
+                .orElseThrow(() -> new NotFoundException("Join request not found"));
+        if (request.getStatus() != ChatRoomJoinRequestStatus.PENDING) {
+            throw new ConflictException("Join request is no longer pending");
+        }
+        return request;
+    }
+
+    private ChatRoomJoinRequestResponse mapJoinRequestResponse(ChatRoomJoinRequest joinRequest) {
+        Account account = EntityUtil.unproxy(joinRequest.getAccount());
+        String fullName;
+        String avatar;
+        if (account instanceof Company company) {
+            fullName = company.getName();
+            avatar = company.getLogo();
+        } else {
+            User user = (User) account;
+            fullName = user.getFullName();
+            avatar = user.getAvatar();
+        }
+
+        return ChatRoomJoinRequestResponse.builder()
+                .requestId(joinRequest.getRequestId())
+                .accountId(account.getAccountId())
+                .fullName(fullName)
+                .username(account.getUsername())
+                .avatar(avatar)
+                .requestedAt(joinRequest.getRequestedAt())
+                .build();
     }
 
     // =============== HELPER FUNCTIONS ====================
@@ -1060,6 +1217,7 @@ public class ChatRoomServiceImpl implements ChatRoomService {
         return ChatRoomResponse.builder()
                 .roomId(chatRoom.getRoomId())
                 .type(chatRoom.getType())
+                .privacy(chatRoom.getPrivacy())
                 .name(name)
                 .avatar(avatar)
                 .memberCount(memberCount)
