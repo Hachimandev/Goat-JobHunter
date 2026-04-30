@@ -57,6 +57,14 @@ export function Sidebar() {
   const [indicatorStyle, setIndicatorStyle] = useState({ left: 0, width: 0 });
   const friendshipPairs = useAppSelector((state) => state.friendship.pairs);
   const tags = useMemo(() => tagsResponse?.data?.result ?? [], [tagsResponse]);
+  const tagDisplayText = useMemo(() => {
+    if (selectedTagIds.length === 0) return '';
+    if (selectedTagIds.length === 1) {
+      const selectedTag = tags.find((t) => t.tagId === selectedTagIds[0]);
+      return selectedTag?.name || '';
+    }
+    return `${selectedTagIds.length} thẻ`;
+  }, [selectedTagIds, tags]);
   const tagOptions = useMemo(() => [...tags], [tags]);
   const strangerTagIds = useMemo(() => tags.filter((tag) => tag.name === 'Người lạ').map((tag) => tag.tagId), [tags]);
   const friendAccountIds = useMemo(() => {
@@ -213,6 +221,7 @@ export function Sidebar() {
           <PopoverTrigger asChild>
             <Button variant="outline" size="sm" className="h-8 rounded-full px-3 gap-2 shrink-0 hover:bg-primary/50">
               <Tag className="h-4 w-4 text-primary" />
+              {tagDisplayText && <span className="text-sm font-semibold text-primary">{tagDisplayText}</span>}
             </Button>
           </PopoverTrigger>
 
@@ -321,7 +330,7 @@ export function Sidebar() {
       <TagManagementModal
         open={tagManagementModalOpen}
         onOpenChange={setTagManagementModalOpen}
-        chatRooms={roomsToShow}
+        chatRooms={allChatRooms}
       />
     </div>
   );
