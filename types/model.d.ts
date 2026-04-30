@@ -1,4 +1,10 @@
-import { ApplicationStatus, CompanySize, Level, WorkingType } from "./enum";
+import {
+  ApplicationStatus,
+  ChatRoomPrivacy,
+  CompanySize,
+  Level,
+  WorkingType,
+} from "./enum";
 
 export type Address = {
   addressId: number;
@@ -227,6 +233,7 @@ export type MessageType = {
 export type ChatRoom = {
   roomId: number;
   type: ChatRoomType;
+  privacy: ChatRoomPrivacy;
   name: string;
   avatar: string | null;
   memberCount: number;

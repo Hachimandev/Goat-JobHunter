@@ -16,6 +16,7 @@ export type InviteParseResult =
 
 export type InviteJoinOutcome =
   | "joined"
+  | "request_pending"
   | "already_joined"
   | "token_expired"
   | "token_revoked"
@@ -114,3 +115,14 @@ export function trackInviteEvent(
 ): void {
   console.info(`[analytics] ${event}`, payload);
 }
+
+export const messageMap: Record<InviteJoinOutcome, string> = {
+  joined: "Tham gia nhóm thành công",
+  request_pending: "Đã gửi yêu cầu tham gia. Vui lòng chờ duyệt.",
+  already_joined: "Bạn đã là thành viên của nhóm này",
+  token_expired: "Link mời đã hết hạn",
+  token_revoked: "Link mời hiện không khả dụng",
+  token_not_found: "Không tìm thấy link mời",
+  unauthorized: "Vui lòng đăng nhập để tham gia",
+  network_error: "Không thể tham gia nhóm. Vui lòng thử lại",
+};

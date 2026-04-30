@@ -76,6 +76,11 @@ export enum ChatRoomType {
   GROUP = "GROUP",
 }
 
+export enum ChatRoomPrivacy {
+  PUBLIC = "PUBLIC",
+  PRIVATE = "PRIVATE",
+}
+
 export enum MessageTypeEnum {
   TEXT = "TEXT",
   IMAGE = "IMAGE",

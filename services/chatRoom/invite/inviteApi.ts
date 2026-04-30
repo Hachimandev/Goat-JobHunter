@@ -1,5 +1,6 @@
 import { api } from "@/services/api";
 import type {
+  GroupJoinRequestListResponse,
   InviteLinkResponse,
   InvitePreviewResponse,
   JoinByInviteRequest,
@@ -54,6 +55,33 @@ export const inviteApi = api.injectEndpoints({
       }),
       invalidatesTags: [{ type: "ChatRoom", id: "LIST" }],
     }),
+    getPendingJoinRequests: builder.query<GroupJoinRequestListResponse, number>({
+      query: (roomId) => ({
+        url: `/chatrooms/${roomId}/join-requests/pending`,
+        method: "GET",
+      }),
+      providesTags: (_, __, roomId) => [
+        { type: "ChatInvite", id: `join-requests-${roomId}` },
+      ],
+    }),
+    approveJoinRequest: builder.mutation<void, { roomId: number; requestId: number }>({
+      query: ({ roomId, requestId }) => ({
+        url: `/chatrooms/${roomId}/join-requests/${requestId}/approve`,
+        method: "POST",
+      }),
+      invalidatesTags: (_, __, { roomId }) => [
+        { type: "ChatInvite", id: `join-requests-${roomId}` },
+      ],
+    }),
+    rejectJoinRequest: builder.mutation<void, { roomId: number; requestId: number }>({
+      query: ({ roomId, requestId }) => ({
+        url: `/chatrooms/${roomId}/join-requests/${requestId}/reject`,
+        method: "POST",
+      }),
+      invalidatesTags: (_, __, { roomId }) => [
+        { type: "ChatInvite", id: `join-requests-${roomId}` },
+      ],
+    }),
   }),
 });
 
@@ -63,4 +91,7 @@ export const {
   useRotateInviteLinkMutation,
   useToggleInviteLinkMutation,
   useJoinByInviteMutation,
+  useGetPendingJoinRequestsQuery,
+  useApproveJoinRequestMutation,
+  useRejectJoinRequestMutation,
 } = inviteApi;

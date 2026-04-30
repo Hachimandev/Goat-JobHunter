@@ -1,7 +1,13 @@
 import { useInviteJoinFlow } from "@/hooks/useInviteJoinFlow";
 import { useRouter } from "expo-router";
 import { CameraView, useCameraPermissions } from "expo-camera";
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -13,6 +19,7 @@ import {
 } from "react-native";
 import {
   getInviteAllowedHosts,
+  messageMap,
   parseInviteUrl,
   redactInviteToken,
   trackInviteEvent,
@@ -59,15 +66,19 @@ export default function InviteQrScannerScreen() {
       if (outcome === "joined") {
         return;
       }
-      const messageMap: Record<string, string> = {
-        already_joined: "Bạn đã là thành viên của nhóm này",
-        token_expired: "Link mời đã hết hạn",
-        token_revoked: "Link mời hiện không khả dụng",
-        token_not_found: "Không tìm thấy link mời",
-        unauthorized: "Vui lòng đăng nhập để tham gia",
-        network_error: "Không thể tham gia nhóm. Vui lòng thử lại",
-      };
-      Alert.alert("Không thể tham gia", messageMap[outcome] || messageMap.network_error);
+
+      if (outcome === "request_pending") {
+        Alert.alert(
+          "Thành công",
+          messageMap[outcome] || messageMap.network_error,
+        );
+        return;
+      }
+
+      Alert.alert(
+        "Không thể tham gia",
+        messageMap[outcome] || messageMap.network_error,
+      );
     },
     [allowedHosts, isHandling, joinByInviteToken],
   );
@@ -103,9 +114,6 @@ export default function InviteQrScannerScreen() {
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.title}>Quét mã QR lời mời</Text>
-        <Text style={styles.subtitle}>
-          Chỉ chấp nhận link HTTPS dạng /invite/:token
-        </Text>
       </View>
       <CameraView
         style={styles.camera}

@@ -2,18 +2,30 @@ import { useState } from "react";
 import { useUpdateGroupInfoMutation } from "@/services/chatRoom/groupChat/groupChatApi";
 import { useUploadSingleFileMutation } from "@/services/upload/uploadApi";
 import { Alert } from "react-native";
+import { ChatRoomPrivacy } from "@/types/enum";
+
+interface EditGroupParams {
+  groupId: number;
+  groupName?: string;
+  currentPrivacy?: ChatRoomPrivacy;
+  newGroupName?: string;
+  avatarAsset?: any;
+  newPrivacy?: ChatRoomPrivacy;
+}
 
 export const useEditGroup = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [updateGroupInfo] = useUpdateGroupInfoMutation();
   const [uploadFile] = useUploadSingleFileMutation();
 
-  const handleEditGroup = async (
-    groupId: number,
-    groupName: string,
-    newGroupName?: string,
-    avatarAsset?: any
-  ) => {
+  const handleEditGroup = async ({
+    groupId,
+    groupName,
+    avatarAsset,
+    newGroupName,
+    currentPrivacy,
+    newPrivacy,
+  }: EditGroupParams) => {
     try {
       setIsLoading(true);
 
@@ -22,11 +34,19 @@ export const useEditGroup = () => {
         return false;
       }
 
-      const updateData: { name?: string; avatar?: string } = {};
+      const updateData: {
+        name?: string;
+        avatar?: string;
+        privacy?: ChatRoomPrivacy;
+      } = {};
 
       // Only add name if it changed
       if (newGroupName && newGroupName.trim() !== groupName) {
         updateData.name = newGroupName.trim();
+      }
+
+      if (newPrivacy && newPrivacy !== currentPrivacy) {
+        updateData.privacy = newPrivacy;
       }
 
       // Upload avatar if selected
