@@ -1,6 +1,7 @@
 package iuh.fit.goat.entity;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import iuh.fit.goat.enumeration.ChatRoomPrivacy;
 import iuh.fit.goat.enumeration.ChatRoomType;
 import jakarta.persistence.*;
 import lombok.*;
@@ -30,6 +31,9 @@ public class ChatRoom extends BaseEntity {
     private String avatar;
     @Enumerated(EnumType.STRING)
     private ChatRoomType type;
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private ChatRoomPrivacy privacy = ChatRoomPrivacy.PUBLIC;
     private String aiModel;
 
     @Column(name = "last_message_id")

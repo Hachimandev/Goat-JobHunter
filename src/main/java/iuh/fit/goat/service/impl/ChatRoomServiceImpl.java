@@ -14,6 +14,7 @@ import iuh.fit.goat.dto.response.chat.MessageSummaryResponse;
 import iuh.fit.goat.dto.response.chat.UnreadMessageResponse;
 import iuh.fit.goat.entity.*;
 import iuh.fit.goat.enumeration.ChatRole;
+import iuh.fit.goat.enumeration.ChatRoomPrivacy;
 import iuh.fit.goat.enumeration.ChatRoomType;
 import iuh.fit.goat.enumeration.RelationshipState;
 import iuh.fit.goat.enumeration.Visibility;
@@ -419,6 +420,18 @@ public class ChatRoomServiceImpl implements ChatRoomService {
             );
         }
 
+        if (request.getPrivacy() != null && request.getPrivacy() != chatRoom.getPrivacy()) {
+            ChatRoomPrivacy oldPrivacy = chatRoom.getPrivacy();
+            chatRoom.setPrivacy(request.getPrivacy());
+            this.messageService.createAndSendSystemMessage(
+                    chatRoomId,
+                    MessageEvent.GROUP_PRIVACY_CHANGED,
+                    currentAccount,
+                    oldPrivacy,
+                    request.getPrivacy()
+            );
+        }
+
         return chatRoomRepository.save(chatRoom);
     }
 
@@ -756,6 +769,7 @@ public class ChatRoomServiceImpl implements ChatRoomService {
                 .roomName(room.getName())
                 .roomAvatar(room.getAvatar())
                 .inviteEnabled(room.isInviteEnabled())
+                .privacy(room.getPrivacy())
                 .build();
     }
 
@@ -902,6 +916,7 @@ public class ChatRoomServiceImpl implements ChatRoomService {
                 .inviteLink(buildInviteLink(room.getInviteToken()))
                 .inviteEnabled(room.isInviteEnabled())
                 .inviteRotatedAt(room.getInviteRotatedAt())
+                .privacy(room.getPrivacy())
                 .build();
     }
 
@@ -1060,6 +1075,7 @@ public class ChatRoomServiceImpl implements ChatRoomService {
         return ChatRoomResponse.builder()
                 .roomId(chatRoom.getRoomId())
                 .type(chatRoom.getType())
+                .privacy(chatRoom.getPrivacy())
                 .name(name)
                 .avatar(avatar)
                 .memberCount(memberCount)

@@ -2,11 +2,13 @@ package fit.se.Goat_TimKiemViecLam;
 
 import iuh.fit.goat.GoatTimKiemViecLamApplication;
 import iuh.fit.goat.common.MessageEvent;
+import iuh.fit.goat.dto.request.chat.UpdateGroupInfoRequest;
 import iuh.fit.goat.dto.response.chat.InviteLinkResponse;
 import iuh.fit.goat.dto.response.chat.JoinByInviteResponse;
 import iuh.fit.goat.entity.Applicant;
 import iuh.fit.goat.entity.ChatMember;
 import iuh.fit.goat.entity.ChatRoom;
+import iuh.fit.goat.enumeration.ChatRoomPrivacy;
 import iuh.fit.goat.enumeration.ChatRole;
 import iuh.fit.goat.enumeration.ChatRoomType;
 import iuh.fit.goat.exception.ConflictException;
@@ -93,6 +95,7 @@ class ChatRoomInviteFlowTests {
         assertEquals("room-invite-token-001", reloaded.getInviteToken());
         assertFalse(reloaded.isInviteEnabled());
         assertEquals(rotatedAt, reloaded.getInviteRotatedAt());
+        assertEquals(ChatRoomPrivacy.PUBLIC, reloaded.getPrivacy());
     }
 
     @Test
@@ -266,6 +269,79 @@ class ChatRoomInviteFlowTests {
                 room.getRoomId(),
                 MessageEvent.MEMBER_JOINED_BY_INVITE,
                 joiner
+        );
+    }
+
+    @Test
+    void updateGroupInfo_shouldAllowOwnerAndModeratorToChangePrivacy() throws Exception {
+        Applicant owner = createApplicant("privacy-owner");
+        Applicant moderator = createApplicant("privacy-moderator");
+        Applicant member = createApplicant("privacy-member");
+
+        ChatRoom room = createRoom("privacy-token-001", true);
+        room = chatRoomRepository.saveAndFlush(room);
+        addMember(room, owner, ChatRole.OWNER);
+        addMember(room, moderator, ChatRole.MODERATOR);
+        addMember(room, member, ChatRole.MEMBER);
+
+        ChatRoom ownerUpdated = chatRoomService.updateGroupInfo(
+                owner,
+                room.getRoomId(),
+                new UpdateGroupInfoRequest(null, null, ChatRoomPrivacy.PRIVATE)
+        );
+        assertEquals(ChatRoomPrivacy.PRIVATE, ownerUpdated.getPrivacy());
+
+        ChatRoom moderatorUpdated = chatRoomService.updateGroupInfo(
+                moderator,
+                room.getRoomId(),
+                new UpdateGroupInfoRequest(null, null, ChatRoomPrivacy.PUBLIC)
+        );
+        assertEquals(ChatRoomPrivacy.PUBLIC, moderatorUpdated.getPrivacy());
+    }
+
+    @Test
+    void updateGroupInfo_shouldRejectMemberPrivacyChange() {
+        Applicant owner = createApplicant("privacy-owner-2");
+        Applicant member = createApplicant("privacy-member-2");
+
+        ChatRoom room = createRoom("privacy-token-002", true);
+        room = chatRoomRepository.saveAndFlush(room);
+        final Long roomId = room.getRoomId();
+        addMember(room, owner, ChatRole.OWNER);
+        addMember(room, member, ChatRole.MEMBER);
+
+        InvalidException exception = assertThrows(
+                InvalidException.class,
+                () -> chatRoomService.updateGroupInfo(
+                        member,
+                        roomId,
+                        new UpdateGroupInfoRequest(null, null, ChatRoomPrivacy.PRIVATE)
+                )
+        );
+
+        assertEquals("Only owners and moderators can update group info", exception.getMessage());
+    }
+
+    @Test
+    void updateGroupInfo_shouldEmitPrivacyChangedSystemEvent() throws Exception {
+        Applicant owner = createApplicant("privacy-owner-3");
+
+        ChatRoom room = createRoom("privacy-token-003", true);
+        room = chatRoomRepository.saveAndFlush(room);
+        addMember(room, owner, ChatRole.OWNER);
+
+        chatRoomService.updateGroupInfo(
+                owner,
+                room.getRoomId(),
+                new UpdateGroupInfoRequest(null, null, ChatRoomPrivacy.PRIVATE)
+        );
+
+        verify(messageService).createAndSendSystemMessage(
+                room.getRoomId(),
+                MessageEvent.GROUP_PRIVACY_CHANGED,
+                owner,
+                ChatRoomPrivacy.PUBLIC,
+                ChatRoomPrivacy.PRIVATE
         );
     }
 
