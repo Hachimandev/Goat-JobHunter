@@ -407,6 +407,15 @@ export class WebSocketMessageService {
           ]),
         );
       }
+      // Detect GROUP_PRIVACY_CHANGED
+      else if (event === MessageEvent.GROUP_PRIVACY_CHANGED || content.includes('đã thay đổi quyền riêng tư nhóm')) {
+        this.dispatch(
+          chatRoomApi.util.invalidateTags([
+            { type: 'ChatRoom', id: chatRoomId },
+            { type: 'ChatRoom', id: 'LIST' },
+          ]),
+        );
+      }
       // Detect GROUP_CREATED
       else if (event === MessageEvent.GROUP_CREATED || content.includes('đã tạo nhóm')) {
         // Không cần xử lý gì vì user sẽ được redirect đến room mới

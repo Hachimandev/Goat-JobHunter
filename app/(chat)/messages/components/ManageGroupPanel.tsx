@@ -13,10 +13,14 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { useDissolveGroupChatMutation } from '@/services/chatRoom/groupChat/groupChatApi';
+import { useDissolveGroupChatMutation, useUpdateGroupInfoMutation } from '@/services/chatRoom/groupChat/groupChatApi';
 import { toast } from 'sonner';
 import { IBackendError } from '@/types/api';
 import { useRouter } from 'next/navigation';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { ChatRoomPrivacy } from '@/types/enum';
+import { Separator } from '@/components/ui/separator';
+import { Label } from '@/components/ui/label';
 
 interface ManageGroupPanelProps {
   open: boolean;
@@ -25,11 +29,14 @@ interface ManageGroupPanelProps {
 }
 
 export function ManageGroupPanel({ open, onOpenChange, chatRoom }: Readonly<ManageGroupPanelProps>) {
+  const currentPrivacy = chatRoom.privacy ?? ChatRoomPrivacy.PUBLIC;
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [confirmText, setConfirmText] = useState('');
+  const [privacy, setPrivacy] = useState<ChatRoomPrivacy>(currentPrivacy);
   const router = useRouter();
 
   const [dissolveGroup, { isLoading: isDissolving }] = useDissolveGroupChatMutation();
+  const [updateGroupInfo, { isLoading }] = useUpdateGroupInfoMutation();
 
   const handleOpenConfirm = () => {
     setConfirmText('');
@@ -48,6 +55,18 @@ export function ManageGroupPanel({ open, onOpenChange, chatRoom }: Readonly<Mana
     }
   };
 
+  const handlePrivacyChange = async (newPrivacy: ChatRoomPrivacy) => {
+    if (newPrivacy === privacy) return;
+
+    try {
+      await updateGroupInfo({ chatroomId: chatRoom.roomId.toString(), privacy: newPrivacy }).unwrap();
+      setPrivacy(newPrivacy);
+      toast.success('Cập nhật quyền riêng tư thành công');
+    } catch (error) {
+      toast.error((error as IBackendError).data?.message || 'Có lỗi xảy ra khi cập nhật quyền riêng tư');
+    }
+  };
+
   const canConfirm = confirmText === chatRoom.name;
 
   return (
@@ -59,12 +78,37 @@ export function ManageGroupPanel({ open, onOpenChange, chatRoom }: Readonly<Mana
     >
       <div className="h-16 border-b border-border flex items-center justify-between px-4 flex-none">
         <h2 className="font-semibold text-sm">Quản lý nhóm</h2>
-        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => onOpenChange(false)}>
+        <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full" onClick={() => onOpenChange(false)}>
           <X className="h-5 w-5" />
         </Button>
       </div>
 
-      <div className="p-2 mt-2">
+      <div className="p-2 mt-2 space-y-4">
+        <div className="space-y-2">
+          <Label htmlFor="group-privacy" className="font-bold">
+            Quyền riêng tư nhóm
+          </Label>
+          <Select
+            value={privacy}
+            onValueChange={(value) => handlePrivacyChange(value as ChatRoomPrivacy)}
+            disabled={isLoading}
+          >
+            <SelectTrigger
+              className="rounded-xl w-full border border-input bg-background px-3 py-2 text-sm"
+              disabled={isLoading}
+              id="group-privacy"
+            >
+              <SelectValue placeholder="Quyền riêng tư" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={ChatRoomPrivacy.PUBLIC}>Công khai</SelectItem>
+              <SelectItem value={ChatRoomPrivacy.PRIVATE}>Riêng tư</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        <Separator />
+
         <Button
           variant="ghost"
           className="w-full text-white bg-destructive hover:bg-destructive/50 hover:text-white rounded-xl text-center justify-center font-bold"
