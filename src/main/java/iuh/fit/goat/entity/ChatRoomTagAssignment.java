@@ -1,10 +1,7 @@
 package iuh.fit.goat.entity;
 
 import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
+import lombok.*;
 import org.hibernate.annotations.FilterDef;
 
 import static jakarta.persistence.FetchType.LAZY;
@@ -29,6 +26,7 @@ import static jakarta.persistence.FetchType.LAZY;
 @NoArgsConstructor
 @AllArgsConstructor
 @FilterDef(name = "activeChatRoomTagAssignmentFilter")
+@Builder
 public class ChatRoomTagAssignment extends BaseEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.AUTO)

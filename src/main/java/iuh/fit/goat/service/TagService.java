@@ -23,9 +23,15 @@ public interface TagService {
             Account currentAccount, AssignChatRoomTagRequest request
     ) throws InvalidException;
 
+    ChatRoomTagAssignmentResponse assignTagByRoom(
+            Account currentAccount, Long roomId, Long tagId
+    ) throws InvalidException;
+
     void removeTag(Account currentAccount, Long roomId) throws InvalidException;
 
     List<Long> getRoomIdsByTag(Account currentAccount, Long tagId) throws InvalidException;
+
+    List<ChatRoomTagAssignmentResponse> getTagAssignments(Account currentAccount);
 
     ResultPaginationResponse getTags(Account currentAccount, Pageable pageable) throws InvalidException;
 }

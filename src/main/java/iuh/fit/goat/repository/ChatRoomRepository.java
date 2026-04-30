@@ -44,9 +44,7 @@ public interface ChatRoomRepository extends JpaRepository<ChatRoom, Long> {
                     WHERE cr.roomId IN :roomIds
                             AND cr.deletedAt IS NULL
     """)
-    List<ChatRoom> findRoomsWithMembersByRoomIds(
-                                    @Param("roomIds") List<Long> roomIds
-    );
+    List<ChatRoom> findRoomsWithMembersByRoomIds(@Param("roomIds") List<Long> roomIds);
 
     @Query("""
         SELECT DISTINCT cr FROM ChatRoom cr
@@ -61,13 +59,12 @@ public interface ChatRoomRepository extends JpaRepository<ChatRoom, Long> {
     );
 
     @Query("""
-        SELECT DISTINCT cr FROM ChatRoom cr
+        SELECT cr FROM ChatRoom cr
         JOIN cr.members cm
-        WHERE cm.account.accountId = :accountId
-        AND cm.deletedAt IS NULL
-        ORDER BY cr.updatedAt DESC
+        WHERE cr.roomId = :chatRoomId AND cm.account.accountId = :accountId
+        AND cr.deletedAt IS NULL AND cm.deletedAt IS NULL
     """)
-    List<ChatRoom> findAllChatRoomsByMemberAccountId(@Param("accountId") Long accountId);
+    Optional<ChatRoom> findByChatRoomIdAndMemberAccountId(@Param("chatRoomId") Long chatRoomId, @Param("accountId") Long accountId);
 
     @Modifying
     @Transactional

@@ -180,17 +180,43 @@ public class TagServiceImpl implements TagService {
     }
 
     @Override
+    @Transactional
+    public ChatRoomTagAssignmentResponse assignTagByRoom(Account currentAccount, Long roomId, Long tagId) throws InvalidException {
+        Tag tag = this.tagRepository.findAccessibleTag(tagId, currentAccount.getAccountId())
+                .orElseThrow(() -> new InvalidException("Tag not found"));
+
+        ChatRoom room = this.chatRoomRepository.findByChatRoomIdAndMemberAccountId(
+                roomId, currentAccount.getAccountId()
+        ).orElseThrow(() -> new InvalidException("Chat room not found"));
+
+        ChatRoomTagAssignment assignment = this.chatRoomTagAssignmentRepository.findByRoomIdAndAccountIdForUpdate(
+                roomId, currentAccount.getAccountId()
+        ).orElse(null);
+
+        if(assignment == null) {
+            assignment = ChatRoomTagAssignment.builder()
+                    .room(room)
+                    .account(currentAccount)
+                    .tag(tag)
+                    .build();
+        }
+        assignment.setTag(tag);
+
+        ChatRoomTagAssignment saved = this.chatRoomTagAssignmentRepository.save(assignment);
+
+        return this.toResponse(saved);
+    }
+
+    @Override
+    @Transactional
     public void removeTag(Account currentAccount, Long roomId) throws InvalidException {
-        if (currentAccount == null) throw new InvalidException("User not found");
         if (roomId == null) throw new InvalidException("Chat room not found");
 
-        Long currentAccountId = currentAccount.getAccountId();
-
-        if (!this.chatRoomService.isUserInChatRoom(roomId, currentAccountId)) {
+        if (!this.chatRoomService.isUserInChatRoom(roomId, currentAccount.getAccountId())) {
             throw new InvalidException("User is not belong to this chat room");
         }
 
-        this.chatRoomTagAssignmentRepository.findByRoomIdAndAccountIdForUpdate(roomId, currentAccountId)
+        this.chatRoomTagAssignmentRepository.findByRoomIdAndAccountIdForUpdate(roomId, currentAccount.getAccountId())
                 .ifPresent(this.chatRoomTagAssignmentRepository::delete);
     }
 
@@ -198,6 +224,15 @@ public class TagServiceImpl implements TagService {
     public List<Long> getRoomIdsByTag(Account currentAccount, Long tagId) throws InvalidException {
         if (currentAccount == null) throw new InvalidException("User not found");
         return this.chatRoomTagAssignmentRepository.findByTagIdAndAccountId(tagId, currentAccount.getAccountId());
+    }
+
+    @Override
+    @Transactional
+    public List<ChatRoomTagAssignmentResponse> getTagAssignments(Account currentAccount) {
+        List<ChatRoomTagAssignment> assignments = this.chatRoomTagAssignmentRepository
+                .findByAccountIdForUpdate(currentAccount.getAccountId());
+
+        return assignments.stream().map(this::toResponse).toList();
     }
 
     @Override

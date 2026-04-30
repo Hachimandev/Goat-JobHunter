@@ -63,6 +63,14 @@ public class TagController {
         return ResponseEntity.ok(this.tagService.assignTag(currentAccount, request));
     }
 
+    @PutMapping("/{roomId}/assign")
+    public ResponseEntity<ChatRoomTagAssignmentResponse> assignTagByRoom(
+            @PathVariable Long roomId, @RequestParam Long tagId
+    ) throws InvalidException {
+        Account currentAccount = getCurrentAccount();
+        return ResponseEntity.ok(this.tagService.assignTagByRoom(currentAccount, roomId, tagId));
+    }
+
     @DeleteMapping("/{roomId}/assign")
     public ResponseEntity<Void> removeTag(@PathVariable Long roomId) throws InvalidException {
         Account currentAccount = getCurrentAccount();
@@ -74,6 +82,12 @@ public class TagController {
     public ResponseEntity<List<Long>> getRoomIdsByTag(@PathVariable Long tagId) throws InvalidException {
         Account currentAccount = getCurrentAccount();
         return ResponseEntity.ok(this.tagService.getRoomIdsByTag(currentAccount, tagId));
+    }
+
+    @GetMapping("/me")
+    public ResponseEntity<List<ChatRoomTagAssignmentResponse>> getTagAssignments() throws InvalidException {
+        Account currentAccount = getCurrentAccount();
+        return ResponseEntity.ok(this.tagService.getTagAssignments(currentAccount));
     }
 
     private Account getCurrentAccount() throws InvalidException {

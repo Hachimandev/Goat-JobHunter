@@ -57,7 +57,7 @@ public interface ChatRoomTagAssignmentRepository extends JpaRepository<ChatRoomT
     @Query("""
         SELECT a
         FROM ChatRoomTagAssignment a
-        WHERE a.account.accountId = :accountId
+        WHERE a.account.accountId = :accountId AND a.account.deletedAt IS NULL
     """)
     List<ChatRoomTagAssignment> findByAccountIdForUpdate(@Param("accountId") Long accountId);
 }
