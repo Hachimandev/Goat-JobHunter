@@ -152,7 +152,7 @@ class ChatRoomControllerInviteEndpointsTests {
 
     @Test
     void joinByInvite_shouldExposeRouteAndPayloadShape() throws Exception {
-        JoinByInviteResponse response = new JoinByInviteResponse(404L, true);
+        JoinByInviteResponse response = new JoinByInviteResponse(404L, true, "joined", null);
         when(chatRoomService.joinByInvite(any(), eq("join-token-404"))).thenReturn(response);
 
         mockMvc.perform(post("/api/v1/chatrooms/join-by-invite")

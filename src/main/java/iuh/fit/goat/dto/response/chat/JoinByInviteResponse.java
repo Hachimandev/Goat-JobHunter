@@ -10,4 +10,6 @@ import lombok.NoArgsConstructor;
 public class JoinByInviteResponse {
     private Long roomId;
     private boolean joined;
+    private String status;
+    private Long requestId;
 }

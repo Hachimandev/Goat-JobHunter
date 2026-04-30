@@ -134,12 +134,24 @@ public class MessageUtil {
     }
 
     private static String getDisplayName(Account account) {
-        String fullName = account instanceof Company ? ((Company) account).getName()
-                : ((User) account).getFullName();
+        if (account == null) {
+            return "";
+        }
 
-        if (!fullName.isEmpty()) return fullName;
+        Account realAccount = EntityUtil.unproxy(account);
 
-        return account.getUsername();
+        String fullName;
+        if (realAccount instanceof Company company) {
+            fullName = company.getName();
+        } else if (realAccount instanceof User user) {
+            fullName = user.getFullName();
+        } else {
+            fullName = realAccount.getUsername();
+        }
+
+        if (fullName != null && !fullName.isEmpty()) return fullName;
+
+        return realAccount.getUsername();
     }
 
     private static String getRoleText(ChatRole role) {
