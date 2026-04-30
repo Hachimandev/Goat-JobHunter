@@ -411,3 +411,16 @@ export const COUNTRY_OPTIONS = [
 ];
 
 export const DEFAULT_BLOG_PAGE_SIZE = 15;
+
+export const COLOR_OPTIONS = [
+  '#E03131',
+  '#0CA678',
+  '#1C7ED6',
+  '#F76707',
+  '#2F9E44',
+  '#E0A800',
+  '#9C36B5',
+  '#1864AB',
+  '#D9480F',
+  '#2B8A3E',
+];

@@ -1,22 +1,34 @@
-import { ChatRoom } from '@/types/model';
+import { ChatRoom, Tag as TagType } from '@/types/model';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Users, X, Brain, Loader2 } from 'lucide-react';
+import { Users, X, Brain, Loader2, MoreHorizontal, ChevronRight, Tag, Check } from 'lucide-react';
 import { useLazyGetUnreadMessagesSummaryQuery } from '@/services/ai/conversationApi';
+import { useAssignTagByRoomMutation, useRemoveTagMutation } from '@/services/tag/tagApi';
 import { ChatRoomType } from '@/types/enum';
 import { formatLastMessageTime } from '@/utils/formatDate';
 import { cn } from '@/lib/utils';
 import { useMemo, useState, useEffect } from 'react';
 import { truncate } from 'lodash';
 import { Badge } from '@/components/ui/badge';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { toast } from 'sonner';
 
 interface ConversationItemProps {
   chatRoom: ChatRoom;
   active: boolean;
   onClick: () => void;
   unreadMessagesCount: number;
+  tags: TagType[];
+  assignedTag: TagType | null;
 }
 
-export function ChatRoomItem({ chatRoom, active, onClick, unreadMessagesCount }: Readonly<ConversationItemProps>) {
+export function ChatRoomItem({
+  chatRoom,
+  active,
+  onClick,
+  unreadMessagesCount,
+  tags,
+  assignedTag,
+}: Readonly<ConversationItemProps>) {
   const isGroup = chatRoom.type === ChatRoomType.GROUP;
   const isDissolved = Boolean(chatRoom.deletedAt && chatRoom.type === ChatRoomType.GROUP);
 
@@ -30,6 +42,8 @@ export function ChatRoomItem({ chatRoom, active, onClick, unreadMessagesCount }:
     return '9+';
   }, [unreadMessagesCount]);
 
+  const [assignTagByRoom, { isLoading: isAssigningTag }] = useAssignTagByRoomMutation();
+  const [removeTag, { isLoading: isRemovingTag }] = useRemoveTagMutation();
   const [triggerUnreadSummary, { data: unreadSummaryData, isLoading: isSummaryLoading }] =
     useLazyGetUnreadMessagesSummaryQuery();
 
@@ -37,6 +51,8 @@ export function ChatRoomItem({ chatRoom, active, onClick, unreadMessagesCount }:
   const [aiSummaryText, setAiSummaryText] = useState<string | null>(null);
   const [loadingMessage, setLoadingMessage] = useState<string | null>(null);
   const [isSummarized, setIsSummarized] = useState(false);
+  const [isPopoverOpen, setIsPopoverOpen] = useState(false);
+  const [isTagsPopoverOpen, setIsTagsPopoverOpen] = useState(false);
 
   /* Khi có summary trả về */
   useEffect(() => {
@@ -97,6 +113,28 @@ export function ChatRoomItem({ chatRoom, active, onClick, unreadMessagesCount }:
     setLoadingMessage(null);
   };
 
+  const handleAssignTagByRoom = async (tag: TagType) => {
+    try {
+      await assignTagByRoom({ tagId: tag.tagId, roomId: chatRoom.roomId }).unwrap();
+      toast.success(`Gán thẻ "${tag.name}" thành công`);
+      setIsTagsPopoverOpen(false);
+      setIsPopoverOpen(false);
+    } catch {
+      toast.error('Không thể gán thẻ');
+    }
+  };
+
+  const handleUnassignTagByRoom = async () => {
+    try {
+      await removeTag({ roomId: chatRoom.roomId }).unwrap();
+      toast.success(`Gỡ thẻ "${assignedTag?.name}" thành công`);
+      setIsTagsPopoverOpen(false);
+      setIsPopoverOpen(false);
+    } catch {
+      toast.error('Không thể gỡ thẻ');
+    }
+  };
+
   return (
     <>
       <button
@@ -136,19 +174,109 @@ export function ChatRoomItem({ chatRoom, active, onClick, unreadMessagesCount }:
               )}
             </div>
 
-            {formattedTime && <span className="text-xs text-muted-foreground">{formattedTime}</span>}
+            <div className="flex items-center gap-2 relative group">
+              {formattedTime && (
+                <span className="text-xs text-muted-foreground transition-opacity duration-200 group-hover:opacity-0">
+                  {formattedTime}
+                </span>
+              )}
+
+              <Popover open={isPopoverOpen} onOpenChange={setIsPopoverOpen}>
+                <PopoverTrigger asChild>
+                  <div
+                    onClick={(e) => e.stopPropagation()}
+                    className="p-1 opacity-0 group-hover:opacity-100 transition-all duration-200 cursor-pointer absolute top-0 right-1"
+                    title="Tùy chọn"
+                  >
+                    <MoreHorizontal className="h-4 w-4 text-primary" />
+                  </div>
+                </PopoverTrigger>
+
+                <PopoverContent align="end" className="w-40 p-0 overflow-hidden rounded-2xl">
+                  <Popover open={isTagsPopoverOpen} onOpenChange={setIsTagsPopoverOpen}>
+                    <PopoverTrigger asChild>
+                      <div
+                        className="flex gap-1 justify-between cursor-pointer items-center hover:bg-accent transition p-2"
+                        onMouseEnter={() => setIsTagsPopoverOpen(true)}
+                        onMouseLeave={() => setIsTagsPopoverOpen(false)}
+                      >
+                        <div className="text-sm text-start font-semibold rounded-xl flex-1">Phân loại</div>
+                        <ChevronRight className="h-4 w-4 text-sm font-semibold" />
+                      </div>
+                    </PopoverTrigger>
+                    <PopoverContent
+                      side="right"
+                      align="start"
+                      className="w-48 p-0 max-h-60 overflow-y-auto rounded-2xl"
+                      onMouseEnter={() => setIsTagsPopoverOpen(true)}
+                      onMouseLeave={() => setIsTagsPopoverOpen(false)}
+                    >
+                      {tags && tags.length - 1 > 0 ? (
+                        <div className="flex flex-col gap-1">
+                          {tags.map(
+                            (tag) =>
+                              tag.name !== 'Người lạ' && (
+                                <button
+                                  key={tag.tagId}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    if (assignedTag?.tagId === tag.tagId) {
+                                      handleUnassignTagByRoom();
+                                    } else {
+                                      handleAssignTagByRoom(tag);
+                                    }
+                                  }}
+                                  disabled={isAssigningTag || isRemovingTag}
+                                  className="flex items-center gap-2 p-2 text-sm rounded-xl hover:bg-accent transition text-start w-full disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer justify-between"
+                                >
+                                  <div className="flex items-center gap-2">
+                                    <Tag className={`h-4 w-4 shrink-0 stroke-4`} style={{ color: `${tag.color}` }} />
+                                    <span className="truncate font-semibold">{tag.name}</span>
+                                  </div>
+                                  {assignedTag?.tagId === tag.tagId && (
+                                    <Check className="h-4 w-4 shrink-0 stroke-4 text-primary" />
+                                  )}
+                                  {(isAssigningTag || isRemovingTag) && (
+                                    <Loader2 className="h-3 w-3 animate-spin ml-auto shrink-0" />
+                                  )}
+                                </button>
+                              ),
+                          )}
+                        </div>
+                      ) : (
+                        <div className="px-3 py-2 text-sm text-muted-foreground text-center">Không có thẻ nào</div>
+                      )}
+                    </PopoverContent>
+                  </Popover>
+                </PopoverContent>
+              </Popover>
+            </div>
           </div>
 
           <div className="flex justify-between items-center gap-2">
-            <p
-              className={cn(
-                'text-sm truncate text-start',
-                isDissolved && 'text-muted-foreground italic',
-                unreadBadgeText && 'text-muted-foreground font-bold',
+            <div className="flex items-center gap-2 min-w-0 flex-1">
+              <p
+                className={cn(
+                  'text-sm truncate text-start min-w-0',
+                  isDissolved && 'text-muted-foreground italic',
+                  unreadBadgeText && 'text-muted-foreground font-bold',
+                )}
+              >
+                {truncate(chatRoomPreview, { length: 30 })}
+              </p>
+
+              {assignedTag && (
+                <div className="flex flex-wrap items-center gap-1 min-w-0">
+                  <span
+                    className="inline-flex items-center rounded-full px-2 py-0.5 text-[12px] font-semibold text-white shrink-0"
+                    style={{ backgroundColor: assignedTag?.color || '#999' }}
+                    title={assignedTag?.name}
+                  >
+                    <span className="max-w-20 truncate">{assignedTag?.name}</span>
+                  </span>
+                </div>
               )}
-            >
-              {truncate(chatRoomPreview, { length: 30 })}
-            </p>
+            </div>
 
             <div className="flex items-center gap-2">
               {unreadBadgeText && <Badge>{unreadBadgeText}</Badge>}
