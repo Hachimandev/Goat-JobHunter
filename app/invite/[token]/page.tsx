@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { useUser } from '@/hooks/useUser';
 import { useGetInvitePreviewQuery, useJoinByInviteMutation } from '@/services/chatRoom/invite/inviteApi';
 import { IBackendError } from '@/types/api';
-import { Loader2 } from 'lucide-react';
+import { Home, Loader2 } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
@@ -40,9 +40,15 @@ export default function InviteLandingPage() {
 
     try {
       const response = await joinByInvite({ inviteToken: token }).unwrap();
+      const joinStatus = response.data?.status;
       const roomId = response.data?.roomId;
       if (!roomId) {
         toast.error('Không tìm thấy phòng chat để chuyển hướng');
+        return;
+      }
+      if (joinStatus === 'request_pending') {
+        toast.success('Đã gửi yêu cầu tham gia. Vui lòng chờ quản trị viên duyệt.');
+        router.replace('/messages');
         return;
       }
       router.replace(`/messages/${roomId}`);
@@ -50,8 +56,6 @@ export default function InviteLandingPage() {
       toast.error((error as IBackendError).data?.message || 'Không thể tham gia nhóm');
     }
   };
-
-  const openAppHref = token ? `goatjobhunter://invite/${token}` : 'goatjobhunter://';
 
   if (!isValidToken) {
     return (
@@ -100,25 +104,30 @@ export default function InviteLandingPage() {
               ? 'Link mời hiện đang bị tắt.'
               : 'Nhấn nút bên dưới để tham gia nhóm chat.'}
         </p>
-        <Button
-          type="button"
-          className="w-full rounded-xl"
-          disabled={isLoading || (preview ? !preview.inviteEnabled : false)}
-          onClick={handleJoin}
-        >
-          {isLoading ? (
-            <>
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              Đang tham gia...
-            </>
-          ) : isSignedIn ? (
-            'Tham gia nhóm'
-          ) : (
-            'Đăng nhập để tham gia'
-          )}
-        </Button>
-        <Button type="button" variant="outline" className="w-full rounded-xl" asChild>
-          <a href={openAppHref}>Mở ứng dụng</a>
+        {!isPreviewError && (
+          <Button
+            type="button"
+            className="w-full rounded-xl"
+            disabled={isLoading || (preview ? !preview.inviteEnabled : false)}
+            onClick={handleJoin}
+          >
+            {isLoading ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Đang tham gia...
+              </>
+            ) : isSignedIn ? (
+              'Tham gia nhóm'
+            ) : (
+              'Đăng nhập để tham gia'
+            )}
+          </Button>
+        )}
+        <Button type="button" variant={isPreviewError ? 'default' : 'outline'} className="w-full rounded-xl" asChild>
+          <Link href="/messages">
+            <Home />
+            Quay lại trang chủ
+          </Link>
         </Button>
       </div>
     </div>

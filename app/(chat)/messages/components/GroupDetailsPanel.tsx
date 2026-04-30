@@ -15,6 +15,9 @@ import {
   Settings,
   Users,
   Notebook,
+  Check,
+  RefreshCcw,
+  UserPen,
 } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { ChatRoom } from '@/types/model';
@@ -40,6 +43,13 @@ import GroupNewsPanel from './GroupNewsPanel';
 import AssetTabSection from '@/app/(chat)/messages/components/AssetTabSection';
 import InviteLinkPanel from './InviteLinkPanel';
 import { ChatRoomType } from '@/types/enum';
+import {
+  useApproveJoinRequestMutation,
+  useGetPendingJoinRequestsQuery,
+  useRejectJoinRequestMutation,
+} from '@/services/chatRoom/invite/inviteApi';
+import { truncate } from 'lodash';
+import Link from 'next/link';
 
 interface GroupDetailsPanelProps {
   chatRoom: ChatRoom;
@@ -68,7 +78,9 @@ export function GroupDetailsPanel({
   const {
     data: memberData,
     isLoading: isLoadingMembers,
+    isFetching: isFetchingMembers,
     isError: isErrorMembers,
+    refetch: refetchMembers,
   } = useGetMemberInGroupChatQuery(chatRoom.roomId, { skip: !isOpen || !chatRoom });
 
   const [addMember, { isLoading: isAddingMember }] = useAddMemberToGroupMutation();
@@ -91,6 +103,18 @@ export function GroupDetailsPanel({
   const canEditGroup = currentUserRole === 'OWNER' || currentUserRole === 'MODERATOR';
   const canManageMembers = currentUserRole === 'OWNER' || currentUserRole === 'MODERATOR';
   const canLeaveGroup = currentUserRole !== 'OWNER';
+  const canProcessJoinRequests = currentUserRole === 'OWNER' || currentUserRole === 'MODERATOR';
+  const {
+    data: pendingJoinRequestData,
+    isLoading: isLoadingJoinRequests,
+    isFetching: isFetchingJoinRequests,
+    refetch: refetchJoinRequests,
+  } = useGetPendingJoinRequestsQuery(chatRoom.roomId, {
+    skip: !isOpen || !canProcessJoinRequests || chatRoom.type !== ChatRoomType.GROUP,
+  });
+  const [approveJoinRequest, { isLoading: isApprovingJoinRequest }] = useApproveJoinRequestMutation();
+  const [rejectJoinRequest, { isLoading: isRejectingJoinRequest }] = useRejectJoinRequestMutation();
+  const pendingJoinRequests = pendingJoinRequestData?.data ?? [];
 
   const handleAddMember = async (selectedUser: User) => {
     try {
@@ -210,6 +234,109 @@ export function GroupDetailsPanel({
                 <InviteLinkPanel roomId={chatRoom.roomId} canManageInvite={currentUserRole === 'OWNER'} />
               )}
 
+              {chatRoom.type === ChatRoomType.GROUP && canProcessJoinRequests && (
+                <>
+                  <Separator />
+                  <div className="bg-accent/30 rounded-lg p-3 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h3 className="font-semibold text-sm">Yêu cầu tham gia ({pendingJoinRequests.length})</h3>
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="rounded-xl"
+                        title="Làm mới"
+                        onClick={() => refetchJoinRequests()}
+                      >
+                        <RefreshCcw className={`h-4 w-4 ${isFetchingJoinRequests ? 'animate-spin' : ''}`} />
+                        Làm mới
+                      </Button>
+                    </div>
+                    {isLoadingJoinRequests && (
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Đang tải yêu cầu...
+                      </div>
+                    )}
+                    {!isLoadingJoinRequests && pendingJoinRequests.length === 0 && (
+                      <div className="text-xs text-muted-foreground">Không có yêu cầu chờ duyệt.</div>
+                    )}
+                    <div className="space-y-2 max-h-48 overflow-y-auto">
+                      {!isLoadingJoinRequests &&
+                        pendingJoinRequests.map((request) => (
+                          <div
+                            key={request.requestId}
+                            className="flex items-center gap-3 p-3 rounded-xl hover:bg-accent/50 transition-colors justify-between w-full border"
+                          >
+                            <div className="flex items-center justify-between gap-2 w-full">
+                              <div className="flex items-center gap-3 min-w-0">
+                                <Avatar className="h-10 w-10 shrink-0">
+                                  <AvatarImage src={request.avatar || '/placeholder.svg'} alt={request.fullName} />
+                                  <AvatarFallback>{request.fullName.charAt(0)}</AvatarFallback>
+                                </Avatar>
+                                <div className="min-w-0">
+                                  <p className="text-sm font-medium">
+                                    {truncate(request.fullName || request.username, { length: 30 })}
+                                  </p>
+                                  <p className="text-xs text-muted-foreground">
+                                    @{truncate(request.username, { length: 30 })}
+                                  </p>
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <Button
+                                  type="button"
+                                  size="icon-sm"
+                                  variant="default"
+                                  className="rounded-xl text-xs"
+                                  title="Duyệt yêu cầu"
+                                  disabled={isApprovingJoinRequest || isRejectingJoinRequest}
+                                  onClick={() =>
+                                    approveJoinRequest({ roomId: chatRoom.roomId, requestId: request.requestId })
+                                      .unwrap()
+                                      .then(() => toast.success('Đã duyệt yêu cầu tham gia'))
+                                      .catch(() => toast.error('Không thể duyệt yêu cầu'))
+                                  }
+                                >
+                                  {isApprovingJoinRequest ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check />}
+                                </Button>
+                                <Button
+                                  type="button"
+                                  size="icon-sm"
+                                  variant="destructive"
+                                  className="rounded-xl text-xs"
+                                  title="Từ chối yêu cầu"
+                                  disabled={isApprovingJoinRequest || isRejectingJoinRequest}
+                                  onClick={() =>
+                                    rejectJoinRequest({ roomId: chatRoom.roomId, requestId: request.requestId })
+                                      .unwrap()
+                                      .then(() => toast.success('Đã từ chối yêu cầu tham gia'))
+                                      .catch(() => toast.error('Không thể từ chối yêu cầu'))
+                                  }
+                                >
+                                  {isRejectingJoinRequest ? <Loader2 className="h-4 w-4 animate-spin" /> : <X />}
+                                </Button>
+                                <Button
+                                  type="button"
+                                  size="icon-sm"
+                                  variant="outline"
+                                  className="rounded-xl text-xs"
+                                  title="Xem thông tin"
+                                >
+                                  <Link href={`/hub/users/${request.accountId}`}>
+                                    <UserPen />
+                                  </Link>
+                                </Button>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                    </div>
+                  </div>
+                </>
+              )}
+
               <Separator />
 
               <Collapsible open={isMembersOpen} onOpenChange={setIsMembersOpen}>
@@ -221,7 +348,22 @@ export function GroupDetailsPanel({
                     >
                       <div className="flex items-center gap-2">
                         <Users className="h-5 w-5" />
-                        <h3 className="font-semibold text-sm">{chatRoom.memberCount} Thành viên</h3>
+                        <h3 className="font-semibold text-sm">
+                          {members.length || chatRoom.memberCount || '0'} Thành viên
+                        </h3>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="rounded-xl"
+                          title="Làm mới"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            refetchMembers();
+                          }}
+                        >
+                          <RefreshCcw className={`h-4 w-4 ${isFetchingMembers ? 'animate-spin' : ''}`} />
+                          Làm mới
+                        </Button>
                       </div>
                       <div className="flex items-center gap-2">
                         <ChevronDown

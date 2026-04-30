@@ -13,7 +13,20 @@ export type InviteLinkPayload = {
 export type JoinByInvitePayload = {
   roomId: number;
   joined: boolean;
+  status: 'joined' | 'request_pending';
+  requestId?: number | null;
 };
+
+export type GroupJoinRequestItem = {
+  requestId: number;
+  accountId: number;
+  fullName: string;
+  username: string;
+  avatar: string | null;
+  requestedAt: string;
+};
+
+export type GroupJoinRequestListResponse = IBackendRes<GroupJoinRequestItem[]>;
 
 export type ToggleInviteRequest = {
   enabled: boolean;
