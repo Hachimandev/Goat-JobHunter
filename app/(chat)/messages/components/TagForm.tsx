@@ -245,7 +245,6 @@ export function TagForm({ open, onOpenChange, tags, chatRooms, refetchTags, tag 
       <TagChatroomSelectorDialog
         open={showChatroomSelector}
         onClose={() => setShowChatroomSelector(false)}
-        onSelectedChatRoomIdsChange={setSelectedChatRoomIds}
         selectedChatRoomIds={selectedChatRoomIds}
         onToggleChatRoom={(roomId) => {
           setSelectedChatRoomIds((current) =>

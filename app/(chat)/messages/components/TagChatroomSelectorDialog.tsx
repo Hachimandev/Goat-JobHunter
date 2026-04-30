@@ -12,7 +12,6 @@ import { useMemo, useState } from 'react';
 interface TagChatroomSelectorDialogProps {
   open: boolean;
   onClose: () => void;
-  onSelectedChatRoomIdsChange: (ids: number[]) => void;
   selectedChatRoomIds: number[];
   onToggleChatRoom: (roomId: number) => void;
   chatRooms: ChatRoom[];
@@ -21,7 +20,6 @@ interface TagChatroomSelectorDialogProps {
 export function TagChatroomSelectorDialog({
   open,
   onClose,
-  onSelectedChatRoomIdsChange,
   selectedChatRoomIds,
   onToggleChatRoom,
   chatRooms
@@ -39,7 +37,6 @@ export function TagChatroomSelectorDialog({
   }, [chatRooms, chatRoomSearch]);
 
   const handleOnchange = () => {
-    onSelectedChatRoomIdsChange([]);
     setChatRoomSearch('');
     onClose();
   }

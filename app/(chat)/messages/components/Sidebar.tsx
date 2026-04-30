@@ -13,6 +13,7 @@ import { SearchUsersModal } from '@/app/(chat)/messages/components/SearchUsersMo
 import { TagManagementModal } from '@/app/(chat)/messages/components/TagManagementModal';
 import { useUser } from '@/hooks/useUser';
 import { useChatRooms } from '@/app/(chat)/messages/hooks/useChatRooms';
+import { useAppSelector } from '@/lib/hooks';
 import { useRouter, useParams } from 'next/navigation';
 import ErrorMessage from '@/components/common/ErrorMessage';
 import { useEffect, useState, useRef, useMemo } from 'react';
@@ -23,6 +24,7 @@ import { subscribeToChatRoom } from '@/services/chatRoom/message/messageApi';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { useFetchTagAssignmentsQuery, useFetchTagsQuery } from '@/services/tag/tagApi';
 import { Tag as TagType } from '@/types/model';
+import { ChatRoomType } from '@/types/enum';
 
 export function Sidebar() {
   const { user: currentUser } = useUser();
@@ -48,17 +50,22 @@ export function Sidebar() {
     if (!allChatRooms || allChatRooms.length === 0) return [];
     return allChatRooms.filter((cr) => (unreadCountsMap.get(cr.roomId) || 0) !== 0);
   }, [allChatRooms, unreadCountsMap]);
-  const roomsToShow = useMemo(
-    () => (activeTab === 'all' ? allChatRooms : unreadChatRoomsList),
-    [activeTab, allChatRooms, unreadChatRoomsList],
-  );
 
   const tabsContainerRef = useRef<HTMLDivElement | null>(null);
   const allBtnRef = useRef<HTMLButtonElement | null>(null);
   const unreadBtnRef = useRef<HTMLButtonElement | null>(null);
   const [indicatorStyle, setIndicatorStyle] = useState({ left: 0, width: 0 });
+  const friendshipPairs = useAppSelector((state) => state.friendship.pairs);
   const tags = useMemo(() => tagsResponse?.data?.result ?? [], [tagsResponse]);
   const tagOptions = useMemo(() => [...tags], [tags]);
+  const strangerTagIds = useMemo(() => tags.filter((tag) => tag.name === 'Người lạ').map((tag) => tag.tagId), [tags]);
+  const friendAccountIds = useMemo(() => {
+    return new Set(
+      Object.values(friendshipPairs)
+        .filter((pair) => pair.relationshipState === 'FRIEND')
+        .map((pair) => pair.targetAccountId),
+    );
+  }, [friendshipPairs]);
   const assignedTagsByRoomId = useMemo(() => {
     const assignments = tagAssignmentsResponse?.data ?? [];
     const tagById = new Map(tags.map((tag) => [tag.tagId, tag]));
@@ -73,11 +80,39 @@ export function Sidebar() {
         systemTag: assignment.systemTag,
       };
 
-      roomTagsMap.set(assignment.roomId, normalizedTag)
+      roomTagsMap.set(assignment.roomId, normalizedTag);
     });
 
     return roomTagsMap;
   }, [tags, tagAssignmentsResponse]);
+
+  const roomsToShow = useMemo(() => {
+    const baseRooms = activeTab === 'all' ? allChatRooms : unreadChatRoomsList;
+
+    if (selectedTagIds.length === 0) {
+      return baseRooms;
+    }
+
+    const isStrangerTagSelected = selectedTagIds.some((tagId) => strangerTagIds.includes(tagId));
+
+    return baseRooms.filter((chatRoom) => {
+      const roomTags = assignedTagsByRoomId.get(chatRoom.roomId) ?? null;
+      const matchesAssignedTag = roomTags && selectedTagIds.includes(roomTags.tagId);
+
+      const isStrangerRoom =
+        chatRoom.type === ChatRoomType.DIRECT && !friendAccountIds.has(chatRoom.counterpartAccountId);
+
+      return matchesAssignedTag || (isStrangerTagSelected && isStrangerRoom);
+    });
+  }, [
+    activeTab,
+    allChatRooms,
+    assignedTagsByRoomId,
+    friendAccountIds,
+    unreadChatRoomsList,
+    selectedTagIds,
+    strangerTagIds,
+  ]);
 
   useEffect(() => {
     const updateIndicator = () => {
@@ -181,7 +216,12 @@ export function Sidebar() {
             </Button>
           </PopoverTrigger>
 
-          <PopoverContent align="end" sideOffset={10} className="w-[320px] p-0 overflow-hidden rounded-2xl">
+          <PopoverContent
+            align="start"
+            side="right"
+            sideOffset={10}
+            className="w-[320px] p-0 overflow-hidden rounded-2xl"
+          >
             <div className="flex items-center justify-between p-2">
               <div className="text-sm font-semibold">Thẻ phân loại</div>
             </div>
