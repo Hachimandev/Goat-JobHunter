@@ -19,7 +19,13 @@
       "config": {
         "googleMapsApiKey": "YOUR_IOS_GOOGLE_MAPS_API_KEY"
       },
-      "associatedDomains": ["applinks:goatjobhunter.com"]
+      "associatedDomains": [
+        "applinks:goat-jobhunter.click",
+        "applinks:www.goat-jobhunter.click"
+      ],
+      "infoPlist": {
+        "LSApplicationQueriesSchemes": ["goatjobhunter"]
+      }
     },
     "android": {
       "package": "com.anonymous.goatjobhuntermobile",
@@ -30,7 +36,12 @@
           "data": [
             {
               "scheme": "https",
-              "host": "goatjobhunter.com",
+              "host": "goat-jobhunter.click",
+              "pathPrefix": "/invite"
+            },
+            {
+              "scheme": "https",
+              "host": "www.goat-jobhunter.click",
               "pathPrefix": "/invite"
             }
           ],

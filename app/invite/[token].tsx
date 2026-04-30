@@ -16,11 +16,14 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { parseInviteTokenFromPathToken } from "@/utils/invite";
 
 export default function InviteTokenScreen() {
   const { token } = useLocalSearchParams<{ token?: string }>();
   const { isSignedIn } = useUser();
   const inviteToken = typeof token === "string" ? token.trim() : "";
+  const parsedToken = parseInviteTokenFromPathToken(inviteToken);
+  const normalizedInviteToken = parsedToken.ok ? parsedToken.token : "";
   const { handlePrimaryAction, isJoining } = useInviteJoinFlow();
 
   const {
@@ -28,16 +31,18 @@ export default function InviteTokenScreen() {
     isLoading: isPreviewLoading,
     isError: isPreviewError,
     refetch: refetchPreview,
-  } = useGetInvitePreviewQuery(inviteToken, { skip: !inviteToken });
+  } = useGetInvitePreviewQuery(normalizedInviteToken, {
+    skip: !normalizedInviteToken,
+  });
   const preview = previewData?.data;
   const isInviteDisabled = preview?.inviteEnabled === false;
   const isPreviewMissing =
-    Boolean(inviteToken) &&
+    Boolean(normalizedInviteToken) &&
     !isPreviewLoading &&
     !isPreviewError &&
     !preview;
 
-  if (!inviteToken) {
+  if (!normalizedInviteToken) {
     return (
       <SafeAreaView style={styles.container} testID="invite-safe-container">
         <ScrollView
@@ -48,7 +53,8 @@ export default function InviteTokenScreen() {
           <View style={styles.card}>
             <Text style={styles.title}>Link mời không hợp lệ</Text>
             <Text style={styles.subtitle}>
-              Vui lòng kiểm tra lại link hoặc quét lại mã QR mới nhất.
+              Vui lòng kiểm tra lại link HTTPS hợp lệ hoặc quét lại mã QR mới
+              nhất.
             </Text>
           </View>
         </ScrollView>
@@ -111,7 +117,7 @@ export default function InviteTokenScreen() {
               actionDisabled && styles.primaryButtonDisabled,
             ]}
             disabled={actionDisabled}
-            onPress={() => handlePrimaryAction(inviteToken)}
+            onPress={() => handlePrimaryAction(normalizedInviteToken)}
           >
             {isJoining ? (
               <View style={styles.loadingRow}>

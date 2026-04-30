@@ -5,6 +5,7 @@ import {
 import { InviteQrCodeCard } from "./InviteQrCodeCard";
 import * as Clipboard from "expo-clipboard";
 import { Copy, RotateCcw } from "lucide-react-native";
+import { useRouter } from "expo-router";
 import React from "react";
 import {
   ActivityIndicator,
@@ -19,9 +20,15 @@ import {
 interface InviteLinkPanelProps {
   roomId: number;
   isOwner?: boolean;
+  setIsInvitePanelOpen: (isOpen: boolean) => void;
 }
 
-export function InviteLinkPanel({ roomId, isOwner = false }: InviteLinkPanelProps) {
+export function InviteLinkPanel({
+  roomId,
+  isOwner = false,
+  setIsInvitePanelOpen,
+}: InviteLinkPanelProps) {
+  const router = useRouter();
   const { data: inviteData, isLoading } = useGetInviteLinkQuery(roomId);
   const invite = inviteData?.data;
   const [rotateInvite, { isLoading: isRotating }] =
@@ -44,6 +51,11 @@ export function InviteLinkPanel({ roomId, isOwner = false }: InviteLinkPanelProp
     } catch {
       Alert.alert("Lỗi", "Không thể xoay lại link mời");
     }
+  };
+
+  const handleOpenScanner = () => {
+    setIsInvitePanelOpen(false);
+    router.push("/invite/scan");
   };
 
   if (isLoading) {
@@ -105,6 +117,10 @@ export function InviteLinkPanel({ roomId, isOwner = false }: InviteLinkPanelProp
         </View>
 
         <Text style={styles.statusHelpText}>{inviteStatusMessage}</Text>
+
+        <TouchableOpacity style={styles.scanButton} onPress={handleOpenScanner}>
+          <Text style={styles.scanButtonText}>Quét QR trong ứng dụng</Text>
+        </TouchableOpacity>
 
         {isOwner && (
           <TouchableOpacity
@@ -244,6 +260,21 @@ const styles = StyleSheet.create({
   rotateButtonText: {
     color: "#fff",
     fontSize: 14,
+    fontWeight: "600",
+  },
+  scanButton: {
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#2563eb",
+    minHeight: 40,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 12,
+    backgroundColor: "#eff6ff",
+  },
+  scanButtonText: {
+    color: "#1d4ed8",
+    fontSize: 13,
     fontWeight: "600",
   },
   infoBox: {

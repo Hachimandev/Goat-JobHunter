@@ -19,7 +19,10 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
+import {
+  SafeAreaView,
+  useSafeAreaInsets,
+} from "react-native-safe-area-context";
 import EmojiPicker from "rn-emoji-keyboard";
 
 import { ChatHeader } from "@/components/chat/ChatHeader";
@@ -166,7 +169,6 @@ export default function ChatDetailScreen() {
     data: messagesData,
     isLoading,
     refetch,
-    isFetching,
   } = useFetchMessagesInChatRoomQuery(
     { chatRoomId, size: 50, page: 0 },
     { skip: !chatRoomId, pollingInterval: 5000 },
@@ -184,7 +186,7 @@ export default function ChatDetailScreen() {
       refetch();
     }
     return () => setActiveChatRoom(null);
-  }, [chatRoomId]);
+  }, [chatRoomId, refetch, setActiveChatRoom]);
 
   useFocusEffect(
     useCallback(() => {
@@ -194,9 +196,9 @@ export default function ChatDetailScreen() {
     }, [chatRoomId, refetchChatRoom]),
   );
 
-  const messagesList = Array.isArray(messagesData?.data?.result)
-    ? messagesData.data.result
-    : [];
+  const messagesList = useMemo(() => {
+    return Array.isArray(messagesData?.data?.result) ? messagesData.data.result : [];
+  }, [messagesData]);
 
   const onSend = async () => {
     if (
@@ -414,6 +416,7 @@ export default function ChatDetailScreen() {
 
                                 await refetchPinned();
                               } catch (e) {
+                                console.error("Lỗi bỏ ghim:", e);
                                 Alert.alert("Lỗi", "Không thể bỏ ghim");
                               }
                             },
@@ -611,10 +614,10 @@ export default function ChatDetailScreen() {
         onRequestClose={() => setIsInvitePanelOpen(false)}
       >
         <SafeAreaView style={styles.modalContainer}>
-          <View 
+          <View
             style={[
-              styles.modalHeader, 
-              { paddingTop: Math.max(insets.top, 12) }
+              styles.modalHeader,
+              { paddingTop: Math.max(insets.top, 12) },
             ]}
           >
             <TouchableOpacity onPress={() => setIsInvitePanelOpen(false)}>
@@ -623,7 +626,11 @@ export default function ChatDetailScreen() {
             <Text style={styles.modalTitle}>Mời vào nhóm</Text>
             <View style={{ width: 24 }} />
           </View>
-          <InviteLinkPanel roomId={chatRoomId} isOwner={true} />
+          <InviteLinkPanel
+            roomId={chatRoomId}
+            isOwner={true}
+            setIsInvitePanelOpen={setIsInvitePanelOpen}
+          />
         </SafeAreaView>
       </Modal>
     </SafeAreaView>

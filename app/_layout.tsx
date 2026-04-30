@@ -157,6 +157,7 @@ export default function RootLayout() {
               name="companies/[id]"
               options={{ headerShown: false }}
             />
+            <Stack.Screen name="invite/scan" options={{ headerShown: false }} />
             <Stack.Screen name="invite/[token]" options={{ headerShown: false }} />
             <Stack.Screen name="(auth)" options={{ headerShown: false }} />
           </Stack>

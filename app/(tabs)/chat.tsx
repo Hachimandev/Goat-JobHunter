@@ -12,7 +12,7 @@ import dayjs from "dayjs";
 import "dayjs/locale/vi";
 import relativeTime from "dayjs/plugin/relativeTime";
 import { router, useFocusEffect } from "expo-router";
-import { MessageSquarePlus, Search } from "lucide-react-native";
+import { MessageSquarePlus, ScanQrCode, Search } from "lucide-react-native";
 import React, { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
@@ -142,11 +142,17 @@ export default function ChatListScreen() {
             </TouchableOpacity>
           )}
         </View>
-        <TouchableOpacity 
+        <TouchableOpacity
           style={styles.headerIconBtn}
           onPress={() => router.push("/chat/create-group")}
         >
           <MessageSquarePlus size={24} color="#fff" />
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.headerIconBtn}
+          onPress={() => router.push("/invite/scan")}
+        >
+          <ScanQrCode size={24} color="#fff" />
         </TouchableOpacity>
       </View>
 
