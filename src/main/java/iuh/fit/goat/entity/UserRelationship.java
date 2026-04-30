@@ -35,13 +35,13 @@ public class UserRelationship extends BaseEntity {
     @SequenceGenerator(name = "user_relationship_gen", sequenceName = "user_relationships_seq", allocationSize = 50)
     private long relationshipId;
 
-        @ManyToOne(fetch = LAZY)
-        @JoinColumn(name = "pair_low_id", nullable = false)
-        private User pairLowUser;
+    @ManyToOne(fetch = LAZY)
+    @JoinColumn(name = "pair_low_id", nullable = false)
+    private User pairLowUser;
 
-        @ManyToOne(fetch = LAZY)
-        @JoinColumn(name = "pair_high_id", nullable = false)
-        private User pairHighUser;
+    @ManyToOne(fetch = LAZY)
+    @JoinColumn(name = "pair_high_id", nullable = false)
+    private User pairHighUser;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "relationship_state", nullable = false)
@@ -51,7 +51,7 @@ public class UserRelationship extends BaseEntity {
 
     private Instant blockedSince;
 
-        @ManyToOne(fetch = LAZY)
-        @JoinColumn(name = "blocked_by_id")
-        private User blockedBy;
+    @ManyToOne(fetch = LAZY)
+    @JoinColumn(name = "blocked_by_id")
+    private User blockedBy;
 }

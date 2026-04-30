@@ -1299,16 +1299,6 @@ public class MessageHelper {
                 );
     }
 
-    public void sendMessageDeletedEvent(Long chatRoomId, MessageDeletedEventResponse event) {
-        if (chatRoomId == null) {
-            log.warn("Skip delete event because chatRoomId is null for messageId={}",
-                    event != null ? event.getMessageId() : null);
-            return;
-        }
-
-        sendMessageDeletedEvent(chatRoomId.toString(), event);
-    }
-
     public void sendMessageDeletedEvent(String chatRoomId, MessageDeletedEventResponse event) {
         if (chatRoomId == null || chatRoomId.isBlank() || event == null) return;
         try {

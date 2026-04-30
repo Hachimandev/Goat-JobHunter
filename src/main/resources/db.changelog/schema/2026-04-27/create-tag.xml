@@ -1,0 +1,113 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+                      http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-5.0.xsd"
+        objectQuotingStrategy="QUOTE_ONLY_RESERVED_WORDS">
+    <changeSet id="1777439376947-3" author="HP">
+        <createSequence incrementBy="50" sequenceName="chat_room_tag_assignments_seq" startValue="1"/>
+    </changeSet>
+    <changeSet id="1777439376947-4" author="HP">
+        <createSequence incrementBy="50" sequenceName="tags_seq" startValue="1"/>
+    </changeSet>
+    <changeSet id="1777439376947-5" author="HP">
+        <createTable tableName="chat_room_tag_assignments">
+            <column name="assignment_id" type="BIGINT">
+                <constraints nullable="false" primaryKey="true" primaryKeyName="pk_chat_room_tag_assignments"/>
+            </column>
+            <column name="created_at" type="DATETIME"/>
+            <column name="created_by" type="VARCHAR(255)"/>
+            <column name="updated_at" type="DATETIME"/>
+            <column name="updated_by" type="VARCHAR(255)"/>
+            <column name="deleted_at" type="DATETIME"/>
+            <column name="deleted_by" type="VARCHAR(255)"/>
+            <column name="room_id" type="BIGINT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="account_id" type="BIGINT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="tag_id" type="BIGINT">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+    </changeSet>
+    <changeSet id="1777439376947-6" author="HP">
+        <createTable tableName="tags">
+            <column name="tag_id" type="BIGINT">
+                <constraints primaryKey="true" primaryKeyName="pk_tags"/>
+            </column>
+            <column name="created_at" type="DATETIME"/>
+            <column name="created_by" type="VARCHAR(255)"/>
+            <column name="updated_at" type="DATETIME"/>
+            <column name="updated_by" type="VARCHAR(255)"/>
+            <column name="deleted_at" type="DATETIME"/>
+            <column name="deleted_by" type="VARCHAR(255)"/>
+            <column name="name" type="VARCHAR(255)"/>
+            <column name="color" type="VARCHAR(255)"/>
+            <column name="is_system_tag" type="BOOLEAN">
+                <constraints nullable="false"/>
+            </column>
+            <column name="owner_account_id" type="BIGINT"/>
+        </createTable>
+    </changeSet>
+    <changeSet id="1777439376947-7" author="HP">
+        <addUniqueConstraint columnNames="room_id, account_id"
+                             constraintName="uk_chat_room_tag_assignments_room_account"
+                             tableName="chat_room_tag_assignments"/>
+    </changeSet>
+    <changeSet id="1777439376947-8" author="HP">
+        <addUniqueConstraint columnNames="owner_account_id, name" constraintName="uk_tags_owner_name" tableName="tags"/>
+    </changeSet>
+    <changeSet id="1777439376947-12" author="HP">
+        <createIndex indexName="idx_tags_is_system_tag" tableName="tags">
+            <column name="is_system_tag"/>
+        </createIndex>
+    </changeSet>
+    <changeSet id="1777439376947-14" author="HP">
+        <addForeignKeyConstraint baseColumnNames="account_id" baseTableName="chat_room_tag_assignments"
+                                 constraintName="FK_CHAT_ROOM_TAG_ASSIGNMENTS_ON_ACCOUNT"
+                                 referencedColumnNames="account_id" referencedTableName="accounts"/>
+
+        <createIndex indexName="idx_chat_room_tag_assignments_account_id" tableName="chat_room_tag_assignments">
+            <column name="account_id"/>
+        </createIndex>
+    </changeSet>
+    <changeSet id="1777439376947-15" author="HP">
+        <addForeignKeyConstraint baseColumnNames="room_id" baseTableName="chat_room_tag_assignments"
+                                 constraintName="FK_CHAT_ROOM_TAG_ASSIGNMENTS_ON_ROOM" referencedColumnNames="room_id"
+                                 referencedTableName="chat_rooms"/>
+
+        <createIndex indexName="idx_chat_room_tag_assignments_room_id" tableName="chat_room_tag_assignments">
+            <column name="room_id"/>
+        </createIndex>
+    </changeSet>
+    <changeSet id="1777439376947-16" author="HP">
+        <addForeignKeyConstraint baseColumnNames="tag_id" baseTableName="chat_room_tag_assignments"
+                                 constraintName="FK_CHAT_ROOM_TAG_ASSIGNMENTS_ON_TAG" referencedColumnNames="tag_id"
+                                 referencedTableName="tags"/>
+
+        <createIndex indexName="idx_chat_room_tag_assignments_tag_id" tableName="chat_room_tag_assignments">
+            <column name="tag_id"/>
+        </createIndex>
+    </changeSet>
+    <changeSet id="1777439376947-17" author="HP">
+        <addForeignKeyConstraint baseColumnNames="owner_account_id" baseTableName="tags"
+                                 constraintName="FK_TAGS_ON_OWNER_ACCOUNT" referencedColumnNames="account_id"
+                                 referencedTableName="accounts"/>
+
+        <createIndex indexName="idx_tags_owner_account_id" tableName="tags">
+            <column name="owner_account_id"/>
+        </createIndex>
+    </changeSet>
+    <changeSet id="1777439376947-2" author="HP">
+        <dropIndex indexName="idx_frq_pair" tableName="friend_requests"/>
+
+        <createIndex indexName="idx_frq_pair" tableName="friend_requests" unique="false">
+            <column name="pair_low_id"/>
+            <column name="pair_high_id"/>
+        </createIndex>
+    </changeSet>
+
+</databaseChangeLog>
