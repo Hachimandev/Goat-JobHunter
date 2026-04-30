@@ -6,6 +6,7 @@ import { IBackendError } from "@/types/api.d";
 import {
   InviteJoinOutcome,
   InviteSource,
+  messageMap,
   redactInviteToken,
   trackInviteEvent,
 } from "@/utils/invite";
@@ -72,8 +73,14 @@ export function useInviteJoinFlow() {
         inviteToken: normalizedToken,
       }).unwrap();
       const roomId = response.data?.roomId;
+      const status = response.data?.status;
       if (!roomId) {
         return "token_not_found";
+      }
+      if (status === "request_pending") {
+        router.replace("/(tabs)/chat");
+        trackInviteEvent("invite_join_success", { source });
+        return "request_pending";
       }
       router.replace(`/chat/${roomId}`);
       trackInviteEvent("invite_join_success", { source });
@@ -94,18 +101,19 @@ export function useInviteJoinFlow() {
 
   async function handlePrimaryAction(inviteToken: string): Promise<void> {
     const outcome = await joinByInviteToken(inviteToken, "deep_link");
-    if (outcome === "joined" || outcome === "unauthorized") {
+    if (
+      outcome === "joined" ||
+      outcome === "request_pending" ||
+      outcome === "unauthorized"
+    ) {
+      if (outcome === "request_pending") {
+        Alert.alert(
+          "Thành công",
+          "Đã gửi yêu cầu tham gia. Vui lòng chờ duyệt.",
+        );
+      }
       return;
     }
-    const messageMap: Record<InviteJoinOutcome, string> = {
-      joined: "Tham gia nhóm thành công",
-      already_joined: "Bạn đã là thành viên của nhóm này",
-      token_expired: "Link mời đã hết hạn",
-      token_revoked: "Link mời hiện không khả dụng",
-      token_not_found: "Không tìm thấy link mời",
-      unauthorized: "Vui lòng đăng nhập để tham gia",
-      network_error: "Không thể tham gia nhóm. Vui lòng thử lại",
-    };
     Alert.alert("Lỗi", messageMap[outcome]);
   }
 

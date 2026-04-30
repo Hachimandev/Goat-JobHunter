@@ -7,6 +7,11 @@ import {
   ChatRole,
   useGetMemberInGroupChatQuery,
 } from "@/services/chatRoom/groupChat/groupChatApi";
+import {
+  useApproveJoinRequestMutation,
+  useGetPendingJoinRequestsQuery,
+  useRejectJoinRequestMutation,
+} from "@/services/chatRoom/invite/inviteApi";
 import { Feather, Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import BottomSheet from "@gorhom/bottom-sheet";
 import { router } from "expo-router";
@@ -22,6 +27,7 @@ import {
 } from "react-native";
 import { CreatePollModal } from "./CreatePollModal";
 import { MemberInfoModal } from "./MemberInfoModal";
+import { RefreshCcw } from "lucide-react-native";
 
 interface GroupManagementPanelProps {
   groupName: string;
@@ -34,16 +40,15 @@ interface GroupManagementPanelProps {
 export const GroupManagementPanel = ({
   groupName,
   groupId,
-  groupAvatar,
-  isOwner = false,
-  onRefetch,
 }: GroupManagementPanelProps) => {
   const { user } = useUser();
   const { handleDissolveGroup, handleLeaveGroup, isLoading } =
     useDissolveGroup();
-  const { data: membersData, refetch } = useGetMemberInGroupChatQuery(groupId);
-  const { handleRemoveMember } = useRemoveMember(refetch);
-  const { handleUpdateRole: callUpdateRoleApi } = useUpdateMemberRole(refetch);
+  const { data: membersData, refetch: refetchMembers } =
+    useGetMemberInGroupChatQuery(groupId);
+  const { handleRemoveMember } = useRemoveMember(refetchMembers);
+  const { handleUpdateRole: callUpdateRoleApi } =
+    useUpdateMemberRole(refetchMembers);
   const [isPollModalVisible, setPollModalVisible] = useState(false);
 
   const members = membersData?.data || [];
@@ -53,6 +58,20 @@ export const GroupManagementPanel = ({
   );
   const currentUserRole = currentUserMember?.role;
   const currentIsOwner = currentUserRole === "OWNER";
+  const canProcessJoinRequest =
+    currentUserRole === "OWNER" || currentUserRole === "MODERATOR";
+  const {
+    data: pendingJoinRequestData,
+    isLoading: isLoadingPendingJoinRequests,
+    refetch: refetchPendingJoinRequests,
+  } = useGetPendingJoinRequestsQuery(groupId, {
+    skip: !canProcessJoinRequest,
+  });
+  const [approveJoinRequest, { isLoading: isApprovingJoinRequest }] =
+    useApproveJoinRequestMutation();
+  const [rejectJoinRequest, { isLoading: isRejectingJoinRequest }] =
+    useRejectJoinRequestMutation();
+  const pendingJoinRequests = pendingJoinRequestData?.data || [];
 
   const bottomSheetRef = useRef<BottomSheet>(null);
   const [selectedMember, setSelectedMember] =
@@ -101,7 +120,6 @@ export const GroupManagementPanel = ({
   return (
     <>
       <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-        {/* Thông tin nhóm */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Thông tin nhóm</Text>
           <TouchableOpacity
@@ -129,12 +147,119 @@ export const GroupManagementPanel = ({
           </View>
         </View>
 
-        {/* Danh sách thành viên */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Thành viên ({members.length})</Text>
+          <View
+            style={{
+              flexDirection: "row",
+              justifyContent: "space-between",
+              alignItems: "center",
+              marginBottom: 12,
+            }}
+          >
+            <Text style={[styles.sectionTitle, { marginBottom: 0 }]}>
+              Yêu cầu tham gia ({pendingJoinRequests.length})
+            </Text>
+            <TouchableOpacity
+              onPress={refetchPendingJoinRequests}
+              style={[
+                styles.pendingActionBtn,
+                styles.pendingRejectBtn,
+                { flexDirection: "row", alignItems: "center", gap: 4 },
+              ]}
+            >
+              <RefreshCcw size={14} />
+              <Text style={styles.pendingRejectText}>Tải lại</Text>
+            </TouchableOpacity>
+          </View>
+          {isLoadingPendingJoinRequests && (
+            <ActivityIndicator size="small" color="#0084FF" />
+          )}
+          {pendingJoinRequests.length > 0 ? (
+            <View style={styles.membersList}>
+              {pendingJoinRequests.map((request) => {
+                return (
+                  <View key={request.requestId} style={styles.pendingItem}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.pendingName} numberOfLines={1}>
+                        {request.fullName || request.username}
+                      </Text>
+                      <Text style={styles.pendingUsername} numberOfLines={1}>
+                        @{request.username}
+                      </Text>
+                    </View>
+                    <View style={styles.pendingActions}>
+                      <TouchableOpacity
+                        style={[
+                          styles.pendingActionBtn,
+                          styles.pendingApproveBtn,
+                        ]}
+                        disabled={
+                          isApprovingJoinRequest || isRejectingJoinRequest
+                        }
+                        onPress={async () => {
+                          await approveJoinRequest({
+                            roomId: groupId,
+                            requestId: request.requestId,
+                          }).unwrap();
+                        }}
+                      >
+                        <Text style={styles.pendingApproveText}>Duyệt</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={[
+                          styles.pendingActionBtn,
+                          styles.pendingRejectBtn,
+                        ]}
+                        disabled={
+                          isApprovingJoinRequest || isRejectingJoinRequest
+                        }
+                        onPress={async () => {
+                          await rejectJoinRequest({
+                            roomId: groupId,
+                            requestId: request.requestId,
+                          }).unwrap();
+                        }}
+                      >
+                        <Text style={styles.pendingRejectText}>Từ chối</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                );
+              })}
+            </View>
+          ) : (
+            <Text style={styles.emptyText}>Không có yêu cầu chờ duyệt</Text>
+          )}
+        </View>
+
+        <View style={styles.section}>
+          {/* <Text style={styles.sectionTitle}>Thành viên ({members.length})</Text> */}
+          <View
+            style={{
+              flexDirection: "row",
+              justifyContent: "space-between",
+              alignItems: "center",
+              marginBottom: 12,
+            }}
+          >
+            <Text style={[styles.sectionTitle, { marginBottom: 0 }]}>
+              Thành viên ({members.length})
+            </Text>
+            <TouchableOpacity
+              onPress={refetchMembers}
+              style={[
+                styles.pendingActionBtn,
+                styles.pendingRejectBtn,
+                { flexDirection: "row", alignItems: "center", gap: 4 },
+              ]}
+            >
+              <RefreshCcw size={14} />
+              <Text style={styles.pendingRejectText}>Tải lại</Text>
+            </TouchableOpacity>
+          </View>
           {members.length > 0 ? (
             <View style={styles.membersList}>
-              {members.map((member, index) => {
+              {members.map((member) => {
                 const userCanManageMember = canManage(member);
                 return (
                   <View key={member.chatMemberId} style={styles.memberItem}>
@@ -203,7 +328,6 @@ export const GroupManagementPanel = ({
           )}
         </View>
 
-        {/* Tùy chọn nhóm */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Tác vụ</Text>
           <TouchableOpacity
@@ -403,4 +527,47 @@ const styles = StyleSheet.create({
     fontStyle: "italic",
   },
   moreButton: { padding: 8, marginRight: -8 },
+  pendingItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    backgroundColor: "#fff",
+    borderRadius: 8,
+    padding: 8,
+  },
+  pendingName: {
+    fontSize: 13,
+    fontWeight: "500",
+    color: "#111",
+  },
+  pendingUsername: {
+    fontSize: 11,
+    color: "#666",
+    marginTop: 2,
+  },
+  pendingActions: {
+    flexDirection: "row",
+    gap: 6,
+  },
+  pendingActionBtn: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 6,
+  },
+  pendingApproveBtn: {
+    backgroundColor: "#0084FF",
+  },
+  pendingRejectBtn: {
+    backgroundColor: "#F2F2F2",
+  },
+  pendingApproveText: {
+    color: "#fff",
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  pendingRejectText: {
+    color: "#333",
+    fontSize: 12,
+    fontWeight: "500",
+  },
 });

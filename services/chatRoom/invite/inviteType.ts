@@ -18,9 +18,22 @@ export type JoinByInviteRequest = {
 export type JoinByInvitePayload = {
   roomId: number;
   joined: boolean;
+  status: "joined" | "request_pending";
+  requestId?: number | null;
 };
 
 export type JoinByInviteResponse = IBackendRes<JoinByInvitePayload>;
+
+export type GroupJoinRequestItem = {
+  requestId: number;
+  accountId: number;
+  fullName: string;
+  username: string;
+  avatar: string | null;
+  requestedAt: string;
+};
+
+export type GroupJoinRequestListResponse = IBackendRes<GroupJoinRequestItem[]>;
 
 export type InviteLinkPayload = {
   roomId: number;
