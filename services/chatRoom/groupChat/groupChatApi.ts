@@ -1,5 +1,6 @@
 import { api } from '@/services/api';
 import { IBackendRes } from '@/types/api';
+import { ChatRoomPrivacy } from '@/types/enum';
 
 interface CreateGroupChatRequest {
   accountIds: number[];
@@ -10,6 +11,7 @@ interface CreateGroupChatRequest {
 interface UpdateGroupInfoRequest {
   name?: string;
   avatar?: string;
+  privacy?: ChatRoomPrivacy;
 }
 
 interface AddMemberRequest {
@@ -32,6 +34,7 @@ interface ChatRoomResponse {
   name: string;
   roomId: number;
   type: 'GROUP';
+  privacy: ChatRoomPrivacy;
   updatedAt: string;
   updatedBy: string;
 }

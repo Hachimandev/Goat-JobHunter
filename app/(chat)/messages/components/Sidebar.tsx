@@ -1,6 +1,5 @@
 'use client';
 
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
@@ -18,13 +17,12 @@ import { useRouter, useParams } from 'next/navigation';
 import ErrorMessage from '@/components/common/ErrorMessage';
 import { useEffect, useState, useRef, useMemo } from 'react';
 import { CreateChatTriggerButton } from '@/app/(chat)/messages/components/CreateChatTriggerButton';
-import { isCompanyResponse } from '@/utils/slug';
-import { MeResponse, CompanyResponse, ApplicantResponse, RecruiterResponse } from '@/types/dto';
 import { subscribeToChatRoom } from '@/services/chatRoom/message/messageApi';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { useFetchTagAssignmentsQuery, useFetchTagsQuery } from '@/services/tag/tagApi';
 import { Tag as TagType } from '@/types/model';
 import { ChatRoomType } from '@/types/enum';
+import { UserPopup } from '@/app/(main)/components';
 
 export function Sidebar() {
   const { user: currentUser } = useUser();
@@ -157,15 +155,6 @@ export function Sidebar() {
     if (refetchUnreadMessages) await refetchUnreadMessages();
   };
 
-  const displayName =
-    currentUser && isCompanyResponse(currentUser as MeResponse)
-      ? (currentUser as CompanyResponse).name
-      : (currentUser as ApplicantResponse | RecruiterResponse)?.fullName || 'User';
-  const displayImage =
-    currentUser && isCompanyResponse(currentUser as MeResponse)
-      ? (currentUser as CompanyResponse).logo
-      : (currentUser as ApplicantResponse | RecruiterResponse)?.avatar;
-
   const handleToggleTag = (tagId: number) => {
     setSelectedTagIds((prev) =>
       prev.includes(tagId) ? prev.filter((currentTagId) => currentTagId !== tagId) : [...prev, tagId],
@@ -175,10 +164,7 @@ export function Sidebar() {
   return (
     <div className="h-full flex flex-col bg-card overflow-hidden">
       <div className="px-3 h-16 flex items-center justify-between border-b shrink-0 gap-2">
-        <Avatar className="h-10 w-10 border">
-          <AvatarImage src={displayImage || '/placeholder.svg'} alt={displayName} />
-          <AvatarFallback>{displayName.charAt(0)}</AvatarFallback>
-        </Avatar>
+        <UserPopup align="start" />
         <div className="relative cursor-pointer" onClick={() => setDirectChatModalOpen(true)}>
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
           <Input

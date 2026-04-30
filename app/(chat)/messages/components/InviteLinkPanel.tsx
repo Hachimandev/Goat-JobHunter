@@ -88,9 +88,6 @@ export default function InviteLinkPanel({ roomId, canManageInvite }: Readonly<In
               <h3 className="text-sm font-semibold">Link mời vào nhóm</h3>
               <p className="text-xs text-muted-foreground">Chia sẻ link hoặc quét QR để tham gia nhóm.</p>
             </div>
-            <Badge variant={invite?.inviteEnabled ? 'default' : 'destructive'}>
-              {invite?.inviteEnabled ? 'Đang bật' : 'Đang tắt'}
-            </Badge>
           </div>
           {canManageInvite && (
             <Button
@@ -137,8 +134,13 @@ export default function InviteLinkPanel({ roomId, canManageInvite }: Readonly<In
               </Button>
             </div>
 
-            <div className="flex justify-center rounded-lg border border-dashed border-border py-4">
+            <div className="relative flex justify-center rounded-lg border border-dashed border-border py-4">
               <QRCode value={invite.inviteLink} size={170} />
+              <div className="absolute right-2">
+                <Badge variant={invite?.inviteEnabled ? 'default' : 'destructive'}>
+                  {invite?.inviteEnabled ? 'Đang bật' : 'Đang tắt'}
+                </Badge>
+              </div>
             </div>
 
             {canManageInvite && (

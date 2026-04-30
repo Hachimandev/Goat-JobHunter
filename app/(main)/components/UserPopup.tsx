@@ -25,7 +25,11 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { isCompanyResponse } from '@/utils/slug';
 import { ApplicantResponse, CompanyResponse, MeResponse, RecruiterResponse } from '@/types/dto';
 
-export default function UserPopup() {
+interface UserPopupProps {
+  align?: 'start' | 'end' | 'center';
+}
+
+export default function UserPopup({ align = 'end' }: UserPopupProps) {
   const { user, signOut, isSigningOut, isSignedIn } = useUser();
   const [imageError, setImageError] = useState(false);
 
@@ -64,7 +68,7 @@ export default function UserPopup() {
           )}
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent className="w-64 rounded-xl" align="end" forceMount>
+      <DropdownMenuContent className="w-64 rounded-xl" align={align} forceMount>
         <DropdownMenuLabel className="font-normal">
           <div className="flex items-center gap-3 py-2">
             {hasAvatar ? (

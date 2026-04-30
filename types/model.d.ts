@@ -1,6 +1,7 @@
 import {
   ApplicationStatus,
   CallEndReasonEnum,
+  ChatRoomPrivacy,
   ChatRoomType,
   CallStatusEnum,
   CallTypeEnum,
@@ -466,6 +467,7 @@ export type Reaction = {
 export type ChatRoom = {
   roomId: number;
   type: ChatRoomType;
+  privacy: ChatRoomPrivacy;
   name: string;
   avatar: string | null;
   memberCount: number;
