@@ -32,4 +32,6 @@ public interface AiService {
     ResumeEvaluationResponse evaluateResume(String resumeUrl) throws InvalidException;
 
     String summarizeMessagesWithAi(String messageContent) throws InvalidException;
+
+    String translateText(String text, String targetLang) throws InvalidException;
 }

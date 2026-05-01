@@ -597,6 +597,41 @@ public class AiServiceImpl implements AiService {
         }
     }
 
+    @Override
+    public String translateText(String text, String targetLang) throws InvalidException {
+        if (text == null || text.isBlank()) {
+            throw new InvalidException("Text to translate cannot be empty");
+        }
+        if (targetLang == null || targetLang.isBlank()) {
+            throw new InvalidException("Target language is required");
+        }
+
+        String prompt = """
+                Bạn là một hệ thống dịch thuật.
+                Hãy dịch nội dung dưới đây sang ngôn ngữ đích: %s.
+
+                Yêu cầu:
+                - Chỉ trả về bản dịch, không thêm bất kỳ giải thích nào.
+                - Nếu nội dung có Markdown (link, code, list), hãy giữ nguyên cấu trúc/định dạng Markdown.
+                - Giữ nguyên tên riêng, số, URL, emoji (nếu có).
+
+                NỘI DUNG:
+                %s
+                """.formatted(targetLang.trim(), text);
+
+        try {
+            GenerateContentResponse response = this.client.models.generateContent(model, prompt, null);
+            String translated = Objects.toString(response.text(), "").trim();
+            if (translated.isBlank()) {
+                throw new InvalidException("Translation returned empty result");
+            }
+            return translated;
+        } catch (Exception e) {
+            log.error("Error while translating message", e);
+            throw new InvalidException("Không thể dịch tin nhắn. Vui lòng thử lại sau.");
+        }
+    }
+
     private ResumeEvaluationAiResponse evaluateResumeByUrl(String resumeUrl) throws InvalidException {
         String prompt = """
         Bạn là chuyên gia HR chuyên nghiệp.

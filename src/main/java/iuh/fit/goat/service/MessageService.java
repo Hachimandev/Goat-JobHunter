@@ -5,7 +5,7 @@ import iuh.fit.goat.dto.request.message.ForwardMessageRequest;
 import iuh.fit.goat.dto.request.message.MessageCreateRequest;
 import iuh.fit.goat.dto.response.message.ForwardMessageResponse;
 import iuh.fit.goat.dto.response.message.MessageDeletedEventResponse;
-import iuh.fit.goat.dto.response.message.MessageResponse;
+import iuh.fit.goat.dto.response.message.MessageTranslationResponse;
 import iuh.fit.goat.dto.response.ResultPaginationResponse;
 import iuh.fit.goat.dto.response.poll.PollResponse;
 import iuh.fit.goat.entity.Account;
@@ -41,12 +41,6 @@ public interface MessageService {
 
     List<Message> sendContactCardMessages(Long chatRoomId, List<Long> userIds, Account currentAccount) throws InvalidException;
 
-//    void sendMessageToUsers(Long chatRoomId, Message message);
-//
-//    MessageResponse toMessageResponse(Message message);
-
-//    List<MessageResponse> toMessageResponses(List<Message> messages);
-
     ResultPaginationResponse getMediaMessagesByChatRoom(Long chatRoomId, Pageable pageable, Account currentAccount)
             throws InvalidException;
 
@@ -71,4 +65,7 @@ public interface MessageService {
     void createAndSendPollMessage(Long chatRoomId, MessageEvent type, Account actor, PollResponse poll);
 
     void createAndSendCallMessage(Long chatRoomId, Account actor, ChatCallSession session);
+
+    MessageTranslationResponse translateMessage(String content, String targetLang)
+            throws InvalidException;
 }
