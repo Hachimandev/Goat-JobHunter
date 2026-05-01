@@ -12,6 +12,8 @@ import {
   RenameConversationRequest,
   UpdateConversationPinRequest,
   GetUnreadMessagesSummaryResponse,
+  TranslateMessageRequest,
+  TranslateMessageResponse,
 } from '@/services/ai/conversationType';
 
 export const conversationApi = api.injectEndpoints({
@@ -149,6 +151,14 @@ export const conversationApi = api.injectEndpoints({
         method: 'GET',
       }),
     }),
+
+    translateMessage: builder.mutation<TranslateMessageResponse, TranslateMessageRequest>({
+      query: ({ content, targetLang }) => ({
+        url: `/ai/messages/translate`,
+        method: 'GET',
+        params: { content, targetLang },
+      }),
+    }),
   }),
 });
 
@@ -168,6 +178,7 @@ export const {
   useRenameConversationMutation,
   useUpdateConversationPinMutation,
   useDeleteConversationMutation,
+  useTranslateMessageMutation,
 
   useGetConversationMessagesQuery,
   useLazyGetConversationMessagesQuery,
