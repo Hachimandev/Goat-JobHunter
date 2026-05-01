@@ -17,6 +17,8 @@ import {
   SendMessageToNewChatRoomRequest,
   CountUnreadMessagesRequest,
   CountUnreadMessagesResponse,
+  TypingIndicatorRequest,
+  TypingIndicatorResponse,
 } from '@/services/chatRoom/chatRoomType';
 import { ChatRoom, MessageResponse } from '@/types/model';
 import { IBackendRes, IModelPaginate } from '@/types/api';
@@ -349,6 +351,14 @@ export const chatRoomApi = api.injectEndpoints({
       },
     }),
 
+    setTypingIndicator: builder.mutation<TypingIndicatorResponse, TypingIndicatorRequest>({
+      query: ({ chatRoomId, typing }) => ({
+        url: `/chatrooms/${chatRoomId}/typing`,
+        method: 'PUT',
+        data: { typing },
+      }),
+    }),
+
     // Send message to a new chat room
     sendMessageToNewChatRoom: builder.mutation<IBackendRes<ChatRoom>, SendMessageToNewChatRoomRequest>({
       query: ({ accountId, content, files }) => {
@@ -675,6 +685,7 @@ export const {
   useSendMessageToChatRoomMutation,
   useSendContactCardsToChatRoomMutation,
   useSendMessageToNewChatRoomMutation,
+  useSetTypingIndicatorMutation,
   useLazyCheckExistingChatRoomQuery,
   useDeleteMessagePermanentMutation,
   useForwardMessageBatchMutation,

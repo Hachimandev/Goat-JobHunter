@@ -8,6 +8,7 @@ import { useDetailsPanelState } from '../hooks/useDetailsPanelState';
 import { ChatRoomType } from '@/types/enum';
 import { GroupDetailsPanel } from '@/app/(chat)/messages/components/GroupDetailsPanel';
 import { SearchMessagesDialog } from '@/app/(chat)/messages/components/SearchMessagesDialog';
+import { ChatTypingIndicator } from '@/app/(chat)/messages/components/ChatTypingIndicator';
 import type { SendContactCardsSubmitResult } from '@/services/chatRoom/chatRoomType';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
@@ -16,6 +17,7 @@ import { toast } from 'sonner';
 import { useLeaveGroupChatMutation } from '@/services/chatRoom/groupChat/groupChatApi';
 import { IBackendError } from '@/types/api';
 import { useRouter } from 'next/navigation';
+import { useChatRoomTypingIndicator } from '@/hooks/useChatRoomTypingIndicator';
 
 interface ChatWindowProps {
   chatRoom: ChatRoom;
@@ -58,6 +60,7 @@ interface ChatWindowProps {
   canJoinOngoingCall?: boolean;
   isJoiningOngoingCall?: boolean;
   onJoinOngoingCall?: () => void;
+  typingParticipants?: Array<{ accountId: number; username: string; avatar: string; updatedAt: string; typing: boolean }>;
 }
 
 export function ChatWindow({
@@ -98,6 +101,7 @@ export function ChatWindow({
   canJoinOngoingCall = false,
   isJoiningOngoingCall = false,
   onJoinOngoingCall,
+  typingParticipants = [],
 }: Readonly<ChatWindowProps>) {
   const { isOpen: isDetailsOpen, toggle, close } = useDetailsPanelState();
   const [isPinnedPanelOpen, setIsPinnedPanelOpen] = useState(false);
@@ -112,6 +116,12 @@ export function ChatWindow({
   const router = useRouter();
   const [leaveGroup, { isLoading: isLeavingGroup }] = useLeaveGroupChatMutation();
   const searchDialogOpen = searchDialogState.roomId === chatRoom.roomId && searchDialogState.open;
+  const currentUserAccountId = currentUserId ? Number(currentUserId) : undefined;
+  const { typingParticipants: liveTypingParticipants, markTyping, stopTyping } = useChatRoomTypingIndicator(
+    chatRoom.roomId,
+    currentUserAccountId,
+  );
+  const mergedTypingParticipants = typingParticipants.length > 0 ? typingParticipants : liveTypingParticipants;
 
   const handleOpenSearch = () => {
     setSearchDialogState({ roomId: chatRoom.roomId, open: true });
@@ -174,6 +184,7 @@ export function ChatWindow({
           isPinnedMessage={isDissolved ? undefined : isPinnedMessage}
           isPinningMessage={isDissolved ? undefined : isPinningMessage}
         />
+        <ChatTypingIndicator typingParticipants={mergedTypingParticipants} />
         {isDissolved ? (
           <div className="border-t border-border bg-card px-4 py-3 text-sm text-muted-foreground text-center">
             <div className="text-sm font-semibold text-rose-600">Bạn không thể gửi tin nhắn vào nhóm.</div>
@@ -210,6 +221,8 @@ export function ChatWindow({
             replyTarget={replyTarget}
             onCancelReply={onCancelReply}
             disabled={isChatLocked}
+            onTypingChange={markTyping}
+            onTypingStop={stopTyping}
           />
         )}
 

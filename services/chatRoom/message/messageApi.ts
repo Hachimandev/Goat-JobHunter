@@ -1,5 +1,6 @@
 import { api } from '@/services/api';
 import { WebSocketMessageService } from '@/services/socket/WebSocketMessageService';
+import { clearAllTypingIndicators } from '@/services/chatRoom/typing/typingIndicatorRuntime';
 
 let wsServiceInstance: WebSocketMessageService | null = null;
 let isConnected = false;
@@ -32,6 +33,7 @@ export const messageApi = api.injectEndpoints({
         await cacheEntryRemoved;
         isConnected = false;
         pendingSubscriptions.clear();
+        clearAllTypingIndicators();
         wsServiceInstance?.disconnect();
         wsServiceInstance = null;
       },
