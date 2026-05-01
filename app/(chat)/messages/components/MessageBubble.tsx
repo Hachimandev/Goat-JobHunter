@@ -29,6 +29,9 @@ import {
   PinOff,
   BarChart,
   Shield,
+  Languages,
+  Volume2,
+  X,
 } from 'lucide-react';
 import Image from 'next/image';
 import { MessageEvent, MessageTypeEnum, PollEvent } from '@/types/enum';
@@ -44,6 +47,12 @@ import { getMessageMediaPhotos } from '@/utils/formatChatMediaForPhotoAlbum';
 import { MessageMediaGallery } from './MessageMediaGallery';
 import { UserHoverCard } from '@/app/(social-hub)/hub/fyp/component/UserHoverCard';
 import CallCard from './CallCard';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { toast } from 'sonner';
+import { useTranslateMessageMutation } from '@/services/ai/conversationApi';
+import { IBackendError } from '@/types/api';
+import { Popover, PopoverAnchor, PopoverContent } from '@/components/ui/popover';
+import { COUNTRY_OPTIONS } from '@/constants/constant';
 
 interface MessageBubbleProps {
   message: MessageResponse;
@@ -93,6 +102,22 @@ export function MessageBubble({
   isDeleting = false,
 }: Readonly<MessageBubbleProps>) {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [isActionMenuOpen, setIsActionMenuOpen] = useState(false);
+  const [isTranslateDialogOpen, setIsTranslateDialogOpen] = useState(false);
+  const [isSpeaking, setIsSpeaking] = useState(false);
+  const [selectedTargetLang, setSelectedTargetLang] = useState<string>('Vietnamese');
+  const [translatedText, setTranslatedText] = useState<string | null>(null);
+  const [translateMessage, { isLoading: isTranslating }] = useTranslateMessageMutation();
+
+  const getSpeechLang = (language: string) => {
+    const langCode = COUNTRY_OPTIONS.find((option) => option.language === language)?.langCode;
+
+    if (langCode) {
+      return langCode;
+    }
+
+    return 'en-US';
+  };
 
   const timeAgo = formatDistanceToNow(new Date(message.createdAt), {
     addSuffix: true,
@@ -117,6 +142,7 @@ export function MessageBubble({
   const shouldRenderDetachedBubble = isMedia || isContactCard || isCall;
 
   const isSystem = useMemo(() => type === MessageTypeEnum.SYSTEM, [type]);
+  const isText = useMemo(() => type === MessageTypeEnum.TEXT, [type]);
   const isReplyableType = useMemo(
     () =>
       type === MessageTypeEnum.TEXT ||
@@ -149,6 +175,7 @@ export function MessageBubble({
   const canShowPinAction = !isSystem && !isRecalled && !!onPin && !!onUnpin;
   const canShowOwnerActions = isOwn && !isSystem && (canShowRecallAction || canShowDeleteAction);
   const canShowActionMenu = canShowReplyAction || canShowForwardAction || canShowHideAction || canShowOwnerActions;
+  const canShowTranslateAction = isText && !isSystem && !isRecalled;
 
   const pollId = isPoll ? extractMessageId(message.content) : null;
   const { data: pollResponse } = useFetchPollByIdInChatRoomQuery(
@@ -314,8 +341,8 @@ export function MessageBubble({
   if (isSystem) {
     const systemContent = getSystemMessageContent();
     return (
-      <div className="flex justify-center w-full my-3">
-        <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-muted/50 text-muted-foreground">
+      <div className="flex justify-center w-full my-2">
+        <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-muted/50 text-muted-foreground">
           {systemContent.icon}
           <span className="text-xs font-medium">{systemContent.text}</span>
           {isPinMessage && (
@@ -341,8 +368,8 @@ export function MessageBubble({
     const pollContent = getPollMessageContent();
     return (
       <div>
-        <div className="flex justify-center my-3">
-          <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-muted/50 text-muted-foreground">
+        <div className="flex justify-center my-2">
+          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-muted/50 text-muted-foreground">
             {pollContent.icon}
             <span className="text-xs font-medium">{pollContent.text}</span>
             <span
@@ -401,6 +428,65 @@ export function MessageBubble({
     setIsDeleteDialogOpen(false);
   };
 
+  const handleTranslate = async () => {
+    if (!canShowTranslateAction || !message.chatRoomId || !message.messageId) return;
+    try {
+      const response = await translateMessage({
+        content: message.content,
+        targetLang: selectedTargetLang,
+      }).unwrap();
+      const text = response?.data?.translatedText;
+      if (!text) {
+        toast.error('Không thể dịch tin nhắn.');
+        return;
+      }
+      setTranslatedText(text);
+    } catch (error) {
+      const errorMessage = (error as IBackendError)?.data?.message || 'Đã có lỗi xảy ra';
+      toast.error(errorMessage);
+    }
+  };
+
+  const stopSpeaking = () => {
+    if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
+      return;
+    }
+
+    window.speechSynthesis.cancel();
+    setIsSpeaking(false);
+  };
+
+  const handleSpeakTranslated = () => {
+    if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
+      toast.error('Trình duyệt không hỗ trợ đọc văn bản.');
+      return;
+    }
+
+    if (isSpeaking) {
+      stopSpeaking();
+      return;
+    }
+
+    if (!translatedText?.trim()) {
+      toast.info('Hãy dịch tin nhắn trước khi phát âm.');
+      return;
+    }
+
+    const utterance = new SpeechSynthesisUtterance(translatedText);
+    utterance.lang = getSpeechLang(selectedTargetLang);
+    utterance.rate = 1;
+    utterance.pitch = 1;
+    utterance.onend = () => setIsSpeaking(false);
+    utterance.onerror = () => {
+      setIsSpeaking(false);
+      toast.error('Không thể phát âm văn bản.');
+    };
+
+    window.speechSynthesis.cancel();
+    window.speechSynthesis.speak(utterance);
+    setIsSpeaking(true);
+  };
+
   const renderReplyContext = () => {
     if (!message.replyToMessageId || !message.replyContext) {
       return null;
@@ -416,7 +502,7 @@ export function MessageBubble({
       <button
         type="button"
         className={cn(
-          'w-full text-left border-l-2 rounded-md px-2 py-1 mb-2 transition-colors',
+          'w-full text-left border-l-2 rounded-md px-2 py-0.5 mb-1.5 transition-colors',
           isOwn
             ? 'bg-primary-foreground/15 border-primary-foreground/40 text-primary-foreground'
             : 'bg-muted/70 border-border text-foreground',
@@ -441,7 +527,7 @@ export function MessageBubble({
 
   return (
     <>
-      <div className={cn('flex w-full mb-2', isOwn ? 'justify-end' : 'justify-start')}>
+      <div className={cn('flex w-full mb-1.5', isOwn ? 'justify-end' : 'justify-start')}>
         {!isOwn && showAvatar && (
           <UserHoverCard
             userId={message.sender.accountId}
@@ -460,11 +546,11 @@ export function MessageBubble({
               {!isOwn && showAvatar && senderName && (
                 <>
                   {isForwarded && <Forward className="h-3 w-3" />}
-                  <span className="text-xs font-medium text-muted-foreground mb-1 px-1">{senderName}</span>
+                  <span className="text-xs font-medium text-muted-foreground mb-0.5 px-1">{senderName}</span>
                 </>
               )}
               {isForwarded && (
-                <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground mb-1 px-1">
+                <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground mb-0.5 px-1">
                   {isOwn && <Forward className="h-3 w-3" />}
                   {isOwn ? 'Bạn đã chuyển tiếp tin nhắn' : 'đã chuyển tiếp tin nhắn'}
                 </span>
@@ -478,7 +564,7 @@ export function MessageBubble({
             ) : (
               <div
                 className={cn(
-                  'rounded-2xl px-4 py-2',
+                  'rounded-2xl px-3.5 py-1.5',
                   isRecalled
                     ? 'bg-muted text-muted-foreground border border-border/50'
                     : isOwn
@@ -490,95 +576,205 @@ export function MessageBubble({
                 {renderContent()}
               </div>
             )}
-            <span className="text-xs text-muted-foreground mt-1 px-1">{timeAgo}</span>
+            <span className="text-xs text-muted-foreground mt-0.5 px-1">{timeAgo}</span>
           </div>
 
-          {canShowActionMenu && (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-7 w-7 rounded-full mt-0.5"
-                  disabled={isDeleting || isRecalling || isForwarding || isHiding || isPinning}
+          <Popover
+            open={isTranslateDialogOpen}
+            onOpenChange={(open) => {
+              setIsTranslateDialogOpen(open);
+              if (!open) {
+                stopSpeaking();
+              }
+            }}
+          >
+            {canShowActionMenu && (
+              <DropdownMenu open={isActionMenuOpen} onOpenChange={setIsActionMenuOpen} modal={false}>
+                <PopoverAnchor asChild>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7 rounded-full mt-0.5"
+                      disabled={isDeleting || isRecalling || isForwarding || isHiding || isPinning}
+                    >
+                      {isRecalling || isDeleting || isForwarding || isHiding || isPinning ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <MoreVertical className="h-4 w-4" />
+                      )}
+                    </Button>
+                  </DropdownMenuTrigger>
+                </PopoverAnchor>
+                <DropdownMenuContent
+                  align="end"
+                  className="rounded-xl cursor-pointer"
+                  onCloseAutoFocus={(e) => e.preventDefault()}
                 >
-                  {isRecalling || isDeleting || isForwarding || isHiding || isPinning ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <MoreVertical className="h-4 w-4" />
+                  {canShowReplyAction && (
+                    <DropdownMenuItem
+                      onClick={handleReply}
+                      disabled={disableReplyAction}
+                      className="rounded-xl cursor-pointer"
+                    >
+                      <Reply className="h-4 w-4" />
+                      Trả lời
+                    </DropdownMenuItem>
                   )}
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="rounded-xl cursor-pointer">
-                {canShowReplyAction && (
-                  <DropdownMenuItem
-                    onClick={handleReply}
-                    disabled={disableReplyAction}
-                    className="rounded-xl cursor-pointer"
-                  >
-                    <Reply className="h-4 w-4" />
-                    Trả lời
-                  </DropdownMenuItem>
-                )}
 
-                {canShowForwardAction && (
-                  <DropdownMenuItem
-                    onClick={handleForward}
-                    disabled={disableForwardAction}
-                    className="rounded-xl cursor-pointer"
-                  >
-                    <Forward className="h-4 w-4" />
-                    Chuyển tiếp
-                  </DropdownMenuItem>
-                )}
+                  {canShowTranslateAction && (
+                    <DropdownMenuItem
+                      onSelect={(e) => {
+                        e.preventDefault();
+                        setIsActionMenuOpen(false);
+                        requestAnimationFrame(() => {
+                          setIsTranslateDialogOpen(true);
+                        });
+                      }}
+                      className="rounded-xl cursor-pointer"
+                    >
+                      <Languages className="h-4 w-4" />
+                      Dịch tin nhắn
+                    </DropdownMenuItem>
+                  )}
 
-                {canShowPinAction && (
-                  <DropdownMenuItem
-                    onClick={handlePin}
-                    disabled={disablePinAction}
-                    className="rounded-xl cursor-pointer"
-                  >
-                    <Pin className="h-4 w-4" />
-                    {isPinned ? 'Bỏ ghim' : 'Ghim tin nhắn'}
-                  </DropdownMenuItem>
-                )}
+                  {canShowForwardAction && (
+                    <DropdownMenuItem
+                      onClick={handleForward}
+                      disabled={disableForwardAction}
+                      className="rounded-xl cursor-pointer"
+                    >
+                      <Forward className="h-4 w-4" />
+                      Chuyển tiếp
+                    </DropdownMenuItem>
+                  )}
 
-                {canShowHideAction && (
-                  <DropdownMenuItem
-                    onClick={handleHide}
-                    variant="destructive"
-                    disabled={disableHideAction}
-                    className="rounded-xl cursor-pointer"
-                  >
-                    <EyeOff className="h-4 w-4" />
-                    Ẩn với tôi
-                  </DropdownMenuItem>
-                )}
+                  {canShowPinAction && (
+                    <DropdownMenuItem
+                      onClick={handlePin}
+                      disabled={disablePinAction}
+                      className="rounded-xl cursor-pointer"
+                    >
+                      <Pin className="h-4 w-4" />
+                      {isPinned ? 'Bỏ ghim' : 'Ghim tin nhắn'}
+                    </DropdownMenuItem>
+                  )}
 
-                {canShowRecallAction && (
-                  <DropdownMenuItem
-                    onClick={handleRecall}
-                    disabled={disableRecallAction}
-                    className="rounded-xl text-destructive focus:text-destructive cursor-pointer"
-                  >
-                    <Undo2 className="h-4 w-4 text-destructive" />
-                    Thu hồi tin nhắn
-                  </DropdownMenuItem>
-                )}
+                  {canShowHideAction && (
+                    <DropdownMenuItem
+                      onClick={handleHide}
+                      variant="destructive"
+                      disabled={disableHideAction}
+                      className="rounded-xl cursor-pointer"
+                    >
+                      <EyeOff className="h-4 w-4" />
+                      Ẩn với tôi
+                    </DropdownMenuItem>
+                  )}
 
-                {canShowDeleteAction && (
-                  <DropdownMenuItem
-                    onClick={() => setIsDeleteDialogOpen(true)}
-                    disabled={disableDeleteAction}
-                    className="rounded-xl text-destructive focus:text-destructive cursor-pointer"
-                  >
-                    <Trash2 className="h-4 w-4 text-destructive" />
-                    Xóa tin nhắn
-                  </DropdownMenuItem>
-                )}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          )}
+                  {canShowRecallAction && (
+                    <DropdownMenuItem
+                      onClick={handleRecall}
+                      disabled={disableRecallAction}
+                      className="rounded-xl text-destructive focus:text-destructive cursor-pointer"
+                    >
+                      <Undo2 className="h-4 w-4 text-destructive" />
+                      Thu hồi tin nhắn
+                    </DropdownMenuItem>
+                  )}
+
+                  {canShowDeleteAction && (
+                    <DropdownMenuItem
+                      onClick={() => setIsDeleteDialogOpen(true)}
+                      disabled={disableDeleteAction}
+                      className="rounded-xl text-destructive focus:text-destructive cursor-pointer"
+                    >
+                      <Trash2 className="h-4 w-4 text-destructive" />
+                      Xóa tin nhắn
+                    </DropdownMenuItem>
+                  )}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
+
+            <PopoverContent
+              align="center"
+              side={isOwn ? 'left' : 'right'}
+              className="w-[500px] p-0 rounded-xl shadow-xl overflow-hidden"
+              onOpenAutoFocus={(e) => e.preventDefault()}
+            >
+              <div className="bg-background">
+                <div className="flex items-center justify-between px-3 py-2 border-b">
+                  <div className="flex items-center gap-2 text-sm font-medium">
+                    <Languages className="h-4 w-4 text-muted-foreground" />
+                    Dịch tin nhắn
+                  </div>
+
+                  <div className="flex items-center gap-2 rounded-xl">
+                    <Select value={selectedTargetLang} onValueChange={setSelectedTargetLang}>
+                      <SelectTrigger className="h-3 text-xs font-semibold p-2 w-[200px] border-none shadow-none cursor-pointer rounded-full bg-primary/30">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent className="rounded-xl">
+                        {COUNTRY_OPTIONS.map((option) => (
+                          <SelectItem key={option.language} value={option.language} className="cursor-pointer">
+                            {option.language}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="h-7 w-7"
+                      onClick={handleTranslate}
+                      disabled={isTranslating}
+                      title="Dịch"
+                    >
+                      {isTranslating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Languages className="h-4 w-4" />}
+                    </Button>
+
+                    <Button
+                      title={isSpeaking ? 'Dừng đọc' : 'Đọc bản dịch'}
+                      size="icon"
+                      variant="ghost"
+                      className="h-7 w-7"
+                      onClick={handleSpeakTranslated}
+                    >
+                      <Volume2 className={cn('h-4 w-4', isSpeaking && 'text-primary')} />
+                    </Button>
+
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="h-7 w-7"
+                      onClick={() => {
+                        stopSpeaking();
+                        setTranslatedText(null);
+                        setIsTranslateDialogOpen(false);
+                      }}
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="px-3 py-3 space-y-3">
+                  <div className="text-sm leading-relaxed font-semibold">
+                    <MarkdownDisplay content={message.content} />
+                  </div>
+                  {translatedText && (
+                    <>
+                      <div className="border-t pt-3 text-sm leading-relaxed text-primary font-semibold">
+                        <MarkdownDisplay content={translatedText} />
+                      </div>
+                    </>
+                  )}
+                </div>
+              </div>
+            </PopoverContent>
+          </Popover>
         </div>
       </div>
 
@@ -626,13 +822,13 @@ export function MessageBubbleLoading({
   const hasRenderablePreview = hasReplyContext || hasContent;
 
   return (
-    <div className="flex justify-end mb-2">
+    <div className="flex justify-end mb-1.5">
       <div className="flex flex-col items-end max-w-[70%]">
-        <div className={cn('w-full rounded-2xl px-4 py-2', 'bg-primary text-primary-foreground rounded-2xl')}>
+        <div className={cn('w-full rounded-2xl px-3.5 py-1.5', 'bg-primary text-primary-foreground rounded-2xl')}>
           {hasRenderablePreview && (
-            <div className="space-y-2">
+            <div className="space-y-1.5">
               {hasReplyContext && (
-                <div className="w-full text-left border-l-2 rounded-md px-2 py-1 bg-primary-foreground/15 border-primary-foreground/40 text-primary-foreground">
+                <div className="w-full text-left border-l-2 rounded-md px-2 py-0.5 bg-primary-foreground/15 border-primary-foreground/40 text-primary-foreground">
                   <p className="text-xs font-semibold text-primary-foreground/90">{replySenderName}</p>
                   <p className="text-xs line-clamp-2 text-primary-foreground/85">{replyPreviewText}</p>
                 </div>
@@ -647,7 +843,7 @@ export function MessageBubbleLoading({
           )}
 
           {shouldShowSendingDots && (
-            <div className="flex items-center gap-1 mt-1 px-1" aria-label="Đang gửi tệp đính kèm">
+            <div className="flex items-center gap-1 mt-0.5 px-1" aria-label="Đang gửi tệp đính kèm">
               <div
                 className="w-1.5 h-1.5 bg-muted-foreground/80 rounded-full animate-bounce"
                 style={{ animationDelay: '0ms' }}
@@ -664,7 +860,7 @@ export function MessageBubbleLoading({
           )}
         </div>
 
-        {!shouldShowSendingDots && <span className="text-xs text-muted-foreground mt-1 px-1">Đã gửi</span>}
+        {!shouldShowSendingDots && <span className="text-xs text-muted-foreground mt-0.5 px-1">Đã gửi</span>}
       </div>
     </div>
   );
