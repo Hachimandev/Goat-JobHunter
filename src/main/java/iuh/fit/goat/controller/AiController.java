@@ -9,12 +9,10 @@ import iuh.fit.goat.dto.response.ResultPaginationResponse;
 import iuh.fit.goat.dto.response.chat.MessageSummaryResponse;
 import iuh.fit.goat.dto.response.conversation.ConversationPinnedResponse;
 import iuh.fit.goat.dto.response.conversation.ConversationResponse;
+import iuh.fit.goat.dto.response.message.MessageTranslationResponse;
 import iuh.fit.goat.entity.Account;
 import iuh.fit.goat.exception.InvalidException;
-import iuh.fit.goat.service.AccountService;
-import iuh.fit.goat.service.AiService;
-import iuh.fit.goat.service.ChatRoomService;
-import iuh.fit.goat.service.ConversationService;
+import iuh.fit.goat.service.*;
 import iuh.fit.goat.util.SecurityUtil;
 import iuh.fit.goat.util.annotation.ApiMessage;
 import jakarta.validation.Valid;
@@ -34,6 +32,7 @@ public class AiController {
     private final ConversationService conversationService;
     private final AccountService accountService;
     private final ChatRoomService chatRoomService;
+    private final MessageService messageService;
 
     @PostMapping("/chat")
     public ResponseEntity<String> chatWithAi(@Valid @RequestBody ChatRequest request) throws InvalidException {
@@ -111,6 +110,16 @@ public class AiController {
         if (currentAccount == null) throw new InvalidException("User not found");
 
         MessageSummaryResponse response = this.chatRoomService.getUnreadMessagesSummary(currentAccount, id);
+        return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/messages/translate")
+    public ResponseEntity<MessageTranslationResponse> translateMessage(
+            @RequestParam String content,
+            @RequestParam String targetLang
+    ) throws InvalidException
+    {
+        MessageTranslationResponse response = this.messageService.translateMessage(content, targetLang);
         return ResponseEntity.ok(response);
     }
 }

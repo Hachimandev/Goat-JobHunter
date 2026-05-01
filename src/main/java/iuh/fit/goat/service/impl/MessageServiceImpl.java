@@ -8,6 +8,7 @@ import iuh.fit.goat.dto.response.message.ForwardMessageResponse;
 import iuh.fit.goat.dto.response.message.ForwardMessageSuccessResponse;
 import iuh.fit.goat.dto.response.message.MessageDeletedEventResponse;
 import iuh.fit.goat.dto.response.message.MessageResponse;
+import iuh.fit.goat.dto.response.message.MessageTranslationResponse;
 import iuh.fit.goat.dto.response.ResultPaginationResponse;
 import iuh.fit.goat.dto.response.StorageResponse;
 import iuh.fit.goat.dto.response.poll.PollResponse;
@@ -29,6 +30,7 @@ import iuh.fit.goat.repository.ChatRoomRepository;
 import iuh.fit.goat.repository.MessageHiddenRepository;
 import iuh.fit.goat.repository.MessageRepository;
 import iuh.fit.goat.repository.UserRepository;
+import iuh.fit.goat.service.AiService;
 import iuh.fit.goat.service.MessageService;
 import iuh.fit.goat.service.StorageService;
 import iuh.fit.goat.service.cache.ChatRoomCacheService;
@@ -52,6 +54,7 @@ import static iuh.fit.goat.constant.MessageConstant.*;
 @RequiredArgsConstructor
 public class MessageServiceImpl implements MessageService {
     private final StorageService storageService;
+    private final AiService aiService;
 
     private final MessageHiddenRepository messageHiddenRepository;
     private final MessageRepository messageRepository;
@@ -756,5 +759,21 @@ public class MessageServiceImpl implements MessageService {
                 .build();
 
         this.messageHelper.saveAndDispatchMessageOptimized(chatRoomId, callMessage, actor);
+    }
+
+    @Override
+    public MessageTranslationResponse translateMessage(String content, String targetLang) throws InvalidException {
+        String sourceText = this.messageHelper.normalizeMessageContent(content);
+        if (sourceText == null || sourceText.isBlank()) {
+            throw new InvalidException("Message content is empty");
+        }
+
+        String translatedText = this.aiService.translateText(sourceText, targetLang);
+
+        return MessageTranslationResponse.builder()
+                .sourceText(sourceText)
+                .translatedText(translatedText)
+                .targetLang(targetLang != null ? targetLang.trim() : null)
+                .build();
     }
 }

@@ -554,7 +554,6 @@ public class ChatRoomController {
         return ResponseEntity.ok(isPinned);
     }
 
-    // ========== GROUP DISSOLUTION ENDPOINTS ==========
     @DeleteMapping("/group/{chatRoomId}/dissolve")
     public ResponseEntity<Void> dissolveGroup(@PathVariable Long chatRoomId, @RequestParam String groupNameConfirmation) throws InvalidException {
         String email = SecurityUtil.getCurrentUserEmail();
