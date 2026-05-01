@@ -12,6 +12,7 @@ import iuh.fit.goat.dto.response.chat.GroupMemberResponse;
 import iuh.fit.goat.dto.response.chat.InviteLinkResponse;
 import iuh.fit.goat.dto.response.chat.InviteTokenPreviewResponse;
 import iuh.fit.goat.dto.response.chat.JoinByInviteResponse;
+import iuh.fit.goat.dto.response.chat.TypingIndicatorResponse;
 import iuh.fit.goat.dto.response.chat.UnreadMessageResponse;
 import iuh.fit.goat.dto.response.message.ForwardMessageResponse;
 import iuh.fit.goat.dto.response.message.MessageDeletedEventResponse;
@@ -32,9 +33,11 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -49,13 +52,14 @@ public class ChatRoomController {
     private final MessageService messageService;
     private final AccountService accountService;
     private final PinnedMessageService pinnedMessageService;
+    private final SimpMessagingTemplate messagingTemplate;
 
     private final MessageHelper messageHelper;
 
     @GetMapping("/me")
-        public ResponseEntity<ResultPaginationResponse> getMyChatRooms(
+    public ResponseEntity<ResultPaginationResponse> getMyChatRooms(
             @PageableDefault(size = 20) Pageable pageable
-        ) throws InvalidException {
+    ) throws InvalidException {
         String email = SecurityUtil.getCurrentUserLogin()
                 .orElseThrow(() -> new InvalidException("User not authenticated"));
 
@@ -87,6 +91,27 @@ public class ChatRoomController {
 
         ChatRoomResponse response = this.chatRoomService.getDetailChatRoomInformation(currentAccount, id);
 
+        return ResponseEntity.ok(response);
+    }
+
+    @PutMapping("/{id}/typing")
+    public ResponseEntity<TypingIndicatorResponse> setTypingIndicator(
+            @PathVariable Long id,
+            @RequestBody TypingIndicatorRequest request
+    ) throws InvalidException {
+        Account currentAccount = getCurrentAccount();
+        String avatar = currentAccount instanceof Company company ? company.getLogo() : currentAccount.getAvatar();
+
+        TypingIndicatorResponse response = TypingIndicatorResponse.builder()
+                .chatRoomId(id)
+                .accountId(currentAccount.getAccountId())
+                .username(currentAccount.getUsername())
+                .avatar(avatar)
+                .typing(request.isTyping())
+                .updatedAt(Instant.now())
+                .build();
+
+        this.messagingTemplate.convertAndSend("/topic/chatrooms/" + id + "/typing", response);
         return ResponseEntity.ok(response);
     }
 
