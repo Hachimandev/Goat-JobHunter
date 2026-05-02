@@ -1,7 +1,7 @@
 import { Button } from '@/components/ui/button';
 import { Trash2, X, Loader2 } from 'lucide-react';
 import { ChatRoom } from '@/types/model';
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Input } from '@/components/ui/input';
 import {
   AlertDialog,
@@ -13,7 +13,11 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { useDissolveGroupChatMutation, useUpdateGroupInfoMutation } from '@/services/chatRoom/groupChat/groupChatApi';
+import {
+  useDissolveGroupChatMutation,
+  useUpdateGroupInfoMutation,
+  useUpdateGroupPermissionsMutation,
+} from '@/services/chatRoom/groupChat/groupChatApi';
 import { toast } from 'sonner';
 import { IBackendError } from '@/types/api';
 import { useRouter } from 'next/navigation';
@@ -21,22 +25,67 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { ChatRoomPrivacy } from '@/types/enum';
 import { Separator } from '@/components/ui/separator';
 import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
+import { ChatRole } from '@/services/chatRoom/groupChat/groupChatType';
 
 interface ManageGroupPanelProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   chatRoom: ChatRoom;
+  currentUserRole?: ChatRole;
 }
 
-export function ManageGroupPanel({ open, onOpenChange, chatRoom }: Readonly<ManageGroupPanelProps>) {
+type GroupPermissionField =
+  | 'allowMemberUpdate'
+  | 'allowMemberPin'
+  | 'allowMemberCreateVote'
+  | 'allowMemberSendMessage'
+  | 'allowModeratorSendMessage';
+
+const PERMISSION_LABELS: Array<{
+  key: GroupPermissionField;
+  label: string;
+  roles: ChatRole[];
+}> = [
+  { key: 'allowMemberUpdate', label: 'Thành viên đổi tên và ảnh nhóm', roles: [ChatRole.OWNER, ChatRole.MODERATOR] },
+  {
+    key: 'allowMemberPin',
+    label: 'Thành viên ghim tin nhắn, ghi chú, bình chọn',
+    roles: [ChatRole.OWNER, ChatRole.MODERATOR],
+  },
+  { key: 'allowMemberCreateVote', label: 'Thành viên tạo bình chọn', roles: [ChatRole.OWNER, ChatRole.MODERATOR] },
+  { key: 'allowMemberSendMessage', label: 'Thành viên gửi tin nhắn', roles: [ChatRole.OWNER, ChatRole.MODERATOR] },
+  { key: 'allowModeratorSendMessage', label: 'Quản trị viên gửi tin nhắn', roles: [ChatRole.OWNER] },
+];
+
+export function ManageGroupPanel({
+  open,
+  onOpenChange,
+  chatRoom,
+  currentUserRole = ChatRole.MEMBER,
+}: Readonly<ManageGroupPanelProps>) {
   const currentPrivacy = chatRoom.privacy ?? ChatRoomPrivacy.PUBLIC;
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [confirmText, setConfirmText] = useState('');
   const [privacy, setPrivacy] = useState<ChatRoomPrivacy>(currentPrivacy);
+  const [permissions, setPermissions] = useState<Record<GroupPermissionField, boolean>>({
+    allowMemberUpdate: chatRoom.allowMemberUpdate ?? true,
+    allowMemberPin: chatRoom.allowMemberPin ?? true,
+    allowMemberCreateVote: chatRoom.allowMemberCreateVote ?? true,
+    allowMemberSendMessage: chatRoom.allowMemberSendMessage ?? true,
+    allowModeratorSendMessage: chatRoom.allowModeratorSendMessage ?? true,
+  });
   const router = useRouter();
 
   const [dissolveGroup, { isLoading: isDissolving }] = useDissolveGroupChatMutation();
   const [updateGroupInfo, { isLoading }] = useUpdateGroupInfoMutation();
+  const [updateGroupPermissions, { isLoading: isUpdatingPermissions }] = useUpdateGroupPermissionsMutation();
+
+  const editablePermissions = useMemo(() => {
+    return PERMISSION_LABELS.filter((item) => item.roles.includes(currentUserRole));
+  }, [currentUserRole]);
+
+  const canManagePermissions = editablePermissions.length > 0;
 
   const handleOpenConfirm = () => {
     setConfirmText('');
@@ -64,6 +113,31 @@ export function ManageGroupPanel({ open, onOpenChange, chatRoom }: Readonly<Mana
       toast.success('Cập nhật quyền riêng tư thành công');
     } catch (error) {
       toast.error((error as IBackendError).data?.message || 'Có lỗi xảy ra khi cập nhật quyền riêng tư');
+    }
+  };
+
+  const handlePermissionToggle = async (field: GroupPermissionField, checked: boolean) => {
+    if (!editablePermissions.some((p) => p.key === field)) {
+      return;
+    }
+
+    const previousState = permissions;
+    const nextState = {
+      ...permissions,
+      [field]: checked,
+    };
+
+    setPermissions(nextState);
+
+    try {
+      await updateGroupPermissions({
+        chatRoomId: chatRoom.roomId,
+        ...nextState,
+      }).unwrap();
+      toast.success('Cập nhật quyền nhóm thành công');
+    } catch (error) {
+      setPermissions(previousState);
+      toast.error((error as IBackendError).data?.message || 'Có lỗi xảy ra khi cập nhật quyền nhóm');
     }
   };
 
@@ -108,6 +182,28 @@ export function ManageGroupPanel({ open, onOpenChange, chatRoom }: Readonly<Mana
         </div>
 
         <Separator />
+
+        {canManagePermissions && (
+          <>
+            <div className="space-y-3">
+              <Label className="font-bold">Quyền thành viên</Label>
+              <div className="space-y-2">
+                {editablePermissions.map((permission) => (
+                  <div key={permission.key} className="flex items-center justify-between gap-3">
+                    <p className="text-sm">{permission.label}</p>
+                    <Switch
+                      checked={permissions[permission.key]}
+                      onCheckedChange={(checked) => void handlePermissionToggle(permission.key, checked)}
+                      disabled={isUpdatingPermissions}
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <Separator />
+          </>
+        )}
 
         <Button
           variant="ghost"

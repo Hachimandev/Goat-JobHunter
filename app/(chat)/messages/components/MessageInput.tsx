@@ -41,6 +41,7 @@ interface MessageInputProps {
   readonly replyTarget?: MessageResponse | null;
   readonly onCancelReply?: () => void;
   readonly disabled?: boolean;
+  readonly disabledReason?: string;
 }
 
 export function MessageInput({
@@ -49,6 +50,7 @@ export function MessageInput({
   replyTarget = null,
   onCancelReply,
   disabled = false,
+  disabledReason,
 }: MessageInputProps) {
   const [message, setMessage] = useState('');
   const [richMessage, setRichMessage] = useState('');
@@ -537,6 +539,8 @@ export function MessageInput({
             />
           </div>
         )}
+
+        {disabled && disabledReason && <p className="mt-2 text-xs text-muted-foreground">{disabledReason}</p>}
 
         <BusinessCardModal
           open={isBusinessCardModalOpen}

@@ -16,6 +16,7 @@ import {
   cascadeReplyContextForRecalledMessage,
 } from '@/utils/replyContextRealtime';
 import { pollApi } from '../poll/pollApi';
+import { ChatRole } from '@/services/chatRoom/groupChat/groupChatType';
 
 type DeleteMessageRealtimeEvent = {
   eventType?: string;
@@ -364,10 +365,10 @@ export class WebSocketMessageService {
         const memberName = match?.[1]?.trim();
         const roleText = match?.[2]?.trim();
 
-        const roleMap: Record<string, 'OWNER' | 'MODERATOR' | 'MEMBER'> = {
-          'Chủ nhóm': 'OWNER',
-          'Quản trị viên': 'MODERATOR',
-          'Thành viên': 'MEMBER',
+        const roleMap: Record<string, ChatRole> = {
+          'Chủ nhóm': ChatRole.OWNER,
+          'Quản trị viên': ChatRole.MODERATOR,
+          'Thành viên': ChatRole.MEMBER,
         };
 
         const newRole = roleText ? roleMap[roleText] : undefined;

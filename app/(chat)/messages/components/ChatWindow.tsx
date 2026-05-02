@@ -58,6 +58,7 @@ interface ChatWindowProps {
   canJoinOngoingCall?: boolean;
   isJoiningOngoingCall?: boolean;
   onJoinOngoingCall?: () => void;
+  disablePinActions?: boolean;
 }
 
 export function ChatWindow({
@@ -98,12 +99,13 @@ export function ChatWindow({
   canJoinOngoingCall = false,
   isJoiningOngoingCall = false,
   onJoinOngoingCall,
+  disablePinActions = false,
 }: Readonly<ChatWindowProps>) {
   const { isOpen: isDetailsOpen, toggle, close } = useDetailsPanelState();
   const [isPinnedPanelOpen, setIsPinnedPanelOpen] = useState(false);
   const isGroup = chatRoom.type === ChatRoomType.GROUP;
   const isDissolved = Boolean(chatRoom.deletedAt && chatRoom.type === ChatRoomType.GROUP);
-  const isChatLocked = !isGroup && isChatBlocked;
+  // const isChatLocked = !isGroup && isChatBlocked;
   const [clearDialogOpen, setClearDialogOpen] = useState(false);
   const [searchDialogState, setSearchDialogState] = useState<{ roomId: number; open: boolean }>({
     roomId: chatRoom.roomId,
@@ -142,7 +144,7 @@ export function ChatWindow({
           onOpenSearch={handleOpenSearch}
           pinnedMessagesCount={pinnedMessages.length}
           readOnly={isDissolved}
-          disableCallActions={isChatLocked}
+          disableCallActions={isChatBlocked}
           onStartVoiceCall={onStartVoiceCall}
           onStartVideoCall={onStartVideoCall}
           showOngoingCallInfo={showOngoingCallInfo}
@@ -173,6 +175,7 @@ export function ChatWindow({
           onUnpinMessage={isDissolved ? undefined : onUnpinMessage}
           isPinnedMessage={isDissolved ? undefined : isPinnedMessage}
           isPinningMessage={isDissolved ? undefined : isPinningMessage}
+          disablePinActions={disablePinActions}
         />
         {isDissolved ? (
           <div className="border-t border-border bg-card px-4 py-3 text-sm text-muted-foreground text-center">
@@ -199,7 +202,7 @@ export function ChatWindow({
               onConfirm={handleLeaveGroup}
             />
           </div>
-        ) : isChatLocked ? (
+        ) : isChatBlocked ? (
           <div className="border-t border-border bg-card px-4 py-3 text-sm text-muted-foreground text-center">
             {chatBlockedReason}
           </div>
@@ -209,7 +212,6 @@ export function ChatWindow({
             onSendContactCards={onSendContactCards}
             replyTarget={replyTarget}
             onCancelReply={onCancelReply}
-            disabled={isChatLocked}
           />
         )}
 
