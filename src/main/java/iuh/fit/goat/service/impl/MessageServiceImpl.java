@@ -14,6 +14,7 @@ import iuh.fit.goat.dto.response.StorageResponse;
 import iuh.fit.goat.dto.response.poll.PollResponse;
 import iuh.fit.goat.entity.Account;
 import iuh.fit.goat.entity.ChatCallSession;
+import iuh.fit.goat.entity.ChatMember;
 import iuh.fit.goat.entity.ChatRoom;
 import iuh.fit.goat.entity.Message;
 import iuh.fit.goat.entity.User;
@@ -21,6 +22,7 @@ import iuh.fit.goat.entity.embeddable.MediaItem;
 import iuh.fit.goat.entity.embeddable.SenderInfo;
 import iuh.fit.goat.enumeration.MediaType;
 import iuh.fit.goat.enumeration.MessageType;
+import iuh.fit.goat.enumeration.ChatRoomPermissionAction;
 import iuh.fit.goat.exception.BlockedInteractionException;
 import iuh.fit.goat.exception.ConflictException;
 import iuh.fit.goat.exception.InvalidException;
@@ -34,6 +36,7 @@ import iuh.fit.goat.service.AiService;
 import iuh.fit.goat.service.MessageService;
 import iuh.fit.goat.service.StorageService;
 import iuh.fit.goat.service.cache.ChatRoomCacheService;
+import iuh.fit.goat.service.helper.ChatRoomPermissionGuard;
 import iuh.fit.goat.service.helper.MessageHelper;
 import iuh.fit.goat.util.MessageUtil;
 import lombok.RequiredArgsConstructor;
@@ -63,6 +66,7 @@ public class MessageServiceImpl implements MessageService {
 
     private final ChatRoomCacheService chatRoomCache;
     private final MessageHelper messageHelper;
+    private final ChatRoomPermissionGuard chatRoomPermissionGuard;
 
     @Override
     public Message getLastMessageByChatRoom(Long chatRoomId) throws InvalidException {
@@ -170,6 +174,12 @@ public class MessageServiceImpl implements MessageService {
     {
         this.messageHelper.validateChatRoom(chatRoomId);
         ChatRoom chatRoom = this.messageHelper.getChatRoom(chatRoomId);
+        ChatMember currentMember = this.chatRoomPermissionGuard.getCurrentMember(chatRoom, currentAccount.getAccountId());
+        this.chatRoomPermissionGuard.assertCanPerformAction(
+                chatRoom,
+                currentMember,
+                ChatRoomPermissionAction.SEND_MESSAGE
+        );
         this.messageHelper.validateNoBlockedDirectInteractionOptimized(chatRoom, chatRoom.getMembers(), currentAccount.getAccountId());
 
         String replyToMessageId = this.messageHelper.normalizeReplyToMessageId(request != null ? request.getReplyToMessageId() : null);
@@ -207,6 +217,12 @@ public class MessageServiceImpl implements MessageService {
     ) throws InvalidException
     {
         ChatRoom chatRoom = this.messageHelper.getChatRoom(chatRoomId);
+        ChatMember currentMember = this.chatRoomPermissionGuard.getCurrentMember(chatRoom, currentAccount.getAccountId());
+        this.chatRoomPermissionGuard.assertCanPerformAction(
+                chatRoom,
+                currentMember,
+                ChatRoomPermissionAction.SEND_MESSAGE
+        );
         this.messageHelper.validateNoBlockedDirectInteractionOptimized(chatRoom, chatRoom.getMembers(), currentAccount.getAccountId());
 
         String replyToMessageId = this.messageHelper.normalizeReplyToMessageId(request != null ? request.getReplyToMessageId() : null);
@@ -381,6 +397,12 @@ public class MessageServiceImpl implements MessageService {
         if (currentAccount == null) throw new InvalidException("Current account is invalid");
 
         ChatRoom chatRoom = this.messageHelper.getChatRoom(chatRoomId);
+        ChatMember currentMember = this.chatRoomPermissionGuard.getCurrentMember(chatRoom, currentAccount.getAccountId());
+        this.chatRoomPermissionGuard.assertCanPerformAction(
+                chatRoom,
+                currentMember,
+                ChatRoomPermissionAction.SEND_MESSAGE
+        );
         this.messageHelper.validateNoBlockedDirectInteraction(chatRoom, currentAccount.getAccountId());
 
         List<Long> normalizedUserIds = this.messageHelper.normalizeContactCardUserIds(userIds);

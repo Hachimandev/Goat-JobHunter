@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+                      http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-5.0.xsd"
+        objectQuotingStrategy="QUOTE_ONLY_RESERVED_WORDS">
+
+    <changeSet id="20260501-1-add-chat-room-permissions" author="codex">
+        <addColumn tableName="chat_rooms">
+            <column name="allow_member_update" type="BOOLEAN" defaultValueBoolean="true"/>
+            <column name="allow_member_pin" type="BOOLEAN" defaultValueBoolean="true"/>
+            <column name="allow_member_create_vote" type="BOOLEAN" defaultValueBoolean="true"/>
+            <column name="allow_member_send_message" type="BOOLEAN" defaultValueBoolean="true"/>
+            <column name="allow_moderator_send_message" type="BOOLEAN" defaultValueBoolean="true"/>
+        </addColumn>
+
+        <update tableName="chat_rooms">
+            <column name="allow_member_update" valueBoolean="true"/>
+            <column name="allow_member_pin" valueBoolean="true"/>
+            <column name="allow_member_create_vote" valueBoolean="true"/>
+            <column name="allow_member_send_message" valueBoolean="true"/>
+            <column name="allow_moderator_send_message" valueBoolean="true"/>
+        </update>
+
+        <addNotNullConstraint tableName="chat_rooms" columnName="allow_member_update" columnDataType="BOOLEAN"/>
+        <addNotNullConstraint tableName="chat_rooms" columnName="allow_member_pin" columnDataType="BOOLEAN"/>
+        <addNotNullConstraint tableName="chat_rooms" columnName="allow_member_create_vote" columnDataType="BOOLEAN"/>
+        <addNotNullConstraint tableName="chat_rooms" columnName="allow_member_send_message" columnDataType="BOOLEAN"/>
+        <addNotNullConstraint tableName="chat_rooms" columnName="allow_moderator_send_message" columnDataType="BOOLEAN"/>
+    </changeSet>
+
+</databaseChangeLog>

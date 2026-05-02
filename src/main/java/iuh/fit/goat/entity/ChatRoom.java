@@ -57,6 +57,21 @@ public class ChatRoom extends BaseEntity {
     @Column(name = "invite_enabled", nullable = false)
     private boolean inviteEnabled = true;
 
+    @Column(name = "allow_member_update", nullable = false)
+    private boolean allowMemberUpdate = true;
+
+    @Column(name = "allow_member_pin", nullable = false)
+    private boolean allowMemberPin = true;
+
+    @Column(name = "allow_member_create_vote", nullable = false)
+    private boolean allowMemberCreateVote = true;
+
+    @Column(name = "allow_member_send_message", nullable = false)
+    private boolean allowMemberSendMessage = true;
+
+    @Column(name = "allow_moderator_send_message", nullable = false)
+    private boolean allowModeratorSendMessage = true;
+
     @OneToMany(mappedBy = "room", fetch = LAZY, cascade = {PERSIST, MERGE, REMOVE})
     @JsonIgnore
     @Filter(

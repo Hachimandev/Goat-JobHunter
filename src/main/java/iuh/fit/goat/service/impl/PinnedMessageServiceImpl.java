@@ -3,12 +3,14 @@ package iuh.fit.goat.service.impl;
 import iuh.fit.goat.common.MessageEvent;
 import iuh.fit.goat.dto.response.message.PinnedMessageResponse;
 import iuh.fit.goat.entity.*;
+import iuh.fit.goat.enumeration.ChatRoomPermissionAction;
 import iuh.fit.goat.exception.InvalidException;
 import iuh.fit.goat.repository.AccountRepository;
 import iuh.fit.goat.repository.ChatRoomRepository;
 import iuh.fit.goat.repository.MessageRepository;
 import iuh.fit.goat.service.MessageService;
 import iuh.fit.goat.service.PinnedMessageService;
+import iuh.fit.goat.service.helper.ChatRoomPermissionGuard;
 import iuh.fit.goat.service.helper.MessageHelper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -29,6 +31,7 @@ public class PinnedMessageServiceImpl implements PinnedMessageService {
     private final AccountRepository accountRepository;
 
     private final MessageHelper messageHelper;
+    private final ChatRoomPermissionGuard chatRoomPermissionGuard;
 
     @Override
     @Transactional
@@ -37,7 +40,12 @@ public class PinnedMessageServiceImpl implements PinnedMessageService {
         ChatRoom chatRoom = this.chatRoomRepository.findByRoomIdAndDeletedAtIsNull(chatRoomId)
                 .orElseThrow(() -> new InvalidException("Không tìm thấy phòng chat"));
 
-        isCurrentMemberInChatRoom(chatRoom, currentAccount.getAccountId());
+        ChatMember currentMember = this.chatRoomPermissionGuard.getCurrentMember(chatRoom, currentAccount.getAccountId());
+        this.chatRoomPermissionGuard.assertCanPerformAction(
+                chatRoom,
+                currentMember,
+                ChatRoomPermissionAction.PIN_CONTENT
+        );
 
         List<PinnedMessage> pinnedMessages = this.messageRepository.getPinnedMessagesByChatRoom(chatRoomId.toString());
         if(pinnedMessages.size() >= 5) throw new InvalidException("Phòng chat đã đạt giới hạn tin nhắn được ghim (5 tin nhắn)");
@@ -76,7 +84,12 @@ public class PinnedMessageServiceImpl implements PinnedMessageService {
         ChatRoom chatRoom = this.chatRoomRepository.findByRoomIdAndDeletedAtIsNull(chatRoomId)
                 .orElseThrow(() -> new InvalidException("Không tìm thấy phòng chat"));
 
-        isCurrentMemberInChatRoom(chatRoom, currentAccount.getAccountId());
+        ChatMember currentMember = this.chatRoomPermissionGuard.getCurrentMember(chatRoom, currentAccount.getAccountId());
+        this.chatRoomPermissionGuard.assertCanPerformAction(
+                chatRoom,
+                currentMember,
+                ChatRoomPermissionAction.PIN_CONTENT
+        );
 
         PinnedMessage pinnedMessage = this.messageRepository.getPinnedMessage(chatRoomId.toString(), messageId);
         if (pinnedMessage == null) throw new InvalidException("Tin nhắn không được ghim hoặc đã bị gỡ ghim");
@@ -152,20 +165,17 @@ public class PinnedMessageServiceImpl implements PinnedMessageService {
         ChatRoom chatRoom = this.chatRoomRepository.findByRoomIdAndDeletedAtIsNull(chatRoomId)
                 .orElseThrow(() -> new InvalidException("Không tìm thấy phòng chat"));
 
-        isCurrentMemberInChatRoom(chatRoom, currentAccount.getAccountId());
+        ChatMember currentMember = this.chatRoomPermissionGuard.getCurrentMember(chatRoom, currentAccount.getAccountId());
+        this.chatRoomPermissionGuard.assertCanPerformAction(
+                chatRoom,
+                currentMember,
+                ChatRoomPermissionAction.PIN_CONTENT
+        );
 
         List<PinnedMessage> pinnedMessages = this.messageRepository.getPinnedMessagesByChatRoom(chatRoomId.toString());
         pinnedMessages.forEach(pm ->
             this.messageRepository.deletePinnedMessage(chatRoomId.toString(), pm.getMessageId())
         );
-    }
-
-    private void isCurrentMemberInChatRoom(ChatRoom chatRoom, Long accountId) throws InvalidException {
-        chatRoom.getMembers().stream()
-                .filter(m -> m.getDeletedAt() == null &&
-                        m.getAccount().getAccountId() == accountId)
-                .findFirst()
-                .orElseThrow(() -> new InvalidException("Tài khoản không phải là thành viên của phòng chat"));
     }
 
     private boolean isUserInChatRoom(ChatRoom chatRoom, Long accountId) {

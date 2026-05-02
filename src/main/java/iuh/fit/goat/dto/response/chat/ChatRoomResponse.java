@@ -27,5 +27,10 @@ public class ChatRoomResponse {
     private boolean isBlockedByMe;
     private Long counterpartAccountId;
     private boolean currentUserSentLastMessage;
+    private boolean allowMemberUpdate;
+    private boolean allowMemberPin;
+    private boolean allowMemberCreateVote;
+    private boolean allowMemberSendMessage;
+    private boolean allowModeratorSendMessage;
     private Instant deletedAt;
 }
