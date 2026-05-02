@@ -96,6 +96,17 @@ export const ChatInput = ({
     }
   };
 
+  if (disabled) {
+    return (
+      <View style={{ padding: 10, alignItems: "center" }}>
+        <Text style={{ color: "#888", textAlign: "center" }}>
+          {disabledReason ||
+            "Bạn không thể gửi tin nhắn trong cuộc trò chuyện này."}
+        </Text>
+      </View>
+    );
+  }
+
   return (
     <View style={disabled && { opacity: 0.5 }}>
       {/* Reply Preview */}
@@ -181,9 +192,7 @@ export const ChatInput = ({
           value={text}
           onChangeText={setText}
           placeholder={
-            disabled
-              ? disabledReason || "Không thể nhắn tin"
-              : "Tin nhắn"
+            disabled ? disabledReason || "Không thể nhắn tin" : "Tin nhắn"
           }
           style={styles.input}
           multiline

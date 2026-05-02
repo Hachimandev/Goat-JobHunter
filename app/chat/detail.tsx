@@ -6,7 +6,11 @@ import {
   useFetchFilesInChatRoomQuery,
   useFetchMediaInChatRoomQuery,
 } from "@/services/chatRoom/chatRoomApi";
-import { useGetMemberInGroupChatQuery } from "@/services/chatRoom/groupChat/groupChatApi";
+import {
+  ChatRole,
+  GroupPermissionsResponse,
+  useGetMemberInGroupChatQuery,
+} from "@/services/chatRoom/groupChat/groupChatApi";
 import { Ionicons } from "@expo/vector-icons";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { ChatRoomPrivacy } from "@/types/enum";
@@ -17,10 +21,26 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { GroupSettingPanel } from "@/components/chat/GroupSettingPanel";
 
 export default function ChatDetail() {
-  const { id, name, avatar } = useLocalSearchParams<{
+  const {
+    id,
+    name,
+    avatar,
+    role: roleParam,
+    allowMemberUpdate: allowMemberUpdateParam,
+    allowMemberPin: allowMemberPinParam,
+    allowMemberCreateVote: allowMemberCreateVoteParam,
+    allowMemberSendMessage: allowMemberSendMessageParam,
+    allowModeratorSendMessage: allowModeratorSendMessageParam,
+  } = useLocalSearchParams<{
     id: string;
     name: string;
     avatar: string;
+    role?: ChatRole;
+    allowMemberUpdate?: string;
+    allowMemberPin?: string;
+    allowMemberCreateVote?: string;
+    allowMemberSendMessage?: string;
+    allowModeratorSendMessage?: string;
   }>();
   const { user } = useUser();
   const chatRoomId = Number(id);
@@ -54,11 +74,44 @@ export default function ChatDetail() {
   const media = mediaData?.data?.result || [];
   const files = filesData?.data?.result || [];
   const members = membersData?.data || [];
-
-  // Check if user is owner
-  const isOwner = members.some(
-    (m) => m.accountId === user?.accountId && m.role === "OWNER",
+  const currentUserMember = members.find(
+    (m) => m.accountId === user?.accountId,
   );
+  const currentUserRole = currentUserMember?.role || roleParam;
+  const isOwner = currentUserRole === ChatRole.OWNER;
+  const isModerator = currentUserRole === ChatRole.MODERATOR;
+
+  const parseBoolParam = (value?: string) =>
+    value === undefined ? undefined : value === "true";
+
+  const resolvedPermissions = {
+    allowMemberUpdate:
+      chatRoomData?.data?.allowMemberUpdate ??
+      parseBoolParam(allowMemberUpdateParam) ??
+      true,
+    allowMemberPin:
+      chatRoomData?.data?.allowMemberPin ??
+      parseBoolParam(allowMemberPinParam) ??
+      true,
+    allowMemberCreateVote:
+      chatRoomData?.data?.allowMemberCreateVote ??
+      parseBoolParam(allowMemberCreateVoteParam) ??
+      true,
+    allowMemberSendMessage:
+      chatRoomData?.data?.allowMemberSendMessage ??
+      parseBoolParam(allowMemberSendMessageParam) ??
+      true,
+    allowModeratorSendMessage:
+      chatRoomData?.data?.allowModeratorSendMessage ??
+      parseBoolParam(allowModeratorSendMessageParam) ??
+      true,
+  } satisfies GroupPermissionsResponse;
+
+  const allowMemberUpdate = resolvedPermissions.allowMemberUpdate;
+  const canShowEditButton =
+    currentUserRole === ChatRole.OWNER ||
+    currentUserRole === ChatRole.MODERATOR ||
+    (currentUserRole === ChatRole.MEMBER && allowMemberUpdate);
 
   useFocusEffect(
     React.useCallback(() => {
@@ -93,18 +146,15 @@ export default function ChatDetail() {
           <Text style={styles.name}>
             {chatRoomData?.data?.name || name || "Nhóm"}
           </Text>
-          {isGroupChat &&
-            (isOwner ||
-              members.find((m) => m.accountId === user?.accountId)?.role ===
-                "MODERATOR") && (
-              <TouchableOpacity
-                onPress={() => setIsEditModalVisible(true)}
-                style={styles.editGroupButton}
-              >
-                <Ionicons name="pencil" size={16} color="#007AFF" />
-                <Text style={styles.editGroupButtonText}>Chỉnh sửa</Text>
-              </TouchableOpacity>
-            )}
+          {isGroupChat && canShowEditButton && (
+            <TouchableOpacity
+              onPress={() => setIsEditModalVisible(true)}
+              style={styles.editGroupButton}
+            >
+              <Ionicons name="pencil" size={16} color="#007AFF" />
+              <Text style={styles.editGroupButtonText}>Chỉnh sửa</Text>
+            </TouchableOpacity>
+          )}
         </View>
       </View>
 
@@ -153,7 +203,7 @@ export default function ChatDetail() {
           </TouchableOpacity>
         )}
 
-        {isGroupChat && (
+        {isGroupChat && (isOwner || isModerator) && (
           <TouchableOpacity
             style={[
               styles.tab,
@@ -201,6 +251,7 @@ export default function ChatDetail() {
             groupId={chatRoomId}
             groupAvatar={chatRoomData?.data?.avatar || avatar || ""}
             isOwner={isOwner}
+            groupPermissions={resolvedPermissions}
             onRefetch={refetchChatRoom}
           />
         ) : activeTab === "groupSetting" ? (
@@ -211,6 +262,8 @@ export default function ChatDetail() {
             currentPrivacy={
               chatRoomData?.data?.privacy || ChatRoomPrivacy.PUBLIC
             }
+            currentRole={currentUserRole}
+            currentPermissions={resolvedPermissions}
             onRefetch={refetchChatRoom}
           />
         ) : null}

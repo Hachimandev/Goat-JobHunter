@@ -5,6 +5,7 @@ import { useUser } from "@/hooks/useUser";
 import {
   ChatMemberResponse,
   ChatRole,
+  GroupPermissionsResponse,
   useGetMemberInGroupChatQuery,
 } from "@/services/chatRoom/groupChat/groupChatApi";
 import {
@@ -17,6 +18,7 @@ import BottomSheet from "@gorhom/bottom-sheet";
 import { router } from "expo-router";
 import React, { useCallback, useRef, useState } from "react";
 import {
+  Alert,
   ActivityIndicator,
   Image,
   ScrollView,
@@ -34,12 +36,14 @@ interface GroupManagementPanelProps {
   groupId: number;
   groupAvatar: string;
   isOwner?: boolean;
+  groupPermissions?: GroupPermissionsResponse;
   onRefetch?: () => void;
 }
 
 export const GroupManagementPanel = ({
   groupName,
   groupId,
+  groupPermissions,
 }: GroupManagementPanelProps) => {
   const { user } = useUser();
   const { handleDissolveGroup, handleLeaveGroup, isLoading } =
@@ -57,9 +61,18 @@ export const GroupManagementPanel = ({
     (m) => m.accountId === user?.accountId,
   );
   const currentUserRole = currentUserMember?.role;
-  const currentIsOwner = currentUserRole === "OWNER";
+  const currentIsOwner = currentUserRole === ChatRole.OWNER;
+  const canCreatePoll =
+    currentUserRole === ChatRole.OWNER ||
+    currentUserRole === ChatRole.MODERATOR ||
+    groupPermissions?.allowMemberCreateVote !== false;
+  const createPollDisabledReason =
+    !canCreatePoll && currentUserRole === ChatRole.MEMBER
+      ? "Bạn không có quyền tạo bình chọn trong nhóm này"
+      : undefined;
   const canProcessJoinRequest =
-    currentUserRole === "OWNER" || currentUserRole === "MODERATOR";
+    currentUserRole === ChatRole.OWNER ||
+    currentUserRole === ChatRole.MODERATOR;
   const {
     data: pendingJoinRequestData,
     isLoading: isLoadingPendingJoinRequests,
@@ -104,7 +117,10 @@ export const GroupManagementPanel = ({
     const isSelf = member.accountId === user?.accountId;
     if (isSelf) return false;
     if (currentIsOwner) return true;
-    if (currentUserRole === "MODERATOR" && member.role === "MEMBER")
+    if (
+      currentUserRole === ChatRole.MODERATOR &&
+      member.role === ChatRole.MEMBER
+    )
       return true;
     return false;
   };
@@ -292,14 +308,15 @@ export const GroupManagementPanel = ({
                           <Text
                             style={[
                               styles.roleLabel,
-                              member.role === "OWNER" && styles.roleOwner,
-                              member.role === "MODERATOR" &&
+                              member.role === ChatRole.OWNER &&
+                                styles.roleOwner,
+                              member.role === ChatRole.MODERATOR &&
                                 styles.roleModerator,
                             ]}
                           >
-                            {member.role === "OWNER"
+                            {member.role === ChatRole.OWNER
                               ? "Chủ nhóm"
-                              : member.role === "MODERATOR"
+                              : member.role === ChatRole.MODERATOR
                                 ? "Quản trị viên"
                                 : "Thành viên"}
                           </Text>
@@ -330,19 +347,34 @@ export const GroupManagementPanel = ({
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Tác vụ</Text>
-          <TouchableOpacity
-            style={styles.actionButton}
-            onPress={() => setPollModalVisible(true)}
-          >
-            <MaterialCommunityIcons
-              name="chart-bar"
-              size={20}
-              color="#0084FF"
-            />
-            <Text style={[styles.actionButtonText, { color: "#000" }]}>
-              Tạo bình chọn
-            </Text>
-          </TouchableOpacity>
+          {canCreatePoll && (
+            <TouchableOpacity
+              style={[
+                styles.actionButton,
+                !canCreatePoll && styles.actionButtonDisabled,
+              ]}
+              onPress={() => {
+                if (!canCreatePoll) {
+                  Alert.alert(
+                    "Thông báo",
+                    createPollDisabledReason ||
+                      "Bạn không có quyền tạo bình chọn trong nhóm này",
+                  );
+                  return;
+                }
+                setPollModalVisible(true);
+              }}
+            >
+              <MaterialCommunityIcons
+                name="chart-bar"
+                size={20}
+                color="#0084FF"
+              />
+              <Text style={[styles.actionButtonText, { color: "#000" }]}>
+                Tạo bình chọn
+              </Text>
+            </TouchableOpacity>
+          )}
           <TouchableOpacity
             style={styles.actionButton}
             onPress={onHandleLeaveGroup}
@@ -370,6 +402,8 @@ export const GroupManagementPanel = ({
         visible={isPollModalVisible}
         onClose={() => setPollModalVisible(false)}
         chatRoomId={groupId}
+        disabled={!canCreatePoll}
+        disabledReason={createPollDisabledReason}
       />
       <MemberInfoModal
         ref={bottomSheetRef}
@@ -478,6 +512,9 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     backgroundColor: "#f5f5f5",
     marginBottom: 8,
+  },
+  actionButtonDisabled: {
+    opacity: 0.5,
   },
   actionButtonText: {
     marginLeft: 12,

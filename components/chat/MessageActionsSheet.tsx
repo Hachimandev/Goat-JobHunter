@@ -11,6 +11,7 @@ interface MessageActionsSheetProps {
   onReply: () => void;
   onForward: () => void;
   onPin: () => void;
+  canPin?: boolean;
   onRevoke: () => void;
   onDelete: () => void;
   onCopy: () => void;
@@ -27,6 +28,7 @@ export const MessageActionsSheet = forwardRef<
       onReply,
       onForward,
       onPin,
+      canPin = true,
       onRevoke,
       onDelete,
       onCopy,
@@ -85,10 +87,12 @@ export const MessageActionsSheet = forwardRef<
                 <Text style={styles.sheetTextNormal}>Chuyển tiếp</Text>
               </TouchableOpacity>
 
-              <TouchableOpacity style={styles.sheetItem} onPress={onPin}>
-                <Ionicons name="pin-outline" size={22} color="#475569" />
-                <Text style={styles.sheetTextNormal}>Ghim tin nhắn</Text>
-              </TouchableOpacity>
+              {canPin && (
+                <TouchableOpacity style={styles.sheetItem} onPress={onPin}>
+                  <Ionicons name="pin-outline" size={22} color="#475569" />
+                  <Text style={styles.sheetTextNormal}>Ghim tin nhắn</Text>
+                </TouchableOpacity>
+              )}
 
               <View style={styles.separator} />
 

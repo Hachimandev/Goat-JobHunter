@@ -43,6 +43,10 @@ import {
   useForwardMessageBatchMutation,
 } from "@/services/chatRoom/chatRoomApi";
 import {
+  GroupPermissionsResponse,
+  useGetMemberInGroupChatQuery,
+} from "@/services/chatRoom/groupChat/groupChatApi";
+import {
   useGetPinnedMessagesQuery,
   usePinMessageMutation,
   useUnpinMessageMutation,
@@ -156,13 +160,6 @@ export default function ChatDetailScreen() {
   };
 
   const bottomSheetRef = useRef<BottomSheet>(null);
-  const {
-    handleSendMessage,
-    handleRecallMessage,
-    handleDeleteMessage,
-    pickImage,
-    isSending,
-  } = useChatActionsMobile();
   const [pinMessage] = usePinMessageMutation();
 
   const {
@@ -179,6 +176,38 @@ export default function ChatDetailScreen() {
       skip: !chatRoomId,
       pollingInterval: 3000,
     });
+
+  const isGroupChat = chatRoomData?.data?.type === "GROUP";
+  const groupPermissions: GroupPermissionsResponse = {
+    allowMemberUpdate: chatRoomData?.data?.allowMemberUpdate ?? true,
+    allowMemberPin: chatRoomData?.data?.allowMemberPin ?? true,
+    allowMemberCreateVote: chatRoomData?.data?.allowMemberCreateVote ?? true,
+    allowMemberSendMessage: chatRoomData?.data?.allowMemberSendMessage ?? true,
+    allowModeratorSendMessage:
+      chatRoomData?.data?.allowModeratorSendMessage ?? true,
+  };
+  const { data: membersData } = useGetMemberInGroupChatQuery(chatRoomId, {
+    skip: !chatRoomId || !isGroupChat,
+  });
+  const members = membersData?.data || [];
+  const currentUserRole = members.find((m) => m.accountId === user?.accountId)?.role;
+  const canManagePins =
+    !isGroupChat ||
+    currentUserRole !== "MEMBER" ||
+    groupPermissions.allowMemberPin !== false;
+
+  const {
+    handleSendMessage,
+    handleRecallMessage,
+    handleDeleteMessage,
+    getSendPermissionDeniedReason,
+    pickImage,
+    isSending,
+  } = useChatActionsMobile({
+    isGroupChat,
+    currentUserRole,
+    groupPermissions,
+  });
 
   useEffect(() => {
     setActiveChatRoom(chatRoomId);
@@ -257,6 +286,7 @@ export default function ChatDetailScreen() {
   const isGroupDissolved =
     chatRoomData?.data?.deletedAt !== null &&
     chatRoomData?.data?.deletedAt !== undefined;
+  const sendPermissionDeniedReason = getSendPermissionDeniedReason();
 
   const handleCopyMessage = async () => {
     if (!selectedMessage) return;
@@ -317,6 +347,18 @@ export default function ChatDetailScreen() {
                 name: chatRoomData?.data?.name || name,
                 avatar: chatRoomData?.data?.avatar || avatar,
                 messages: JSON.stringify(messagesList || []),
+                role: currentUserRole,
+                allowMemberUpdate: String(groupPermissions.allowMemberUpdate),
+                allowMemberPin: String(groupPermissions.allowMemberPin),
+                allowMemberCreateVote: String(
+                  groupPermissions.allowMemberCreateVote,
+                ),
+                allowMemberSendMessage: String(
+                  groupPermissions.allowMemberSendMessage,
+                ),
+                allowModeratorSendMessage: String(
+                  groupPermissions.allowModeratorSendMessage,
+                ),
               },
             })
           }
@@ -355,25 +397,27 @@ export default function ChatDetailScreen() {
               </TouchableOpacity>
             )}
 
-            <TouchableOpacity
-              onPress={() => {
-                Alert.alert("Bỏ ghim", "Bạn có chắc muốn bỏ ghim?", [
-                  { text: "Hủy" },
-                  {
-                    text: "OK",
-                    onPress: async () => {
-                      await unpinMessage({
-                        chatRoomId,
-                        messageId: pinnedMessage.message.messageId,
-                      }).unwrap();
-                      await refetchPinned();
+            {canManagePins && (
+              <TouchableOpacity
+                onPress={() => {
+                  Alert.alert("Bỏ ghim", "Bạn có chắc muốn bỏ ghim?", [
+                    { text: "Hủy" },
+                    {
+                      text: "OK",
+                      onPress: async () => {
+                        await unpinMessage({
+                          chatRoomId,
+                          messageId: pinnedMessage.message.messageId,
+                        }).unwrap();
+                        await refetchPinned();
+                      },
                     },
-                  },
-                ]);
-              }}
-            >
-              <Ionicons name="close" size={18} color="#999" />
-            </TouchableOpacity>
+                  ]);
+                }}
+              >
+                <Ionicons name="close" size={18} color="#999" />
+              </TouchableOpacity>
+            )}
           </View>
         )}
 
@@ -401,31 +445,33 @@ export default function ChatDetailScreen() {
                     </TouchableOpacity>
 
                     {/* nút xóa ghim */}
-                    <TouchableOpacity
-                      onPress={() => {
-                        Alert.alert("Bỏ ghim", "Xóa ghim tin nhắn này?", [
-                          { text: "Hủy" },
-                          {
-                            text: "OK",
-                            onPress: async () => {
-                              try {
-                                await unpinMessage({
-                                  chatRoomId,
-                                  messageId: item.message.messageId,
-                                }).unwrap();
+                    {canManagePins && (
+                      <TouchableOpacity
+                        onPress={() => {
+                          Alert.alert("Bỏ ghim", "Xóa ghim tin nhắn này?", [
+                            { text: "Hủy" },
+                            {
+                              text: "OK",
+                              onPress: async () => {
+                                try {
+                                  await unpinMessage({
+                                    chatRoomId,
+                                    messageId: item.message.messageId,
+                                  }).unwrap();
 
-                                await refetchPinned();
-                              } catch (e) {
-                                console.error("Lỗi bỏ ghim:", e);
-                                Alert.alert("Lỗi", "Không thể bỏ ghim");
-                              }
+                                  await refetchPinned();
+                                } catch (e) {
+                                  console.error("Lỗi bỏ ghim:", e);
+                                  Alert.alert("Lỗi", "Không thể bỏ ghim");
+                                }
+                              },
                             },
-                          },
-                        ]);
-                      }}
-                    >
-                      <Ionicons name="close" size={18} color="#999" />
-                    </TouchableOpacity>
+                          ]);
+                        }}
+                      >
+                        <Ionicons name="close" size={18} color="#999" />
+                      </TouchableOpacity>
+                    )}
                   </View>
                 )}
               />
@@ -528,13 +574,15 @@ export default function ChatDetailScreen() {
             setSelectedFiles((prev) => prev.filter((_, i) => i !== idx))
           }
           onOpenEmoji={() => setIsEmojiOpen(true)}
-          disabled={isDirectBlocked || isGroupDissolved}
+          disabled={
+            isDirectBlocked || isGroupDissolved || !!sendPermissionDeniedReason
+          }
           disabledReason={
             isGroupDissolved
               ? "Nhóm đã bị giải tán"
               : isDirectBlocked
                 ? "Bạn bị chặn"
-                : undefined
+                : sendPermissionDeniedReason || undefined
           }
         />
       </KeyboardAvoidingView>
@@ -542,6 +590,7 @@ export default function ChatDetailScreen() {
       <MessageActionsSheet
         ref={bottomSheetRef}
         selectedMessage={selectedMessage}
+        canPin={canManagePins}
         onCopy={handleCopyMessage}
         isGroupDissolved={isGroupDissolved}
         onReply={() => {
@@ -553,6 +602,15 @@ export default function ChatDetailScreen() {
           bottomSheetRef.current?.close();
         }}
         onPin={async () => {
+          if (!canManagePins) {
+            Alert.alert(
+              "Thông báo",
+              "Bạn không có quyền ghim tin nhắn trong nhóm này",
+            );
+            bottomSheetRef.current?.close();
+            return;
+          }
+
           if (selectedMessage) {
             await pinMessage({
               chatRoomId,

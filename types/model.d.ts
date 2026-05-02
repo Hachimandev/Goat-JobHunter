@@ -234,6 +234,11 @@ export type ChatRoom = {
   roomId: number;
   type: ChatRoomType;
   privacy: ChatRoomPrivacy;
+  allowMemberUpdate: boolean;
+  allowMemberPin: boolean;
+  allowMemberCreateVote: boolean;
+  allowMemberSendMessage: boolean;
+  allowModeratorSendMessage: boolean;
   name: string;
   avatar: string | null;
   memberCount: number;

@@ -1,6 +1,9 @@
 import { useUser } from "@/hooks/useUser";
 import { useAppDispatch } from "@/lib/hooks";
-import { groupChatApi } from "@/services/chatRoom/groupChat/groupChatApi";
+import {
+  ChatRole,
+  groupChatApi,
+} from "@/services/chatRoom/groupChat/groupChatApi";
 import { Alert } from "react-native";
 
 export const useUpdateMemberRole = (onSuccess?: () => void) => {
@@ -12,14 +15,14 @@ export const useUpdateMemberRole = (onSuccess?: () => void) => {
   const handleUpdateRole = async (
     chatroomId: string,
     chatMemberId: string,
-    newRole: "OWNER" | "MODERATOR" | "MEMBER",
+    newRole: ChatRole,
     memberName: string,
   ) => {
     let roleText =
-      newRole === "OWNER"
+      newRole === ChatRole.OWNER
         ? "Chủ nhóm"
-        : newRole === "MODERATOR"
-          ? "Người điều hành"
+        : newRole === ChatRole.MODERATOR
+          ? "Người quản trị"
           : "Thành viên";
 
     Alert.alert(
@@ -37,7 +40,7 @@ export const useUpdateMemberRole = (onSuccess?: () => void) => {
                 role: newRole,
               }).unwrap();
 
-              if (newRole === "OWNER" && user?.accountId) {
+              if (newRole === ChatRole.OWNER && user?.accountId) {
                 dispatch(
                   groupChatApi.util.updateQueryData(
                     "getMemberInGroupChat",
@@ -46,10 +49,10 @@ export const useUpdateMemberRole = (onSuccess?: () => void) => {
                       if (draft && draft.data) {
                         draft.data.forEach((member) => {
                           if (member.chatMemberId.toString() === chatMemberId) {
-                            member.role = "OWNER";
+                            member.role = ChatRole.OWNER;
                           }
                           if (member.accountId === user.accountId) {
-                            member.role = "MEMBER";
+                            member.role = ChatRole.MEMBER;
                           }
                         });
                       }
@@ -63,6 +66,7 @@ export const useUpdateMemberRole = (onSuccess?: () => void) => {
                 `Bạn đã nhường quyền chủ nhóm cho ${memberName}.`,
               );
               onSuccess?.();
+              // eslint-disable-next-line @typescript-eslint/no-unused-vars
             } catch (error) {
               Alert.alert("Lỗi", "Không thể chuyển quyền chủ nhóm.");
             }
