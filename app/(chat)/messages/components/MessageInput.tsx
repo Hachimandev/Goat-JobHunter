@@ -42,6 +42,8 @@ interface MessageInputProps {
   readonly onCancelReply?: () => void;
   readonly disabled?: boolean;
   readonly disabledReason?: string;
+  readonly onTypingChange?: (typing: boolean) => void | Promise<void>;
+  readonly onTypingStop?: () => void | Promise<void>;
 }
 
 export function MessageInput({
@@ -51,6 +53,8 @@ export function MessageInput({
   onCancelReply,
   disabled = false,
   disabledReason,
+  onTypingChange,
+  onTypingStop,
 }: MessageInputProps) {
   const [message, setMessage] = useState('');
   const [richMessage, setRichMessage] = useState('');
@@ -134,6 +138,8 @@ export function MessageInput({
     if (disabled) {
       return;
     }
+
+    await onTypingStop?.();
 
     const plainText = isEditorMode ? richMessage.replace(/<[^>]*>/g, '').trim() : message.trim();
 
@@ -255,6 +261,14 @@ export function MessageInput({
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
+  };
+
+  const emitTypingState = (text: string) => {
+    if (disabled || !onTypingChange) {
+      return;
+    }
+
+    void onTypingChange(text.trim().length > 0);
   };
 
   const handleAttachClick = () => {
@@ -514,7 +528,10 @@ export function MessageInput({
               <Input
                 ref={textInputRef}
                 value={message}
-                onChange={(e) => setMessage(e.target.value)}
+                onChange={(e) => {
+                  setMessage(e.target.value);
+                  emitTypingState(e.target.value);
+                }}
                 onKeyDown={handleKeyPress}
                 placeholder="Nhập tin nhắn..."
                 disabled={disabled}
@@ -526,7 +543,10 @@ export function MessageInput({
           <div className="bg-accent/30 rounded-lg overflow-hidden">
             <RichTextEditor
               value={richMessage}
-              onChange={setRichMessage}
+              onChange={(value) => {
+                setRichMessage(value);
+                emitTypingState(value.replace(/<[^>]*>/g, ''));
+              }}
               onEditorReady={handleEditorReady}
               placeholder="Nhập tin nhắn..."
               maxHeight={200}

@@ -17,6 +17,7 @@ import {
 } from '@/utils/replyContextRealtime';
 import { pollApi } from '../poll/pollApi';
 import { ChatRole } from '@/services/chatRoom/groupChat/groupChatType';
+import { TypingIndicatorParticipant, upsertTypingIndicator } from '@/services/chatRoom/typing/typingIndicatorRuntime';
 
 type DeleteMessageRealtimeEvent = {
   eventType?: string;
@@ -94,6 +95,20 @@ export class WebSocketMessageService {
       }
     });
 
+    this.client.subscribe(`/topic/chatrooms/${chatRoomId}/typing`, (frame) => {
+      try {
+        const payload: unknown = JSON.parse(frame.body);
+
+        if (!this.isTypingIndicatorEvent(payload)) {
+          return;
+        }
+
+        upsertTypingIndicator(chatRoomId, payload);
+      } catch (err) {
+        console.error('❌ Parse typing indicator error:', err);
+      }
+    });
+
     this.subscribedChatRooms.add(chatRoomId);
     console.log(`✅ Subscribed to /topic/chatrooms/${chatRoomId}`);
   }
@@ -148,6 +163,21 @@ export class WebSocketMessageService {
     }
 
     return hasValidMessageId && hasValidChatRoomId && !hasSender;
+  }
+
+  private isTypingIndicatorEvent(payload: unknown): payload is TypingIndicatorParticipant {
+    if (!payload || typeof payload !== 'object') {
+      return false;
+    }
+
+    const candidate = payload as Record<string, unknown>;
+
+    return (
+      typeof candidate.accountId === 'number' &&
+      typeof candidate.username === 'string' &&
+      typeof candidate.typing === 'boolean' &&
+      typeof candidate.updatedAt === 'string'
+    );
   }
 
   private getActiveMessageQueryArgs(chatRoomId: number): FetchMessagesInChatRoomRequest[] {
