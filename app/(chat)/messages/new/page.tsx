@@ -42,6 +42,11 @@ export default function NewChatRoomPage() {
       blockedByMe: false,
       counterpartAccountId: recipientAccountId,
       privacy: ChatRoomPrivacy.PUBLIC,
+      allowMemberUpdate: true,
+      allowMemberPin: true,
+      allowMemberCreateVote: true,
+      allowMemberSendMessage: true,
+      allowModeratorSendMessage: true,
     };
   }, [data?.data?.avatar, data?.data?.fullName, data?.data?.username, recipientAccountId]);
 
