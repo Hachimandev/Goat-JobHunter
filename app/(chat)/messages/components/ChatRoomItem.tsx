@@ -5,12 +5,14 @@ import { useLazyGetUnreadMessagesSummaryQuery } from '@/services/ai/conversation
 import { useAssignTagByRoomMutation, useRemoveTagMutation } from '@/services/tag/tagApi';
 import { ChatRoomType } from '@/types/enum';
 import { formatLastMessageTime } from '@/utils/formatDate';
+import { formatActivityTime } from '@/utils/formatActivityTime';
 import { cn } from '@/lib/utils';
 import { useMemo, useState, useEffect } from 'react';
 import { truncate } from 'lodash';
 import { Badge } from '@/components/ui/badge';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { toast } from 'sonner';
+import { usePresenceStatus } from '@/hooks/usePresenceStatus';
 
 interface ConversationItemProps {
   chatRoom: ChatRoom;
@@ -31,10 +33,12 @@ export function ChatRoomItem({
 }: Readonly<ConversationItemProps>) {
   const isGroup = chatRoom.type === ChatRoomType.GROUP;
   const isDissolved = Boolean(chatRoom.deletedAt && chatRoom.type === ChatRoomType.GROUP);
+  const presence = usePresenceStatus(!isGroup ? chatRoom.counterpartAccountId : null);
 
   const chatRoomTitle = chatRoom.name;
   const avatarFallback = chatRoomTitle.charAt(0).toUpperCase();
   const formattedTime = formatLastMessageTime(chatRoom.lastMessageTime);
+  const activityTime = formatActivityTime(presence?.lastHeartbeatAt, presence?.online);
 
   const unreadBadgeText = useMemo(() => {
     if (unreadMessagesCount <= 0) return null;
@@ -150,6 +154,12 @@ export function ChatRoomItem({
             <AvatarImage src={chatRoom.avatar || undefined} alt={chatRoomTitle} />
             <AvatarFallback>{avatarFallback}</AvatarFallback>
           </Avatar>
+
+          {!isGroup && presence?.online && (
+            <div className="absolute bottom-0 right-0 bg-green-500 rounded-full p-1" title="Đang hoạt động">
+              <div className="h-1 w-1 bg-green-500 rounded-full" />
+            </div>
+          )}
 
           {isGroup && !isDissolved && (
             <div className="absolute -bottom-1 -right-1 bg-primary rounded-full p-1">
