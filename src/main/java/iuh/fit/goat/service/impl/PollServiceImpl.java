@@ -7,6 +7,7 @@ import iuh.fit.goat.dto.request.poll.CreatePollRequest;
 import iuh.fit.goat.dto.request.poll.VotePollRequest;
 import iuh.fit.goat.dto.response.poll.*;
 import iuh.fit.goat.entity.*;
+import iuh.fit.goat.enumeration.ChatRoomPermissionAction;
 import iuh.fit.goat.exception.InvalidException;
 import iuh.fit.goat.repository.AccountRepository;
 import iuh.fit.goat.repository.ChatRoomRepository;
@@ -14,6 +15,7 @@ import iuh.fit.goat.repository.PollRepository;
 import iuh.fit.goat.repository.PollVoteRepository;
 import iuh.fit.goat.service.MessageService;
 import iuh.fit.goat.service.PollService;
+import iuh.fit.goat.service.helper.ChatRoomPermissionGuard;
 import iuh.fit.goat.util.EntityUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -40,11 +42,18 @@ public class PollServiceImpl implements PollService {
     private final MessageService messageService;
 
     private final SimpMessagingTemplate messagingTemplate;
+    private final ChatRoomPermissionGuard chatRoomPermissionGuard;
 
     @Override
     public PollResponse createPoll(Long chatRoomId, CreatePollRequest request, Account currentAccount) throws InvalidException
     {
-        validChatRoomAndMembership(chatRoomId, currentAccount.getAccountId());
+        ChatRoom chatRoom = validChatRoomAndMembership(chatRoomId, currentAccount.getAccountId());
+        ChatMember currentMember = this.chatRoomPermissionGuard.getCurrentMember(chatRoom, currentAccount.getAccountId());
+        this.chatRoomPermissionGuard.assertCanPerformAction(
+                chatRoom,
+                currentMember,
+                ChatRoomPermissionAction.CREATE_POLL
+        );
 
         String pollId = generatePollId();
         String messageId = generateMessageId();
@@ -358,7 +367,7 @@ public class PollServiceImpl implements PollService {
         log.debug("Sent POLL_CLOSED event to chatRoom: {}", chatRoomId);
     }
 
-    private void validChatRoomAndMembership(Long chatRoomId, Long currentAccountId) throws InvalidException {
+    private ChatRoom validChatRoomAndMembership(Long chatRoomId, Long currentAccountId) throws InvalidException {
         ChatRoom chatRoom = this.chatRoomRepository.findByRoomIdAndDeletedAtIsNull(chatRoomId)
                 .orElseThrow(() -> new InvalidException("Phòng chat không tồn tại"));
 
@@ -367,6 +376,7 @@ public class PollServiceImpl implements PollService {
                         m -> m.getDeletedAt() == null && m.getAccount().getAccountId() == currentAccountId
                 );
         if (!isMember) throw new InvalidException("Nguời dùng không phải là thành viên của phòng chat này");
+        return chatRoom;
     }
 
     private String generatePollId() {

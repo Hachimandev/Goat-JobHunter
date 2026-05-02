@@ -8,6 +8,7 @@ import iuh.fit.goat.dto.request.message.MessageToNewChatRoom;
 import iuh.fit.goat.dto.response.ResultPaginationResponse;
 import iuh.fit.goat.dto.response.chat.ChatRoomResponse;
 import iuh.fit.goat.dto.response.chat.ChatRoomJoinRequestResponse;
+import iuh.fit.goat.dto.response.chat.ChatRoomPermissionResponse;
 import iuh.fit.goat.dto.response.chat.GroupMemberResponse;
 import iuh.fit.goat.dto.response.chat.InviteLinkResponse;
 import iuh.fit.goat.dto.response.chat.InviteTokenPreviewResponse;
@@ -177,6 +178,26 @@ public class ChatRoomController {
         Account currentAccount = getCurrentAccount();
         ChatRoom updatedChatRoom = this.chatRoomService.updateGroupInfo(currentAccount, chatRoomId, request);
         return ResponseEntity.ok(updatedChatRoom);
+    }
+
+    @GetMapping("/group/{chatRoomId}/permissions")
+    public ResponseEntity<ChatRoomPermissionResponse> getGroupPermissions(
+            @PathVariable Long chatRoomId
+    ) throws InvalidException {
+        Account currentAccount = getCurrentAccount();
+        ChatRoomPermissionResponse response = this.chatRoomService.getGroupPermissions(currentAccount, chatRoomId);
+        return ResponseEntity.ok(response);
+    }
+
+    @PutMapping("/group/{chatRoomId}/permissions")
+    public ResponseEntity<ChatRoomPermissionResponse> updateGroupPermissions(
+            @PathVariable Long chatRoomId,
+            @Valid @RequestBody UpdateChatRoomPermissionsRequest request
+    ) throws InvalidException {
+        Account currentAccount = getCurrentAccount();
+        ChatRoomPermissionResponse response = this.chatRoomService
+                .updateGroupPermissions(currentAccount, chatRoomId, request);
+        return ResponseEntity.ok(response);
     }
 
     @DeleteMapping("/group/{chatRoomId}")

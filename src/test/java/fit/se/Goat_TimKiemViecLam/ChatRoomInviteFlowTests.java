@@ -23,6 +23,8 @@ import iuh.fit.goat.service.AiService;
 import iuh.fit.goat.service.ChatRoomService;
 import iuh.fit.goat.service.MessageService;
 import iuh.fit.goat.service.NotificationService;
+import iuh.fit.goat.service.cache.ChatRoomCacheService;
+import iuh.fit.goat.service.helper.ChatRoomPermissionGuard;
 import iuh.fit.goat.service.impl.ChatRoomServiceImpl;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -48,7 +50,7 @@ import static org.mockito.Mockito.verify;
         },
         excludeFilters = @ComponentScan.Filter(type = FilterType.ASSIGNABLE_TYPE, classes = CompanyRepository.class)
 )
-@Import(ChatRoomServiceImpl.class)
+@Import({ChatRoomServiceImpl.class, ChatRoomPermissionGuard.class})
 @ContextConfiguration(classes = GoatTimKiemViecLamApplication.class)
 class ChatRoomInviteFlowTests {
 
@@ -81,6 +83,9 @@ class ChatRoomInviteFlowTests {
 
     @MockBean
     private MessageRepository messageRepository;
+
+    @MockBean
+    private ChatRoomCacheService chatRoomCacheService;
 
     @Test
     void shouldSaveAndLoadInviteFieldsThroughJpa() {
@@ -276,13 +281,11 @@ class ChatRoomInviteFlowTests {
     void updateGroupInfo_shouldAllowOwnerAndModeratorToChangePrivacy() throws Exception {
         Applicant owner = createApplicant("privacy-owner");
         Applicant moderator = createApplicant("privacy-moderator");
-        Applicant member = createApplicant("privacy-member");
 
         ChatRoom room = createRoom("privacy-token-001", true);
         room = chatRoomRepository.saveAndFlush(room);
         addMember(room, owner, ChatRole.OWNER);
         addMember(room, moderator, ChatRole.MODERATOR);
-        addMember(room, member, ChatRole.MEMBER);
 
         ChatRoom ownerUpdated = chatRoomService.updateGroupInfo(
                 owner,
@@ -300,26 +303,23 @@ class ChatRoomInviteFlowTests {
     }
 
     @Test
-    void updateGroupInfo_shouldRejectMemberPrivacyChange() {
+    void updateGroupInfo_shouldAllowMemberPrivacyChangeWhenMemberUpdatePermissionEnabled() throws Exception {
         Applicant owner = createApplicant("privacy-owner-2");
         Applicant member = createApplicant("privacy-member-2");
 
         ChatRoom room = createRoom("privacy-token-002", true);
+        room.setAllowMemberUpdate(true);
         room = chatRoomRepository.saveAndFlush(room);
-        final Long roomId = room.getRoomId();
         addMember(room, owner, ChatRole.OWNER);
         addMember(room, member, ChatRole.MEMBER);
 
-        InvalidException exception = assertThrows(
-                InvalidException.class,
-                () -> chatRoomService.updateGroupInfo(
-                        member,
-                        roomId,
-                        new UpdateGroupInfoRequest(null, null, ChatRoomPrivacy.PRIVATE)
-                )
+        ChatRoom updated = chatRoomService.updateGroupInfo(
+                member,
+                room.getRoomId(),
+                new UpdateGroupInfoRequest(null, null, ChatRoomPrivacy.PRIVATE)
         );
 
-        assertEquals("Only owners and moderators can update group info", exception.getMessage());
+        assertEquals(ChatRoomPrivacy.PRIVATE, updated.getPrivacy());
     }
 
     @Test

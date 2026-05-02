@@ -5,6 +5,7 @@ import iuh.fit.goat.dto.request.message.MessageToNewChatRoom;
 import iuh.fit.goat.dto.response.ResultPaginationResponse;
 import iuh.fit.goat.dto.response.chat.ChatRoomResponse;
 import iuh.fit.goat.dto.response.chat.ChatRoomJoinRequestResponse;
+import iuh.fit.goat.dto.response.chat.ChatRoomPermissionResponse;
 import iuh.fit.goat.dto.response.chat.GroupMemberResponse;
 import iuh.fit.goat.dto.response.chat.InviteLinkResponse;
 import iuh.fit.goat.dto.response.chat.InviteTokenPreviewResponse;
@@ -54,6 +55,14 @@ public interface ChatRoomService {
     ChatRoom createGroupChat(Account currentAccount, CreateGroupChatRequest request) throws InvalidException;
 
     ChatRoom updateGroupInfo(Account currentAccount, Long chatRoomId, UpdateGroupInfoRequest request) throws InvalidException;
+
+    ChatRoomPermissionResponse getGroupPermissions(Account currentAccount, Long chatRoomId) throws InvalidException;
+
+    ChatRoomPermissionResponse updateGroupPermissions(
+            Account currentAccount,
+            Long chatRoomId,
+            UpdateChatRoomPermissionsRequest request
+    ) throws InvalidException;
 
     void leaveGroupChat(Account currentAccount, Long chatRoomId) throws InvalidException;
 

@@ -4,6 +4,7 @@ import iuh.fit.goat.common.MessageEvent;
 import iuh.fit.goat.dto.request.chat.*;
 import iuh.fit.goat.dto.request.message.MessageCreateRequest;
 import iuh.fit.goat.dto.request.message.MessageToNewChatRoom;
+import iuh.fit.goat.dto.response.chat.ChatRoomPermissionResponse;
 import iuh.fit.goat.dto.response.chat.ChatRoomResponse;
 import iuh.fit.goat.dto.response.chat.ChatRoomJoinRequestResponse;
 import iuh.fit.goat.dto.response.ResultPaginationResponse;
@@ -16,6 +17,7 @@ import iuh.fit.goat.dto.response.chat.UnreadMessageResponse;
 import iuh.fit.goat.entity.*;
 import iuh.fit.goat.enumeration.ChatRole;
 import iuh.fit.goat.enumeration.ChatRoomJoinRequestStatus;
+import iuh.fit.goat.enumeration.ChatRoomPermissionAction;
 import iuh.fit.goat.enumeration.ChatRoomPrivacy;
 import iuh.fit.goat.enumeration.ChatRoomType;
 import iuh.fit.goat.enumeration.RelationshipState;
@@ -35,6 +37,8 @@ import iuh.fit.goat.service.AiService;
 import iuh.fit.goat.service.ChatRoomService;
 import iuh.fit.goat.service.MessageService;
 import iuh.fit.goat.service.NotificationService;
+import iuh.fit.goat.service.cache.ChatRoomCacheService;
+import iuh.fit.goat.service.helper.ChatRoomPermissionGuard;
 import iuh.fit.goat.util.EntityUtil;
 import iuh.fit.goat.util.SecurityUtil;
 import lombok.RequiredArgsConstructor;
@@ -65,6 +69,8 @@ public class ChatRoomServiceImpl implements ChatRoomService {
     private final AccountRepository accountRepository;
     private final UserRelationshipRepository userRelationshipRepository;
     private final MessageRepository messageRepository;
+    private final ChatRoomCacheService chatRoomCacheService;
+    private final ChatRoomPermissionGuard chatRoomPermissionGuard;
 
     private final int SUMMARY_THRESHOLD = 10;
     @Value("${goat.fe.url}")
@@ -90,7 +96,7 @@ public class ChatRoomServiceImpl implements ChatRoomService {
     @Transactional(readOnly = true)
     public ChatRoomResponse getDetailChatRoomInformation(Account currentAccount, Long chatRoomId) throws InvalidException {
         // Validate chat room exists
-        ChatRoom chatRoom = this.chatRoomRepository.findByRoomId(chatRoomId)
+        ChatRoom chatRoom = this.chatRoomRepository.findByRoomIdAndDeletedAtIsNull(chatRoomId)
                 .orElseThrow(() -> new InvalidException("Chat room not found"));
 
         // Check if user is member
@@ -400,7 +406,11 @@ public class ChatRoomServiceImpl implements ChatRoomService {
 
         // Check if user is member and has permission to update
         ChatMember currentMember = getCurrentMemberInChatRoom(chatRoom, currentAccount.getAccountId());
-        validateModeratorOrOwnerPermission(currentMember, "update group info");
+        this.chatRoomPermissionGuard.assertCanPerformAction(
+                chatRoom,
+                currentMember,
+                ChatRoomPermissionAction.UPDATE_GROUP_INFO
+        );
 
         // Update group info
         if (request.getName() != null && !request.getName().isBlank()) {
@@ -436,7 +446,59 @@ public class ChatRoomServiceImpl implements ChatRoomService {
             );
         }
 
-        return chatRoomRepository.save(chatRoom);
+        ChatRoom savedChatRoom = this.chatRoomRepository.save(chatRoom);
+        this.chatRoomCacheService.cache(savedChatRoom);
+        return savedChatRoom;
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public ChatRoomPermissionResponse getGroupPermissions(Account currentAccount, Long chatRoomId) throws InvalidException {
+        ChatRoom chatRoom = getChatRoomById(chatRoomId);
+        validateGroupChatRoom(chatRoom);
+        getCurrentMemberInChatRoom(chatRoom, currentAccount.getAccountId());
+        return mapToPermissionResponse(chatRoom);
+    }
+
+    @Override
+    @Transactional
+    public ChatRoomPermissionResponse updateGroupPermissions(
+            Account currentAccount,
+            Long chatRoomId,
+            UpdateChatRoomPermissionsRequest request
+    ) throws InvalidException {
+        if (request == null) {
+            throw new InvalidException("Permission update request is required");
+        }
+
+        ChatRoom chatRoom = getChatRoomById(chatRoomId);
+        validateGroupChatRoom(chatRoom);
+        ChatMember currentMember = getCurrentMemberInChatRoom(chatRoom, currentAccount.getAccountId());
+
+        if (currentMember.getRole() == ChatRole.MEMBER) {
+            throw new InvalidException("Only owners and moderators can update group permissions");
+        }
+
+        if (currentMember.getRole() == ChatRole.MODERATOR
+                && request.getAllowModeratorSendMessage() != null
+                && request.getAllowModeratorSendMessage() != chatRoom.isAllowModeratorSendMessage()) {
+            throw new InvalidException("Moderators cannot update moderator send message permission");
+        }
+
+        chatRoom.setAllowMemberUpdate(requireBoolean(request.getAllowMemberUpdate(), "allowMemberUpdate"));
+        chatRoom.setAllowMemberPin(requireBoolean(request.getAllowMemberPin(), "allowMemberPin"));
+        chatRoom.setAllowMemberCreateVote(requireBoolean(request.getAllowMemberCreateVote(), "allowMemberCreateVote"));
+        chatRoom.setAllowMemberSendMessage(requireBoolean(request.getAllowMemberSendMessage(), "allowMemberSendMessage"));
+
+        if (currentMember.getRole() == ChatRole.OWNER) {
+            chatRoom.setAllowModeratorSendMessage(
+                    requireBoolean(request.getAllowModeratorSendMessage(), "allowModeratorSendMessage")
+            );
+        }
+
+        ChatRoom savedChatRoom = this.chatRoomRepository.save(chatRoom);
+        this.chatRoomCacheService.cache(savedChatRoom);
+        return mapToPermissionResponse(savedChatRoom);
     }
 
     @Override
@@ -1038,11 +1100,25 @@ public class ChatRoomServiceImpl implements ChatRoomService {
     }
 
     private ChatMember getCurrentMemberInChatRoom(ChatRoom chatRoom, Long accountId) throws InvalidException {
-        return chatRoom.getMembers().stream()
-                .filter(m -> m.getDeletedAt() == null &&
-                        Objects.equals(m.getAccount().getAccountId(), accountId))
-                .findFirst()
-                .orElseThrow(() -> new InvalidException("User is not a member of this chat room"));
+        return this.chatRoomPermissionGuard.getCurrentMember(chatRoom, accountId);
+    }
+
+    private ChatRoomPermissionResponse mapToPermissionResponse(ChatRoom chatRoom) {
+        return ChatRoomPermissionResponse.builder()
+                .roomId(chatRoom.getRoomId())
+                .allowMemberUpdate(chatRoom.isAllowMemberUpdate())
+                .allowMemberPin(chatRoom.isAllowMemberPin())
+                .allowMemberCreateVote(chatRoom.isAllowMemberCreateVote())
+                .allowMemberSendMessage(chatRoom.isAllowMemberSendMessage())
+                .allowModeratorSendMessage(chatRoom.isAllowModeratorSendMessage())
+                .build();
+    }
+
+    private boolean requireBoolean(Boolean value, String fieldName) throws InvalidException {
+        if (value == null) {
+            throw new InvalidException(fieldName + " is required");
+        }
+        return value;
     }
 
     private void validateModeratorOrOwnerPermission(ChatMember member, String action) throws InvalidException {
@@ -1227,6 +1303,11 @@ public class ChatRoomServiceImpl implements ChatRoomService {
                 .isBlockedByMe(blockStatus.blockedByMe())
                 .counterpartAccountId(blockStatus.counterpartAccountId())
                 .currentUserSentLastMessage(lastMessageInfo.isCurrentUserSender())
+                .allowMemberUpdate(chatRoom.isAllowMemberUpdate())
+                .allowMemberPin(chatRoom.isAllowMemberPin())
+                .allowMemberCreateVote(chatRoom.isAllowMemberCreateVote())
+                .allowMemberSendMessage(chatRoom.isAllowMemberSendMessage())
+                .allowModeratorSendMessage(chatRoom.isAllowModeratorSendMessage())
                 .deletedAt(chatRoom.getDeletedAt())
                 .build();
     }
