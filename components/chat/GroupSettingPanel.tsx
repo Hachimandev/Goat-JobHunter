@@ -1,19 +1,23 @@
-import React, { useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   Modal,
   StyleSheet,
+  Switch,
   Text,
   TouchableOpacity,
   View,
 } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useEditGroup } from "@/hooks/useEditGroup";
-
-export enum ChatRoomPrivacy {
-  PUBLIC = "PUBLIC",
-  PRIVATE = "PRIVATE",
-}
+import {
+  ChatRole,
+  GroupPermissionsResponse,
+  useGetGroupPermissionsQuery,
+  useUpdateGroupPermissionsMutation,
+} from "@/services/chatRoom/groupChat/groupChatApi";
+import { ChatRoomPrivacy } from "@/types/enum";
 
 const PRIVACY_OPTIONS: {
   label: string;
@@ -40,22 +44,120 @@ interface GroupSettingPanelProps {
   groupName: string;
   groupAvatar: string;
   currentPrivacy?: ChatRoomPrivacy;
+  currentRole?: ChatRole;
+  currentPermissions?: GroupPermissionsResponse;
   onRefetch?: () => void;
 }
 
+const DEFAULT_GROUP_PERMISSIONS: GroupPermissionsResponse = {
+  allowMemberUpdate: true,
+  allowMemberPin: true,
+  allowMemberCreateVote: true,
+  allowMemberSendMessage: true,
+  allowModeratorSendMessage: true,
+};
+
+const PERMISSION_OPTIONS: {
+  key: keyof GroupPermissionsResponse;
+  label: string;
+  roles: ChatRole[]; // Roles that can edit this permission
+}[] = [
+  {
+    key: "allowMemberUpdate",
+    label: "Thành viên đổi tên và ảnh nhóm",
+    roles: [ChatRole.OWNER, ChatRole.MODERATOR],
+  },
+  {
+    key: "allowMemberPin",
+    label: "Thành viên ghim tin nhắn, ghi chú, bình chọn",
+    roles: [ChatRole.OWNER, ChatRole.MODERATOR],
+  },
+  {
+    key: "allowMemberCreateVote",
+    label: "Thành viên tạo bình chọn",
+    roles: [ChatRole.OWNER, ChatRole.MODERATOR],
+  },
+  {
+    key: "allowMemberSendMessage",
+    label: "Thành viên gửi tin nhắn",
+    roles: [ChatRole.OWNER, ChatRole.MODERATOR],
+  },
+  {
+    key: "allowModeratorSendMessage",
+    label: "Quản trị viên gửi tin nhắn",
+    roles: [ChatRole.OWNER],
+  },
+];
+
 export const GroupSettingPanel = ({
   groupId,
-  groupName,
-  groupAvatar,
   currentPrivacy = ChatRoomPrivacy.PUBLIC,
+  currentRole,
+  currentPermissions,
   onRefetch,
 }: GroupSettingPanelProps) => {
   const [modalVisible, setModalVisible] = useState(false);
   const { isLoading, handleEditGroup } = useEditGroup();
+  const [updateGroupPermissions, { isLoading: isUpdatingPermissions }] =
+    useUpdateGroupPermissionsMutation();
+
+  const canViewPermissionSection =
+    currentRole === ChatRole.OWNER || currentRole === ChatRole.MODERATOR;
+
+  const { data: groupPermissionsData } = useGetGroupPermissionsQuery(groupId, {
+    skip: !canViewPermissionSection,
+  });
+
+  const [permissions, setPermissions] = useState<GroupPermissionsResponse>(
+    currentPermissions || DEFAULT_GROUP_PERMISSIONS,
+  );
+
+  const resolvedPermissionResponse = useMemo(() => {
+    if (
+      groupPermissionsData &&
+      "data" in groupPermissionsData &&
+      groupPermissionsData.data
+    ) {
+      return groupPermissionsData.data;
+    }
+
+    return (
+      (groupPermissionsData as GroupPermissionsResponse | undefined) || null
+    );
+  }, [groupPermissionsData]);
+
+  useEffect(() => {
+    if (resolvedPermissionResponse) {
+      setPermissions({
+        ...DEFAULT_GROUP_PERMISSIONS,
+        ...resolvedPermissionResponse,
+      });
+      return;
+    }
+
+    if (currentPermissions) {
+      setPermissions({
+        ...DEFAULT_GROUP_PERMISSIONS,
+        ...currentPermissions,
+      });
+    }
+  }, [currentPermissions, resolvedPermissionResponse]);
 
   const selectedOption = PRIVACY_OPTIONS.find(
     (o) => o.value === currentPrivacy,
   );
+
+  const canEditPermission = (key: keyof GroupPermissionsResponse) => {
+    if (currentRole === ChatRole.OWNER) {
+      return true;
+    }
+
+    if (currentRole === ChatRole.MODERATOR) {
+      return key !== "allowModeratorSendMessage";
+    }
+
+    return false;
+  };
 
   const handlePrivacyChange = async (value: ChatRoomPrivacy) => {
     const success = await handleEditGroup({
@@ -69,6 +171,48 @@ export const GroupSettingPanel = ({
         onRefetch();
       }
       setModalVisible(false);
+    }
+  };
+
+  const handlePermissionChange = async (
+    key: keyof GroupPermissionsResponse,
+    value: boolean,
+  ) => {
+    if (!canEditPermission(key) || isUpdatingPermissions) {
+      return;
+    }
+
+    const previousPermissions = permissions;
+    const nextPermissions = {
+      ...permissions,
+      [key]: value,
+    };
+
+    setPermissions(nextPermissions);
+
+    try {
+      const response = await updateGroupPermissions({
+        chatRoomId: groupId,
+        ...nextPermissions,
+      }).unwrap();
+
+      const serverPermissions = response?.data;
+
+      setPermissions({
+        ...DEFAULT_GROUP_PERMISSIONS,
+        ...serverPermissions,
+      });
+
+      if (onRefetch) {
+        onRefetch();
+      }
+    } catch (error: any) {
+      setPermissions(previousPermissions);
+      Alert.alert(
+        "Lỗi",
+        error?.data?.message ||
+          "Không thể cập nhật quyền nhóm. Vui lòng thử lại.",
+      );
     }
   };
 
@@ -170,6 +314,39 @@ export const GroupSettingPanel = ({
           </View>
         </TouchableOpacity>
       </Modal>
+
+      {canViewPermissionSection && (
+        <View style={styles.permissionSection}>
+          <Text style={styles.label}>Quyền trong nhóm</Text>
+          <View style={styles.permissionCard}>
+            {PERMISSION_OPTIONS.filter((option) =>
+              option.roles.includes(currentRole),
+            ).map((option, index) => {
+              const isLast = index === PERMISSION_OPTIONS.length - 1;
+
+              return (
+                <View
+                  key={option.key}
+                  style={[
+                    styles.permissionRow,
+                    !isLast && styles.permissionRowBorder,
+                  ]}
+                >
+                  <Text style={[styles.permissionLabel]}>{option.label}</Text>
+                  <Switch
+                    value={permissions[option.key]}
+                    onValueChange={(nextValue) =>
+                      handlePermissionChange(option.key, nextValue)
+                    }
+                    disabled={isUpdatingPermissions}
+                    trackColor={{ false: "#D1D1D6", true: "#34C759" }}
+                  />
+                </View>
+              );
+            })}
+          </View>
+        </View>
+      )}
     </View>
   );
 };
@@ -289,6 +466,37 @@ const styles = StyleSheet.create({
   },
   optionDescription: {
     fontSize: 11,
+    color: "#8E8E93",
+  },
+  permissionSection: {
+    marginTop: 16,
+  },
+  permissionCard: {
+    backgroundColor: "#fff",
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#E5E5EA",
+    overflow: "hidden",
+  },
+  permissionRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    gap: 12,
+  },
+  permissionRowBorder: {
+    borderBottomWidth: 1,
+    borderBottomColor: "#F2F2F7",
+  },
+  permissionLabel: {
+    flex: 1,
+    fontSize: 13,
+    color: "#000",
+    fontWeight: "500",
+  },
+  permissionLabelReadOnly: {
     color: "#8E8E93",
   },
 });

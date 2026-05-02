@@ -4,12 +4,26 @@ import {
   useSendMessageToChatRoomMutation,
   useSendMessageToNewChatRoomMutation,
 } from "@/services/chatRoom/chatRoomApi";
+import {
+  ChatRole,
+  GroupPermissionsResponse,
+} from "@/services/chatRoom/groupChat/groupChatApi";
 import * as ImagePicker from "expo-image-picker";
 import { useCallback, useState } from "react";
 import { Alert, Platform } from "react-native";
 import { useUser } from "./useUser";
 
-export default function useChatActionsMobile() {
+interface UseChatActionsMobileParams {
+  isGroupChat?: boolean;
+  currentUserRole?: ChatRole;
+  groupPermissions?: GroupPermissionsResponse;
+}
+
+export default function useChatActionsMobile({
+  isGroupChat = false,
+  currentUserRole,
+  groupPermissions,
+}: UseChatActionsMobileParams = {}) {
   const { user, isSignedIn } = useUser();
 
   // Mutations
@@ -22,6 +36,28 @@ export default function useChatActionsMobile() {
   const [actioningMessageIds, setActioningMessageIds] = useState<Set<string>>(
     new Set(),
   );
+
+  const getSendPermissionDeniedReason = useCallback(() => {
+    if (!isGroupChat || !groupPermissions) {
+      return null;
+    }
+
+    if (
+      currentUserRole === ChatRole.MEMBER &&
+      groupPermissions.allowMemberSendMessage === false
+    ) {
+      return "Chỉ có chủ nhóm và quản trị viên mới có quyền gửi tin nhắn trong nhóm này";
+    }
+
+    if (
+      currentUserRole === ChatRole.MODERATOR &&
+      groupPermissions.allowModeratorSendMessage === false
+    ) {
+      return "Chỉ có chủ nhóm mới có quyền gửi tin nhắn trong nhóm này";
+    }
+
+    return null;
+  }, [currentUserRole, groupPermissions, isGroupChat]);
 
   const pickImage = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -102,6 +138,12 @@ export default function useChatActionsMobile() {
       return { success: false };
     }
 
+    const deniedReason = getSendPermissionDeniedReason();
+    if (deniedReason) {
+      Alert.alert("Thông báo", deniedReason);
+      return { success: false, reason: deniedReason };
+    }
+
     try {
       const formData = await createChatFormData(
         content,
@@ -168,6 +210,7 @@ export default function useChatActionsMobile() {
     handleSendMessage,
     handleRecallMessage,
     handleDeleteMessage,
+    getSendPermissionDeniedReason,
     pickImage,
     isMessageLoading,
     isSending: isSendingMessage || isSendingNewMessage,
