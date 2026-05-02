@@ -1,4 +1,5 @@
 import { api } from '@/services/api';
+import { ChatRole } from '@/services/chatRoom/groupChat/groupChatType';
 import { IBackendRes } from '@/types/api';
 import { ChatRoomPrivacy } from '@/types/enum';
 
@@ -22,9 +23,21 @@ interface UpdateMemberRoleRequest {
   role: ChatRole;
 }
 
-type ChatRole = 'OWNER' | 'MODERATOR' | 'MEMBER';
+interface GroupPermissionSettings {
+  allowMemberUpdate: boolean;
+  allowMemberPin: boolean;
+  allowMemberCreateVote: boolean;
+  allowMemberSendMessage: boolean;
+  allowModeratorSendMessage: boolean;
+}
 
-interface ChatRoomResponse {
+interface UpdateGroupPermissionsRequest extends GroupPermissionSettings {
+  chatRoomId: number;
+}
+
+type UpdateGroupPermissionsResponse = GroupPermissionSettings;
+
+interface ChatRoomResponse extends GroupPermissionSettings {
   aiModel: string | null;
   avatar: string;
   createdAt: string;
@@ -150,6 +163,29 @@ export const groupChatApi = api.injectEndpoints({
       }),
       invalidatesTags: (result, error, { chatRoomId }) => [{ type: 'ChatRoom', id: chatRoomId }],
     }),
+
+    getGroupPermissions: builder.query<IBackendRes<GroupPermissionSettings>, number>({
+      query: (chatRoomId) => ({
+        url: `/chatrooms/group/${chatRoomId}/permissions`,
+        method: 'GET',
+      }),
+      providesTags: (result, error, chatRoomId) => [{ type: 'ChatRoom', id: chatRoomId }],
+    }),
+
+    updateGroupPermissions: builder.mutation<
+      IBackendRes<UpdateGroupPermissionsResponse>,
+      UpdateGroupPermissionsRequest
+    >({
+      query: ({ chatRoomId, ...data }) => ({
+        url: `/chatrooms/group/${chatRoomId}/permissions`,
+        method: 'PUT',
+        data,
+      }),
+      invalidatesTags: (result, error, { chatRoomId }) => [
+        { type: 'ChatRoom', id: chatRoomId },
+        { type: 'ChatRoom', id: 'LIST' },
+      ],
+    }),
   }),
 });
 
@@ -162,4 +198,6 @@ export const {
   useRemoveMemberFromGroupMutation,
   useUpdateMemberRoleMutation,
   useDissolveGroupChatMutation,
+  useGetGroupPermissionsQuery,
+  useUpdateGroupPermissionsMutation,
 } = groupChatApi;

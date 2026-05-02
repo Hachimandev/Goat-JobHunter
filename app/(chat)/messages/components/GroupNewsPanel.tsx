@@ -11,11 +11,19 @@ interface GroupNewsPanelProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   chatRoomId: number;
+  disableCreatePoll?: boolean;
+  createPollDisabledReason?: string;
 }
 
 type TabValue = 'notes' | 'polls';
 
-export function GroupNewsPanel({ open, onOpenChange, chatRoomId }: Readonly<GroupNewsPanelProps>) {
+export function GroupNewsPanel({
+  open,
+  onOpenChange,
+  chatRoomId,
+  disableCreatePoll = false,
+  createPollDisabledReason,
+}: Readonly<GroupNewsPanelProps>) {
   const [tab, setTab] = useState<TabValue>('polls');
   const [createPollOpen, setCreatePollOpen] = useState(false);
 
@@ -66,14 +74,17 @@ export function GroupNewsPanel({ open, onOpenChange, chatRoomId }: Readonly<Grou
             </TabsContent>
 
             <TabsContent value="polls" className="mt-4 flex flex-col items-center">
-              <Button
-                size="sm"
-                className="mb-2 w-[94%] rounded-xl bg-primary text-white hover:bg-primary/90"
-                onClick={() => setCreatePollOpen(true)}
-              >
-                <Plus className="h-4 w-4 mr-1" />
-                Tạo bình chọn
-              </Button>
+              {!disableCreatePoll && (
+                <Button
+                  size="sm"
+                  className="mb-2 w-[94%] rounded-xl bg-primary text-white hover:bg-primary/90"
+                  onClick={() => setCreatePollOpen(true)}
+                  title={createPollDisabledReason}
+                >
+                  <Plus className="h-4 w-4 mr-1" />
+                  Tạo bình chọn
+                </Button>
+              )}
 
               {isPollsError && (
                 <ErrorMessage message="Đã xảy ra lỗi khi tải bình chọn." severity="error" variant="compact" />
@@ -90,7 +101,13 @@ export function GroupNewsPanel({ open, onOpenChange, chatRoomId }: Readonly<Grou
           </div>
         </Tabs>
 
-        <CreatePollDialog open={createPollOpen} onOpenChange={setCreatePollOpen} chatRoomId={chatRoomId} />
+        <CreatePollDialog
+          open={createPollOpen}
+          onOpenChange={setCreatePollOpen}
+          chatRoomId={chatRoomId}
+          disabled={disableCreatePoll}
+          disabledReason={createPollDisabledReason}
+        />
       </div>
     </div>
   );

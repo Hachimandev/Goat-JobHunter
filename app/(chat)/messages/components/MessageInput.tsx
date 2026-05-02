@@ -41,6 +41,7 @@ interface MessageInputProps {
   readonly replyTarget?: MessageResponse | null;
   readonly onCancelReply?: () => void;
   readonly disabled?: boolean;
+  readonly disabledReason?: string;
   readonly onTypingChange?: (typing: boolean) => void | Promise<void>;
   readonly onTypingStop?: () => void | Promise<void>;
 }
@@ -51,6 +52,7 @@ export function MessageInput({
   replyTarget = null,
   onCancelReply,
   disabled = false,
+  disabledReason,
   onTypingChange,
   onTypingStop,
 }: MessageInputProps) {
@@ -557,6 +559,8 @@ export function MessageInput({
             />
           </div>
         )}
+
+        {disabled && disabledReason && <p className="mt-2 text-xs text-muted-foreground">{disabledReason}</p>}
 
         <BusinessCardModal
           open={isBusinessCardModalOpen}

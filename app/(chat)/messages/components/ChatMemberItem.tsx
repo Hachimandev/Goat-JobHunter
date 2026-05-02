@@ -1,12 +1,12 @@
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+} from '@/components/ui/dropdown-menu';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -16,20 +16,21 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
-import { Crown, Shield, MoreVertical, UserMinus } from "lucide-react";
-import { useState } from "react";
+} from '@/components/ui/alert-dialog';
+import { Crown, Shield, MoreVertical, UserMinus } from 'lucide-react';
+import { useState } from 'react';
 import {
   useUpdateMemberRoleMutation,
   useRemoveMemberFromGroupMutation,
-  ChatMemberResponse
-} from "@/services/chatRoom/groupChat/groupChatApi";
-import { toast } from "sonner";
+  ChatMemberResponse,
+} from '@/services/chatRoom/groupChat/groupChatApi';
+import { toast } from 'sonner';
+import { ChatRole } from '@/services/chatRoom/groupChat/groupChatType';
 
 interface ChatMemberItemProps {
   member: ChatMemberResponse;
   chatroomId: string;
-  currentUserRole: "OWNER" | "MODERATOR" | "MEMBER";
+  currentUserRole: ChatRole;
   currentUserId: number;
   readOnly?: boolean;
 }
@@ -45,22 +46,22 @@ export function ChatMemberItem({
   const [updateRole, { isLoading: isUpdatingRole }] = useUpdateMemberRoleMutation();
   const [removeMember, { isLoading: isRemoving }] = useRemoveMemberFromGroupMutation();
 
-  const canManageRole = currentUserRole === "OWNER" && member.role !== "OWNER";
+  const canManageRole = currentUserRole === ChatRole.OWNER && member.role !== ChatRole.OWNER;
   const canRemove =
-    (currentUserRole === "OWNER" && member.role !== "OWNER") ||
-    (currentUserRole === "MODERATOR" && member.role === "MEMBER");
+    (currentUserRole === ChatRole.OWNER && member.role !== ChatRole.OWNER) ||
+    (currentUserRole === ChatRole.MODERATOR && member.role === ChatRole.MEMBER);
   const isSelf = member.accountId === currentUserId;
 
   const getRoleBadge = () => {
     switch (member.role) {
-      case "OWNER":
+      case ChatRole.OWNER:
         return (
           <Badge variant="default" className="gap-1">
             <Crown className="h-3 w-3" />
             Chủ nhóm
           </Badge>
         );
-      case "MODERATOR":
+      case ChatRole.MODERATOR:
         return (
           <Badge variant="secondary" className="gap-1">
             <Shield className="h-3 w-3" />
@@ -72,7 +73,7 @@ export function ChatMemberItem({
     }
   };
 
-  const handleRoleChange = async (newRole: "MODERATOR" | "MEMBER") => {
+  const handleRoleChange = async (newRole: ChatRole) => {
     try {
       await updateRole({
         chatroomId,
@@ -81,8 +82,8 @@ export function ChatMemberItem({
       }).unwrap();
       toast.success(`Đã cập nhật vai trò của ${member.fullName}`);
     } catch (error) {
-      console.error("Error updating role:", error);
-      toast.error("Không thể cập nhật vai trò");
+      console.error('Error updating role:', error);
+      toast.error('Không thể cập nhật vai trò');
     }
   };
 
@@ -95,8 +96,8 @@ export function ChatMemberItem({
       toast.success(`Đã xóa ${member.fullName} khỏi nhóm`);
       setShowRemoveDialog(false);
     } catch (error) {
-      console.error("Error removing member:", error);
-      toast.error("Không thể xóa thành viên");
+      console.error('Error removing member:', error);
+      toast.error('Không thể xóa thành viên');
     }
   };
 
@@ -104,7 +105,7 @@ export function ChatMemberItem({
     <>
       <div className="flex items-center gap-3 p-3 rounded-xl hover:bg-accent/50 transition-colors">
         <Avatar className="h-10 w-10 shrink-0">
-          <AvatarImage src={member.avatar || "/placeholder.svg"} alt={member.fullName} />
+          <AvatarImage src={member.avatar || '/placeholder.svg'} alt={member.fullName} />
           <AvatarFallback>{member.fullName.charAt(0)}</AvatarFallback>
         </Avatar>
 
@@ -124,20 +125,20 @@ export function ChatMemberItem({
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="rounded-xl">
-              {canManageRole && member.role === "MEMBER" && (
+              {canManageRole && member.role === ChatRole.MEMBER && (
                 <DropdownMenuItem
                   className="rounded-xl"
-                  onClick={() => handleRoleChange("MODERATOR")}
+                  onClick={() => handleRoleChange(ChatRole.MODERATOR)}
                   disabled={isUpdatingRole}
                 >
                   <Shield className="h-4 w-4" />
                   Đặt làm quản trị viên
                 </DropdownMenuItem>
               )}
-              {canManageRole && member.role === "MODERATOR" && (
+              {canManageRole && member.role === ChatRole.MODERATOR && (
                 <DropdownMenuItem
                   className="rounded-xl"
-                  onClick={() => handleRoleChange("MEMBER")}
+                  onClick={() => handleRoleChange(ChatRole.MEMBER)}
                   disabled={isUpdatingRole}
                 >
                   <Shield className="h-4 w-4" />
@@ -170,7 +171,7 @@ export function ChatMemberItem({
           <AlertDialogFooter>
             <AlertDialogCancel className="rounded-xl">Hủy</AlertDialogCancel>
             <AlertDialogAction onClick={handleRemove} disabled={isRemoving} className="rounded-xl">
-              {isRemoving ? "Đang xóa..." : "Xóa"}
+              {isRemoving ? 'Đang xóa...' : 'Xóa'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

@@ -6,6 +6,7 @@ import { usePaginatedChatMessages } from '@/app/(chat)/messages/hooks/usePaginat
 import { useParams } from 'next/navigation';
 import { useFetchChatRoomsByIdQuery } from '@/services/chatRoom/chatRoomApi';
 import { useGetCurrentCallQuery } from '@/services/chatRoom/call/callApi';
+import { useGetMemberInGroupChatQuery } from '@/services/chatRoom/groupChat/groupChatApi';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useUser } from '@/hooks/useUser';
 import useChatRoomAndMessageActions from '@/hooks/useChatRoomAndMessageActions';
@@ -25,6 +26,7 @@ import { IBackendError } from '@/types/api';
 import { Loader2 } from 'lucide-react';
 import useCallRoomActions from '@/hooks/useCallRoomActions';
 import { CallWindow } from '@/app/(chat)/messages/components/CallWindow';
+import { ChatRole } from '@/services/chatRoom/groupChat/groupChatType';
 
 export default function ChatRoomPage() {
   const params = useParams();
@@ -124,6 +126,23 @@ export default function ChatRoomPage() {
   const currentChatRoom = useMemo(() => {
     return chatRoomsData?.data || null;
   }, [chatRoomsData]);
+  const { data: groupMembersData } = useGetMemberInGroupChatQuery(parsedChatRoomId, {
+    skip: isInvalidChatRoomId || currentChatRoom?.type !== ChatRoomType.GROUP || !user?.accountId,
+  });
+  const currentUserGroupRole = useMemo<ChatRole>(() => {
+    if (currentChatRoom?.type !== ChatRoomType.GROUP || !user?.accountId) {
+      return ChatRole.MEMBER;
+    }
+
+    const currentMember = groupMembersData?.data?.find((member) => member.accountId === user.accountId);
+    return currentMember?.role ?? ChatRole.MEMBER;
+  }, [currentChatRoom?.type, groupMembersData?.data, user?.accountId]);
+
+  const isModerator = currentUserGroupRole === ChatRole.MODERATOR;
+  const isMember = currentUserGroupRole === ChatRole.MEMBER;
+  const allowMemberPin = currentChatRoom?.allowMemberPin ?? true;
+
+  const disablePinActions = Boolean(currentChatRoom?.type === ChatRoomType.GROUP && isMember && !allowMemberPin);
 
   const {
     data: ongoingCallData,
@@ -200,11 +219,61 @@ export default function ChatRoomPage() {
     parsedChatRoomId,
   ]);
 
-  const isDirectBlocked = currentChatRoom?.type === ChatRoomType.DIRECT && Boolean(currentChatRoom?.blocked);
-  const isBlockedByMe = isDirectBlocked && Boolean(currentChatRoom?.blockedByMe);
-  const blockedReason = isBlockedByMe
-    ? 'Bạn đã chặn người này. Hãy bỏ chặn để tiếp tục nhắn tin.'
-    : 'Bạn không thể nhắn tin với người này.';
+  const { blockedReason, isBlocked } = useMemo(() => {
+    // If it's a direct chat, then check if it's blocked
+    const isDirectBlocked = currentChatRoom?.type === ChatRoomType.DIRECT && Boolean(currentChatRoom?.blocked);
+
+    // If it's a direct chat and blocked, then check if it's blocked by me or the other person
+    const isBlockedByMe = isDirectBlocked && Boolean(currentChatRoom?.blockedByMe);
+
+    // If it's a group chat, then check if the member is disabled from sending messages
+    const isMemberDisabledFromMessaging =
+      currentChatRoom?.type === ChatRoomType.GROUP && !currentChatRoom?.allowMemberSendMessage;
+
+    // If it's a group chat, then check if the moderator is disabled from sending messages
+    const isModeratorDisabledFromMessaging =
+      currentChatRoom?.type === ChatRoomType.GROUP && !currentChatRoom?.allowModeratorSendMessage;
+
+    let blockedReason = '';
+
+    switch (currentChatRoom?.type) {
+      case ChatRoomType.DIRECT:
+        if (isDirectBlocked) {
+          blockedReason = isBlockedByMe
+            ? 'Bạn đã chặn người này. Hãy bỏ chặn để tiếp tục nhắn tin.'
+            : 'Bạn không thể nhắn tin với người này.';
+        }
+        break;
+      case ChatRoomType.GROUP:
+        if (isMemberDisabledFromMessaging) {
+          blockedReason = 'Chỉ có chủ nhóm và quản trị viên mới có thể gửi tin nhắn trong nhóm này.';
+        }
+        if (isModeratorDisabledFromMessaging) {
+          blockedReason = 'Chỉ có chủ nhóm mới có thể gửi tin nhắn trong nhóm này.';
+        }
+        break;
+      default:
+        blockedReason = 'Không thể gửi tin nhắn.';
+        break;
+    }
+
+    return {
+      isBlocked:
+        isDirectBlocked ||
+        (isMember && isMemberDisabledFromMessaging) ||
+        (isModerator && isModeratorDisabledFromMessaging),
+      blockedReason,
+    };
+  }, [
+    currentChatRoom?.allowMemberSendMessage,
+    currentChatRoom?.allowModeratorSendMessage,
+    currentChatRoom?.blocked,
+    currentChatRoom?.blockedByMe,
+    currentChatRoom?.type,
+    isMember,
+    isModerator,
+  ]);
+
   const canRenderCallWindow =
     Boolean(currentCall) &&
     typeof user?.accountId === 'number' &&
@@ -440,13 +509,13 @@ export default function ChatRoomPage() {
         chatRoom={currentChatRoom}
         messages={messages}
         currentUserId={user?.accountId?.toString()}
-        isChatBlocked={isDirectBlocked}
+        isChatBlocked={isBlocked}
         chatBlockedReason={blockedReason}
         onDirectRelationshipChanged={() => {
           void refetchChatRoom();
         }}
         onSendMessage={async (text, files, replyToMessageId) => {
-          if (isDirectBlocked) {
+          if (isBlocked) {
             return;
           }
 
@@ -454,7 +523,7 @@ export default function ChatRoomPage() {
           setReplyMessage(null);
         }}
         onSendContactCards={async (selectedUserIds) => {
-          if (isDirectBlocked) {
+          if (isBlocked) {
             return null;
           }
 
@@ -503,6 +572,7 @@ export default function ChatRoomPage() {
         onJoinOngoingCall={() => {
           void handleJoinOngoingGroupCall();
         }}
+        disablePinActions={disablePinActions}
       />
 
       <ForwardMessageModal

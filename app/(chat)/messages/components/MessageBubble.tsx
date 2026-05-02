@@ -76,6 +76,7 @@ interface MessageBubbleProps {
   isRecalling?: boolean;
   isDeleting?: boolean;
   showPoll?: boolean;
+  disablePinActions?: boolean;
 }
 
 export function MessageBubble({
@@ -100,6 +101,7 @@ export function MessageBubble({
   isHiding = false,
   isRecalling = false,
   isDeleting = false,
+  disablePinActions = false,
 }: Readonly<MessageBubbleProps>) {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isActionMenuOpen, setIsActionMenuOpen] = useState(false);
@@ -172,7 +174,7 @@ export function MessageBubble({
   const canShowHideAction = !isSystem && !!onHide;
   const canShowRecallAction = isOwn && !isRecalled && !!onRecall;
   const canShowDeleteAction = isOwn && !!onDelete;
-  const canShowPinAction = !isSystem && !isRecalled && !!onPin && !!onUnpin;
+  const canShowPinAction = !disablePinActions && !isSystem && !isRecalled && !!onPin && !!onUnpin;
   const canShowOwnerActions = isOwn && !isSystem && (canShowRecallAction || canShowDeleteAction);
   const canShowActionMenu = canShowReplyAction || canShowForwardAction || canShowHideAction || canShowOwnerActions;
   const canShowTranslateAction = isText && !isSystem && !isRecalled;

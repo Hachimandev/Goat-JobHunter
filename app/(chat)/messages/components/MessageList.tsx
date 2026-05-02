@@ -50,6 +50,7 @@ interface MessageListProps {
   onUnpinMessage?: (messageId: string) => Promise<void> | void;
   isPinnedMessage?: (messageId: string) => boolean;
   isPinningMessage?: (messageId: string) => boolean;
+  disablePinActions?: boolean;
 }
 
 export function MessageList({
@@ -73,6 +74,7 @@ export function MessageList({
   onUnpinMessage,
   isPinnedMessage,
   isPinningMessage,
+  disablePinActions = false,
 }: Readonly<MessageListProps>) {
   const bottomRef = useRef<HTMLDivElement>(null);
   const scrollAreaContainerRef = useRef<HTMLDivElement>(null);
@@ -464,6 +466,7 @@ export function MessageList({
                     onUnpin={onUnpinMessage}
                     isPinned={isPinnedMessage?.(message.messageId) ?? false}
                     isPinning={isPinningMessage?.(message.messageId) ?? false}
+                    disablePinActions={disablePinActions}
                   />
                 </div>
               );
@@ -505,6 +508,7 @@ export function MessageList({
                         onUnpin={onUnpinMessage}
                         isPinned={isPinnedMessage?.(m.messageId) ?? false}
                         isPinning={isPinningMessage?.(m.messageId) ?? false}
+                        disablePinActions={disablePinActions}
                       />
                     </div>
                   ))}

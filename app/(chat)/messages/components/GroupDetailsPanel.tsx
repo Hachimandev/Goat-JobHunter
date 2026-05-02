@@ -50,6 +50,7 @@ import {
 } from '@/services/chatRoom/invite/inviteApi';
 import { truncate } from 'lodash';
 import Link from 'next/link';
+import { ChatRole } from '@/services/chatRoom/groupChat/groupChatType';
 
 interface GroupDetailsPanelProps {
   chatRoom: ChatRoom;
@@ -94,16 +95,19 @@ export function GroupDetailsPanel({
   const { currentUserRole, currentUserId } = useMemo(() => {
     const currentMember = members.find((member) => member.accountId === user?.accountId);
     return {
-      currentUserRole: currentMember ? currentMember.role : 'MEMBER',
+      currentUserRole: currentMember ? currentMember.role : ChatRole.MEMBER,
       currentUserId: user?.accountId || 0,
     };
   }, [members, user?.accountId]);
 
-  const canAddMember = currentUserRole === 'OWNER' || currentUserRole === 'MODERATOR';
-  const canEditGroup = currentUserRole === 'OWNER' || currentUserRole === 'MODERATOR';
-  const canManageMembers = currentUserRole === 'OWNER' || currentUserRole === 'MODERATOR';
-  const canLeaveGroup = currentUserRole !== 'OWNER';
-  const canProcessJoinRequests = currentUserRole === 'OWNER' || currentUserRole === 'MODERATOR';
+  const canAddMember = currentUserRole === ChatRole.OWNER || currentUserRole === ChatRole.MODERATOR;
+  const canEditGroup =
+    currentUserRole === ChatRole.OWNER || currentUserRole === ChatRole.MODERATOR || Boolean(chatRoom.allowMemberUpdate);
+  const canManageMembers = currentUserRole === ChatRole.OWNER || currentUserRole === ChatRole.MODERATOR;
+  const canLeaveGroup = currentUserRole !== ChatRole.OWNER;
+  const canProcessJoinRequests = currentUserRole === ChatRole.OWNER || currentUserRole === ChatRole.MODERATOR;
+  const canCreatePoll = currentUserRole !== ChatRole.MEMBER || Boolean(chatRoom.allowMemberCreateVote);
+  const createPollDisabledReason = 'Bạn không có quyền tạo bình chọn trong nhóm này.';
   const {
     data: pendingJoinRequestData,
     isLoading: isLoadingJoinRequests,
@@ -231,7 +235,7 @@ export function GroupDetailsPanel({
               <Separator />
 
               {chatRoom.type === ChatRoomType.GROUP && (
-                <InviteLinkPanel roomId={chatRoom.roomId} canManageInvite={currentUserRole === 'OWNER'} />
+                <InviteLinkPanel roomId={chatRoom.roomId} canManageInvite={currentUserRole === ChatRole.OWNER} />
               )}
 
               {chatRoom.type === ChatRoomType.GROUP && canProcessJoinRequests && (
@@ -439,8 +443,19 @@ export function GroupDetailsPanel({
           </ScrollArea>
         </div>
 
-        <ManageGroupPanel open={managePanelOpen} onOpenChange={setManagePanelOpen} chatRoom={chatRoom} />
-        <GroupNewsPanel open={newsPanelOpen} onOpenChange={setNewsPanelOpen} chatRoomId={chatRoom.roomId} />
+        <ManageGroupPanel
+          open={managePanelOpen}
+          onOpenChange={setManagePanelOpen}
+          chatRoom={chatRoom}
+          currentUserRole={currentUserRole}
+        />
+        <GroupNewsPanel
+          open={newsPanelOpen}
+          onOpenChange={setNewsPanelOpen}
+          chatRoomId={chatRoom.roomId}
+          disableCreatePoll={!canCreatePoll}
+          createPollDisabledReason={createPollDisabledReason}
+        />
       </div>
 
       <SearchUsersModal
@@ -452,7 +467,12 @@ export function GroupDetailsPanel({
         isAddingMember={isAddingMember}
       />
 
-      <EditGroupModal open={editGroupModalOpen} onOpenChange={setEditGroupModalOpen} chatRoom={chatRoom} />
+      <EditGroupModal
+        open={editGroupModalOpen}
+        onOpenChange={setEditGroupModalOpen}
+        chatRoom={chatRoom}
+        currentUserRole={currentUserRole}
+      />
 
       <AlertDialog open={leaveConfirmOpen} onOpenChange={setLeaveConfirmOpen}>
         <AlertDialogContent className="rounded-xl">

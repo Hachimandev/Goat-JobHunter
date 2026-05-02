@@ -60,7 +60,14 @@ interface ChatWindowProps {
   canJoinOngoingCall?: boolean;
   isJoiningOngoingCall?: boolean;
   onJoinOngoingCall?: () => void;
-  typingParticipants?: Array<{ accountId: number; username: string; avatar: string; updatedAt: string; typing: boolean }>;
+  disablePinActions?: boolean;
+  typingParticipants?: Array<{
+    accountId: number;
+    username: string;
+    avatar: string;
+    updatedAt: string;
+    typing: boolean;
+  }>;
 }
 
 export function ChatWindow({
@@ -101,13 +108,14 @@ export function ChatWindow({
   canJoinOngoingCall = false,
   isJoiningOngoingCall = false,
   onJoinOngoingCall,
+  disablePinActions = false,
   typingParticipants = [],
 }: Readonly<ChatWindowProps>) {
   const { isOpen: isDetailsOpen, toggle, close } = useDetailsPanelState();
   const [isPinnedPanelOpen, setIsPinnedPanelOpen] = useState(false);
   const isGroup = chatRoom.type === ChatRoomType.GROUP;
   const isDissolved = Boolean(chatRoom.deletedAt && chatRoom.type === ChatRoomType.GROUP);
-  const isChatLocked = !isGroup && isChatBlocked;
+  // const isChatLocked = !isGroup && isChatBlocked;
   const [clearDialogOpen, setClearDialogOpen] = useState(false);
   const [searchDialogState, setSearchDialogState] = useState<{ roomId: number; open: boolean }>({
     roomId: chatRoom.roomId,
@@ -117,10 +125,11 @@ export function ChatWindow({
   const [leaveGroup, { isLoading: isLeavingGroup }] = useLeaveGroupChatMutation();
   const searchDialogOpen = searchDialogState.roomId === chatRoom.roomId && searchDialogState.open;
   const currentUserAccountId = currentUserId ? Number(currentUserId) : undefined;
-  const { typingParticipants: liveTypingParticipants, markTyping, stopTyping } = useChatRoomTypingIndicator(
-    chatRoom.roomId,
-    currentUserAccountId,
-  );
+  const {
+    typingParticipants: liveTypingParticipants,
+    markTyping,
+    stopTyping,
+  } = useChatRoomTypingIndicator(chatRoom.roomId, currentUserAccountId);
   const mergedTypingParticipants = typingParticipants.length > 0 ? typingParticipants : liveTypingParticipants;
 
   const handleOpenSearch = () => {
@@ -152,7 +161,7 @@ export function ChatWindow({
           onOpenSearch={handleOpenSearch}
           pinnedMessagesCount={pinnedMessages.length}
           readOnly={isDissolved}
-          disableCallActions={isChatLocked}
+          disableCallActions={isChatBlocked}
           onStartVoiceCall={onStartVoiceCall}
           onStartVideoCall={onStartVideoCall}
           showOngoingCallInfo={showOngoingCallInfo}
@@ -183,6 +192,7 @@ export function ChatWindow({
           onUnpinMessage={isDissolved ? undefined : onUnpinMessage}
           isPinnedMessage={isDissolved ? undefined : isPinnedMessage}
           isPinningMessage={isDissolved ? undefined : isPinningMessage}
+          disablePinActions={disablePinActions}
         />
         <ChatTypingIndicator typingParticipants={mergedTypingParticipants} />
         {isDissolved ? (
@@ -210,7 +220,7 @@ export function ChatWindow({
               onConfirm={handleLeaveGroup}
             />
           </div>
-        ) : isChatLocked ? (
+        ) : isChatBlocked ? (
           <div className="border-t border-border bg-card px-4 py-3 text-sm text-muted-foreground text-center">
             {chatBlockedReason}
           </div>
@@ -220,7 +230,6 @@ export function ChatWindow({
             onSendContactCards={onSendContactCards}
             replyTarget={replyTarget}
             onCancelReply={onCancelReply}
-            disabled={isChatLocked}
             onTypingChange={markTyping}
             onTypingStop={stopTyping}
           />
