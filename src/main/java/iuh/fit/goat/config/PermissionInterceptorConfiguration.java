@@ -121,7 +121,10 @@ public class PermissionInterceptorConfiguration implements WebMvcConfigurer {
                 "/api/v1/admin/**",
 
 //              Các endpoint về tag để người dùng có thể xem danh sách tag và chi tiết tag, nhưng vẫn cho phép người dùng có thể tạo/sửa/xóa tag của chính mình
-                "/api/v1/tags/**"
+                "/api/v1/tags/**",
+
+//               Các endpoint về presence để người dùng có thể xem trạng thái online của user khác
+                "/api/v1/presence/**"
         };
 
         registry.addInterceptor(getPermissionInterceptor())

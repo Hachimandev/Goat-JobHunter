@@ -25,9 +25,9 @@ public class PresenceServiceImpl implements PresenceService {
     private final ObjectMapper objectMapper;
 
     @Override
-    public PresenceStatusResponse handleHeartbeat(PresenceHeartbeatRequest request) {
+    public void handleHeartbeat(PresenceHeartbeatRequest request) {
         if (request == null || request.getAccountId() == null) {
-            return null;
+            return;
         }
 
         Long accountId = request.getAccountId();
@@ -48,14 +48,9 @@ public class PresenceServiceImpl implements PresenceService {
             );
         } catch (Exception e) {
             log.error("Failed to persist presence heartbeat for account {}: {}", accountId, e.getMessage(), e);
-            return response;
         }
 
-        if (!wasOnline) {
-            broadcastPresenceChange(response);
-        }
-
-        return response;
+        broadcastPresenceChange(response);
     }
 
     @Override
@@ -70,11 +65,11 @@ public class PresenceServiceImpl implements PresenceService {
 
         if (wasOnline) {
             broadcastPresenceChange(
-                    PresenceStatusResponse.builder()
-                            .accountId(accountId)
-                            .online(false)
-                            .lastHeartbeatAt(Instant.now())
-                            .build()
+                PresenceStatusResponse.builder()
+                    .accountId(accountId)
+                    .online(false)
+                    .lastHeartbeatAt(Instant.now())
+                    .build()
             );
         }
     }
