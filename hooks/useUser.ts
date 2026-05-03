@@ -12,6 +12,7 @@ import {
 import { SignInRequest, VerifyCodeRequest } from '@/services/auth/authType';
 import { useCreateUserMutation, useResetPasswordMutation, useUpdatePasswordMutation } from '@/services/user/userApi';
 import { connectWebSocketLogout, disconnectWebSocketLogout } from '@/services/socket/WebSocketLogoutService';
+import { disconnectWebSocketPresence } from '@/services/socket/WebSocketPresenceService';
 import { useRouter } from 'next/navigation';
 import { useCallback } from 'react';
 import { toast } from 'sonner';
@@ -91,6 +92,7 @@ export function useUser() {
    */
   const signOut = useCallback(async () => {
     try {
+      disconnectWebSocketPresence(true);
       // Ngắt kết nối WebSocket lắng nghe FORCE_LOGOUT khi người dùng đăng xuất
       disconnectWebSocketLogout();
 

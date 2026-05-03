@@ -3,6 +3,7 @@ import { Toaster } from '@/components/ui/sonner';
 import type { Metadata } from 'next';
 import { Geist, Geist_Mono } from 'next/font/google';
 import NotificationListener from '@/components/common/NotificationListener';
+import PresenceListener from '@/components/common/PresenceListener';
 import UserProfileRealtimeListener from '@/components/common/UserProfileRealtimeListener';
 import FriendshipRealtimeListener from '@/components/common/FriendshipRealtimeListener';
 import FriendshipInviteToastListener from '@/components/common/FriendshipInviteToastListener';
@@ -37,6 +38,7 @@ export default function RootLayout({
         <ReduxProvider>
           <UIGuardWrapper>
             <NotificationListener />
+            <PresenceListener />
             <UserProfileRealtimeListener />
             <FriendshipRealtimeListener />
             <FriendshipInviteToastListener />

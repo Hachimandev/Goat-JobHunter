@@ -27,6 +27,8 @@ import { Loader2 } from 'lucide-react';
 import useCallRoomActions from '@/hooks/useCallRoomActions';
 import { CallWindow } from '@/app/(chat)/messages/components/CallWindow';
 import { ChatRole } from '@/services/chatRoom/groupChat/groupChatType';
+import { usePresenceStatus } from '@/hooks/usePresenceStatus';
+import { formatActivityTime } from '@/utils/formatDate';
 
 export default function ChatRoomPage() {
   const params = useParams();
