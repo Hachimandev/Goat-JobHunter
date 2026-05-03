@@ -16,10 +16,23 @@ type PresenceListener = (status: PresenceStatus) => void;
 
 const listenersByAccount = new Map<number, Set<PresenceListener>>();
 const subscriptionsByAccount = new Map<number, StompSubscription>();
+const refreshTimersByAccount = new Map<number, ReturnType<typeof setInterval>>();
 let presenceClient: Client | null = null;
 let isClientConnected = false;
 
+const REFRESH_INTERVAL_MS = 5000;
+
 const getSocketUrl = () => process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:5000/ws';
+
+const notifyPresenceListeners = (accountId: number, status: PresenceStatus) => {
+  const listeners = listenersByAccount.get(accountId);
+
+  if (!listeners) {
+    return;
+  }
+
+  listeners.forEach((listener) => listener(status));
+};
 
 const subscribeTopicForAccount = (accountId: number) => {
   if (!presenceClient?.connected || subscriptionsByAccount.has(accountId)) {
@@ -28,13 +41,7 @@ const subscribeTopicForAccount = (accountId: number) => {
 
   const subscription = presenceClient.subscribe(`/topic/presence/${accountId}`, (msg) => {
     const data = JSON.parse(msg.body) as PresenceStatus;
-    const listeners = listenersByAccount.get(accountId);
-
-    if (!listeners) {
-      return;
-    }
-
-    listeners.forEach((listener) => listener(data));
+    notifyPresenceListeners(accountId, data);
   });
 
   subscriptionsByAccount.set(accountId, subscription);
@@ -53,6 +60,7 @@ const ensurePresenceClient = () => {
       isClientConnected = true;
       listenersByAccount.forEach((_, accountId) => {
         subscribeTopicForAccount(accountId);
+        fetchInitialPresence(accountId, (status) => notifyPresenceListeners(accountId, status));
       });
     },
     onDisconnect: () => {
@@ -84,6 +92,34 @@ const fetchInitialPresence = async (accountId: number, onUpdate: PresenceListene
   }
 };
 
+const startPresenceRefresh = (accountId: number) => {
+  if (refreshTimersByAccount.has(accountId)) {
+    return;
+  }
+
+  const timer = setInterval(() => {
+    const listeners = listenersByAccount.get(accountId);
+
+    if (!listeners || listeners.size === 0) {
+      stopPresenceRefresh(accountId);
+      return;
+    }
+
+    fetchInitialPresence(accountId, (status) => notifyPresenceListeners(accountId, status));
+  }, REFRESH_INTERVAL_MS);
+
+  refreshTimersByAccount.set(accountId, timer);
+};
+
+const stopPresenceRefresh = (accountId: number) => {
+  const timer = refreshTimersByAccount.get(accountId);
+
+  if (timer) {
+    clearInterval(timer);
+    refreshTimersByAccount.delete(accountId);
+  }
+};
+
 export function usePresenceStatus(accountId: number | null | undefined) {
   const [presence, setPresence] = useState<PresenceStatus | null>(null);
   const { isAuthenticated } = useAuthSlice();
@@ -107,6 +143,7 @@ export function usePresenceStatus(accountId: number | null | undefined) {
     listeners.add(listener);
 
     fetchInitialPresence(accountId, listener);
+    startPresenceRefresh(accountId);
 
     ensurePresenceClient();
     if (isClientConnected) {
@@ -123,6 +160,7 @@ export function usePresenceStatus(accountId: number | null | undefined) {
 
       if (accountListeners.size === 0) {
         listenersByAccount.delete(accountId);
+        stopPresenceRefresh(accountId);
 
         const sub = subscriptionsByAccount.get(accountId);
         if (sub) {

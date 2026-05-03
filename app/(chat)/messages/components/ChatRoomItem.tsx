@@ -4,8 +4,7 @@ import { Users, X, Brain, Loader2, MoreHorizontal, ChevronRight, Tag, Check } fr
 import { useLazyGetUnreadMessagesSummaryQuery } from '@/services/ai/conversationApi';
 import { useAssignTagByRoomMutation, useRemoveTagMutation } from '@/services/tag/tagApi';
 import { ChatRoomType } from '@/types/enum';
-import { formatLastMessageTime } from '@/utils/formatDate';
-import { formatActivityTime } from '@/utils/formatActivityTime';
+import { formatActivityTime, formatLastMessageTime } from '@/utils/formatDate';
 import { cn } from '@/lib/utils';
 import { useMemo, useState, useEffect } from 'react';
 import { truncate } from 'lodash';
@@ -38,7 +37,10 @@ export function ChatRoomItem({
   const chatRoomTitle = chatRoom.name;
   const avatarFallback = chatRoomTitle.charAt(0).toUpperCase();
   const formattedTime = formatLastMessageTime(chatRoom.lastMessageTime);
-  const activityTime = formatActivityTime(presence?.lastHeartbeatAt, presence?.online);
+  const activityTime = formatActivityTime(presence?.lastHeartbeatAt);
+  const isOnline = presence?.online;
+  const hasActivity = activityTime?.length > 0;
+
 
   const unreadBadgeText = useMemo(() => {
     if (unreadMessagesCount <= 0) return null;
@@ -155,11 +157,21 @@ export function ChatRoomItem({
             <AvatarFallback>{avatarFallback}</AvatarFallback>
           </Avatar>
 
-          {!isGroup && presence?.online && (
-            <div className="absolute bottom-0 right-0 bg-green-500 rounded-full p-1" title="Đang hoạt động">
-              <div className="h-1 w-1 bg-green-500 rounded-full" />
-            </div>
+          {!isGroup  && (
+            <div
+              className={cn(
+                'absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-white',
+                isOnline ? 'bg-emerald-500' : 'bg-slate-400'
+              )}
+              title={isOnline ? 'Đang hoạt động' : 'Chưa hoạt động'}
+            />
           )}
+
+          {!isGroup && !isOnline && hasActivity && (
+            <div className="mt-1 text-xs text-muted-foreground truncate">
+              {activityTime}
+            </div>)
+          }
 
           {isGroup && !isDissolved && (
             <div className="absolute -bottom-1 -right-1 bg-primary rounded-full p-1">
@@ -262,7 +274,6 @@ export function ChatRoomItem({
               </Popover>
             </div>
           </div>
-
           <div className="flex justify-between items-center gap-2">
             <div className="flex items-center gap-2 min-w-0 flex-1">
               <p
