@@ -19,6 +19,7 @@ import java.util.concurrent.TimeUnit;
 public class PresenceServiceImpl implements PresenceService {
 
     private static final long PRESENCE_TTL_SECONDS = 45L;
+    private static final long PRESENCE_LAST_SEEN_TTL_DAYS = 365L;
 
     private final RedisService redisService;
     private final SimpMessagingTemplate messagingTemplate;
@@ -41,6 +42,13 @@ public class PresenceServiceImpl implements PresenceService {
 
         try {
             this.redisService.saveWithTTL(
+                buildLastSeenRedisKey(accountId),
+                this.objectMapper.writeValueAsString(response),
+                PRESENCE_LAST_SEEN_TTL_DAYS,
+                TimeUnit.DAYS
+            );
+
+            this.redisService.saveWithTTL(
                     redisKey,
                     this.objectMapper.writeValueAsString(response),
                     PRESENCE_TTL_SECONDS,
@@ -50,7 +58,9 @@ public class PresenceServiceImpl implements PresenceService {
             log.error("Failed to persist presence heartbeat for account {}: {}", accountId, e.getMessage(), e);
         }
 
-        broadcastPresenceChange(response);
+        if(!wasOnline) {
+            broadcastPresenceChange(response);
+        }
     }
 
     @Override
@@ -60,17 +70,22 @@ public class PresenceServiceImpl implements PresenceService {
         }
 
         String redisKey = buildRedisKey(accountId);
+        String lastSeenRedisKey = buildLastSeenRedisKey(accountId);
         boolean wasOnline = this.redisService.hasKey(redisKey);
+        String payload = this.redisService.getValue(redisKey);
+
+        PresenceStatusResponse offlineResponse = buildOfflineResponse(accountId, payload, lastSeenRedisKey);
+
         this.redisService.deleteKey(redisKey);
+        this.redisService.saveWithTTL(
+                lastSeenRedisKey,
+                writePresencePayload(offlineResponse),
+                PRESENCE_LAST_SEEN_TTL_DAYS,
+                TimeUnit.DAYS
+        );
 
         if (wasOnline) {
-            broadcastPresenceChange(
-                PresenceStatusResponse.builder()
-                    .accountId(accountId)
-                    .online(false)
-                    .lastHeartbeatAt(Instant.now())
-                    .build()
-            );
+            broadcastPresenceChange(offlineResponse);
         }
     }
 
@@ -81,13 +96,17 @@ public class PresenceServiceImpl implements PresenceService {
             return;
         }
 
-        broadcastPresenceChange(
-                PresenceStatusResponse.builder()
-                        .accountId(accountId)
-                        .online(false)
-                        .lastHeartbeatAt(Instant.now())
-                        .build()
+        String lastSeenRedisKey = buildLastSeenRedisKey(accountId);
+        PresenceStatusResponse offlineResponse = buildOfflineResponse(accountId, null, lastSeenRedisKey);
+
+        this.redisService.saveWithTTL(
+                lastSeenRedisKey,
+                writePresencePayload(offlineResponse),
+                PRESENCE_LAST_SEEN_TTL_DAYS,
+                TimeUnit.DAYS
         );
+
+        broadcastPresenceChange(offlineResponse);
     }
 
     @Override
@@ -100,10 +119,8 @@ public class PresenceServiceImpl implements PresenceService {
         String payload = this.redisService.getValue(redisKey);
 
         if (payload == null) {
-            return PresenceStatusResponse.builder()
-                    .accountId(accountId)
-                    .online(false)
-                    .build();
+            String lastSeenPayload = this.redisService.getValue(buildLastSeenRedisKey(accountId));
+            return buildOfflineResponse(accountId, null, lastSeenPayload);
         }
 
         try {
@@ -121,6 +138,50 @@ public class PresenceServiceImpl implements PresenceService {
 
     private String buildRedisKey(Long accountId) {
         return PRESENCE_KEY_PREFIX + accountId;
+    }
+
+    private String buildLastSeenRedisKey(Long accountId) {
+        return PRESENCE_LAST_SEEN_KEY_PREFIX + accountId;
+    }
+
+    private String writePresencePayload(PresenceStatusResponse response) {
+        try {
+            return this.objectMapper.writeValueAsString(response);
+        } catch (Exception e) {
+            log.warn("Failed to serialize presence payload for account {}: {}", response.getAccountId(), e.getMessage());
+            return null;
+        }
+    }
+
+    private PresenceStatusResponse buildOfflineResponse(Long accountId, String presencePayload, String fallbackPayload) {
+        Instant lastHeartbeatAt = readLastHeartbeatAt(presencePayload);
+
+        if (lastHeartbeatAt == null) {
+            lastHeartbeatAt = readLastHeartbeatAt(fallbackPayload);
+        }
+
+        if (lastHeartbeatAt == null) {
+            lastHeartbeatAt = Instant.now();
+        }
+
+        return PresenceStatusResponse.builder()
+                .accountId(accountId)
+                .online(false)
+                .lastHeartbeatAt(lastHeartbeatAt)
+                .build();
+    }
+
+    private Instant readLastHeartbeatAt(String payload) {
+        if (payload == null || payload.isBlank()) {
+            return null;
+        }
+
+        try {
+            PresenceStatusResponse response = this.objectMapper.readValue(payload, PresenceStatusResponse.class);
+            return response.getLastHeartbeatAt();
+        } catch (Exception e) {
+            return null;
+        }
     }
 
     private Long parseAccountId(String expiredKey) {

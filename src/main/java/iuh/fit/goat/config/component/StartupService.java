@@ -18,5 +18,6 @@ public class StartupService {
         log.warn("🔥 Server restarted — clearing all login sessions");
         this.redisService.deleteByPattern("account:*");
         this.redisService.deleteByPattern("presence:account:*");
+        this.redisService.deleteByPattern("presence:lastseen:*");
     }
 }
