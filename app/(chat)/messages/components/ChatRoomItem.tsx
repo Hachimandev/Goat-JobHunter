@@ -41,7 +41,6 @@ export function ChatRoomItem({
   const isOnline = presence?.online;
   const hasActivity = activityTime?.length > 0;
 
-
   const unreadBadgeText = useMemo(() => {
     if (unreadMessagesCount <= 0) return null;
     if (unreadMessagesCount < 10) return `${unreadMessagesCount}`;
@@ -157,21 +156,15 @@ export function ChatRoomItem({
             <AvatarFallback>{avatarFallback}</AvatarFallback>
           </Avatar>
 
-          {!isGroup  && (
+          {!isGroup && (
             <div
               className={cn(
                 'absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-white',
-                isOnline ? 'bg-emerald-500' : 'bg-slate-400'
+                isOnline ? 'bg-emerald-500' : 'bg-slate-400',
               )}
               title={isOnline ? 'Đang hoạt động' : 'Chưa hoạt động'}
             />
           )}
-
-          {!isGroup && !isOnline && hasActivity && (
-            <div className="mt-1 text-xs text-muted-foreground truncate">
-              {activityTime}
-            </div>)
-          }
 
           {isGroup && !isDissolved && (
             <div className="absolute -bottom-1 -right-1 bg-primary rounded-full p-1">
@@ -190,6 +183,12 @@ export function ChatRoomItem({
           <div className="flex items-center justify-between gap-2 mb-1">
             <div className="flex items-center min-w-0 gap-2">
               <span className="font-medium truncate">{chatRoomTitle}</span>
+
+              {!isGroup && !isOnline && hasActivity && (
+                <div className="rounded-full border-2 border-white text-xs text-muted-foreground truncate">
+                  {activityTime}
+                </div>
+              )}
 
               {isDissolved && (
                 <span className="text-xs text-rose-600 font-medium whitespace-nowrap">Nhóm đã giải tán</span>

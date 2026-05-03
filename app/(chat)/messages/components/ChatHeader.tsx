@@ -8,6 +8,8 @@ import { CallStatusEnum, ChatRoomType } from '@/types/enum';
 import { Info, Phone, PhoneCall, Pin, Search, Users, Video } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { cn } from '@/lib/utils';
+import { usePresenceStatus } from '@/hooks/usePresenceStatus';
+import { formatActivityTime } from '@/utils/formatDate';
 
 interface ChatHeaderProps {
   chatRoom: ChatRoom;
@@ -52,6 +54,11 @@ export function ChatHeader({
 
   const [viewMode, setViewMode] = useState<'full' | 'compact' | 'icon'>('full');
 
+  const presence = usePresenceStatus(!isGroup ? chatRoom.counterpartAccountId : null);
+  const activityTime = formatActivityTime(presence?.lastHeartbeatAt);
+  const isOnline = presence?.online;
+  const hasActivity = activityTime?.length > 0;
+
   useEffect(() => {
     if (!containerRef.current) {
       return;
@@ -80,13 +87,36 @@ export function ChatHeader({
   return (
     <div className="h-16 border-b border-border bg-card flex items-center justify-between px-4" ref={containerRef}>
       <div className="flex items-center gap-3">
-        <Avatar className="h-10 w-10">
-          <AvatarImage src={chatRoom.avatar || '/placeholder.svg'} alt={chatRoom.name} />
-          <AvatarFallback>{chatRoom.name.charAt(0)}</AvatarFallback>
-        </Avatar>
+        <div className="relative">
+          <Avatar className="h-10 w-10">
+            <AvatarImage src={chatRoom.avatar || '/placeholder.svg'} alt={chatRoom.name} />
+            <AvatarFallback>{chatRoom.name.charAt(0)}</AvatarFallback>
+          </Avatar>
+          {!isGroup && (
+            <div
+              className={cn(
+                'absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-white',
+                isOnline ? 'bg-emerald-500' : 'bg-slate-400',
+              )}
+              title={isOnline ? 'Đang hoạt động' : 'Chưa hoạt động'}
+            />
+          )}
+        </div>
         <div>
           <div className="flex items-center gap-2">
-            <h2 className="font-semibold text-sm">{chatRoom.name}</h2>
+            <div>
+              <h2 className="font-semibold text-sm">{chatRoom.name}</h2>
+              {isOnline && (
+                <div className="rounded-full border-white text-xs text-primary font-bold truncate">
+                  Đang hoạt động
+                </div>
+              )}
+              {!isGroup && !isOnline && hasActivity && (
+                <div className="rounded-full border-white text-xs text-muted-foreground font-bold truncate">
+                  {activityTime}
+                </div>
+              )}
+            </div>
             {isGroup && (
               <Badge variant="secondary" className="text-xs flex items-center gap-1">
                 <Users className="h-3 w-3" />

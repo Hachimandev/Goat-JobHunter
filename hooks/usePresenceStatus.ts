@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useAuthSlice } from '@/lib/features/authSlice';
 import { Client, StompSubscription } from '@stomp/stompjs';
 import SockJS from 'sockjs-client';
@@ -122,6 +122,7 @@ const stopPresenceRefresh = (accountId: number) => {
 
 export function usePresenceStatus(accountId: number | null | undefined) {
   const [presence, setPresence] = useState<PresenceStatus | null>(null);
+  const lastSeenAtRef = useRef<string | undefined>(undefined);
   const { isAuthenticated } = useAuthSlice();
 
   useEffect(() => {
@@ -132,7 +133,30 @@ export function usePresenceStatus(accountId: number | null | undefined) {
     }
 
     const listener: PresenceListener = (status) => {
-      setPresence(status);
+      if (status.lastHeartbeatAt) {
+        lastSeenAtRef.current = status.lastHeartbeatAt;
+      }
+
+      setPresence((prev) => {
+        if (!prev) {
+          return {
+            ...status,
+            lastHeartbeatAt: status.lastHeartbeatAt ?? lastSeenAtRef.current,
+          };
+        }
+
+        if (status && status.online === false && !status.lastHeartbeatAt && lastSeenAtRef.current) {
+          return {
+            ...status,
+            lastHeartbeatAt: lastSeenAtRef.current,
+          };
+        }
+
+        return {
+          ...status,
+          lastHeartbeatAt: status.lastHeartbeatAt ?? prev.lastHeartbeatAt ?? lastSeenAtRef.current,
+        };
+      });
     };
 
     let listeners = listenersByAccount.get(accountId);
