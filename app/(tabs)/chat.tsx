@@ -7,13 +7,14 @@ import {
   useSendMessageToNewChatRoomMutation,
 } from "@/services/chatRoom/chatRoomApi";
 import { useLazySearchUsersQuery } from "@/services/user/userApi";
+import { useFetchTagsQuery, useFetchTagAssignmentsQuery } from "@/services/tag/tagApi";
 import { Ionicons } from "@expo/vector-icons";
 import dayjs from "dayjs";
 import "dayjs/locale/vi";
 import relativeTime from "dayjs/plugin/relativeTime";
 import { router, useFocusEffect } from "expo-router";
 import { MessageSquarePlus, ScanQrCode, Search } from "lucide-react-native";
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState, useMemo } from "react";
 import {
   ActivityIndicator,
   FlatList,
@@ -25,6 +26,10 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { TagSelector } from "@/components/chat/TagSelector";
+import { TagManager } from "@/components/chat/TagManager";
+import { TagBadge } from "@/components/chat/TagBadge";
+import { Tag } from "@/types/model";
 
 dayjs.extend(relativeTime);
 dayjs.locale("vi");
@@ -33,6 +38,9 @@ export default function ChatListScreen() {
   const { user } = useUser();
   const [keyword, setKeyword] = useState("");
   const debouncedKeyword = useDebounce(keyword, 500);
+  const [selectedTagIds, setSelectedTagIds] = useState<number[]>([]);
+  const [tagSelectorVisible, setTagSelectorVisible] = useState(false);
+  const [tagManagerVisible, setTagManagerVisible] = useState(false);
 
   // Get unread counts from Redux
   const { unreadCounts } = useAppSelector((state) => state.chatNotification);
@@ -50,6 +58,15 @@ export default function ChatListScreen() {
     { pollingInterval: 3000 }, // Poll every 3 seconds for faster updates
   );
 
+  // Fetch tags
+  const { data: tagsResponse, refetch: refetchTags } = useFetchTagsQuery({
+    page: 1,
+    size: 50,
+  });
+
+  // Fetch tag assignments
+  const { data: tagAssignmentsResponse } = useFetchTagAssignmentsQuery();
+
   const [triggerSearch, { data: searchData, isFetching: isSearching }] =
     useLazySearchUsersQuery();
   const [checkExistingRoom] = useLazyCheckExistingChatRoomQuery();
@@ -59,6 +76,7 @@ export default function ChatListScreen() {
   useFocusEffect(
     useCallback(() => {
       refetch();
+      refetchTags();
     }, []),
   );
 
@@ -111,11 +129,68 @@ export default function ChatListScreen() {
   };
 
   const chatRooms = chatRoomsRes?.data?.result || [];
+  const tags = tagsResponse?.data?.result ?? [];
+  const tagAssignments = tagAssignmentsResponse?.data ?? [];
+
+  // Create map of room IDs to tags
+  const roomTagsMap = useMemo(() => {
+    const tagById = new Map(tags.map((tag) => [tag.tagId, tag]));
+    const map = new Map<number, Tag>();
+
+    tagAssignments.forEach((assignment) => {
+      const matchedTag = tagById.get(assignment.tagId);
+      if (matchedTag) {
+        map.set(assignment.roomId, matchedTag);
+      } else {
+        map.set(assignment.roomId, {
+          tagId: assignment.tagId,
+          name: assignment.tagName,
+          color: assignment.tagColor,
+          systemTag: assignment.systemTag,
+        });
+      }
+    });
+
+    return map;
+  }, [tags, tagAssignments]);
+
+  // Filter chat rooms based on selected tags
+  const filteredChatRooms = useMemo(() => {
+    if (selectedTagIds.length === 0) {
+      return chatRooms;
+    }
+
+    return chatRooms.filter((room) => {
+      const roomTag = roomTagsMap.get(room.roomId);
+      if (!roomTag) return false;
+      return selectedTagIds.includes(roomTag.tagId);
+    });
+  }, [chatRooms, selectedTagIds, roomTagsMap]);
+
   const searchResults =
     searchData?.data?.result.filter(
       (u: any) => u.accountId !== user?.accountId,
     ) || [];
   const isSearchingActive = keyword.length >= 2;
+
+  const tagDisplayText = useMemo(() => {
+    if (selectedTagIds.length === 0) return "";
+    if (selectedTagIds.length === 1) {
+      const selectedTag = tags.find((t) => t.tagId === selectedTagIds[0]);
+      return selectedTag?.name || "";
+    }
+    return `${selectedTagIds.length} thẻ`;
+  }, [selectedTagIds, tags]);
+
+  const handleSelectTag = (tagId: number) => {
+    setSelectedTagIds((prev) =>
+      prev.includes(tagId) ? prev.filter((id) => id !== tagId) : [...prev, tagId]
+    );
+  };
+
+  const handleDeselectTag = (tagId: number) => {
+    setSelectedTagIds((prev) => prev.filter((id) => id !== tagId));
+  };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -144,6 +219,12 @@ export default function ChatListScreen() {
         </View>
         <TouchableOpacity
           style={styles.headerIconBtn}
+          onPress={() => setTagManagerVisible(true)}
+        >
+          <Ionicons name="pricetags" size={24} color="#fff" />
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.headerIconBtn}
           onPress={() => router.push("/chat/create-group")}
         >
           <MessageSquarePlus size={24} color="#fff" />
@@ -155,6 +236,38 @@ export default function ChatListScreen() {
           <ScanQrCode size={24} color="#fff" />
         </TouchableOpacity>
       </View>
+
+      {/* TAG FILTER SECTION */}
+      {!isSearchingActive && (
+        <View style={styles.tagFilterSection}>
+          <TouchableOpacity
+            style={[
+              styles.tagFilterButton,
+              selectedTagIds.length > 0 && styles.tagFilterButtonActive,
+            ]}
+            onPress={() => setTagSelectorVisible(true)}
+          >
+            <Ionicons
+              name="filter"
+              size={18}
+              color={selectedTagIds.length > 0 ? "#fff" : "#3b82f6"}
+            />
+            <Text
+              style={[
+                styles.tagFilterText,
+                selectedTagIds.length > 0 && styles.tagFilterTextActive,
+              ]}
+            >
+              {tagDisplayText || "Lọc phân loại"}
+            </Text>
+            {selectedTagIds.length > 0 && (
+              <TouchableOpacity onPress={() => setSelectedTagIds([])}>
+                <Ionicons name="close-circle" size={16} color="#fff" />
+              </TouchableOpacity>
+            )}
+          </TouchableOpacity>
+        </View>
+      )}
 
       {/* BODY */}
       {isSearchingActive ? (
@@ -196,61 +309,97 @@ export default function ChatListScreen() {
         </View>
       ) : (
         <FlatList
-          data={chatRooms}
+          data={filteredChatRooms}
           keyExtractor={(item) => item.roomId.toString()}
           onRefresh={refetch}
           refreshing={isLoadingRooms}
-          renderItem={({ item }) => (
-            <TouchableOpacity
-              style={styles.chatItem}
-              onPress={() =>
-                router.push({
-                  pathname: "/chat/[id]",
-                  params: {
-                    id: item.roomId,
-                    name: item.name,
-                    avatar: item.avatar,
-                  },
-                })
-              }
-            >
-              <Image
-                source={{
-                  uri: item.avatar || "https://via.placeholder.com/100",
-                }}
-                style={styles.avatar}
-              />
-              <View style={styles.chatContent}>
-                <View style={styles.chatTopRow}>
-                  <Text style={styles.chatName} numberOfLines={1}>
-                    {item.name}
-                  </Text>
-                  <Text style={styles.chatTime}>
-                    {item.lastMessageTime
-                      ? dayjs(item.lastMessageTime).fromNow()
-                      : ""}
-                  </Text>
-                </View>
-                <View style={styles.chatBottomRow}>
-                  {/* Unread Badge */}
-                  {unreadCounts[item.roomId] > 0 && (
-                    <View style={styles.unreadBadge}>
-                      <Text style={styles.unreadBadgeText}>
-                        {unreadCounts[item.roomId] > 99
-                          ? "99+"
-                          : unreadCounts[item.roomId]}
-                      </Text>
-                    </View>
-                  )}
+          ListEmptyComponent={
+            selectedTagIds.length > 0 ? (
+              <View style={styles.emptyFilterContainer}>
+                <Ionicons name="filter" size={48} color="#d1d5db" />
+                <Text style={styles.emptyFilterText}>
+                  Không có phòng chat với phân loại này
+                </Text>
+              </View>
+            ) : null
+          }
+          renderItem={({ item }) => {
+            const roomTag = roomTagsMap.get(item.roomId);
+            return (
+              <TouchableOpacity
+                style={styles.chatItem}
+                onPress={() =>
+                  router.push({
+                    pathname: "/chat/[id]",
+                    params: {
+                      id: item.roomId,
+                      name: item.name,
+                      avatar: item.avatar,
+                    },
+                  })
+                }
+              >
+                <Image
+                  source={{
+                    uri: item.avatar || "https://via.placeholder.com/100",
+                  }}
+                  style={styles.avatar}
+                />
+                <View style={styles.chatContent}>
+                  <View style={styles.chatTopRow}>
+                    <Text style={styles.chatName} numberOfLines={1}>
+                      {item.name}
+                    </Text>
+                    <Text style={styles.chatTime}>
+                      {item.lastMessageTime
+                        ? dayjs(item.lastMessageTime).fromNow()
+                        : ""}
+                    </Text>
+                  </View>
+                  <View style={styles.chatBottomRow}>
+                    {/* Tag Badge */}
+                    {roomTag && (
+                      <TagBadge tag={roomTag} size="small" />
+                    )}
+                    {/* Unread Badge */}
+                    {unreadCounts[item.roomId] > 0 && (
+                      <View style={styles.unreadBadge}>
+                        <Text style={styles.unreadBadgeText}>
+                          {unreadCounts[item.roomId] > 99
+                            ? "99+"
+                            : unreadCounts[item.roomId]}
+                        </Text>
+                      </View>
+                    )}
+                  </View>
                   <Text numberOfLines={1} style={styles.chatMessage}>
                     {item.lastMessagePreview || "Bắt đầu trò chuyện"}
                   </Text>
                 </View>
-              </View>
-            </TouchableOpacity>
-          )}
+              </TouchableOpacity>
+            );
+          }}
         />
       )}
+
+      {/* Tag Selector Modal */}
+      <TagSelector
+        tags={tags}
+        selectedTagIds={selectedTagIds}
+        onSelectTag={handleSelectTag}
+        onDeselectTag={handleDeselectTag}
+        onClose={() => setTagSelectorVisible(false)}
+        isVisible={tagSelectorVisible}
+      />
+
+      {/* Tag Manager Modal */}
+      <TagManager
+        visible={tagManagerVisible}
+        onClose={() => setTagManagerVisible(false)}
+        tags={tags}
+        chatRooms={chatRooms}
+        isLoadingTags={isLoadingRooms}
+      />
     </SafeAreaView>
   );
 }
@@ -285,6 +434,37 @@ const styles = StyleSheet.create({
   searchInput: { flex: 1, color: "#fff", fontSize: 15, paddingVertical: 0 },
   headerIconBtn: { padding: 4 },
 
+  // Tag Filter Section
+  tagFilterSection: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: "#f3f4f6",
+  },
+  tagFilterButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: "#3b82f6",
+    backgroundColor: "#eff6ff",
+    gap: 8,
+  },
+  tagFilterButtonActive: {
+    backgroundColor: "#3b82f6",
+    borderColor: "#3b82f6",
+  },
+  tagFilterText: {
+    fontSize: 13,
+    fontWeight: "500",
+    color: "#3b82f6",
+  },
+  tagFilterTextActive: {
+    color: "#fff",
+  },
+
   chatItem: {
     flexDirection: "row",
     paddingHorizontal: 16,
@@ -300,7 +480,12 @@ const styles = StyleSheet.create({
   },
   chatName: { fontSize: 16, fontWeight: "600", color: "#000", flex: 1 },
   chatTime: { fontSize: 11, color: "#888" },
-  chatBottomRow: { flexDirection: "row", justifyContent: "space-between" },
+  chatBottomRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: 4,
+  },
   chatMessage: { fontSize: 14, color: "#666", flex: 1 },
 
   sectionTitle: {
@@ -318,7 +503,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#FF3B30",
     justifyContent: "center",
     alignItems: "center",
-    marginLeft: 8,
+    marginLeft: 0,
   },
   unreadBadgeText: {
     color: "#fff",
@@ -327,6 +512,18 @@ const styles = StyleSheet.create({
   },
   searchResultArea: { flex: 1 },
   emptyText: { textAlign: "center", marginTop: 40, color: "#999" },
+  emptyFilterContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingVertical: 60,
+  },
+  emptyFilterText: {
+    marginTop: 12,
+    fontSize: 14,
+    color: "#9ca3af",
+    textAlign: "center",
+  },
   addFriendBtn: {
     paddingVertical: 6,
     paddingHorizontal: 12,
