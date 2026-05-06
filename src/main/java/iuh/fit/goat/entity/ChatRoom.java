@@ -1,6 +1,7 @@
 package iuh.fit.goat.entity;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import iuh.fit.goat.enumeration.ChatRoomPrivacy;
 import iuh.fit.goat.enumeration.ChatRoomType;
 import jakarta.persistence.*;
 import lombok.*;
@@ -20,7 +21,7 @@ import static jakarta.persistence.FetchType.LAZY;
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
-@ToString(exclude = {"members"})
+@ToString(exclude = {"members", "chatRoomTagAssignments"})
 @FilterDef(name = "activeChatRoomFilter")
 public class ChatRoom extends BaseEntity {
     @Id
@@ -30,6 +31,9 @@ public class ChatRoom extends BaseEntity {
     private String avatar;
     @Enumerated(EnumType.STRING)
     private ChatRoomType type;
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private ChatRoomPrivacy privacy = ChatRoomPrivacy.PUBLIC;
     private String aiModel;
 
     @Column(name = "last_message_id")
@@ -44,6 +48,30 @@ public class ChatRoom extends BaseEntity {
     @Column(name = "last_message_time")
     private Instant lastMessageTime;
 
+    @Column(name = "invite_token", nullable = false, unique = true)
+    private String inviteToken;
+
+    @Column(name = "invite_rotated_at")
+    private Instant inviteRotatedAt;
+
+    @Column(name = "invite_enabled", nullable = false)
+    private boolean inviteEnabled = true;
+
+    @Column(name = "allow_member_update", nullable = false)
+    private boolean allowMemberUpdate = true;
+
+    @Column(name = "allow_member_pin", nullable = false)
+    private boolean allowMemberPin = true;
+
+    @Column(name = "allow_member_create_vote", nullable = false)
+    private boolean allowMemberCreateVote = true;
+
+    @Column(name = "allow_member_send_message", nullable = false)
+    private boolean allowMemberSendMessage = true;
+
+    @Column(name = "allow_moderator_send_message", nullable = false)
+    private boolean allowModeratorSendMessage = true;
+
     @OneToMany(mappedBy = "room", fetch = LAZY, cascade = {PERSIST, MERGE, REMOVE})
     @JsonIgnore
     @Filter(
@@ -51,4 +79,12 @@ public class ChatRoom extends BaseEntity {
             condition = "deleted_at IS NULL"
     )
     private List<ChatMember> members = new ArrayList<>();
+
+    @OneToMany(mappedBy = "room", fetch = LAZY, cascade = {PERSIST, MERGE, REMOVE})
+    @JsonIgnore
+    @Filter(
+            name = "activeChatRoomTagAssignmentFilter",
+            condition = "deleted_at IS NULL"
+    )
+    private List<ChatRoomTagAssignment> chatRoomTagAssignments = new ArrayList<>();
 }

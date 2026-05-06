@@ -1,6 +1,7 @@
 package iuh.fit.goat.repository;
 
 import iuh.fit.goat.entity.ChatMember;
+import iuh.fit.goat.enumeration.ChatRole;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -20,6 +21,10 @@ public interface ChatMemberRepository extends JpaRepository<ChatMember, Long> {
         Page<ChatMember> findByDeletedAtIsNull(Pageable pageable);
 
     boolean existsByRoomRoomIdAndAccountAccountIdAndDeletedAtIsNull(Long roomId, Long accountId);
+
+    Optional<ChatMember> findByRoomRoomIdAndAccountAccountIdAndDeletedAtIsNull(Long roomId, Long accountId);
+
+    List<ChatMember> findByRoomRoomIdAndRoleInAndDeletedAtIsNull(Long roomId, List<ChatRole> roles);
 
     @Query("""
             SELECT cm FROM ChatMember cm

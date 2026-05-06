@@ -1,10 +1,8 @@
 package iuh.fit.goat.repository;
 
 import iuh.fit.goat.entity.Account;
-import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
-import org.springframework.data.jpa.repository.Modifying;
-import org.springframework.data.jpa.repository.Query;
+import jakarta.persistence.LockModeType;
+import org.springframework.data.jpa.repository.*;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
@@ -20,6 +18,10 @@ public interface AccountRepository extends JpaRepository<Account, Long>,
     Optional<Account> findByAccountIdAndDeletedAtIsNull(Long accountId);
 
     Optional<Account> findByAccountIdAndDeletedAtIsNullAndLockedIsFalse(long accountId);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT a FROM Account a WHERE a.accountId = :accountId AND a.deletedAt IS NULL")
+    Optional<Account> findByAccountIdAndDeletedAtIsNullForUpdate(@Param("accountId") Long accountId);
 
     @Query("SELECT a FROM Account a LEFT JOIN FETCH a.role WHERE a.email = :email")
     Optional<Account> findByEmailWithRole(@Param("email") String email);

@@ -3,6 +3,7 @@ package iuh.fit.goat.config.component;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import iuh.fit.goat.entity.Notification;
 import iuh.fit.goat.service.NotificationService;
+import iuh.fit.goat.service.PresenceService;
 import iuh.fit.goat.service.RedisService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -20,6 +21,7 @@ public class RedisKeyExpirationListener implements MessageListener {
 
     private final RedisService redisService;
     private final NotificationService notificationService;
+    private final PresenceService presenceService;
     private final ObjectMapper objectMapper;
 
     @Override
@@ -27,6 +29,12 @@ public class RedisKeyExpirationListener implements MessageListener {
         // Lấy ra expired key từ message và kiểm tra
         message.getBody();
         String expiredKey = new String(message.getBody(), StandardCharsets.UTF_8);
+
+        if (expiredKey.startsWith(PresenceService.PRESENCE_KEY_PREFIX)) {
+            log.info("Expired presence key: {}", expiredKey);
+            this.presenceService.handleExpiredPresenceKey(expiredKey);
+            return;
+        }
 
         if (!expiredKey.startsWith("notification:") || !expiredKey.endsWith(":listener")) {
             return;

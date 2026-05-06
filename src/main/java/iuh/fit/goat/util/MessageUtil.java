@@ -8,12 +8,13 @@ import iuh.fit.goat.entity.Company;
 import iuh.fit.goat.entity.Message;
 import iuh.fit.goat.entity.User;
 import iuh.fit.goat.enumeration.ChatRole;
+import iuh.fit.goat.enumeration.ChatRoomPrivacy;
 import lombok.experimental.UtilityClass;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 @UtilityClass
-public class MessageHelper {
+public class MessageUtil {
 
     public static String generateSystemMessage(MessageEvent type, Account actor, Object... params) {
         String actorName = getDisplayName(actor);
@@ -24,6 +25,9 @@ public class MessageHelper {
 
                 yield String.format("(event:%s) %s đã thêm %s vào nhóm", MessageEvent.MEMBER_ADDED, actorName, memberName);
             }
+
+            case MEMBER_JOINED_BY_INVITE ->
+                    String.format("(event:%s) %s đã tham gia nhóm qua liên kết mời", MessageEvent.MEMBER_JOINED_BY_INVITE, actorName);
 
             case MEMBER_REMOVED -> {
                 String memberName = (String) params[0];
@@ -59,6 +63,17 @@ public class MessageHelper {
 
             case GROUP_AVATAR_CHANGED ->
                 String.format("(event:%s) %s đã thay đổi ảnh đại diện nhóm", MessageEvent.GROUP_AVATAR_CHANGED, actorName);
+
+            case GROUP_PRIVACY_CHANGED -> {
+                ChatRoomPrivacy oldPrivacy = (ChatRoomPrivacy) params[0];
+                ChatRoomPrivacy newPrivacy = (ChatRoomPrivacy) params[1];
+
+                yield String.format("(event:%s) %s đã thay đổi quyền riêng tư nhóm từ %s thành %s",
+                        MessageEvent.GROUP_PRIVACY_CHANGED,
+                        actorName,
+                        getPrivacyText(oldPrivacy),
+                        getPrivacyText(newPrivacy));
+            }
 
             case GROUP_DISSOLVED ->
                 String.format("(event:%s) %s đã giải tán nhóm", MessageEvent.GROUP_DISSOLVED, actorName);
@@ -119,12 +134,24 @@ public class MessageHelper {
     }
 
     private static String getDisplayName(Account account) {
-        String fullName = account instanceof Company ? ((Company) account).getName()
-                : ((User) account).getFullName();
+        if (account == null) {
+            return "";
+        }
 
-        if (!fullName.isEmpty()) return fullName;
+        Account realAccount = EntityUtil.unproxy(account);
 
-        return account.getUsername();
+        String fullName;
+        if (realAccount instanceof Company company) {
+            fullName = company.getName();
+        } else if (realAccount instanceof User user) {
+            fullName = user.getFullName();
+        } else {
+            fullName = realAccount.getUsername();
+        }
+
+        if (fullName != null && !fullName.isEmpty()) return fullName;
+
+        return realAccount.getUsername();
     }
 
     private static String getRoleText(ChatRole role) {
@@ -132,6 +159,17 @@ public class MessageHelper {
             case OWNER -> "Chủ nhóm";
             case MODERATOR -> "Quản trị viên";
             default -> "Thành viên";
+        };
+    }
+
+    private static String getPrivacyText(ChatRoomPrivacy privacy) {
+        if (privacy == null) {
+            return "không xác định";
+        }
+
+        return switch (privacy) {
+            case PUBLIC -> "Công khai";
+            case PRIVATE -> "Riêng tư";
         };
     }
 

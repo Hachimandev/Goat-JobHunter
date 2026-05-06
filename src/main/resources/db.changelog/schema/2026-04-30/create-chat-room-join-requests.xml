@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+                      http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-5.0.xsd">
+
+    <changeSet id="2026-04-30-01-create-chat-room-join-requests" author="codex">
+        <createTable tableName="chat_room_join_requests">
+            <column name="request_id" type="BIGINT" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="room_id" type="BIGINT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="account_id" type="BIGINT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="status" type="VARCHAR(32)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="requested_at" type="TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+            <column name="responded_at" type="TIMESTAMP"/>
+            <column name="processed_by" type="BIGINT"/>
+            <column name="created_at" type="TIMESTAMP"/>
+            <column name="created_by" type="VARCHAR(255)"/>
+            <column name="updated_at" type="TIMESTAMP"/>
+            <column name="updated_by" type="VARCHAR(255)"/>
+            <column name="deleted_at" type="TIMESTAMP"/>
+            <column name="deleted_by" type="VARCHAR(255)"/>
+        </createTable>
+
+        <addForeignKeyConstraint
+                baseTableName="chat_room_join_requests"
+                baseColumnNames="room_id"
+                referencedTableName="chat_rooms"
+                referencedColumnNames="room_id"
+                constraintName="fk_crjr_room_id"/>
+
+        <addForeignKeyConstraint
+                baseTableName="chat_room_join_requests"
+                baseColumnNames="account_id"
+                referencedTableName="accounts"
+                referencedColumnNames="account_id"
+                constraintName="fk_crjr_account_id"/>
+
+        <addForeignKeyConstraint
+                baseTableName="chat_room_join_requests"
+                baseColumnNames="processed_by"
+                referencedTableName="accounts"
+                referencedColumnNames="account_id"
+                constraintName="fk_crjr_processed_by"/>
+
+        <createIndex tableName="chat_room_join_requests" indexName="idx_crjr_room_status">
+            <column name="room_id"/>
+            <column name="status"/>
+        </createIndex>
+
+        <createIndex tableName="chat_room_join_requests" indexName="idx_crjr_room_account_status">
+            <column name="room_id"/>
+            <column name="account_id"/>
+            <column name="status"/>
+        </createIndex>
+    </changeSet>
+</databaseChangeLog>

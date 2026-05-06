@@ -4,21 +4,32 @@ import iuh.fit.goat.common.MessageEvent;
 import iuh.fit.goat.dto.request.chat.*;
 import iuh.fit.goat.dto.request.message.MessageCreateRequest;
 import iuh.fit.goat.dto.request.message.MessageToNewChatRoom;
+import iuh.fit.goat.dto.response.chat.ChatRoomPermissionResponse;
 import iuh.fit.goat.dto.response.chat.ChatRoomResponse;
+import iuh.fit.goat.dto.response.chat.ChatRoomJoinRequestResponse;
 import iuh.fit.goat.dto.response.ResultPaginationResponse;
 import iuh.fit.goat.dto.response.chat.GroupMemberResponse;
+import iuh.fit.goat.dto.response.chat.InviteLinkResponse;
+import iuh.fit.goat.dto.response.chat.InviteTokenPreviewResponse;
+import iuh.fit.goat.dto.response.chat.JoinByInviteResponse;
 import iuh.fit.goat.dto.response.chat.MessageSummaryResponse;
 import iuh.fit.goat.dto.response.chat.UnreadMessageResponse;
 import iuh.fit.goat.entity.*;
 import iuh.fit.goat.enumeration.ChatRole;
+import iuh.fit.goat.enumeration.ChatRoomJoinRequestStatus;
+import iuh.fit.goat.enumeration.ChatRoomPermissionAction;
+import iuh.fit.goat.enumeration.ChatRoomPrivacy;
 import iuh.fit.goat.enumeration.ChatRoomType;
 import iuh.fit.goat.enumeration.RelationshipState;
 import iuh.fit.goat.enumeration.Visibility;
 import iuh.fit.goat.exception.AccountPrivateException;
 import iuh.fit.goat.exception.BlockedInteractionException;
+import iuh.fit.goat.exception.ConflictException;
 import iuh.fit.goat.exception.InvalidException;
+import iuh.fit.goat.exception.NotFoundException;
 import iuh.fit.goat.repository.AccountRepository;
 import iuh.fit.goat.repository.ChatMemberRepository;
+import iuh.fit.goat.repository.ChatRoomJoinRequestRepository;
 import iuh.fit.goat.repository.ChatRoomRepository;
 import iuh.fit.goat.repository.MessageRepository;
 import iuh.fit.goat.repository.UserRelationshipRepository;
@@ -26,16 +37,20 @@ import iuh.fit.goat.service.AiService;
 import iuh.fit.goat.service.ChatRoomService;
 import iuh.fit.goat.service.MessageService;
 import iuh.fit.goat.service.NotificationService;
+import iuh.fit.goat.service.cache.ChatRoomCacheService;
+import iuh.fit.goat.service.helper.ChatRoomPermissionGuard;
 import iuh.fit.goat.util.EntityUtil;
 import iuh.fit.goat.util.SecurityUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.*;
@@ -50,11 +65,16 @@ public class ChatRoomServiceImpl implements ChatRoomService {
 
     private final ChatRoomRepository chatRoomRepository;
     private final ChatMemberRepository chatMemberRepository;
+    private final ChatRoomJoinRequestRepository chatRoomJoinRequestRepository;
     private final AccountRepository accountRepository;
     private final UserRelationshipRepository userRelationshipRepository;
     private final MessageRepository messageRepository;
+    private final ChatRoomCacheService chatRoomCacheService;
+    private final ChatRoomPermissionGuard chatRoomPermissionGuard;
 
     private final int SUMMARY_THRESHOLD = 10;
+    @Value("${goat.fe.url}")
+    private String frontendBaseUrl;
 
     @Override
     @Transactional(readOnly = true)
@@ -76,7 +96,7 @@ public class ChatRoomServiceImpl implements ChatRoomService {
     @Transactional(readOnly = true)
     public ChatRoomResponse getDetailChatRoomInformation(Account currentAccount, Long chatRoomId) throws InvalidException {
         // Validate chat room exists
-        ChatRoom chatRoom = this.chatRoomRepository.findByRoomId(chatRoomId)
+        ChatRoom chatRoom = this.chatRoomRepository.findByRoomIdAndDeletedAtIsNull(chatRoomId)
                 .orElseThrow(() -> new InvalidException("Chat room not found"));
 
         // Check if user is member
@@ -121,7 +141,7 @@ public class ChatRoomServiceImpl implements ChatRoomService {
         return chatRoom.getMembers()
                 .stream()
                 .anyMatch(member ->
-                        member.getAccount() != null && member.getAccount().getAccountId() == accountId
+                        member.getAccount() != null && Objects.equals(member.getAccount().getAccountId(), accountId)
                 );
     }
 
@@ -177,6 +197,7 @@ public class ChatRoomServiceImpl implements ChatRoomService {
         ChatRoom chatRoom = new ChatRoom();
         chatRoom.setType(ChatRoomType.DIRECT);
         chatRoom.setName("Không có tên");
+        initializeInviteFields(chatRoom);
         chatRoom = this.chatRoomRepository.saveAndFlush(chatRoom);
 
         // Since current user is validated, create chat member
@@ -246,6 +267,7 @@ public class ChatRoomServiceImpl implements ChatRoomService {
         ChatRoom chatRoom = new ChatRoom();
         chatRoom.setType(ChatRoomType.DIRECT);
         chatRoom.setName("Không có tên");
+        initializeInviteFields(chatRoom);
         chatRoom = this.chatRoomRepository.saveAndFlush(chatRoom);
 
         // Create chat members
@@ -335,6 +357,7 @@ public class ChatRoomServiceImpl implements ChatRoomService {
             groupChatRoom.setAvatar(request.getAvatar());
         }
 
+        initializeInviteFields(groupChatRoom);
         groupChatRoom = this.chatRoomRepository.saveAndFlush(groupChatRoom);
 
         // Create chat members
@@ -383,7 +406,11 @@ public class ChatRoomServiceImpl implements ChatRoomService {
 
         // Check if user is member and has permission to update
         ChatMember currentMember = getCurrentMemberInChatRoom(chatRoom, currentAccount.getAccountId());
-        validateModeratorOrOwnerPermission(currentMember, "update group info");
+        this.chatRoomPermissionGuard.assertCanPerformAction(
+                chatRoom,
+                currentMember,
+                ChatRoomPermissionAction.UPDATE_GROUP_INFO
+        );
 
         // Update group info
         if (request.getName() != null && !request.getName().isBlank()) {
@@ -407,7 +434,71 @@ public class ChatRoomServiceImpl implements ChatRoomService {
             );
         }
 
-        return chatRoomRepository.save(chatRoom);
+        if (request.getPrivacy() != null && request.getPrivacy() != chatRoom.getPrivacy()) {
+            ChatRoomPrivacy oldPrivacy = chatRoom.getPrivacy();
+            chatRoom.setPrivacy(request.getPrivacy());
+            this.messageService.createAndSendSystemMessage(
+                    chatRoomId,
+                    MessageEvent.GROUP_PRIVACY_CHANGED,
+                    currentAccount,
+                    oldPrivacy,
+                    request.getPrivacy()
+            );
+        }
+
+        ChatRoom savedChatRoom = this.chatRoomRepository.save(chatRoom);
+        this.chatRoomCacheService.cache(savedChatRoom);
+        return savedChatRoom;
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public ChatRoomPermissionResponse getGroupPermissions(Account currentAccount, Long chatRoomId) throws InvalidException {
+        ChatRoom chatRoom = getChatRoomById(chatRoomId);
+        validateGroupChatRoom(chatRoom);
+        getCurrentMemberInChatRoom(chatRoom, currentAccount.getAccountId());
+        return mapToPermissionResponse(chatRoom);
+    }
+
+    @Override
+    @Transactional
+    public ChatRoomPermissionResponse updateGroupPermissions(
+            Account currentAccount,
+            Long chatRoomId,
+            UpdateChatRoomPermissionsRequest request
+    ) throws InvalidException {
+        if (request == null) {
+            throw new InvalidException("Permission update request is required");
+        }
+
+        ChatRoom chatRoom = getChatRoomById(chatRoomId);
+        validateGroupChatRoom(chatRoom);
+        ChatMember currentMember = getCurrentMemberInChatRoom(chatRoom, currentAccount.getAccountId());
+
+        if (currentMember.getRole() == ChatRole.MEMBER) {
+            throw new InvalidException("Only owners and moderators can update group permissions");
+        }
+
+        if (currentMember.getRole() == ChatRole.MODERATOR
+                && request.getAllowModeratorSendMessage() != null
+                && request.getAllowModeratorSendMessage() != chatRoom.isAllowModeratorSendMessage()) {
+            throw new InvalidException("Moderators cannot update moderator send message permission");
+        }
+
+        chatRoom.setAllowMemberUpdate(requireBoolean(request.getAllowMemberUpdate(), "allowMemberUpdate"));
+        chatRoom.setAllowMemberPin(requireBoolean(request.getAllowMemberPin(), "allowMemberPin"));
+        chatRoom.setAllowMemberCreateVote(requireBoolean(request.getAllowMemberCreateVote(), "allowMemberCreateVote"));
+        chatRoom.setAllowMemberSendMessage(requireBoolean(request.getAllowMemberSendMessage(), "allowMemberSendMessage"));
+
+        if (currentMember.getRole() == ChatRole.OWNER) {
+            chatRoom.setAllowModeratorSendMessage(
+                    requireBoolean(request.getAllowModeratorSendMessage(), "allowModeratorSendMessage")
+            );
+        }
+
+        ChatRoom savedChatRoom = this.chatRoomRepository.save(chatRoom);
+        this.chatRoomCacheService.cache(savedChatRoom);
+        return mapToPermissionResponse(savedChatRoom);
     }
 
     @Override
@@ -693,6 +784,196 @@ public class ChatRoomServiceImpl implements ChatRoomService {
         return builder.build();
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public InviteLinkResponse getInviteLink(Account currentAccount, Long roomId) throws InvalidException, NotFoundException {
+        ChatRoom room = getInviteRoomById(roomId);
+        validateGroupChatRoom(room);
+        validateMember(room, currentAccount);
+        return mapInviteLinkResponse(room);
+    }
+
+    @Override
+    @Transactional
+    public InviteLinkResponse rotateInviteLink(Account currentAccount, Long roomId) throws InvalidException, NotFoundException {
+        ChatRoom room = getInviteRoomById(roomId);
+        validateGroupChatRoom(room);
+        validateOwner(room, currentAccount);
+
+        room.setInviteToken(generateInviteToken());
+        room.setInviteRotatedAt(Instant.now());
+        ChatRoom saved = this.chatRoomRepository.saveAndFlush(room);
+
+        return mapInviteLinkResponse(saved);
+    }
+
+    @Override
+    @Transactional
+    public InviteLinkResponse toggleInviteLink(Account currentAccount, Long roomId, boolean enabled) throws InvalidException, NotFoundException {
+        ChatRoom room = getInviteRoomById(roomId);
+        validateGroupChatRoom(room);
+        validateOwner(room, currentAccount);
+
+        room.setInviteEnabled(enabled);
+        ChatRoom saved = this.chatRoomRepository.saveAndFlush(room);
+
+        return mapInviteLinkResponse(saved);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public InviteTokenPreviewResponse getInvitePreview(String inviteToken) throws InvalidException, NotFoundException {
+        ChatRoom room = this.chatRoomRepository.findByInviteTokenAndDeletedAtIsNull(inviteToken)
+                .orElseThrow(() -> new NotFoundException("Invite token not found"));
+        validateGroupChatRoom(room);
+        if (!room.isInviteEnabled()) {
+            throw new NotFoundException("Invite token not found");
+        }
+
+        return InviteTokenPreviewResponse.builder()
+                .roomId(room.getRoomId())
+                .roomName(room.getName())
+                .roomAvatar(room.getAvatar())
+                .inviteEnabled(room.isInviteEnabled())
+                .privacy(room.getPrivacy())
+                .build();
+    }
+
+    @Override
+    @Transactional
+    public JoinByInviteResponse joinByInvite(Account currentAccount, String inviteToken) throws InvalidException, NotFoundException, ConflictException {
+        ChatRoom room = this.chatRoomRepository.findByInviteTokenAndDeletedAtIsNull(inviteToken)
+                .orElseThrow(() -> new NotFoundException("Invite token not found"));
+        validateGroupChatRoom(room);
+
+        if (!room.isInviteEnabled()) {
+            throw new InvalidException("Invite link is disabled");
+        }
+
+        if (currentAccount == null) {
+            throw new InvalidException("Current account is required");
+        }
+
+        boolean alreadyMember = this.chatMemberRepository
+                .existsByRoomRoomIdAndAccountAccountIdAndDeletedAtIsNull(room.getRoomId(), currentAccount.getAccountId());
+        if (alreadyMember) {
+            throw new ConflictException("User is already a member of this chat room");
+        }
+
+        if (room.getPrivacy() == ChatRoomPrivacy.PRIVATE) {
+            Optional<ChatRoomJoinRequest> existingPending = this.chatRoomJoinRequestRepository
+                    .findByRoomRoomIdAndAccountAccountIdAndStatusAndDeletedAtIsNull(
+                            room.getRoomId(),
+                            currentAccount.getAccountId(),
+                            ChatRoomJoinRequestStatus.PENDING
+                    );
+            if (existingPending.isPresent()) {
+                ChatRoomJoinRequest pendingRequest = existingPending.get();
+                return new JoinByInviteResponse(
+                        room.getRoomId(),
+                        false,
+                        "request_pending",
+                        pendingRequest.getRequestId()
+                );
+            }
+
+            ChatRoomJoinRequest request = new ChatRoomJoinRequest();
+            request.setRoom(room);
+            request.setAccount(currentAccount);
+            request.setStatus(ChatRoomJoinRequestStatus.PENDING);
+            request.setRequestedAt(Instant.now());
+            ChatRoomJoinRequest saved = this.chatRoomJoinRequestRepository.save(request);
+
+            return new JoinByInviteResponse(
+                    room.getRoomId(),
+                    false,
+                    "request_pending",
+                    saved.getRequestId()
+            );
+        }
+
+        ChatMember newMember = new ChatMember();
+        newMember.setRoom(room);
+        newMember.setAccount(currentAccount);
+        newMember.setRole(ChatRole.MEMBER);
+        this.chatMemberRepository.saveAndFlush(newMember);
+
+        this.messageService.createAndSendSystemMessage(
+                room.getRoomId(),
+                MessageEvent.MEMBER_JOINED_BY_INVITE,
+                currentAccount
+        );
+
+        return new JoinByInviteResponse(room.getRoomId(), true, "joined", null);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<ChatRoomJoinRequestResponse> getPendingJoinRequests(Account currentAccount, Long roomId)
+            throws InvalidException, NotFoundException {
+        ChatRoom room = getInviteRoomById(roomId);
+        validateGroupChatRoom(room);
+        validateModeratorOrOwner(room, currentAccount, "manage join requests");
+
+        return this.chatRoomJoinRequestRepository
+                .findByRoomRoomIdAndStatusAndDeletedAtIsNullOrderByRequestedAtAscRequestIdAsc(
+                        roomId,
+                        ChatRoomJoinRequestStatus.PENDING
+                )
+                .stream()
+                .map(this::mapJoinRequestResponse)
+                .toList();
+    }
+
+    @Override
+    @Transactional
+    public void approveJoinRequest(Account currentAccount, Long roomId, Long requestId)
+            throws InvalidException, NotFoundException, ConflictException {
+        ChatRoom room = getInviteRoomById(roomId);
+        validateGroupChatRoom(room);
+        validateModeratorOrOwner(room, currentAccount, "approve join requests");
+
+        ChatRoomJoinRequest joinRequest = getPendingJoinRequestForUpdate(roomId, requestId);
+        Long requesterId = joinRequest.getAccount().getAccountId();
+        boolean alreadyMember = this.chatMemberRepository
+                .existsByRoomRoomIdAndAccountAccountIdAndDeletedAtIsNull(roomId, requesterId);
+        if (alreadyMember) {
+            throw new ConflictException("User is already a member of this chat room");
+        }
+
+        joinRequest.setStatus(ChatRoomJoinRequestStatus.APPROVED);
+        joinRequest.setRespondedAt(Instant.now());
+        joinRequest.setProcessedBy(currentAccount);
+        this.chatRoomJoinRequestRepository.save(joinRequest);
+
+        ChatMember newMember = new ChatMember();
+        newMember.setRoom(room);
+        newMember.setAccount(joinRequest.getAccount());
+        newMember.setRole(ChatRole.MEMBER);
+        this.chatMemberRepository.saveAndFlush(newMember);
+
+        this.messageService.createAndSendSystemMessage(
+                room.getRoomId(),
+                MessageEvent.MEMBER_JOINED_BY_INVITE,
+                joinRequest.getAccount()
+        );
+    }
+
+    @Override
+    @Transactional
+    public void rejectJoinRequest(Account currentAccount, Long roomId, Long requestId)
+            throws InvalidException, NotFoundException, ConflictException {
+        ChatRoom room = getInviteRoomById(roomId);
+        validateGroupChatRoom(room);
+        validateModeratorOrOwner(room, currentAccount, "reject join requests");
+
+        ChatRoomJoinRequest joinRequest = getPendingJoinRequestForUpdate(roomId, requestId);
+        joinRequest.setStatus(ChatRoomJoinRequestStatus.REJECTED);
+        joinRequest.setRespondedAt(Instant.now());
+        joinRequest.setProcessedBy(currentAccount);
+        this.chatRoomJoinRequestRepository.save(joinRequest);
+    }
+
     // =============== HELPER METHODS FOR GROUP CHAT ====================
 
         private void validateChatRoomAccess(Long chatRoomId, Long accountId) throws InvalidException {
@@ -758,18 +1039,125 @@ public class ChatRoomServiceImpl implements ChatRoomService {
         }
     }
 
+    private ChatRoom getInviteRoomById(Long roomId) throws NotFoundException {
+        return this.chatRoomRepository.findByRoomIdAndDeletedAtIsNull(roomId)
+                .orElseThrow(() -> new NotFoundException("Chat room not found"));
+    }
+
+    private void validateMember(ChatRoom room, Account currentAccount) throws InvalidException {
+        if (currentAccount == null) {
+            throw new InvalidException("Current account is required");
+        }
+
+        getCurrentMemberInChatRoom(room, currentAccount.getAccountId());
+    }
+
+    private void validateOwner(ChatRoom room, Account currentAccount) throws InvalidException {
+        validateMember(room, currentAccount);
+        ChatMember currentMember = getCurrentMemberInChatRoom(room, currentAccount.getAccountId());
+        if (currentMember.getRole() != ChatRole.OWNER) {
+            throw new InvalidException("Only room owner can manage invite link");
+        }
+    }
+
+    private void validateModeratorOrOwner(ChatRoom room, Account currentAccount, String action) throws InvalidException {
+        validateMember(room, currentAccount);
+        ChatMember currentMember = getCurrentMemberInChatRoom(room, currentAccount.getAccountId());
+        validateModeratorOrOwnerPermission(currentMember, action);
+    }
+
+    private String generateInviteToken() {
+        String token;
+        do {
+            token = UUID.randomUUID().toString().replace("-", "");
+        } while (this.chatRoomRepository.existsByInviteToken(token));
+        return token;
+    }
+
+    private void initializeInviteFields(ChatRoom chatRoom) {
+        chatRoom.setInviteToken(generateInviteToken());
+        chatRoom.setInviteRotatedAt(Instant.now());
+        chatRoom.setInviteEnabled(true);
+    }
+
+    private InviteLinkResponse mapInviteLinkResponse(ChatRoom room) {
+        return InviteLinkResponse.builder()
+                .roomId(room.getRoomId())
+                .inviteToken(room.getInviteToken())
+                .inviteLink(buildInviteLink(room.getInviteToken()))
+                .inviteEnabled(room.isInviteEnabled())
+                .inviteRotatedAt(room.getInviteRotatedAt())
+                .privacy(room.getPrivacy())
+                .build();
+    }
+
+    private String buildInviteLink(String inviteToken) {
+        String baseUrl = frontendBaseUrl != null ? frontendBaseUrl.trim() : "";
+        if (baseUrl.endsWith("/")) {
+            return baseUrl + "invite/" + inviteToken;
+        }
+        return baseUrl + "/invite/" + inviteToken;
+    }
+
     private ChatMember getCurrentMemberInChatRoom(ChatRoom chatRoom, Long accountId) throws InvalidException {
-        return chatRoom.getMembers().stream()
-                .filter(m -> m.getDeletedAt() == null &&
-                        m.getAccount().getAccountId() == accountId)
-                .findFirst()
-                .orElseThrow(() -> new InvalidException("User is not a member of this chat room"));
+        return this.chatRoomPermissionGuard.getCurrentMember(chatRoom, accountId);
+    }
+
+    private ChatRoomPermissionResponse mapToPermissionResponse(ChatRoom chatRoom) {
+        return ChatRoomPermissionResponse.builder()
+                .roomId(chatRoom.getRoomId())
+                .allowMemberUpdate(chatRoom.isAllowMemberUpdate())
+                .allowMemberPin(chatRoom.isAllowMemberPin())
+                .allowMemberCreateVote(chatRoom.isAllowMemberCreateVote())
+                .allowMemberSendMessage(chatRoom.isAllowMemberSendMessage())
+                .allowModeratorSendMessage(chatRoom.isAllowModeratorSendMessage())
+                .build();
+    }
+
+    private boolean requireBoolean(Boolean value, String fieldName) throws InvalidException {
+        if (value == null) {
+            throw new InvalidException(fieldName + " is required");
+        }
+        return value;
     }
 
     private void validateModeratorOrOwnerPermission(ChatMember member, String action) throws InvalidException {
         if (member.getRole() != ChatRole.OWNER && member.getRole() != ChatRole.MODERATOR) {
             throw new InvalidException("Only owners and moderators can " + action);
         }
+    }
+
+    private ChatRoomJoinRequest getPendingJoinRequestForUpdate(Long roomId, Long requestId)
+            throws NotFoundException, ConflictException {
+        ChatRoomJoinRequest request = this.chatRoomJoinRequestRepository.findByIdAndRoomIdForUpdate(requestId, roomId)
+                .orElseThrow(() -> new NotFoundException("Join request not found"));
+        if (request.getStatus() != ChatRoomJoinRequestStatus.PENDING) {
+            throw new ConflictException("Join request is no longer pending");
+        }
+        return request;
+    }
+
+    private ChatRoomJoinRequestResponse mapJoinRequestResponse(ChatRoomJoinRequest joinRequest) {
+        Account account = EntityUtil.unproxy(joinRequest.getAccount());
+        String fullName;
+        String avatar;
+        if (account instanceof Company company) {
+            fullName = company.getName();
+            avatar = company.getLogo();
+        } else {
+            User user = (User) account;
+            fullName = user.getFullName();
+            avatar = user.getAvatar();
+        }
+
+        return ChatRoomJoinRequestResponse.builder()
+                .requestId(joinRequest.getRequestId())
+                .accountId(account.getAccountId())
+                .fullName(fullName)
+                .username(account.getUsername())
+                .avatar(avatar)
+                .requestedAt(joinRequest.getRequestedAt())
+                .build();
     }
 
     // =============== HELPER FUNCTIONS ====================
@@ -905,6 +1293,7 @@ public class ChatRoomServiceImpl implements ChatRoomService {
         return ChatRoomResponse.builder()
                 .roomId(chatRoom.getRoomId())
                 .type(chatRoom.getType())
+                .privacy(chatRoom.getPrivacy())
                 .name(name)
                 .avatar(avatar)
                 .memberCount(memberCount)
@@ -914,6 +1303,11 @@ public class ChatRoomServiceImpl implements ChatRoomService {
                 .isBlockedByMe(blockStatus.blockedByMe())
                 .counterpartAccountId(blockStatus.counterpartAccountId())
                 .currentUserSentLastMessage(lastMessageInfo.isCurrentUserSender())
+                .allowMemberUpdate(chatRoom.isAllowMemberUpdate())
+                .allowMemberPin(chatRoom.isAllowMemberPin())
+                .allowMemberCreateVote(chatRoom.isAllowMemberCreateVote())
+                .allowMemberSendMessage(chatRoom.isAllowMemberSendMessage())
+                .allowModeratorSendMessage(chatRoom.isAllowModeratorSendMessage())
                 .deletedAt(chatRoom.getDeletedAt())
                 .build();
     }

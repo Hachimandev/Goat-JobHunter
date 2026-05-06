@@ -1,5 +1,6 @@
 package iuh.fit.goat.dto.response.chat;
 
+import iuh.fit.goat.enumeration.ChatRoomPrivacy;
 import iuh.fit.goat.enumeration.ChatRoomType;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -16,6 +17,7 @@ import java.time.LocalDateTime;
 public class ChatRoomResponse {
     private Long roomId;
     private ChatRoomType type;
+    private ChatRoomPrivacy privacy;
     private String name;
     private String avatar;
     private Integer memberCount;
@@ -25,5 +27,10 @@ public class ChatRoomResponse {
     private boolean isBlockedByMe;
     private Long counterpartAccountId;
     private boolean currentUserSentLastMessage;
+    private boolean allowMemberUpdate;
+    private boolean allowMemberPin;
+    private boolean allowMemberCreateVote;
+    private boolean allowMemberSendMessage;
+    private boolean allowModeratorSendMessage;
     private Instant deletedAt;
 }

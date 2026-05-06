@@ -98,14 +98,10 @@ public class AiServiceImpl implements AiService {
 
     private Account getCurrentAccount() throws InvalidException {
         String currentUserEmail = SecurityUtil.getCurrentUserEmail();
-        if (currentUserEmail == null || currentUserEmail.isBlank()) {
-            throw new InvalidException("User not authenticated");
-        }
+        if (currentUserEmail.isBlank()) throw new InvalidException("User not authenticated");
 
         Account currentAccount = this.accountService.handleGetAccountByEmail(currentUserEmail);
-        if (currentAccount == null) {
-            throw new InvalidException("User not found");
-        }
+        if (currentAccount == null) throw new InvalidException("User not found");
 
         return currentAccount;
     }
@@ -175,8 +171,9 @@ public class AiServiceImpl implements AiService {
     // Lấy vai trò của current user
     private Role getRoleFromUser(Account account) {
         String roleName = account.getRole().getName();
-        if (roleName.equals(iuh.fit.goat.common.Role.ADMIN.getValue())) return Role.ADMIN;
+        if (roleName.equals(Role.ADMIN.getValue())) return Role.ADMIN;
         if (roleName.equals(Role.COMPANY.getValue())) return Role.COMPANY;
+        if (roleName.equals(Role.RECRUITER.getValue())) return Role.RECRUITER;
         if (roleName.equals(Role.APPLICANT.getValue())) return Role.APPLICANT;
         return null;
     }
@@ -597,6 +594,41 @@ public class AiServiceImpl implements AiService {
         } catch (Exception e) {
             log.error("Error calling AI service: {}", e.getMessage());
             throw new InvalidException("Không thể tóm tắt tin nhắn. Vui lòng thử lại sau.");
+        }
+    }
+
+    @Override
+    public String translateText(String text, String targetLang) throws InvalidException {
+        if (text == null || text.isBlank()) {
+            throw new InvalidException("Text to translate cannot be empty");
+        }
+        if (targetLang == null || targetLang.isBlank()) {
+            throw new InvalidException("Target language is required");
+        }
+
+        String prompt = """
+                Bạn là một hệ thống dịch thuật.
+                Hãy dịch nội dung dưới đây sang ngôn ngữ đích: %s.
+
+                Yêu cầu:
+                - Chỉ trả về bản dịch, không thêm bất kỳ giải thích nào.
+                - Nếu nội dung có Markdown (link, code, list), hãy giữ nguyên cấu trúc/định dạng Markdown.
+                - Giữ nguyên tên riêng, số, URL, emoji (nếu có).
+
+                NỘI DUNG:
+                %s
+                """.formatted(targetLang.trim(), text);
+
+        try {
+            GenerateContentResponse response = this.client.models.generateContent(model, prompt, null);
+            String translated = Objects.toString(response.text(), "").trim();
+            if (translated.isBlank()) {
+                throw new InvalidException("Translation returned empty result");
+            }
+            return translated;
+        } catch (Exception e) {
+            log.error("Error while translating message", e);
+            throw new InvalidException("Không thể dịch tin nhắn. Vui lòng thử lại sau.");
         }
     }
 

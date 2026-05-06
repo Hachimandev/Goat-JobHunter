@@ -4,11 +4,18 @@ import iuh.fit.goat.dto.request.chat.*;
 import iuh.fit.goat.dto.request.message.MessageToNewChatRoom;
 import iuh.fit.goat.dto.response.ResultPaginationResponse;
 import iuh.fit.goat.dto.response.chat.ChatRoomResponse;
+import iuh.fit.goat.dto.response.chat.ChatRoomJoinRequestResponse;
+import iuh.fit.goat.dto.response.chat.ChatRoomPermissionResponse;
 import iuh.fit.goat.dto.response.chat.GroupMemberResponse;
+import iuh.fit.goat.dto.response.chat.InviteLinkResponse;
+import iuh.fit.goat.dto.response.chat.InviteTokenPreviewResponse;
+import iuh.fit.goat.dto.response.chat.JoinByInviteResponse;
 import iuh.fit.goat.dto.response.chat.MessageSummaryResponse;
 import iuh.fit.goat.dto.response.chat.UnreadMessageResponse;
 import iuh.fit.goat.entity.*;
+import iuh.fit.goat.exception.ConflictException;
 import iuh.fit.goat.exception.InvalidException;
+import iuh.fit.goat.exception.NotFoundException;
 import org.springframework.data.domain.Pageable;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -49,6 +56,14 @@ public interface ChatRoomService {
 
     ChatRoom updateGroupInfo(Account currentAccount, Long chatRoomId, UpdateGroupInfoRequest request) throws InvalidException;
 
+    ChatRoomPermissionResponse getGroupPermissions(Account currentAccount, Long chatRoomId) throws InvalidException;
+
+    ChatRoomPermissionResponse updateGroupPermissions(
+            Account currentAccount,
+            Long chatRoomId,
+            UpdateChatRoomPermissionsRequest request
+    ) throws InvalidException;
+
     void leaveGroupChat(Account currentAccount, Long chatRoomId) throws InvalidException;
 
     ChatMember addMemberToGroup(Account currentAccount, Long chatRoomId, AddMemberRequest request) throws InvalidException;
@@ -64,4 +79,23 @@ public interface ChatRoomService {
     List<UnreadMessageResponse> getUnreadMessages(Pageable pageable) throws InvalidException;
 
     MessageSummaryResponse getUnreadMessagesSummary(Account currentAccount, Long chatRoomId) throws InvalidException;
+
+    InviteLinkResponse getInviteLink(Account currentAccount, Long roomId) throws InvalidException, NotFoundException;
+
+    InviteLinkResponse rotateInviteLink(Account currentAccount, Long roomId) throws InvalidException, NotFoundException;
+
+    InviteLinkResponse toggleInviteLink(Account currentAccount, Long roomId, boolean enabled) throws InvalidException, NotFoundException;
+
+    InviteTokenPreviewResponse getInvitePreview(String inviteToken) throws InvalidException, NotFoundException;
+
+    JoinByInviteResponse joinByInvite(Account currentAccount, String inviteToken) throws InvalidException, NotFoundException, ConflictException;
+
+    List<ChatRoomJoinRequestResponse> getPendingJoinRequests(Account currentAccount, Long roomId)
+            throws InvalidException, NotFoundException;
+
+    void approveJoinRequest(Account currentAccount, Long roomId, Long requestId)
+            throws InvalidException, NotFoundException, ConflictException;
+
+    void rejectJoinRequest(Account currentAccount, Long roomId, Long requestId)
+            throws InvalidException, NotFoundException, ConflictException;
 }

@@ -7,7 +7,13 @@ import iuh.fit.goat.dto.request.message.MessageCreateRequest;
 import iuh.fit.goat.dto.request.message.MessageToNewChatRoom;
 import iuh.fit.goat.dto.response.ResultPaginationResponse;
 import iuh.fit.goat.dto.response.chat.ChatRoomResponse;
+import iuh.fit.goat.dto.response.chat.ChatRoomJoinRequestResponse;
+import iuh.fit.goat.dto.response.chat.ChatRoomPermissionResponse;
 import iuh.fit.goat.dto.response.chat.GroupMemberResponse;
+import iuh.fit.goat.dto.response.chat.InviteLinkResponse;
+import iuh.fit.goat.dto.response.chat.InviteTokenPreviewResponse;
+import iuh.fit.goat.dto.response.chat.JoinByInviteResponse;
+import iuh.fit.goat.dto.response.chat.TypingIndicatorResponse;
 import iuh.fit.goat.dto.response.chat.UnreadMessageResponse;
 import iuh.fit.goat.dto.response.message.ForwardMessageResponse;
 import iuh.fit.goat.dto.response.message.MessageDeletedEventResponse;
@@ -19,6 +25,7 @@ import iuh.fit.goat.exception.InvalidException;
 import iuh.fit.goat.exception.NotFoundException;
 import iuh.fit.goat.exception.PermissionException;
 import iuh.fit.goat.service.*;
+import iuh.fit.goat.service.helper.MessageHelper;
 import iuh.fit.goat.util.SecurityUtil;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -27,9 +34,11 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -44,11 +53,14 @@ public class ChatRoomController {
     private final MessageService messageService;
     private final AccountService accountService;
     private final PinnedMessageService pinnedMessageService;
+    private final SimpMessagingTemplate messagingTemplate;
+
+    private final MessageHelper messageHelper;
 
     @GetMapping("/me")
-        public ResponseEntity<ResultPaginationResponse> getMyChatRooms(
+    public ResponseEntity<ResultPaginationResponse> getMyChatRooms(
             @PageableDefault(size = 20) Pageable pageable
-        ) throws InvalidException {
+    ) throws InvalidException {
         String email = SecurityUtil.getCurrentUserLogin()
                 .orElseThrow(() -> new InvalidException("User not authenticated"));
 
@@ -80,6 +92,27 @@ public class ChatRoomController {
 
         ChatRoomResponse response = this.chatRoomService.getDetailChatRoomInformation(currentAccount, id);
 
+        return ResponseEntity.ok(response);
+    }
+
+    @PutMapping("/{id}/typing")
+    public ResponseEntity<TypingIndicatorResponse> setTypingIndicator(
+            @PathVariable Long id,
+            @RequestBody TypingIndicatorRequest request
+    ) throws InvalidException {
+        Account currentAccount = getCurrentAccount();
+        String avatar = currentAccount instanceof Company company ? company.getLogo() : currentAccount.getAvatar();
+
+        TypingIndicatorResponse response = TypingIndicatorResponse.builder()
+                .chatRoomId(id)
+                .accountId(currentAccount.getAccountId())
+                .username(currentAccount.getUsername())
+                .avatar(avatar)
+                .typing(request.isTyping())
+                .updatedAt(Instant.now())
+                .build();
+
+        this.messagingTemplate.convertAndSend("/topic/chatrooms/" + id + "/typing", response);
         return ResponseEntity.ok(response);
     }
 
@@ -172,6 +205,26 @@ public class ChatRoomController {
         return ResponseEntity.ok(updatedChatRoom);
     }
 
+    @GetMapping("/group/{chatRoomId}/permissions")
+    public ResponseEntity<ChatRoomPermissionResponse> getGroupPermissions(
+            @PathVariable Long chatRoomId
+    ) throws InvalidException {
+        Account currentAccount = getCurrentAccount();
+        ChatRoomPermissionResponse response = this.chatRoomService.getGroupPermissions(currentAccount, chatRoomId);
+        return ResponseEntity.ok(response);
+    }
+
+    @PutMapping("/group/{chatRoomId}/permissions")
+    public ResponseEntity<ChatRoomPermissionResponse> updateGroupPermissions(
+            @PathVariable Long chatRoomId,
+            @Valid @RequestBody UpdateChatRoomPermissionsRequest request
+    ) throws InvalidException {
+        Account currentAccount = getCurrentAccount();
+        ChatRoomPermissionResponse response = this.chatRoomService
+                .updateGroupPermissions(currentAccount, chatRoomId, request);
+        return ResponseEntity.ok(response);
+    }
+
     @DeleteMapping("/group/{chatRoomId}")
     public ResponseEntity<Void> leaveGroupChat(@PathVariable Long chatRoomId) throws InvalidException {
         Account currentAccount = getCurrentAccount();
@@ -209,6 +262,76 @@ public class ChatRoomController {
         ChatMember updatedMember = this.chatRoomService.updateMemberRole(
                 currentAccount, chatRoomId, chatMemberId, request);
         return ResponseEntity.ok(updatedMember);
+    }
+
+    @GetMapping("/{roomId}/invite-link")
+    public ResponseEntity<InviteLinkResponse> getInviteLink(@PathVariable Long roomId)
+            throws InvalidException, NotFoundException {
+        Account currentAccount = getCurrentAccount();
+        InviteLinkResponse response = this.chatRoomService.getInviteLink(currentAccount, roomId);
+        return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/{roomId}/invite-link/rotate")
+    public ResponseEntity<InviteLinkResponse> rotateInviteLink(@PathVariable Long roomId)
+            throws InvalidException, NotFoundException {
+        Account currentAccount = getCurrentAccount();
+        InviteLinkResponse response = this.chatRoomService.rotateInviteLink(currentAccount, roomId);
+        return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/{roomId}/invite-link/toggle")
+    public ResponseEntity<InviteLinkResponse> toggleInviteLink(
+            @PathVariable Long roomId,
+            @Valid @RequestBody ToggleInviteLinkRequest request
+    ) throws InvalidException, NotFoundException {
+        Account currentAccount = getCurrentAccount();
+        InviteLinkResponse response = this.chatRoomService
+                .toggleInviteLink(currentAccount, roomId, request.getEnabled());
+        return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/invite-preview/{token}")
+    public ResponseEntity<InviteTokenPreviewResponse> getInvitePreview(@PathVariable String token)
+            throws InvalidException, NotFoundException {
+        InviteTokenPreviewResponse response = this.chatRoomService.getInvitePreview(token);
+        return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/join-by-invite")
+    public ResponseEntity<JoinByInviteResponse> joinByInvite(@Valid @RequestBody JoinByInviteRequest request)
+            throws InvalidException, NotFoundException, ConflictException {
+        Account currentAccount = getCurrentAccount();
+        JoinByInviteResponse response = this.chatRoomService.joinByInvite(currentAccount, request.getInviteToken());
+        return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/{roomId}/join-requests/pending")
+    public ResponseEntity<List<ChatRoomJoinRequestResponse>> getPendingJoinRequests(@PathVariable Long roomId)
+            throws InvalidException, NotFoundException {
+        Account currentAccount = getCurrentAccount();
+        List<ChatRoomJoinRequestResponse> response = this.chatRoomService.getPendingJoinRequests(currentAccount, roomId);
+        return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/{roomId}/join-requests/{requestId}/approve")
+    public ResponseEntity<Void> approveJoinRequest(
+            @PathVariable Long roomId,
+            @PathVariable Long requestId
+    ) throws InvalidException, NotFoundException, ConflictException {
+        Account currentAccount = getCurrentAccount();
+        this.chatRoomService.approveJoinRequest(currentAccount, roomId, requestId);
+        return ResponseEntity.ok().build();
+    }
+
+    @PostMapping("/{roomId}/join-requests/{requestId}/reject")
+    public ResponseEntity<Void> rejectJoinRequest(
+            @PathVariable Long roomId,
+            @PathVariable Long requestId
+    ) throws InvalidException, NotFoundException, ConflictException {
+        Account currentAccount = getCurrentAccount();
+        this.chatRoomService.rejectJoinRequest(currentAccount, roomId, requestId);
+        return ResponseEntity.ok().build();
     }
 
     private Account getCurrentAccount() throws InvalidException {
@@ -318,7 +441,7 @@ public class ChatRoomController {
             log.info("Sending messages with {} files to chatRoom: {}", files.size(), id);
 
             List<Message> savedMessages = this.messageService.sendMessagesWithFiles(id, request, files, currentAccount);
-            List<MessageResponse> response = this.messageService.toMessageResponses(savedMessages);
+            List<MessageResponse> response = this.messageHelper.toMessageResponses(savedMessages);
             return ResponseEntity.ok(new ArrayList<>(response));
         }
 
@@ -332,7 +455,7 @@ public class ChatRoomController {
                     request.getReplyToMessageId()
             );
             Message textMessage = messageService.sendMessage(id, textRequest, currentAccount);
-            MessageResponse response = this.messageService.toMessageResponse(textMessage);
+            MessageResponse response = this.messageHelper.toMessageResponse(textMessage);
             return ResponseEntity.ok(new ArrayList<>(Collections.singletonList(response)));
         }
 
@@ -357,7 +480,7 @@ public class ChatRoomController {
         }
 
         List<Message> savedMessages = this.messageService.sendContactCardMessages(id, request.getUserIds(), currentAccount);
-        List<MessageResponse> response = this.messageService.toMessageResponses(savedMessages);
+        List<MessageResponse> response = this.messageHelper.toMessageResponses(savedMessages);
         return ResponseEntity.ok(new ArrayList<>(response));
     }
 
@@ -378,7 +501,7 @@ public class ChatRoomController {
     ) throws InvalidException, NotFoundException, ConflictException, PermissionException {
         Account currentAccount = getCurrentAccount();
         Message revokedMessage = this.messageService.revokeMessage(chatRoomId, messageId, currentAccount);
-        return ResponseEntity.ok(this.messageService.toMessageResponse(revokedMessage));
+        return ResponseEntity.ok(this.messageHelper.toMessageResponse(revokedMessage));
     }
 
     @DeleteMapping("/{chatRoomId}/messages/{messageId}/permanent")
@@ -477,7 +600,6 @@ public class ChatRoomController {
         return ResponseEntity.ok(isPinned);
     }
 
-    // ========== GROUP DISSOLUTION ENDPOINTS ==========
     @DeleteMapping("/group/{chatRoomId}/dissolve")
     public ResponseEntity<Void> dissolveGroup(@PathVariable Long chatRoomId, @RequestParam String groupNameConfirmation) throws InvalidException {
         String email = SecurityUtil.getCurrentUserEmail();
