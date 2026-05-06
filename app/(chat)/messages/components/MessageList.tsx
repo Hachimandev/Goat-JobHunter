@@ -9,6 +9,25 @@ import { useEffect, useRef, useMemo, useState, useCallback } from 'react';
 import { MessageBubble, MessageBubbleLoading } from './MessageBubble';
 import { usePendingMessages } from '@/contexts/PendingMessagesContext';
 import { Loader2 } from 'lucide-react';
+import { getMessagePreviewText, getMessageSenderDisplayName } from '@/utils/messageUtils';
+import { extractPlainTextFromHtml } from '@/utils/extractPlainTextFromHtml';
+
+const PENDING_CLOCK_SKEW_MS = 5000;
+
+const getPendingTimestamp = (pendingId: string): number | null => {
+  const matchedTimestamp = /^pending-(\d+)-/.exec(pendingId)?.[1];
+  const parsedTimestamp = Number(matchedTimestamp);
+
+  if (!Number.isFinite(parsedTimestamp)) {
+    return null;
+  }
+
+  return parsedTimestamp;
+};
+
+const getMessageSignature = (content: string, replyToMessageId?: string | null, hasAttachment = false): string => {
+  return `${content}::${replyToMessageId ?? ''}::${hasAttachment ? '1' : '0'}`;
+};
 
 interface MessageListProps {
   messages: MessageResponse[];
@@ -31,6 +50,7 @@ interface MessageListProps {
   onUnpinMessage?: (messageId: string) => Promise<void> | void;
   isPinnedMessage?: (messageId: string) => boolean;
   isPinningMessage?: (messageId: string) => boolean;
+  disablePinActions?: boolean;
 }
 
 export function MessageList({
@@ -54,6 +74,7 @@ export function MessageList({
   onUnpinMessage,
   isPinnedMessage,
   isPinningMessage,
+  disablePinActions = false,
 }: Readonly<MessageListProps>) {
   const bottomRef = useRef<HTMLDivElement>(null);
   const scrollAreaContainerRef = useRef<HTMLDivElement>(null);
@@ -62,6 +83,7 @@ export function MessageList({
   const hasTriggeredTopLoadRef = useRef(false);
   const isNearBottomRef = useRef(true);
   const lastTailMessageIdRef = useRef<string | null>(null);
+  const lastTailPendingIdRef = useRef<string | null>(null);
   const { pendingMessages } = usePendingMessages();
   const collapsedMapRef = useRef<Record<string, number>>({});
   const [expandedGroups, setExpandedGroups] = useState<Set<number>>(new Set());
@@ -80,6 +102,93 @@ export function MessageList({
     for (const k of Object.keys(map)) result[k] = map[k].messageId;
     return result;
   }, [messages]);
+
+  const messageById = useMemo(() => {
+    const map = new Map<string, MessageResponse>();
+
+    messages.forEach((message) => {
+      map.set(message.messageId, message);
+    });
+
+    return map;
+  }, [messages]);
+
+  const ownMessageTimestampsBySignature = useMemo(() => {
+    const signatureToTimestamps = new Map<string, number[]>();
+
+    if (!currentUserId) {
+      return signatureToTimestamps;
+    }
+
+    messages.forEach((message) => {
+      if (message.sender.accountId.toString() !== currentUserId) {
+        return;
+      }
+
+      const normalizedContent = extractPlainTextFromHtml(message.content || '').trim();
+      const hasAttachment =
+        Boolean(message.mediaItems && message.mediaItems.length > 0) ||
+        message.messageType === MessageTypeEnum.IMAGE ||
+        message.messageType === MessageTypeEnum.VIDEO ||
+        message.messageType === MessageTypeEnum.AUDIO ||
+        message.messageType === MessageTypeEnum.MEDIA ||
+        message.messageType === MessageTypeEnum.FILE;
+      const signature = getMessageSignature(normalizedContent, message.replyToMessageId, hasAttachment);
+      const createdAtTimestamp = new Date(message.createdAt).getTime();
+
+      if (!Number.isFinite(createdAtTimestamp)) {
+        return;
+      }
+
+      const existingTimestamps = signatureToTimestamps.get(signature) ?? [];
+      existingTimestamps.push(createdAtTimestamp);
+      signatureToTimestamps.set(signature, existingTimestamps);
+    });
+
+    signatureToTimestamps.forEach((timestamps, signature) => {
+      signatureToTimestamps.set(
+        signature,
+        timestamps.sort((left, right) => left - right),
+      );
+    });
+
+    return signatureToTimestamps;
+  }, [currentUserId, messages]);
+
+  const visiblePendingMessages = useMemo(() => {
+    if (!currentUserId || pendingMessages.length === 0) {
+      return pendingMessages;
+    }
+
+    const nextTimestampIndexBySignature = new Map<string, number>();
+
+    return pendingMessages.filter((pending) => {
+      const normalizedContent = extractPlainTextFromHtml(pending.content || '').trim();
+      const hasAttachment = Boolean(pending.files && pending.files.length > 0);
+      const signature = getMessageSignature(normalizedContent, pending.replyToMessageId, hasAttachment);
+      const ownMessageTimestamps = ownMessageTimestampsBySignature.get(signature) ?? [];
+      const pendingTimestamp = getPendingTimestamp(pending.id);
+
+      let nextTimestampIndex = nextTimestampIndexBySignature.get(signature) ?? 0;
+
+      while (
+        nextTimestampIndex < ownMessageTimestamps.length &&
+        pendingTimestamp !== null &&
+        ownMessageTimestamps[nextTimestampIndex] < pendingTimestamp - PENDING_CLOCK_SKEW_MS
+      ) {
+        nextTimestampIndex += 1;
+      }
+
+      const hasMatchedServerMessage = nextTimestampIndex < ownMessageTimestamps.length;
+
+      if (hasMatchedServerMessage) {
+        nextTimestampIndexBySignature.set(signature, nextTimestampIndex + 1);
+        return false;
+      }
+
+      return true;
+    });
+  }, [currentUserId, ownMessageTimestampsBySignature, pendingMessages]);
 
   const { renderedItems, collapsedMap } = useMemo(() => {
     const items: Array<{
@@ -272,6 +381,26 @@ export function MessageList({
     lastTailMessageIdRef.current = latestMessageId;
   }, [latestMessageId]);
 
+  const latestPendingMessageId = visiblePendingMessages[visiblePendingMessages.length - 1]?.id ?? null;
+
+  useEffect(() => {
+    if (!latestPendingMessageId) {
+      lastTailPendingIdRef.current = null;
+      return;
+    }
+
+    const previousTailPendingId = lastTailPendingIdRef.current;
+
+    if (previousTailPendingId === latestPendingMessageId) {
+      return;
+    }
+
+    requestAnimationFrame(() => {
+      bottomRef.current?.scrollIntoView({ behavior: previousTailPendingId ? 'smooth' : 'auto' });
+    });
+    lastTailPendingIdRef.current = latestPendingMessageId;
+  }, [latestPendingMessageId]);
+
   useEffect(() => {
     const handler = (e: Event) => {
       try {
@@ -337,6 +466,7 @@ export function MessageList({
                     onUnpin={onUnpinMessage}
                     isPinned={isPinnedMessage?.(message.messageId) ?? false}
                     isPinning={isPinningMessage?.(message.messageId) ?? false}
+                    disablePinActions={disablePinActions}
                   />
                 </div>
               );
@@ -378,6 +508,7 @@ export function MessageList({
                         onUnpin={onUnpinMessage}
                         isPinned={isPinnedMessage?.(m.messageId) ?? false}
                         isPinning={isPinningMessage?.(m.messageId) ?? false}
+                        disablePinActions={disablePinActions}
                       />
                     </div>
                   ))}
@@ -403,9 +534,20 @@ export function MessageList({
               </div>
             );
           })}
-          {pendingMessages.map((pending) => (
-            <MessageBubbleLoading key={pending.id} />
-          ))}
+          {visiblePendingMessages.map((pending) => {
+            const contentPreview = extractPlainTextFromHtml(pending.content || '').trim();
+            const replyTarget = pending.replyToMessageId ? messageById.get(pending.replyToMessageId) : undefined;
+
+            return (
+              <MessageBubbleLoading
+                key={pending.id}
+                contentPreview={contentPreview}
+                fileCount={pending.files?.length ?? 0}
+                replySenderName={replyTarget ? getMessageSenderDisplayName(replyTarget.sender) : undefined}
+                replyPreviewText={replyTarget ? getMessagePreviewText(replyTarget) : undefined}
+              />
+            );
+          })}
           <div ref={bottomRef} />
         </div>
       </ScrollArea>

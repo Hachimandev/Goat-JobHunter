@@ -17,6 +17,8 @@ import {
   SendMessageToNewChatRoomRequest,
   CountUnreadMessagesRequest,
   CountUnreadMessagesResponse,
+  TypingIndicatorRequest,
+  TypingIndicatorResponse,
 } from '@/services/chatRoom/chatRoomType';
 import { ChatRoom, MessageResponse } from '@/types/model';
 import { IBackendRes, IModelPaginate } from '@/types/api';
@@ -75,6 +77,15 @@ function getFirstPageMessageQueryArg(
       size: CHAT_MESSAGE_PAGE_SIZE,
     }
   );
+}
+
+function getLatestNonSystemMessage(messages: MessageResponse[]): MessageResponse | null {
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    if (messages[index].messageType !== 'SYSTEM') {
+      return messages[index];
+    }
+  }
+  return null;
 }
 
 export const chatRoomApi = api.injectEndpoints({
@@ -222,7 +233,10 @@ export const chatRoomApi = api.injectEndpoints({
             }),
           );
 
-          const latestMessage = sentMessages[sentMessages.length - 1];
+          const latestMessage = getLatestNonSystemMessage(sentMessages);
+          if (!latestMessage) {
+            return;
+          }
 
           // Update chat rooms list cache
           dispatch(
@@ -300,7 +314,10 @@ export const chatRoomApi = api.injectEndpoints({
             }),
           );
 
-          const latestMessage = sentMessages[sentMessages.length - 1];
+          const latestMessage = getLatestNonSystemMessage(sentMessages);
+          if (!latestMessage) {
+            return;
+          }
 
           dispatch(
             chatRoomApi.util.updateQueryData(
@@ -332,6 +349,14 @@ export const chatRoomApi = api.injectEndpoints({
           console.error('Failed to update cache after sending contact cards:', error);
         }
       },
+    }),
+
+    setTypingIndicator: builder.mutation<TypingIndicatorResponse, TypingIndicatorRequest>({
+      query: ({ chatRoomId, typing }) => ({
+        url: `/chatrooms/${chatRoomId}/typing`,
+        method: 'PUT',
+        data: { typing },
+      }),
     }),
 
     // Send message to a new chat room
@@ -660,6 +685,7 @@ export const {
   useSendMessageToChatRoomMutation,
   useSendContactCardsToChatRoomMutation,
   useSendMessageToNewChatRoomMutation,
+  useSetTypingIndicatorMutation,
   useLazyCheckExistingChatRoomQuery,
   useDeleteMessagePermanentMutation,
   useForwardMessageBatchMutation,

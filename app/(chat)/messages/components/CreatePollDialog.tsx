@@ -18,9 +18,17 @@ interface CreatePollDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   chatRoomId?: number;
+  disabled?: boolean;
+  disabledReason?: string;
 }
 
-export default function CreatePollDialog({ open, onOpenChange, chatRoomId }: Readonly<CreatePollDialogProps>) {
+export default function CreatePollDialog({
+  open,
+  onOpenChange,
+  chatRoomId,
+  disabled = false,
+  disabledReason,
+}: Readonly<CreatePollDialogProps>) {
   const [title, setTitle] = useState('');
   const [options, setOptions] = useState<string[]>(['', '']);
   const [deadline, setDeadline] = useState<dayjs.Dayjs | null>(null);
@@ -31,20 +39,32 @@ export default function CreatePollDialog({ open, onOpenChange, chatRoomId }: Rea
   const titleChars = useMemo(() => title.length, [title]);
 
   const updateOption = (idx: number, value: string) => {
+    if (disabled) return;
     setOptions((prev) => prev.map((o, i) => (i === idx ? value : o)));
   };
 
   const addOption = () => {
+    if (disabled) return;
     if (options.length >= 10) return;
     setOptions((prev) => [...prev, '']);
   };
 
-  const removeOption = (idx: number) => setOptions((prev) => prev.filter((_, i) => i !== idx));
+  const removeOption = (idx: number) => {
+    if (disabled) return;
+    setOptions((prev) => prev.filter((_, i) => i !== idx));
+  };
 
   const canCreate = title.trim().length > 0 && options.filter((o) => o.trim().length > 0).length >= 2;
   const [createPoll, { isLoading: isCreating }] = useCreatePollMutation();
 
   const handleCreate = async () => {
+    if (disabled) {
+      if (disabledReason) {
+        toast.error(disabledReason);
+      }
+      return;
+    }
+
     if (!canCreate) return;
     try {
       const payload = {
@@ -96,6 +116,7 @@ export default function CreatePollDialog({ open, onOpenChange, chatRoomId }: Rea
                   placeholder="Đặt câu hỏi bình chọn"
                   className="rounded-xl h-30 w-130"
                   maxLength={200}
+                  disabled={disabled}
                 />
                 <div className="absolute right-10 bottom-2 text-xs text-muted-foreground">{titleChars}/200</div>
               </div>
@@ -112,12 +133,15 @@ export default function CreatePollDialog({ open, onOpenChange, chatRoomId }: Rea
                         onChange={(e) => updateOption(idx, e.target.value)}
                         placeholder={`Lựa chọn ${idx + 1}`}
                         className="rounded-xl w-130 focus:ring-0 focus-visible:ring-0"
+                        disabled={disabled}
                       />
                       {options.length > 2 && idx !== 0 && idx !== 1 && (
                         <div
                           onClick={() => removeOption(idx)}
                           aria-label={`Xoá lựa chọn ${idx + 1}`}
-                          className="absolute right-8 cursor-pointer p-1 rounded hover:bg-destructive/50 transition-colors"
+                          className={`absolute right-8 p-1 rounded transition-colors ${
+                            disabled ? 'cursor-not-allowed opacity-60' : 'cursor-pointer hover:bg-destructive/50'
+                          }`}
                         >
                           <Trash2 className="h-4 w-4" />
                         </div>
@@ -132,7 +156,7 @@ export default function CreatePollDialog({ open, onOpenChange, chatRoomId }: Rea
                     size="sm"
                     onClick={addOption}
                     className="px-2! has-[>svg]:px-0 text-primary hover:text-primary border-primary rounded-xl"
-                    disabled={options.length >= 10}
+                    disabled={disabled || options.length >= 10}
                   >
                     <Plus className="h-4 w-4" /> Thêm lựa chọn
                   </Button>
@@ -151,6 +175,7 @@ export default function CreatePollDialog({ open, onOpenChange, chatRoomId }: Rea
                   onChange={(value) => setDeadline(value)}
                   placeholder="Không thời hạn"
                   showTime
+                  disabled={disabled}
                 />
               </div>
             </div>
@@ -164,6 +189,7 @@ export default function CreatePollDialog({ open, onOpenChange, chatRoomId }: Rea
                     checked={pinToTop}
                     onCheckedChange={(v) => setPinToTop(Boolean(v))}
                     className="cursor-pointer"
+                    disabled={disabled}
                   />
                 </div>
                 <div className="flex items-center justify-between">
@@ -172,6 +198,7 @@ export default function CreatePollDialog({ open, onOpenChange, chatRoomId }: Rea
                     checked={allowMultiple}
                     onCheckedChange={(v) => setAllowMultiple(Boolean(v))}
                     className="cursor-pointer"
+                    disabled={disabled}
                   />
                 </div>
                 <div className="flex items-center justify-between">
@@ -180,12 +207,14 @@ export default function CreatePollDialog({ open, onOpenChange, chatRoomId }: Rea
                     checked={allowAddOption}
                     onCheckedChange={(v) => setAllowAddOption(Boolean(v))}
                     className="cursor-pointer"
+                    disabled={disabled}
                   />
                 </div>
               </div>
             </div>
           </div>
         </div>
+        {disabled && disabledReason && <p className="px-5 pb-2 text-xs text-muted-foreground">{disabledReason}</p>}
 
         <DialogFooter className="px-5 pb-5 pt-5 border-t">
           <div className="flex w-full items-center justify-between gap-4">
@@ -194,7 +223,7 @@ export default function CreatePollDialog({ open, onOpenChange, chatRoomId }: Rea
               <Button variant="destructive" className="rounded-xl" onClick={() => onOpenChange(false)}>
                 Hủy
               </Button>
-              <Button onClick={handleCreate} className="rounded-xl" disabled={!canCreate || isCreating}>
+              <Button onClick={handleCreate} className="rounded-xl" disabled={disabled || !canCreate || isCreating}>
                 {isCreating ? 'Đang tạo...' : 'Tạo bình chọn'}
               </Button>
             </div>

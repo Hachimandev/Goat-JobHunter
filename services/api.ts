@@ -75,6 +75,7 @@ export const api = createApi({
     'PinnedMessage',
     'Review',
     'ChatRoom',
+    'ChatInvite',
     'ChatMember',
     'Resume',
     'Reaction',
@@ -86,6 +87,7 @@ export const api = createApi({
     'AIConversation',
     'AIMessage',
     'Poll',
+    'Tag',
   ],
   endpoints: (builder) => ({
     ping: builder.query<string, void>({

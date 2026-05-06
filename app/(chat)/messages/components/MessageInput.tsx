@@ -1,7 +1,13 @@
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Paperclip, Send, X, Pilcrow, Smile, UserRound } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Paperclip, Send, X, Pilcrow, Smile, UserRound, Languages, Loader2, Volume2 } from 'lucide-react';
+import { useTranslateMessageMutation } from '@/services/ai/conversationApi';
+import { toast } from 'sonner';
+import { COUNTRY_OPTIONS } from '@/constants/constant';
+import { cn } from '@/lib/utils';
+import MarkdownDisplay from '@/components/common/MarkdownDisplay';
 import { useState, useRef, useCallback, type KeyboardEvent, type ChangeEvent } from 'react';
 import RichTextEditor from '@/components/RichText/Editor';
 import { MessageResponse } from '@/types/model';
@@ -9,6 +15,7 @@ import { getMessagePreviewText, getMessageSenderDisplayName } from '@/utils/mess
 import EmojiPicker, { EmojiClickData } from 'emoji-picker-react';
 import { BusinessCardModal } from '@/app/(chat)/messages/components/BusinessCardModal';
 import type { SendContactCardsSubmitResult } from '@/services/chatRoom/chatRoomType';
+import { IBackendError } from '@/types/api';
 
 type RichTextSelection = {
   index: number;
@@ -34,6 +41,9 @@ interface MessageInputProps {
   readonly replyTarget?: MessageResponse | null;
   readonly onCancelReply?: () => void;
   readonly disabled?: boolean;
+  readonly disabledReason?: string;
+  readonly onTypingChange?: (typing: boolean) => void | Promise<void>;
+  readonly onTypingStop?: () => void | Promise<void>;
 }
 
 export function MessageInput({
@@ -42,6 +52,9 @@ export function MessageInput({
   replyTarget = null,
   onCancelReply,
   disabled = false,
+  disabledReason,
+  onTypingChange,
+  onTypingStop,
 }: MessageInputProps) {
   const [message, setMessage] = useState('');
   const [richMessage, setRichMessage] = useState('');
@@ -49,6 +62,10 @@ export function MessageInput({
   const [isEmojiPickerOpen, setIsEmojiPickerOpen] = useState(false);
   const [isBusinessCardModalOpen, setIsBusinessCardModalOpen] = useState(false);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [isTranslatePopoverOpen, setIsTranslatePopoverOpen] = useState(false);
+  const [selectedTargetLang, setSelectedTargetLang] = useState<string>('Vietnamese');
+  const [translatedText, setTranslatedText] = useState<string | null>(null);
+  const [isSpeaking, setIsSpeaking] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const textInputRef = useRef<HTMLInputElement>(null);
   const getRichTextEditorRef = useRef<(() => RichTextEditorInstance | null) | null>(null);
@@ -122,15 +139,95 @@ export function MessageInput({
       return;
     }
 
+    await onTypingStop?.();
+
     const plainText = isEditorMode ? richMessage.replace(/<[^>]*>/g, '').trim() : message.trim();
 
     if (plainText || selectedFiles.length > 0) {
       setMessage('');
       setRichMessage('');
       setSelectedFiles([]);
+      setTranslatedText(null);
       onCancelReply?.();
       await onSendMessage(isEditorMode ? richMessage : message.trim(), selectedFiles, replyTarget?.messageId ?? null);
     }
+  };
+
+  const [translateMessage, { isLoading: isTranslating }] = useTranslateMessageMutation();
+
+  const getSpeechLang = (language: string) => {
+    const langCode = COUNTRY_OPTIONS.find((option) => option.language === language)?.langCode;
+    return langCode || 'en-US';
+  };
+  const stopSpeaking = () => {
+    if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
+      return;
+    }
+    window.speechSynthesis.cancel();
+    setIsSpeaking(false);
+  };
+  const handleSpeakTranslated = () => {
+    if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
+      toast.error('Trình duyệt không hỗ trợ đọc văn bản.');
+      return;
+    }
+
+    if (isSpeaking) {
+      stopSpeaking();
+      return;
+    }
+
+    if (!translatedText) return;
+
+    const plainText = translatedText.replace(/<[^>]*>/g, '').trim();
+    const utterance = new SpeechSynthesisUtterance(plainText);
+    const lang = getSpeechLang(selectedTargetLang);
+    utterance.lang = lang;
+
+    utterance.onstart = () => setIsSpeaking(true);
+    utterance.onend = () => setIsSpeaking(false);
+    utterance.onerror = () => setIsSpeaking(false);
+
+    window.speechSynthesis.speak(utterance);
+  };
+
+  const performTranslate = async () => {
+    if (disabled) return;
+
+    const content = isEditorMode ? richMessage.replace(/<[^>]*>/g, '').trim() : message.trim();
+    if (!content) {
+      toast.error('Vui lòng nhập nội dung để dịch');
+      return;
+    }
+
+    try {
+      const response = await translateMessage({ content, targetLang: selectedTargetLang }).unwrap();
+      const text = response?.data?.translatedText;
+      if (!text) {
+        toast.error('Không thể dịch văn bản');
+        return;
+      }
+      setTranslatedText(text);
+
+      if (isEditorMode) {
+        setRichMessage(`<p>${text}</p>`);
+        getRichTextEditorRef.current?.()?.focus?.();
+      } else {
+        setMessage(text);
+        textInputRef.current?.focus();
+      }
+    } catch (err) {
+      const msg = (err as IBackendError)?.data?.message || 'Đã có lỗi xảy ra';
+      toast.error(msg);
+    }
+  };
+  const handleTranslateClick = () => {
+    const content = isEditorMode ? richMessage.replace(/<[^>]*>/g, '').trim() : message.trim();
+    if (!content) {
+      toast.error('Vui lòng nhập nội dung để dịch');
+      return;
+    }
+    setIsTranslatePopoverOpen(true);
   };
 
   const handleKeyPress = (e: KeyboardEvent<HTMLInputElement>) => {
@@ -164,6 +261,14 @@ export function MessageInput({
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
+  };
+
+  const emitTypingState = (text: string) => {
+    if (disabled || !onTypingChange) {
+      return;
+    }
+
+    void onTypingChange(text.trim().length > 0);
   };
 
   const handleAttachClick = () => {
@@ -314,6 +419,103 @@ export function MessageInput({
           </div>
 
           <div className="flex items-center gap-1">
+            <Popover open={isTranslatePopoverOpen} onOpenChange={setIsTranslatePopoverOpen}>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 rounded-full"
+                  onClick={handleTranslateClick}
+                  disabled={disabled || isTranslating}
+                  title="Dịch"
+                >
+                  {isTranslating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Languages className="h-4 w-4" />}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent
+                align="end"
+                side="top"
+                className="w-[500px] p-0 rounded-xl shadow-xl overflow-hidden"
+                onOpenAutoFocus={(e) => e.preventDefault()}
+              >
+                <div className="bg-background">
+                  <div className="flex items-center justify-between px-3 py-2 border-b">
+                    <div className="flex items-center gap-2 text-sm font-medium">
+                      <Languages className="h-4 w-4 text-muted-foreground" />
+                      Dịch nội dung
+                    </div>
+
+                    <div className="flex items-center gap-2 rounded-xl">
+                      <Select value={selectedTargetLang} onValueChange={setSelectedTargetLang}>
+                        <SelectTrigger className="h-3 text-xs font-semibold p-2 w-[200px] border-none shadow-none cursor-pointer rounded-full bg-primary/30">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent className="rounded-xl">
+                          {COUNTRY_OPTIONS.map((option) => (
+                            <SelectItem key={option.language} value={option.language} className="cursor-pointer">
+                              {option.language}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-7 w-7"
+                        onClick={() => void performTranslate()}
+                        disabled={isTranslating}
+                        title="Dịch"
+                      >
+                        {isTranslating ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Languages className="h-4 w-4" />
+                        )}
+                      </Button>
+
+                      <Button
+                        title={isSpeaking ? 'Dừng đọc' : 'Đọc bản dịch'}
+                        size="icon"
+                        variant="ghost"
+                        className="h-7 w-7"
+                        onClick={handleSpeakTranslated}
+                        disabled={!translatedText}
+                      >
+                        <Volume2 className={cn('h-4 w-4', isSpeaking && 'text-primary')} />
+                      </Button>
+
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-7 w-7"
+                        onClick={() => {
+                          stopSpeaking();
+                          setTranslatedText(null);
+                          setIsTranslatePopoverOpen(false);
+                        }}
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+
+                  <div className="px-3 py-3 space-y-3 max-h-96 overflow-y-auto">
+                    <div className="text-sm leading-relaxed font-semibold">
+                      <MarkdownDisplay content={isEditorMode ? richMessage : message} />
+                    </div>
+                    {translatedText && (
+                      <>
+                        <div className="border-t pt-3 text-sm leading-relaxed text-primary font-semibold">
+                          <MarkdownDisplay content={translatedText} />
+                        </div>
+                      </>
+                    )}
+                  </div>
+                </div>
+              </PopoverContent>
+            </Popover>
+
             <Button onClick={() => void handleSend()} size="icon" className="h-8 w-8 rounded-full" disabled={disabled}>
               <Send className="h-4 w-4" />
             </Button>
@@ -326,7 +528,10 @@ export function MessageInput({
               <Input
                 ref={textInputRef}
                 value={message}
-                onChange={(e) => setMessage(e.target.value)}
+                onChange={(e) => {
+                  setMessage(e.target.value);
+                  emitTypingState(e.target.value);
+                }}
                 onKeyDown={handleKeyPress}
                 placeholder="Nhập tin nhắn..."
                 disabled={disabled}
@@ -338,7 +543,10 @@ export function MessageInput({
           <div className="bg-accent/30 rounded-lg overflow-hidden">
             <RichTextEditor
               value={richMessage}
-              onChange={setRichMessage}
+              onChange={(value) => {
+                setRichMessage(value);
+                emitTypingState(value.replace(/<[^>]*>/g, ''));
+              }}
               onEditorReady={handleEditorReady}
               placeholder="Nhập tin nhắn..."
               maxHeight={200}
@@ -351,6 +559,8 @@ export function MessageInput({
             />
           </div>
         )}
+
+        {disabled && disabledReason && <p className="mt-2 text-xs text-muted-foreground">{disabledReason}</p>}
 
         <BusinessCardModal
           open={isBusinessCardModalOpen}

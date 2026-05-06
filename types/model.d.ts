@@ -1,6 +1,7 @@
 import {
   ApplicationStatus,
   CallEndReasonEnum,
+  ChatRoomPrivacy,
   ChatRoomType,
   CallStatusEnum,
   CallTypeEnum,
@@ -466,6 +467,12 @@ export type Reaction = {
 export type ChatRoom = {
   roomId: number;
   type: ChatRoomType;
+  privacy: ChatRoomPrivacy;
+  allowMemberUpdate: boolean;
+  allowMemberPin: boolean;
+  allowMemberCreateVote: boolean;
+  allowMemberSendMessage: boolean;
+  allowModeratorSendMessage: boolean;
   name: string;
   avatar: string | null;
   memberCount: number;
@@ -627,4 +634,21 @@ export type PollVote = {
     avatar: string;
   };
   createdAt: string;
+};
+
+export type Tag = {
+  tagId: number;
+  name: string;
+  color: string;
+  systemTag: boolean;
+};
+
+export type ChatRoomTagAssignment = {
+  assignmentId: number;
+  roomId: number;
+  accountId: number;
+  tagId: number;
+  tagName: string;
+  tagColor: string;
+  systemTag: boolean;
 };

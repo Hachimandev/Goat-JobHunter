@@ -16,6 +16,8 @@ import {
   cascadeReplyContextForRecalledMessage,
 } from '@/utils/replyContextRealtime';
 import { pollApi } from '../poll/pollApi';
+import { ChatRole } from '@/services/chatRoom/groupChat/groupChatType';
+import { TypingIndicatorParticipant, upsertTypingIndicator } from '@/services/chatRoom/typing/typingIndicatorRuntime';
 
 type DeleteMessageRealtimeEvent = {
   eventType?: string;
@@ -93,6 +95,20 @@ export class WebSocketMessageService {
       }
     });
 
+    this.client.subscribe(`/topic/chatrooms/${chatRoomId}/typing`, (frame) => {
+      try {
+        const payload: unknown = JSON.parse(frame.body);
+
+        if (!this.isTypingIndicatorEvent(payload)) {
+          return;
+        }
+
+        upsertTypingIndicator(chatRoomId, payload);
+      } catch (err) {
+        console.error('❌ Parse typing indicator error:', err);
+      }
+    });
+
     this.subscribedChatRooms.add(chatRoomId);
     console.log(`✅ Subscribed to /topic/chatrooms/${chatRoomId}`);
   }
@@ -147,6 +163,21 @@ export class WebSocketMessageService {
     }
 
     return hasValidMessageId && hasValidChatRoomId && !hasSender;
+  }
+
+  private isTypingIndicatorEvent(payload: unknown): payload is TypingIndicatorParticipant {
+    if (!payload || typeof payload !== 'object') {
+      return false;
+    }
+
+    const candidate = payload as Record<string, unknown>;
+
+    return (
+      typeof candidate.accountId === 'number' &&
+      typeof candidate.username === 'string' &&
+      typeof candidate.typing === 'boolean' &&
+      typeof candidate.updatedAt === 'string'
+    );
   }
 
   private getActiveMessageQueryArgs(chatRoomId: number): FetchMessagesInChatRoomRequest[] {
@@ -364,10 +395,10 @@ export class WebSocketMessageService {
         const memberName = match?.[1]?.trim();
         const roleText = match?.[2]?.trim();
 
-        const roleMap: Record<string, 'OWNER' | 'MODERATOR' | 'MEMBER'> = {
-          'Chủ nhóm': 'OWNER',
-          'Quản trị viên': 'MODERATOR',
-          'Thành viên': 'MEMBER',
+        const roleMap: Record<string, ChatRole> = {
+          'Chủ nhóm': ChatRole.OWNER,
+          'Quản trị viên': ChatRole.MODERATOR,
+          'Thành viên': ChatRole.MEMBER,
         };
 
         const newRole = roleText ? roleMap[roleText] : undefined;
@@ -400,6 +431,15 @@ export class WebSocketMessageService {
       }
       // Detect GROUP_AVATAR_CHANGED
       else if (event === MessageEvent.GROUP_AVATAR_CHANGED || content.includes('đã thay đổi ảnh đại diện nhóm')) {
+        this.dispatch(
+          chatRoomApi.util.invalidateTags([
+            { type: 'ChatRoom', id: chatRoomId },
+            { type: 'ChatRoom', id: 'LIST' },
+          ]),
+        );
+      }
+      // Detect GROUP_PRIVACY_CHANGED
+      else if (event === MessageEvent.GROUP_PRIVACY_CHANGED || content.includes('đã thay đổi quyền riêng tư nhóm')) {
         this.dispatch(
           chatRoomApi.util.invalidateTags([
             { type: 'ChatRoom', id: chatRoomId },

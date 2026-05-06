@@ -66,6 +66,11 @@ export type MessageSummary = {
   summary: string;
   isSummarized: boolean;
 };
+export type TranslateMessage = {
+  sourceText: string;
+  translatedText: string;
+  targetLang: string;
+};
 
 export type GetConversationsResponse = IBackendRes<IModelPaginate<AIConversation>>;
 
@@ -76,3 +81,9 @@ export type ConversationPinnedResponse = IBackendRes<{ conversationId: number; p
 export type GetMessageOfConversationResponse = IBackendRes<IModelPaginate<AIMessage>>;
 
 export type GetUnreadMessagesSummaryResponse = IBackendRes<MessageSummary>;
+
+export type TranslateMessageRequest = {
+  content: string;
+  targetLang: string;
+};
+export type TranslateMessageResponse = IBackendRes<TranslateMessage>;

@@ -5,7 +5,7 @@ import { useSearchParams } from 'next/navigation';
 import { useUser } from '@/hooks/useUser';
 import { useMemo } from 'react';
 import { ChatRoom } from '@/types/model';
-import { ChatRoomType, Visibility } from '@/types/enum';
+import { ChatRoomPrivacy, ChatRoomType, Visibility } from '@/types/enum';
 import { useFetchUserByIdQuery } from '@/services/user/userApi';
 import useChatRoomAndMessageActions from '@/hooks/useChatRoomAndMessageActions';
 import { useFriendshipStatus } from '@/hooks/useFriendshipStatus';
@@ -41,6 +41,12 @@ export default function NewChatRoomPage() {
       blocked: false,
       blockedByMe: false,
       counterpartAccountId: recipientAccountId,
+      privacy: ChatRoomPrivacy.PUBLIC,
+      allowMemberUpdate: true,
+      allowMemberPin: true,
+      allowMemberCreateVote: true,
+      allowMemberSendMessage: true,
+      allowModeratorSendMessage: true,
     };
   }, [data?.data?.avatar, data?.data?.fullName, data?.data?.username, recipientAccountId]);
 
