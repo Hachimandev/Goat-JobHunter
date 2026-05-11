@@ -1,5 +1,4 @@
 import { useDebounce } from "@/hooks/useDebounce";
-import { useFriendActions } from "@/hooks/useFriendActions";
 import { useUser } from "@/hooks/useUser";
 import { useAppSelector } from "@/lib/hooks";
 import {
@@ -8,6 +7,7 @@ import {
   useSendMessageToNewChatRoomMutation,
 } from "@/services/chatRoom/chatRoomApi";
 import { useLazySearchUsersQuery } from "@/services/user/userApi";
+import { FriendSearchItem } from "@/components/chat/FriendSearchItem";
 import {
   useFetchTagsQuery,
   useFetchTagAssignmentsQuery,
@@ -76,8 +76,6 @@ export default function ChatListScreen() {
   const [checkExistingRoom] = useLazyCheckExistingChatRoomQuery();
   const [createChat, { isLoading: isCreating }] =
     useSendMessageToNewChatRoomMutation();
-
-  const { handleSendFriendRequest, isSendingRequest } = useFriendActions();
 
   useFocusEffect(
     useCallback(() => {
@@ -288,37 +286,7 @@ export default function ChatListScreen() {
               data={searchResults}
               keyExtractor={(item) => `search-${item.accountId}`}
               renderItem={({ item }) => (
-                <TouchableOpacity
-                  style={styles.chatItem}
-                  onPress={() => handleStartChat(item)} // Nhấn vào item để nhắn tin
-                >
-                  <Image
-                    source={{
-                      uri: item.avatar || "https://via.placeholder.com/100",
-                    }}
-                    style={styles.avatar}
-                  />
-                  <View style={styles.chatContent}>
-                    <Text style={styles.chatName}>{item.fullName}</Text>
-                    <Text style={styles.chatMessage}>@{item.username}</Text>
-                  </View>
-
-                  {/* NÚT KẾT BẠN TÁCH RIÊNG */}
-                  <TouchableOpacity
-                    style={styles.addFriendBtn}
-                    onPress={async (e) => {
-                      e.stopPropagation();
-                      await handleSendFriendRequest(item.accountId);
-                    }}
-                    disabled={isSendingRequest}
-                  >
-                    {isSendingRequest ? (
-                      <ActivityIndicator color="#fff" />
-                    ) : (
-                      <Text style={styles.addFriendText}>Kết bạn</Text>
-                    )}
-                  </TouchableOpacity>
-                </TouchableOpacity>
+                <FriendSearchItem item={item} onPress={handleStartChat} />
               )}
               ListEmptyComponent={
                 <Text style={styles.emptyText}>

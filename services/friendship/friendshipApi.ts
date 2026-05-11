@@ -122,6 +122,12 @@ export const friendshipApi = api.injectEndpoints({
         url: `/friend-requests/${targetUserId}/block`,
         method: "POST",
       }),
+      invalidatesTags: [
+        { type: "Friendship", id: "LIST" },
+        { type: "FriendRequest", id: "LIST" },
+        { type: "FriendRequest", id: "RECEIVED" },
+        { type: "FriendRequest", id: "SENT" },
+      ],
     }),
 
     unblockUser: builder.mutation<UnblockUserResponse, UnblockUserRequest>({
@@ -129,6 +135,12 @@ export const friendshipApi = api.injectEndpoints({
         url: `/friend-requests/${targetUserId}/unblock`,
         method: "POST",
       }),
+      invalidatesTags: [
+        { type: "Friendship", id: "LIST" },
+        { type: "FriendRequest", id: "LIST" },
+        { type: "FriendRequest", id: "RECEIVED" },
+        { type: "FriendRequest", id: "SENT" },
+      ],
     }),
 
     getMyBlockedUsers: builder.query<

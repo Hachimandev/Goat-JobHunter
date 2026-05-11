@@ -1,10 +1,9 @@
 import { useRouter } from "expo-router";
-import { ArrowLeft, Check, User, Users, X } from "lucide-react-native";
+import { ArrowLeft } from "lucide-react-native";
 import React, { useState } from "react";
 import {
   ActivityIndicator,
   Alert,
-  Image,
   ScrollView,
   StyleSheet,
   Text,
@@ -14,12 +13,15 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import {
   useAcceptFriendRequestMutation,
+  useBlockUserMutation,
   useCancelFriendRequestMutation,
   useGetMyFriendshipsQuery,
   useGetMyReceivedFriendRequestsQuery,
   useGetMySentFriendRequestsQuery,
   useRejectFriendRequestMutation,
 } from "@/services/friendship/friendshipApi";
+import { FriendRow } from "./components/FriendRow";
+import { FriendRequestRow } from "./components/FriendRequestRow";
 
 const tabs = [
   { key: "friends", label: "Bạn bè" },
@@ -76,12 +78,17 @@ export default function FriendsScreen() {
     refetch: refetchSent,
   } = useGetMySentFriendRequestsQuery({ page: 1, size: 50 });
 
-  const [acceptFriendRequest, { isLoading: isAccepting }] =
-    useAcceptFriendRequestMutation();
-  const [rejectFriendRequest, { isLoading: isRejecting }] =
-    useRejectFriendRequestMutation();
-  const [cancelFriendRequest, { isLoading: isCancelling }] =
-    useCancelFriendRequestMutation();
+  const [acceptFriendRequest] = useAcceptFriendRequestMutation();
+  const [rejectFriendRequest] = useRejectFriendRequestMutation();
+  const [cancelFriendRequest] = useCancelFriendRequestMutation();
+  const [blockUser] = useBlockUserMutation();
+  const [pendingAction, setPendingAction] = useState<
+    | { type: "accept"; id: number }
+    | { type: "reject"; id: number }
+    | { type: "cancel"; id: number }
+    | { type: "remove"; id: number }
+    | null
+  >(null);
 
   const friends = friendsData?.data?.result ?? [];
   const receivedRequests = receivedData?.data?.result ?? [];
@@ -96,11 +103,14 @@ export default function FriendsScreen() {
   };
 
   const handleAccept = async (requestId: number) => {
+    setPendingAction({ type: "accept", id: requestId });
     try {
       await acceptFriendRequest({ requestId }).unwrap();
       await Promise.all([refetchReceived(), refetchFriends()]);
-    } catch (error) {
+    } catch {
       Alert.alert("Lỗi", "Không thể chấp nhận lời mời. Vui lòng thử lại.");
+    } finally {
+      setPendingAction(null);
     }
   };
 
@@ -114,14 +124,17 @@ export default function FriendsScreen() {
           text: "Từ chối",
           style: "destructive",
           onPress: async () => {
+            setPendingAction({ type: "reject", id: requestId });
             try {
               await rejectFriendRequest({ requestId }).unwrap();
               await refetchReceived();
-            } catch (error) {
+            } catch {
               Alert.alert(
                 "Lỗi",
                 "Không thể từ chối lời mời. Vui lòng thử lại.",
               );
+            } finally {
+              setPendingAction(null);
             }
           },
         },
@@ -139,11 +152,39 @@ export default function FriendsScreen() {
           text: "Xác nhận",
           style: "destructive",
           onPress: async () => {
+            setPendingAction({ type: "cancel", id: requestId });
             try {
               await cancelFriendRequest({ requestId }).unwrap();
               await refetchSent();
-            } catch (error) {
+            } catch {
               Alert.alert("Lỗi", "Không thể hủy lời mời. Vui lòng thử lại.");
+            } finally {
+              setPendingAction(null);
+            }
+          },
+        },
+      ],
+    );
+  };
+
+  const handleRemove = async (relationshipId: number, targetUserId: number) => {
+    Alert.alert(
+      "Xóa bạn",
+      "Bạn có chắc muốn xóa bạn này khỏi danh sách bạn bè?",
+      [
+        { text: "Hủy", style: "cancel" },
+        {
+          text: "Xác nhận",
+          style: "destructive",
+          onPress: async () => {
+            setPendingAction({ type: "remove", id: relationshipId });
+            try {
+              await blockUser({ targetUserId }).unwrap();
+              await refetchFriends();
+            } catch {
+              Alert.alert("Lỗi", "Không thể xóa bạn. Vui lòng thử lại.");
+            } finally {
+              setPendingAction(null);
             }
           },
         },
@@ -165,107 +206,40 @@ export default function FriendsScreen() {
     </View>
   );
 
-  const renderFriendRow = (item: FriendItem) => {
-    return (
-      <View key={item.relationshipId} style={styles.rowContainer}>
-        <View style={styles.userInfo}>
-          {item.friend.avatar ? (
-            <Image source={{ uri: item.friend.avatar }} style={styles.avatar} />
-          ) : (
-            <View style={styles.avatarFallback}>
-              <Text style={styles.avatarFallbackText}>
-                {item.friend.fullName?.charAt(0) || "U"}
-              </Text>
-            </View>
-          )}
-          <View style={styles.textBlock}>
-            <Text style={styles.nameText}>
-              {item.friend.fullName || "Người dùng"}
-            </Text>
-            <Text style={styles.subText}>
-              @{item.friend.username || "unknown"}
-            </Text>
-          </View>
-        </View>
-      </View>
-    );
-  };
+  const renderFriendRow = (item: FriendItem) => (
+    <FriendRow
+      key={item.relationshipId}
+      item={item}
+      isRemoving={
+        pendingAction?.type === "remove" &&
+        pendingAction.id === item.relationshipId
+      }
+      onRemove={handleRemove}
+    />
+  );
 
   const renderRequestRow = (
     item: FriendRequestItem,
     type: "received" | "sent",
-  ) => {
-    const isReceived = type === "received";
-    return (
-      <View key={item.requestId} style={styles.rowContainer}>
-        <View style={styles.userInfo}>
-          {item.counterpart.avatar ? (
-            <Image
-              source={{ uri: item.counterpart.avatar }}
-              style={styles.avatar}
-            />
-          ) : (
-            <View style={styles.avatarFallback}>
-              <Text style={styles.avatarFallbackText}>
-                {item.counterpart.fullName?.charAt(0) || "U"}
-              </Text>
-            </View>
-          )}
-          <View style={styles.textBlock}>
-            <Text style={styles.nameText}>
-              {item.counterpart.fullName || "Người dùng"}
-            </Text>
-            <Text style={styles.subText}>
-              @{item.counterpart.username || "unknown"}
-            </Text>
-          </View>
-        </View>
-        <View style={styles.actionGroup}>
-          {isReceived ? (
-            <>
-              <TouchableOpacity
-                style={[styles.actionButton, styles.acceptButton]}
-                onPress={() => handleAccept(item.requestId)}
-                disabled={isAccepting}
-              >
-                {isAccepting ? (
-                  <ActivityIndicator color="#fff" />
-                ) : (
-                  <Check size={16} color="#fff" />
-                )}
-                <Text style={styles.actionText}>Chấp nhận</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.actionButton, styles.rejectButton]}
-                onPress={() => handleReject(item.requestId)}
-                disabled={isRejecting}
-              >
-                {isRejecting ? (
-                  <ActivityIndicator color="#fff" />
-                ) : (
-                  <X size={16} color="#fff" />
-                )}
-                <Text style={styles.actionText}>Từ chối</Text>
-              </TouchableOpacity>
-            </>
-          ) : (
-            <TouchableOpacity
-              style={[styles.actionButton, styles.cancelButton]}
-              onPress={() => handleCancel(item.requestId)}
-              disabled={isCancelling}
-            >
-              {isCancelling ? (
-                <ActivityIndicator color="#fff" />
-              ) : (
-                <X size={16} color="#fff" />
-              )}
-              <Text style={styles.actionText}>Hủy</Text>
-            </TouchableOpacity>
-          )}
-        </View>
-      </View>
-    );
-  };
+  ) => (
+    <FriendRequestRow
+      key={item.requestId}
+      item={item}
+      type={type}
+      isAccepting={
+        pendingAction?.type === "accept" && pendingAction.id === item.requestId
+      }
+      isRejecting={
+        pendingAction?.type === "reject" && pendingAction.id === item.requestId
+      }
+      isCancelling={
+        pendingAction?.type === "cancel" && pendingAction.id === item.requestId
+      }
+      onAccept={handleAccept}
+      onReject={handleReject}
+      onCancel={handleCancel}
+    />
+  );
 
   const renderTabContent = () => {
     if (selectedTab === "friends") {

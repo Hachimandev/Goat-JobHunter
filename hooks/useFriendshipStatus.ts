@@ -1,6 +1,10 @@
 import { useMemo } from "react";
 import { useUser } from "@/hooks/useUser";
-import { useCheckPairStatusQuery } from "@/services/friendship/friendshipApi";
+import {
+  useCheckPairStatusQuery,
+  useGetMySentFriendRequestsQuery,
+  useGetMyReceivedFriendRequestsQuery,
+} from "@/services/friendship/friendshipApi";
 import { RelationshipState } from "@/services/friendship/friendshipType";
 
 export function useFriendshipStatus(targetAccountId: number) {
@@ -14,6 +18,20 @@ export function useFriendshipStatus(targetAccountId: number) {
     },
   );
 
+  const { data: sentRequests } = useGetMySentFriendRequestsQuery(
+    { size: 1000 },
+    {
+      skip: !isSignedIn,
+    },
+  );
+
+  const { data: receivedRequests } = useGetMyReceivedFriendRequestsQuery(
+    { size: 1000 },
+    {
+      skip: !isSignedIn,
+    },
+  );
+
   const pair = data?.data ?? null;
   const relationshipState = pair?.relationshipState ?? RelationshipState.NONE;
   const isBlockedByMe = pair?.blockedByMe ?? false;
@@ -24,9 +42,35 @@ export function useFriendshipStatus(targetAccountId: number) {
     isBlockedByOther;
   const isFriend = relationshipState === RelationshipState.FRIEND;
 
+  const hasSentRequest =
+    sentRequests?.data?.result?.some(
+      (req) =>
+        req.status === "PENDING" &&
+        req.counterpart.accountId === targetAccountId,
+    ) ?? false;
+  const hasReceivedRequest =
+    receivedRequests?.data?.result?.some(
+      (req) =>
+        req.status === "PENDING" &&
+        req.counterpart.accountId === targetAccountId,
+    ) ?? false;
+
   const canSendRequest = useMemo(
-    () => !isSelf && isSignedIn && !isFriend && !isBlockedAnyDirection,
-    [isSelf, isSignedIn, isFriend, isBlockedAnyDirection],
+    () =>
+      !isSelf &&
+      isSignedIn &&
+      !isFriend &&
+      !isBlockedAnyDirection &&
+      !hasSentRequest &&
+      !hasReceivedRequest,
+    [
+      isSelf,
+      isSignedIn,
+      isFriend,
+      isBlockedAnyDirection,
+      hasSentRequest,
+      hasReceivedRequest,
+    ],
   );
 
   const canAccept = useMemo(
@@ -45,6 +89,8 @@ export function useFriendshipStatus(targetAccountId: number) {
     pair,
     isSelf,
     isFriend,
+    hasSentRequest,
+    hasReceivedRequest,
     isBlockedByMe,
     isBlockedByOther,
     isBlockedAnyDirection,
