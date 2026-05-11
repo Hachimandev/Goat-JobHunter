@@ -145,7 +145,7 @@ export default function ProfileScreen() {
         <View style={styles.section}>
           <TouchableOpacity
             style={styles.menuItem}
-            onPress={() => router.push("/profile")}
+            onPress={() => router.push("/profile/friends")}
           >
             <User size={20} color="#6b7280" style={styles.menuIcon} />
             <Text style={styles.menuText}>Bạn bè</Text>

@@ -1,4 +1,5 @@
 import { useDebounce } from "@/hooks/useDebounce";
+import { useFriendActions } from "@/hooks/useFriendActions";
 import { useUser } from "@/hooks/useUser";
 import { useAppSelector } from "@/lib/hooks";
 import {
@@ -75,6 +76,8 @@ export default function ChatListScreen() {
   const [checkExistingRoom] = useLazyCheckExistingChatRoomQuery();
   const [createChat, { isLoading: isCreating }] =
     useSendMessageToNewChatRoomMutation();
+
+  const { handleSendFriendRequest, isSendingRequest } = useFriendActions();
 
   useFocusEffect(
     useCallback(() => {
@@ -303,13 +306,17 @@ export default function ChatListScreen() {
                   {/* NÚT KẾT BẠN TÁCH RIÊNG */}
                   <TouchableOpacity
                     style={styles.addFriendBtn}
-                    onPress={(e) => {
-                      e.stopPropagation(); // Ngăn sự kiện nhấn vào nút bị tính là nhấn vào item (nhắn tin)
-                      console.log("Gửi lời mời kết bạn tới:", item.accountId);
-                      // Bạn sẽ gọi API kết bạn ở đây
+                    onPress={async (e) => {
+                      e.stopPropagation();
+                      await handleSendFriendRequest(item.accountId);
                     }}
+                    disabled={isSendingRequest}
                   >
-                    <Text style={styles.addFriendText}>Kết bạn</Text>
+                    {isSendingRequest ? (
+                      <ActivityIndicator color="#fff" />
+                    ) : (
+                      <Text style={styles.addFriendText}>Kết bạn</Text>
+                    )}
                   </TouchableOpacity>
                 </TouchableOpacity>
               )}
