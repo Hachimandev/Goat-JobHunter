@@ -7,7 +7,11 @@ import {
   useSendMessageToNewChatRoomMutation,
 } from "@/services/chatRoom/chatRoomApi";
 import { useLazySearchUsersQuery } from "@/services/user/userApi";
-import { useFetchTagsQuery, useFetchTagAssignmentsQuery } from "@/services/tag/tagApi";
+import { FriendSearchItem } from "@/components/chat/FriendSearchItem";
+import {
+  useFetchTagsQuery,
+  useFetchTagAssignmentsQuery,
+} from "@/services/tag/tagApi";
 import { Ionicons } from "@expo/vector-icons";
 import dayjs from "dayjs";
 import "dayjs/locale/vi";
@@ -184,7 +188,9 @@ export default function ChatListScreen() {
 
   const handleSelectTag = (tagId: number) => {
     setSelectedTagIds((prev) =>
-      prev.includes(tagId) ? prev.filter((id) => id !== tagId) : [...prev, tagId]
+      prev.includes(tagId)
+        ? prev.filter((id) => id !== tagId)
+        : [...prev, tagId],
     );
   };
 
@@ -272,7 +278,7 @@ export default function ChatListScreen() {
       {/* BODY */}
       {isSearchingActive ? (
         <View style={styles.searchResultArea}>
-          <Text style={styles.sectionTitle}>Kết quả tìm kiếm</Text>
+          <Text style={styles.sectionTitle}>Kết quả tìm kiếm người dùng</Text>
           {isSearching || isCreating ? (
             <ActivityIndicator color="#0084FF" style={{ marginTop: 20 }} />
           ) : (
@@ -280,24 +286,7 @@ export default function ChatListScreen() {
               data={searchResults}
               keyExtractor={(item) => `search-${item.accountId}`}
               renderItem={({ item }) => (
-                <TouchableOpacity
-                  style={styles.chatItem}
-                  onPress={() => handleStartChat(item)}
-                >
-                  <Image
-                    source={{
-                      uri: item.avatar,
-                    }}
-                    style={styles.avatar}
-                  />
-                  <View style={styles.chatContent}>
-                    <Text style={styles.chatName}>{item.fullName}</Text>
-                    <Text style={styles.chatMessage}>@{item.username}</Text>
-                  </View>
-                  <View style={styles.addFriendBtn}>
-                    <Text style={styles.addFriendText}>Nhắn tin</Text>
-                  </View>
-                </TouchableOpacity>
+                <FriendSearchItem item={item} onPress={handleStartChat} />
               )}
               ListEmptyComponent={
                 <Text style={styles.emptyText}>
@@ -358,9 +347,7 @@ export default function ChatListScreen() {
                   </View>
                   <View style={styles.chatBottomRow}>
                     {/* Tag Badge */}
-                    {roomTag && (
-                      <TagBadge tag={roomTag} size="small" />
-                    )}
+                    {roomTag && <TagBadge tag={roomTag} size="small" />}
                     {/* Unread Badge */}
                     {unreadCounts[item.roomId] > 0 && (
                       <View style={styles.unreadBadge}>
@@ -470,6 +457,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     alignItems: "center",
+    borderBottomColor: "#f0f0f0",
+    borderBottomWidth: 0.5,
   },
   avatar: { width: 54, height: 54, borderRadius: 27 },
   chatContent: { flex: 1, marginLeft: 14, justifyContent: "center" },
@@ -510,7 +499,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "bold",
   },
-  searchResultArea: { flex: 1 },
+  searchResultArea: { flex: 1, backgroundColor: "#fff" },
   emptyText: { textAlign: "center", marginTop: 40, color: "#999" },
   emptyFilterContainer: {
     flex: 1,
@@ -526,9 +515,11 @@ const styles = StyleSheet.create({
   },
   addFriendBtn: {
     paddingVertical: 6,
-    paddingHorizontal: 12,
+    paddingHorizontal: 16,
     borderRadius: 18,
-    backgroundColor: "#E3F2FD",
+    backgroundColor: "#0084FF",
+    justifyContent: "center",
+    alignItems: "center",
   },
-  addFriendText: { color: "#0084FF", fontSize: 13, fontWeight: "600" },
+  addFriendText: { color: "#fff", fontSize: 13, fontWeight: "600" },
 });

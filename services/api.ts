@@ -64,6 +64,8 @@ export const api = createApi({
     "PinnedMessage",
     "ChatInvite",
     "Tag",
+    "Friendship",
+    "FriendRequest",
   ],
   endpoints: () => ({}),
 });

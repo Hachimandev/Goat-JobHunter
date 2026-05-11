@@ -1,22 +1,22 @@
 import { useRouter } from "expo-router";
 import {
-    Bell,
-    Bookmark,
-    Building,
-    Clipboard,
-    FileText,
-    HardDrive,
-    Settings,
-    User,
+  Bell,
+  Bookmark,
+  Building,
+  Clipboard,
+  FileText,
+  HardDrive,
+  Settings,
+  User,
 } from "lucide-react-native";
 import React from "react";
 import {
-    Image,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  Image,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { clearUser } from "../../lib/authSlice";
@@ -135,10 +135,22 @@ export default function ProfileScreen() {
           </View>
           <Text style={styles.userName}>{user.fullName || "User"}</Text>
           <Text style={styles.userEmail}>{user.email}</Text>
+          <View style={styles.editProfileRow}>
+            <Settings size={14} color="#1976d2" />
+            <Text style={styles.editProfileText}>Chỉnh sửa thông tin</Text>
+          </View>
         </TouchableOpacity>
 
         {/* Menu items */}
         <View style={styles.section}>
+          <TouchableOpacity
+            style={styles.menuItem}
+            onPress={() => router.push("/profile/friends")}
+          >
+            <User size={20} color="#6b7280" style={styles.menuIcon} />
+            <Text style={styles.menuText}>Bạn bè</Text>
+            <Text style={styles.menuArrow}>›</Text>
+          </TouchableOpacity>
           <TouchableOpacity
             style={styles.menuItem}
             onPress={() => router.push("/profile/saved-blogs")}
@@ -356,5 +368,16 @@ const styles = StyleSheet.create({
     width: "100%",
     height: "100%",
     resizeMode: "cover",
+  },
+  editProfileRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 8,
+    gap: 4,
+  },
+  editProfileText: {
+    fontSize: 14,
+    color: "#1976d2",
+    fontWeight: "500",
   },
 });
