@@ -2,6 +2,7 @@ package iuh.fit.goat.util;
 
 import iuh.fit.goat.dto.response.message.MessageResponse;
 import iuh.fit.goat.entity.Message;
+import iuh.fit.goat.entity.UserReaction;
 import iuh.fit.goat.entity.embeddable.CallSummary;
 import iuh.fit.goat.entity.embeddable.MediaItem;
 import iuh.fit.goat.enumeration.MediaType;
@@ -9,7 +10,10 @@ import iuh.fit.goat.enumeration.MessageType;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 public final class MessageMapper {
 
@@ -49,6 +53,7 @@ public final class MessageMapper {
         response.setOriginalMessageId(message.getOriginalMessageId());
         response.setCreatedAt(message.getCreatedAt());
         response.setUpdatedAt(message.getUpdatedAt());
+        response.setReactions(mapReactions(message.getReactions()));
         return response;
     }
 
@@ -141,5 +146,29 @@ public final class MessageMapper {
             case AUDIO -> MediaType.AUDIO;
             default -> null;
         };
+    }
+
+    private static List<MessageResponse.ReactionGroupResponse> mapReactions(Map<String, List<UserReaction>> reactions) {
+        if (reactions == null || reactions.isEmpty()) return Collections.emptyList();
+        return reactions.entrySet().stream()
+                .filter(e -> e.getValue() != null && !e.getValue().isEmpty())
+                .map(e -> {
+                    List<MessageResponse.UserReactionInfo> users = e.getValue().stream()
+                            .map(ur -> MessageResponse.UserReactionInfo.builder()
+                                    .accountId(ur.getAccountId())
+                                    .fullName(ur.getFullName())
+                                    .username(ur.getUsername())
+                                    .avatar(ur.getAvatar())
+                                    .reactedAt(ur.getReactedAt())
+                                    .build())
+                            .collect(Collectors.toList());
+                    return MessageResponse.ReactionGroupResponse.builder()
+                            .emoji(e.getKey())
+                            .count(users.size())
+                            .users(users)
+                            .build();
+                })
+                .sorted(Comparator.comparingInt(MessageResponse.ReactionGroupResponse::getCount).reversed())
+                .collect(Collectors.toList());
     }
 }
