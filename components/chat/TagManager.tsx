@@ -12,7 +12,7 @@ import {
   InteractionManager,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { Tag } from "@/types/model";
+import { Tag, ChatRoom } from "@/types/model";
 import { TagForm } from "./TagForm";
 import {
   useCreateTagMutation,
@@ -21,7 +21,6 @@ import {
   useAssignTagMutation,
 } from "@/services/tag/tagApi";
 import { Toast } from "react-native-toast-notifications";
-import { ChatRoom } from "@/types/model";
 
 /** Show toast safely; falls back to Alert if ToastProvider not mounted */
 const showToast = (text1: string, text2: string) => {
@@ -66,7 +65,11 @@ export const TagManager: React.FC<TagManagerProps> = ({
     return result.data;
   };
 
-  const handleUpdateTag = async (tagId: number, name: string, color: string) => {
+  const handleUpdateTag = async (
+    tagId: number,
+    name: string,
+    color: string,
+  ) => {
     await updateTag({ tagId, name, color }).unwrap();
     return true;
   };
@@ -83,7 +86,7 @@ export const TagManager: React.FC<TagManagerProps> = ({
   const handleCreateOrUpdateTag = async (
     tagName: string,
     color: string,
-    roomIds: number[]
+    roomIds: number[],
   ): Promise<boolean> => {
     try {
       if (editingTag) {
@@ -114,20 +117,16 @@ export const TagManager: React.FC<TagManagerProps> = ({
   };
 
   const handleDeleteTagPress = (tag: Tag) => {
-    Alert.alert(
-      "Xóa phân loại",
-      `Bạn có chắc chắn muốn xóa "${tag.name}"?`,
-      [
-        { text: "Hủy", style: "cancel" },
-        {
-          text: "Xóa",
-          style: "destructive",
-          onPress: async () => {
-            await handleDeleteTag(tag.tagId);
-          },
+    Alert.alert("Xóa phân loại", `Bạn có chắc chắn muốn xóa "${tag.name}"?`, [
+      { text: "Hủy", style: "cancel" },
+      {
+        text: "Xóa",
+        style: "destructive",
+        onPress: async () => {
+          await handleDeleteTag(tag.tagId);
         },
-      ]
-    );
+      },
+    ]);
   };
 
   const handleEditTag = (tag: Tag) => {
@@ -167,10 +166,10 @@ export const TagManager: React.FC<TagManagerProps> = ({
             disabled={isLoading || tagFormVisible}
             style={styles.actionButton}
           >
-            <Ionicons 
-              name="pencil" 
-              size={18} 
-              color={isLoading || tagFormVisible ? "#d1d5db" : "#3b82f6"} 
+            <Ionicons
+              name="pencil"
+              size={18}
+              color={isLoading || tagFormVisible ? "#d1d5db" : "#3b82f6"}
             />
           </TouchableOpacity>
           <TouchableOpacity
@@ -178,10 +177,10 @@ export const TagManager: React.FC<TagManagerProps> = ({
             disabled={isLoading || tagFormVisible}
             style={styles.actionButton}
           >
-            <Ionicons 
-              name="trash" 
-              size={18} 
-              color={isLoading || tagFormVisible ? "#d1d5db" : "#ef4444"} 
+            <Ionicons
+              name="trash"
+              size={18}
+              color={isLoading || tagFormVisible ? "#d1d5db" : "#ef4444"}
             />
           </TouchableOpacity>
         </View>
@@ -221,15 +220,17 @@ export const TagManager: React.FC<TagManagerProps> = ({
                 keyExtractor={(item) => item.tagId.toString()}
                 renderItem={renderTagItem}
                 scrollEnabled={true}
-                style={styles.listContainer}                removeClippedSubviews={true}
+                style={styles.listContainer}
+                removeClippedSubviews={true}
                 maxToRenderPerBatch={10}
-                updateCellsBatchingPeriod={50}              />
+                updateCellsBatchingPeriod={50}
+              />
             ) : (
               <View style={styles.emptyContainer}>
                 <Ionicons name="folder-open" size={48} color="#d1d5db" />
                 <Text style={styles.emptyText}>Chưa có phân loại nào</Text>
                 <Text style={styles.emptySubtext}>
-                  Nhấn "Tạo mới" để tạo phân loại đầu tiên
+                  Nhấn &quot;Tạo mới&quot; để tạo phân loại đầu tiên
                 </Text>
               </View>
             )}
