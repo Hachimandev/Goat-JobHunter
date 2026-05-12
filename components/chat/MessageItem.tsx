@@ -408,7 +408,9 @@ export const MessageItem = ({
             </View>
           </View>
         </TouchableOpacity>
+      </View>
 
+      <View style={{ marginTop: 4, marginLeft: isMe ? 0 : 30 }}>
         <MessageReactionBar
           reactions={item.reactions || []}
           currentUserId={currentUser?.accountId}

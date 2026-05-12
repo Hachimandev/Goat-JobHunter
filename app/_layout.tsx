@@ -24,6 +24,7 @@ function AuthChecker() {
   const pathname = usePathname();
   const [hasToken, setHasToken] = useState(false);
   const [checkingToken, setCheckingToken] = useState(true);
+  const [hasNavigated, setHasNavigated] = useState(false);
 
   // Initialize notification manager globally
   useNotificationManager({ enabled: true, checkInterval: 3000 });
@@ -80,8 +81,9 @@ function AuthChecker() {
       // Reset pending notifications to avoid showing old notifications from persist state
       dispatch(resetPendingNotifications());
 
-      // Redirect to chat after user data is loaded
-      if (!pathname?.startsWith("/invite/")) {
+      // Only redirect to chat on initial load, not on subsequent refetches
+      if (!hasNavigated && !pathname?.startsWith("/invite/")) {
+        setHasNavigated(true);
         router.replace("/(tabs)/chat");
       }
     } else if (isError) {
@@ -91,7 +93,7 @@ function AuthChecker() {
       });
       router.replace(signInRoute);
     }
-  }, [data, isError, dispatch, pathname, router, signInRoute]);
+  }, [data, isError, dispatch, pathname, router, signInRoute, hasNavigated]);
 
   // Connect WebSocket logout listener when user is authenticated
   // This handles force logout on app startup (auto-login scenario)
