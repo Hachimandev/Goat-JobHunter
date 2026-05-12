@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import EmojiPicker, { EmojiClickData, EmojiStyle, Theme } from 'emoji-picker-react';
 import { Plus } from 'lucide-react';
 
-const QUICK_REACTIONS = ['👍', '❤️', '😂', '😮', '😢', '😡', '🎉', '🔥'];
+const QUICK_REACTIONS = ['👍', '😂', '😮', '😢', '😡', '🎉', '🔥'];
 
 interface MessageReactionPickerProps {
   onSelect: (emoji: string) => void;
