@@ -437,6 +437,11 @@ export type MessageResponse = {
   callContext?: MessageCallContext | null;
   createdAt: string; // Instant -> ISO string
   updatedAt: string; // Instant -> ISO string
+  reactions?: {
+    emoji: string;
+    count: number;
+    users: { accountId: number; fullName: string; username: string; avatar: string; reactedAt: string }[];
+  }[];
 };
 
 export type ReplyContext = {

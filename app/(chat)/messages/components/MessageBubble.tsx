@@ -52,6 +52,10 @@ import { toast } from 'sonner';
 import { useTranslateMessageMutation } from '@/services/ai/conversationApi';
 import { IBackendError } from '@/types/api';
 import { Popover, PopoverAnchor, PopoverContent } from '@/components/ui/popover';
+import { MessageReactionPicker } from './MessageReactionPicker';
+import { MessageReactionBar } from './MessageReactionBar';
+import { useMessageReactionActions } from '@/hooks/useMessageReactionActions';
+import { Smile } from 'lucide-react';
 import { COUNTRY_OPTIONS } from '@/constants/constant';
 
 interface MessageBubbleProps {
@@ -110,6 +114,14 @@ export function MessageBubble({
   const [selectedTargetLang, setSelectedTargetLang] = useState<string>('Vietnamese');
   const [translatedText, setTranslatedText] = useState<string | null>(null);
   const [translateMessage, { isLoading: isTranslating }] = useTranslateMessageMutation();
+
+  const { handleReaction, handleRemove } = useMessageReactionActions(Number(message.chatRoomId));
+  const handleSelectReaction = async (emoji: string) => {
+    await handleReaction(message.messageId, emoji);
+  };
+  const handleBarClick = async (emoji: string) => {
+    await handleRemove(message.messageId, emoji);
+  };
 
   const getSpeechLang = (language: string) => {
     const langCode = COUNTRY_OPTIONS.find((option) => option.language === language)?.langCode;
@@ -529,7 +541,7 @@ export function MessageBubble({
 
   return (
     <>
-      <div className={cn('flex w-full mb-1.5', isOwn ? 'justify-end' : 'justify-start')}>
+      <div className={cn('flex w-full mb-1.5 group', isOwn ? 'justify-end' : 'justify-start')}>
         {!isOwn && showAvatar && (
           <UserHoverCard
             userId={message.sender.accountId}
@@ -579,6 +591,11 @@ export function MessageBubble({
               </div>
             )}
             <span className="text-xs text-muted-foreground mt-0.5 px-1">{timeAgo}</span>
+            <MessageReactionBar
+              reactions={message.reactions || []}
+              currentUserId={undefined}
+              onReactionClick={handleBarClick}
+            />
           </div>
 
           <Popover
@@ -590,6 +607,19 @@ export function MessageBubble({
               }
             }}
           >
+            <MessageReactionPicker
+              onSelect={handleSelectReaction}
+              trigger={
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7 rounded-full mt-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
+                >
+                  <Smile className="h-4 w-4" />
+                </Button>
+              }
+            />
+
             {canShowActionMenu && (
               <DropdownMenu open={isActionMenuOpen} onOpenChange={setIsActionMenuOpen} modal={false}>
                 <PopoverAnchor asChild>
@@ -597,7 +627,7 @@ export function MessageBubble({
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="h-7 w-7 rounded-full mt-0.5"
+                      className="h-7 w-7 rounded-full mt-0.5 opacity-0 transition-opacity group-hover:opacity-100"
                       disabled={isDeleting || isRecalling || isForwarding || isHiding || isPinning}
                     >
                       {isRecalling || isDeleting || isForwarding || isHiding || isPinning ? (
