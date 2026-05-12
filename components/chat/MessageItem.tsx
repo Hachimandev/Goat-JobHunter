@@ -14,6 +14,9 @@ import {
 } from "react-native";
 import ImageView from "react-native-image-viewing";
 import { PollItem } from "./PollItem";
+import { MessageReactionPicker } from "./MessageReactionPicker";
+import { MessageReactionBar } from "./MessageReactionBar";
+import { useMessageReactionActions } from "../../hooks/useMessageReactionActions";
 
 interface MessageItemProps {
   item: MessageType;
@@ -53,6 +56,15 @@ export const MessageItem = ({
 }: MessageItemProps) => {
   const [visible, setIsVisible] = useState(false);
   const [imageIndex, setImageIndex] = useState(0);
+
+  const { handleReaction, handleRemove } = useMessageReactionActions(
+    Number(item.chatRoomId),
+  );
+  const [showReactionPicker, setShowReactionPicker] = useState(false);
+  const handleSelectReaction = async (emoji: string) =>
+    await handleReaction(item.messageId, emoji);
+  const handleBarClick = async (emoji: string) =>
+    await handleRemove(item.messageId, emoji);
 
   const isSystem = item.messageType === "SYSTEM";
   const content = item.content || "";
@@ -347,6 +359,11 @@ export const MessageItem = ({
 
         <TouchableOpacity
           onLongPress={() => onLongPress(item)}
+          onPress={() => {
+            if (!isRevoked && !isPoll) {
+              setShowReactionPicker(true);
+            }
+          }}
           activeOpacity={0.8}
           style={{ maxWidth: "85%" }}
           disabled={isRevoked || isPoll}
@@ -391,7 +408,19 @@ export const MessageItem = ({
             </View>
           </View>
         </TouchableOpacity>
+
+        <MessageReactionBar
+          reactions={item.reactions || []}
+          currentUserId={currentUser?.accountId}
+          onReactionClick={handleBarClick}
+        />
       </View>
+
+      <MessageReactionPicker
+        visible={showReactionPicker}
+        onClose={() => setShowReactionPicker(false)}
+        onSelect={handleSelectReaction}
+      />
 
       <ImageView
         images={images}
@@ -410,7 +439,13 @@ const styles = StyleSheet.create({
   horizontalImageItem: { flex: 1 },
   messageWrapper: { marginVertical: 6, width: "100%" },
   rowContainer: { alignItems: "flex-end", gap: 8 },
-  smallAvatar: { width: 26, height: 26, borderRadius: 13, marginBottom: 2 },
+  smallAvatar: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    marginBottom: 2,
+    marginRight: 4,
+  },
   bubbleContainer: { width: "100%" },
   bubble: {
     paddingVertical: 10,
@@ -419,10 +454,10 @@ const styles = StyleSheet.create({
     minWidth: 60,
     justifyContent: "center",
   },
-  myBubble: { backgroundColor: "#0084FF", borderBottomRightRadius: 4 },
+  myBubble: { backgroundColor: "#0084FF", borderBottomRightRadius: 20 },
   otherBubble: {
     backgroundColor: "#F0F0F0",
-    borderBottomLeftRadius: 4,
+    borderBottomLeftRadius: 20,
     borderWidth: 0.5,
     borderColor: "#E8E8E8",
   },

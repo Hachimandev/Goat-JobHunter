@@ -228,6 +228,11 @@ export type MessageType = {
   };
   isForwarded?: boolean;
   poll?: Poll;
+  reactions?: {
+    emoji: string;
+    count: number;
+    users: { accountId: number; fullName: string; username: string; avatar: string; reactedAt: string }[];
+  }[];
 };
 
 export type ChatRoom = {
