@@ -49,5 +49,6 @@
     <include file="db.changelog/schema/2026-05-01/add-chat-room-permissions.xml"/>
     <include file="db.changelog/schema/2026-04-27/create-tag.xml"/>
     <include file="db.changelog/schema/2026-04-27/change-column.xml"/>
+    <include file="db.changelog/schema/2026-05-13/entity-reminders-participants.xml"/>
 
 </databaseChangeLog>

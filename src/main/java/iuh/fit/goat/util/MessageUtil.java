@@ -3,6 +3,7 @@ package iuh.fit.goat.util;
 import iuh.fit.goat.common.MessageEvent;
 import iuh.fit.goat.dto.response.message.MessageResponse;
 import iuh.fit.goat.dto.response.poll.PollResponse;
+import iuh.fit.goat.dto.response.reminder.ReminderResponse;
 import iuh.fit.goat.entity.Account;
 import iuh.fit.goat.entity.Company;
 import iuh.fit.goat.entity.Message;
@@ -129,6 +130,41 @@ public class MessageUtil {
 
                 yield String.format("(event:%s) %s đã đóng cuộc bình chọn: %s (Xem %s)",
                         MessageEvent.POLL_CLOSED, actorName, poll.getQuestion(), poll.getPollId());
+            }
+
+            case REMINDER_CREATED -> {
+                ReminderResponse reminder = (ReminderResponse) params[0];
+
+                yield String.format("(event:%s) %s đã tạo một lịch hẹn mới: %s (Xem %s)",
+                        MessageEvent.REMINDER_CREATED, actorName, reminder.getTitle(), reminder.getReminderId());
+            }
+
+            case REMINDER_EXPIRED -> {
+                ReminderResponse reminder = (ReminderResponse) params[0];
+
+                yield String.format("(event:%s) Lịch hẹn đã đến hạn: %s (Xem %s)",
+                        MessageEvent.REMINDER_EXPIRED, reminder.getTitle(), reminder.getReminderId());
+            }
+
+            case REMINDER_DECLINED -> {
+                ReminderResponse reminder = (ReminderResponse) params[0];
+
+                yield String.format("(event:%s) %s đã hủy lịch hẹn: %s (Xem %s)",
+                        MessageEvent.REMINDER_DECLINED, actorName, reminder.getTitle(), reminder.getReminderId());
+            }
+
+            case REMINDER_JOINED -> {
+                ReminderResponse reminder = (ReminderResponse) params[0];
+
+                yield String.format("(event:%s) %s đã tham gia lịch hẹn: %s (Xem %s)",
+                        MessageEvent.REMINDER_JOINED, actorName, reminder.getTitle(), reminder.getReminderId());
+            }
+
+            case REMINDER_UNJOINED -> {
+                ReminderResponse reminder = (ReminderResponse) params[0];
+
+                yield String.format("(event:%s) %s không tham gia lịch hẹn: %s (Xem %s)",
+                        MessageEvent.REMINDER_UNJOINED, actorName, reminder.getTitle(), reminder.getReminderId());
             }
         };
     }

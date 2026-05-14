@@ -2,10 +2,7 @@ package iuh.fit.goat.service.impl;
 
 import iuh.fit.goat.entity.Job;
 import iuh.fit.goat.repository.JobRepository;
-import iuh.fit.goat.service.AiService;
-import iuh.fit.goat.service.CompanyAwardService;
-import iuh.fit.goat.service.ScheduledService;
-import iuh.fit.goat.service.SubscriberService;
+import iuh.fit.goat.service.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -23,6 +20,8 @@ public class ScheduledServiceImpl implements ScheduledService {
     private final AiService aiService;
     private final SubscriberService subscriberService;
     private final CompanyAwardService companyAwardService;
+    private final ReminderService reminderService;
+
     private final JobRepository jobRepository;
 
     @Override
@@ -75,5 +74,13 @@ public class ScheduledServiceImpl implements ScheduledService {
         this.companyAwardService.calculateAwardsForYear(year);
 
         log.info("Calculated company awards for year: " + year);
+    }
+
+    @Override
+    @Scheduled(cron = "0 */15 * * * *")
+    @Transactional
+    public void dispatchDueReminders() {
+        this.reminderService.dispatchDueReminders();
+        log.info("Dispatched due reminders!");
     }
 }

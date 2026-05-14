@@ -8,4 +8,6 @@ public interface ScheduledService {
     void handleRefreshAiCache();
 
     void calculateLastYearAwards();
+
+    void dispatchDueReminders();
 }
