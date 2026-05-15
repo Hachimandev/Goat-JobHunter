@@ -22,7 +22,7 @@ import {
   Clock,
 } from 'lucide-react';
 import { useMemo, useState } from 'react';
-import { ChatRoom, PinnedMessage } from '@/types/model';
+import { ChatRoom, PinnedMessage, Reminder } from '@/types/model';
 import { ManageGroupPanel } from './ManageGroupPanel';
 import { useGetMemberInGroupChatQuery, useAddMemberToGroupMutation } from '@/services/chatRoom/groupChat/groupChatApi';
 import { ChatMemberItem } from '@/app/(chat)/messages/components/ChatMemberItem';
@@ -54,10 +54,13 @@ import {
 import { truncate } from 'lodash';
 import Link from 'next/link';
 import { ChatRole } from '@/services/chatRoom/groupChat/groupChatType';
+import { useReminderFormState } from '@/app/(chat)/messages/hooks/useReminderFormState';
 
 interface GroupDetailsPanelProps {
   chatRoom: ChatRoom;
   pinnedMessages: PinnedMessage[];
+  reminders: Reminder[];
+  reminderFormState: ReturnType<typeof useReminderFormState>;
   isOpen: boolean;
   onClose: () => void;
   readOnly?: boolean;
@@ -69,6 +72,8 @@ interface GroupDetailsPanelProps {
 export function GroupDetailsPanel({
   chatRoom,
   pinnedMessages,
+  reminders,
+  reminderFormState,
   isOpen,
   onClose,
   readOnly = false,
@@ -242,9 +247,7 @@ export function GroupDetailsPanel({
                   <Collapsible open={isJoinRequestsOpen} onOpenChange={setIsJoinRequestsOpen}>
                     <div className="bg-accent/30 rounded-lg overflow-hidden">
                       <CollapsibleTrigger asChild>
-                        <div
-                          className="w-full flex items-center justify-between p-3 py-6 hover:bg-accent/50 transition-colors cursor-pointer rounded-xl"
-                        >
+                        <div className="w-full flex items-center justify-between p-3 py-6 hover:bg-accent/50 transition-colors cursor-pointer rounded-xl">
                           <div className="flex items-center gap-2">
                             <UsersRound className="h-5 w-5" />
                             <h3 className="font-semibold text-sm">Yêu cầu tham gia ({pendingJoinRequests.length})</h3>
@@ -367,9 +370,7 @@ export function GroupDetailsPanel({
               <Collapsible open={isMembersOpen} onOpenChange={setIsMembersOpen}>
                 <div className="bg-accent/30 rounded-lg overflow-hidden">
                   <CollapsibleTrigger asChild>
-                    <div
-                      className="w-full flex items-center justify-between p-3 py-6 hover:bg-accent/50 transition-colors cursor-pointer rounded-xl"
-                    >
+                    <div className="w-full flex items-center justify-between p-3 py-6 hover:bg-accent/50 transition-colors cursor-pointer rounded-xl">
                       <div className="flex items-center gap-2">
                         <Users className="h-5 w-5" />
                         <h3 className="font-semibold text-sm">
@@ -472,6 +473,10 @@ export function GroupDetailsPanel({
                 </div>
               </Collapsible>
 
+              <Separator />
+
+              <AssetTabSection isDetailPanelOpen={isOpen} chatRoom={chatRoom} />
+
               {canLeaveGroup && <Separator />}
 
               <div className="space-y-1">
@@ -496,10 +501,6 @@ export function GroupDetailsPanel({
                   </Button>
                 )}
               </div>
-
-              <Separator />
-
-              <AssetTabSection isDetailPanelOpen={isOpen} chatRoom={chatRoom} />
             </div>
           </ScrollArea>
         </div>
@@ -523,6 +524,8 @@ export function GroupDetailsPanel({
           open={reminderPanelOpen}
           onOpenChange={setReminderPanelOpen}
           chatRoomId={chatRoom.roomId}
+          reminders={reminders}
+          reminderFormState={reminderFormState}
         />
       </div>
 

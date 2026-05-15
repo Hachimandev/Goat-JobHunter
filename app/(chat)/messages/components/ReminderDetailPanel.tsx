@@ -1,29 +1,27 @@
-import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Loader2, Plus, X, Bell } from 'lucide-react';
-import CreateReminderDialog from './CreateReminderDialog';
-import { useGetRemindersByChatRoomQuery } from '@/services/chatRoom/reminder/reminderApi';
+import { Plus, X, Bell } from 'lucide-react';
 import ReminderCard from './ReminderCard';
-import ErrorMessage from '@/components/common/ErrorMessage';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia } from '@/components/ui/empty';
+import { Reminder } from '@/types/model';
+import { useReminderFormState } from '@/app/(chat)/messages/hooks/useReminderFormState';
 
 interface ReminderDetailPanelProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   chatRoomId: number;
+  reminders: Reminder[];
+  reminderFormState: ReturnType<typeof useReminderFormState>;
 }
 
-export function ReminderDetailPanel({ open, onOpenChange, chatRoomId }: Readonly<ReminderDetailPanelProps>) {
-  const [createReminderOpen, setCreateReminderOpen] = useState(false);
-
-  const {
-    data: remindersResponse,
-    isLoading: isRemindersLoading,
-    isError: isRemindersError,
-  } = useGetRemindersByChatRoomQuery({ chatRoomId, page: 0, size: 50 }, { skip: !chatRoomId || !open });
-
-  const reminders = remindersResponse?.data || [];
+export function ReminderDetailPanel({
+  open,
+  onOpenChange,
+  chatRoomId,
+  reminders,
+  reminderFormState,
+}: Readonly<ReminderDetailPanelProps>) {
+  const { openCreateReminder, openEditReminder } = reminderFormState;
 
   return (
     <div
@@ -55,19 +53,13 @@ export function ReminderDetailPanel({ open, onOpenChange, chatRoomId }: Readonly
             <Button
               size="sm"
               className="mb-4 w-[94%] rounded-xl bg-primary text-white hover:bg-primary/90"
-              onClick={() => setCreateReminderOpen(true)}
+              onClick={openCreateReminder}
             >
               <Plus className="h-4 w-4 mr-1" />
               Tạo nhắc hẹn
             </Button>
 
-            {isRemindersError && (
-              <ErrorMessage message="Đã xảy ra lỗi khi tải danh sách nhắc hẹn." severity="error" variant="compact" />
-            )}
-
-            {isRemindersLoading && <Loader2 className="animate-spin" />}
-
-            {!isRemindersLoading && !isRemindersError && reminders.length === 0 && (
+            {reminders.length === 0 && (
               <Empty className="h-[120px]">
                 <EmptyHeader>
                   <EmptyMedia variant="icon" className="rounded-full">
@@ -80,19 +72,22 @@ export function ReminderDetailPanel({ open, onOpenChange, chatRoomId }: Readonly
               </Empty>
             )}
 
-            {reminders && reminders.length > 0 && !isRemindersLoading && !isRemindersError && (
+            {reminders && reminders.length > 0 && (
               <ScrollArea className="w-full h-[calc(100vh-14rem)] pr-1">
                 <div className="space-y-2 px-2">
                   {reminders.map((reminder) => (
-                    <ReminderCard key={reminder.reminderId} reminder={reminder} chatRoomId={chatRoomId} />
+                    <ReminderCard
+                      key={reminder.reminderId}
+                      reminder={reminder}
+                      chatRoomId={chatRoomId}
+                      onEditReminder={openEditReminder}
+                    />
                   ))}
                 </div>
               </ScrollArea>
             )}
           </div>
         </div>
-
-        <CreateReminderDialog open={createReminderOpen} onOpenChange={setCreateReminderOpen} chatRoomId={chatRoomId} />
       </div>
     </div>
   );

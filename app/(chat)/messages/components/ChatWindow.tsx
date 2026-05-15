@@ -1,4 +1,4 @@
-import { CallSession, ChatRoom, MessageResponse, PinnedMessage } from '@/types/model';
+import { CallSession, ChatRoom, MessageResponse, PinnedMessage, Reminder } from '@/types/model';
 import { ChatHeader } from './ChatHeader';
 import { MessageInput } from './MessageInput';
 import { MessageList } from './MessageList';
@@ -19,10 +19,13 @@ import { useLeaveGroupChatMutation } from '@/services/chatRoom/groupChat/groupCh
 import { IBackendError } from '@/types/api';
 import { useRouter } from 'next/navigation';
 import { useChatRoomTypingIndicator } from '@/hooks/useChatRoomTypingIndicator';
+import { useReminderFormState } from '../hooks/useReminderFormState';
+import ReminderForm from './ReminderForm';
 
 interface ChatWindowProps {
   chatRoom: ChatRoom;
   messages: MessageResponse[];
+  reminders: Reminder[];
   currentUserId?: string;
   isChatBlocked?: boolean;
   chatBlockedReason?: string;
@@ -74,6 +77,7 @@ interface ChatWindowProps {
 export function ChatWindow({
   chatRoom,
   messages,
+  reminders,
   currentUserId,
   isChatBlocked = false,
   chatBlockedReason = 'Bạn không thể nhắn tin với người này.',
@@ -115,6 +119,7 @@ export function ChatWindow({
   const { isOpen: isDetailsOpen, toggle, close } = useDetailsPanelState();
   const [isPinnedPanelOpen, setIsPinnedPanelOpen] = useState(false);
   const [isReminderOpen, setIsReminderOpen] = useState(false);
+  const reminderFormState = useReminderFormState();
   const isGroup = chatRoom.type === ChatRoomType.GROUP;
   const isDissolved = Boolean(chatRoom.deletedAt && chatRoom.type === ChatRoomType.GROUP);
   // const isChatLocked = !isGroup && isChatBlocked;
@@ -176,6 +181,7 @@ export function ChatWindow({
         />
         <MessageList
           messages={messages}
+          reminders={reminders}
           currentUserId={currentUserId}
           isGroup={isGroup}
           onLoadOlderMessages={onLoadOlderMessages}
@@ -196,6 +202,7 @@ export function ChatWindow({
           isPinnedMessage={isDissolved ? undefined : isPinnedMessage}
           isPinningMessage={isDissolved ? undefined : isPinningMessage}
           disablePinActions={disablePinActions}
+          onEditReminder={reminderFormState.openEditReminder}
         />
         <ChatTypingIndicator typingParticipants={mergedTypingParticipants} />
         {isDissolved ? (
@@ -273,6 +280,8 @@ export function ChatWindow({
         <GroupDetailsPanel
           chatRoom={chatRoom}
           pinnedMessages={pinnedMessages}
+          reminders={reminders}
+          reminderFormState={reminderFormState}
           isOpen={isDetailsOpen}
           onClose={close}
           readOnly={isDissolved}
@@ -281,6 +290,17 @@ export function ChatWindow({
           onNavigateToMessage={onNavigateToMessage}
         />
       )}
+
+      <ReminderForm
+          open={reminderFormState.createReminderOpen}
+          onOpenChange={(isOpen) => {
+            if (!isOpen) {
+              reminderFormState.closeReminderForm();
+            }
+          }}
+          chatRoomId={chatRoom.roomId}
+          reminder={reminderFormState.editingReminder}
+        />
     </>
   );
 }

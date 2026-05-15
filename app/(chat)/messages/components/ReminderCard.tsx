@@ -1,24 +1,35 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Check, CalendarDays, ChevronDown, Clock3, X } from 'lucide-react';
+import { Check, CalendarDays, ChevronDown, Clock3, MoreVertical, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { ReminderRsvpStatus } from '@/types/enum';
 import { Reminder, ReminderParticipant } from '@/types/model';
-import { useRespondToReminderMutation } from '@/services/chatRoom/reminder/reminderApi';
+import { useDeclineReminderMutation, useRespondToReminderMutation } from '@/services/chatRoom/reminder/reminderApi';
 import { toast } from 'sonner';
 import { formatReminderTime, getDateBlock } from '@/utils/formatDate';
 import { useUser } from '@/hooks/useUser';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Badge } from '@/components/ui/badge';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { IBackendError } from '@/types/api';
 
 interface ReminderCardProps {
   reminder: Reminder;
   chatRoomId: number;
+  onEditReminder?: (reminder: Reminder) => void;
 }
 
-export function ReminderCard({ reminder, chatRoomId }: Readonly<ReminderCardProps>) {
+export function ReminderCard({ reminder, chatRoomId, onEditReminder }: Readonly<ReminderCardProps>) {
   const { user } = useUser();
   const [respondToReminder, { isLoading: isResponding }] = useRespondToReminderMutation();
+  const [declineReminder, { isLoading: isDeclining }] = useDeclineReminderMutation();
 
   const [isChangingResponse, setIsChangingResponse] = useState(false);
   const [isParticipantDialogOpen, setIsParticipantDialogOpen] = useState(false);
@@ -30,7 +41,6 @@ export function ReminderCard({ reminder, chatRoomId }: Readonly<ReminderCardProp
   const [userResponse, setUserResponse] = useState<ReminderRsvpStatus>(() => {
     return reminder.participants.find((r) => r.accountId === user?.accountId)?.status || ReminderRsvpStatus.PENDING;
   });
-
   const [participants, setParticipants] = useState(reminder.participants || []);
 
   useEffect(() => {
@@ -49,6 +59,8 @@ export function ReminderCard({ reminder, chatRoomId }: Readonly<ReminderCardProp
     () => participants.filter((p) => p.status === ReminderRsvpStatus.REJECTED),
     [participants],
   );
+
+  const isCreator = useMemo(() => reminder.creatorId === user?.accountId, [reminder.creatorId, user?.accountId]);
 
   const getRepeatTypeLabel = (repeatType: string) => {
     const labels: Record<string, string> = {
@@ -72,7 +84,7 @@ export function ReminderCard({ reminder, chatRoomId }: Readonly<ReminderCardProp
     }
   };
 
-  const dateBlock = getDateBlock(reminder.reminderTime);
+  const dateBlock = getDateBlock(reminder.nextTriggerTime || reminder.reminderTime);
 
   useEffect(() => {
     if (!isParticipantDialogOpen) return;
@@ -122,14 +134,62 @@ export function ReminderCard({ reminder, chatRoomId }: Readonly<ReminderCardProp
       setIsChangingResponse(false);
       toast.success('Đã cập nhật xác nhận nhắc hẹn');
     } catch (error) {
-      console.error('Error responding to reminder:', error);
-      toast.error('Không thể cập nhật trạng thái');
+      const errorMessage = (error as IBackendError).data?.message || 'Lỗi khi phản hồi nhắc hẹn';
+      toast.error(errorMessage);
+    }
+  };
+
+  const handleCancelReminder = async () => {
+    try {
+      await declineReminder({
+        chatRoomId,
+        reminderId: reminder.reminderId,
+      }).unwrap();
+      toast.success('Đã hủy nhắc hẹn');
+    } catch (error) {
+      const errorMessage = (error as IBackendError).data?.message || 'Lỗi khi hủy nhắc hẹn';
+      toast.error(errorMessage);
     }
   };
 
   return (
-    <Card className="w-full overflow-hidden rounded-2xl border border-border bg-card p-0 shadow-sm transition-shadow hover:shadow-md">
+    <Card className="relative w-100 mx-auto overflow-hidden rounded-2xl border border-border bg-card p-0 shadow-sm transition-shadow hover:shadow-md">
+      {!reminder.active && (
+        <Badge variant="destructive" className="absolute right-3 top-2 rounded-xl px-2 py-1 text-[11px] font-semibold">
+          Hết hạn
+        </Badge>
+      )}
+
       <div className="gap-3 p-3">
+        {reminder.active && isCreator && (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="absolute right-1 top-2 h-8 w-8 rounded-full text-muted-foreground hover:bg-accent hover:text-foreground"
+              >
+                <MoreVertical className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-44 rounded-xl">
+              <DropdownMenuItem onClick={() => onEditReminder?.(reminder)} className="rounded-lg cursor-pointer">
+                Chỉnh sửa
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                variant="destructive"
+                onClick={handleCancelReminder}
+                disabled={isDeclining}
+                className="rounded-lg cursor-pointer"
+              >
+                Hủy nhắc hẹn
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
+
         <div className="min-w-0 flex gap-3">
           <div className="flex w-[70px] shrink-0 flex-col overflow-hidden rounded-xl border border-border bg-muted/20 text-center">
             <div className="bg-primary px-2 py-1 text-[11px] font-medium text-primary-foreground">
@@ -145,7 +205,7 @@ export function ReminderCard({ reminder, chatRoomId }: Readonly<ReminderCardProp
             <h3 className="truncate text-sm font-semibold text-foreground">{reminder.title}</h3>
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
               <Clock3 className="h-3.5 w-3.5 shrink-0" />
-              <span>{formatReminderTime(reminder.reminderTime)}</span>
+              <span>{formatReminderTime(reminder.nextTriggerTime || reminder.reminderTime)}</span>
             </div>
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
               <CalendarDays className="h-3.5 w-3.5 shrink-0" />
@@ -176,6 +236,12 @@ export function ReminderCard({ reminder, chatRoomId }: Readonly<ReminderCardProp
           </div>
         </div>
 
+        {reminder.content && (
+          <div className="text-sm text-primary line-clamp-2 px-0 mt-3">
+            {reminder.content}
+          </div>
+        )}
+
         <div className="mt-3 rounded-xl bg-muted/40 px-3 py-2">
           {!isChangingResponse ? (
             <div className="flex items-center justify-between gap-3">
@@ -185,16 +251,18 @@ export function ReminderCard({ reminder, chatRoomId }: Readonly<ReminderCardProp
                   Bạn xác nhận: {getResponseLabel(userResponse)}.
                 </span>
               </div>
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                className="h-auto shrink-0 px-0 text-sm font-medium text-primary hover:bg-transparent hover:text-primary/80"
-                onClick={() => setIsChangingResponse(true)}
-                disabled={!reminder.allowResponse || isResponding}
-              >
-                {reminder.allowResponse ? 'Thay đổi' : 'Bắt buộc'}
-              </Button>
+              {reminder.active && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-auto shrink-0 px-0 text-sm font-medium text-primary hover:bg-transparent hover:text-primary/80"
+                  onClick={() => setIsChangingResponse(true)}
+                  disabled={!reminder.allowResponse || isResponding}
+                >
+                  {reminder.allowResponse ? 'Thay đổi' : 'Bắt buộc'}
+                </Button>
+              )}
             </div>
           ) : (
             <div className="flex flex-wrap gap-2">
@@ -206,7 +274,7 @@ export function ReminderCard({ reminder, chatRoomId }: Readonly<ReminderCardProp
                 disabled={isResponding}
                 onClick={() => handleChangeResponse(ReminderRsvpStatus.ACCEPTED)}
               >
-                <Check className="mr-1 h-4 w-4" />
+                <Check className="h-4 w-4" />
                 Tham gia
               </Button>
               <Button
@@ -217,7 +285,7 @@ export function ReminderCard({ reminder, chatRoomId }: Readonly<ReminderCardProp
                 disabled={isResponding}
                 onClick={() => handleChangeResponse(ReminderRsvpStatus.REJECTED)}
               >
-                <X className="mr-1 h-4 w-4" />
+                <X className="h-4 w-4" />
                 Không tham gia
               </Button>
               <Button
@@ -227,7 +295,7 @@ export function ReminderCard({ reminder, chatRoomId }: Readonly<ReminderCardProp
                 className="rounded-xl"
                 onClick={() => setIsChangingResponse(false)}
               >
-                <ChevronDown className="mr-1 h-4 w-4" />
+                <ChevronDown className="h-4 w-4" />
                 Đóng
               </Button>
             </div>

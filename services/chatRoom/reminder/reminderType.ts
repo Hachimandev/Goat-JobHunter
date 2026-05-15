@@ -19,6 +19,16 @@ export type CreateReminderRequest = {
 };
 export type ReminderResponse = IBackendRes<Reminder>;
 
+export type UpdateReminderRequest = {
+  chatRoomId: number;
+  reminderId: number;
+  title: string;
+  content: string;
+  reminderTime: string;
+  repeatType: ReminderRepeatType;
+  allowResponse: boolean;
+};
+
 export type RespondReminderRequest = {
   chatRoomId: number;
   reminderId: number;

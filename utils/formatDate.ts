@@ -1,5 +1,5 @@
 import dayjs from 'dayjs';
-import { differenceInHours, format, isToday, isYesterday } from 'date-fns';
+import { differenceInHours, format, isToday, isTomorrow, isYesterday } from 'date-fns';
 import { vi } from 'date-fns/locale';
 
 function formatDate(dateString: string): string {
@@ -94,6 +94,7 @@ function formatReminderTime(dateString: string) {
   const date = new Date(dateString);
   if (isToday(date)) return `Hôm nay lúc ${format(date, 'HH:mm')}`;
   if (isYesterday(date)) return `Hôm qua lúc ${format(date, 'HH:mm')}`;
+  if (isTomorrow(date)) return `Ngày mai lúc ${format(date, 'HH:mm')}`;
   return format(date, "dd/MM/yyyy 'lúc' HH:mm", { locale: vi });
 }
 

@@ -1,4 +1,4 @@
-import { MessageResponse } from '@/types/model';
+import { MessageResponse, Reminder } from '@/types/model';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import {
@@ -32,9 +32,10 @@ import {
   Languages,
   Volume2,
   X,
+  Clock,
 } from 'lucide-react';
 import Image from 'next/image';
-import { MessageEvent, MessageTypeEnum, PollEvent } from '@/types/enum';
+import { MessageEvent, MessageTypeEnum, PollEvent, ReminderEvent } from '@/types/enum';
 import { JSX, useMemo, useState } from 'react';
 import { useFetchPollByIdInChatRoomQuery } from '@/services/poll/pollApi';
 import PollCard from './PollCard';
@@ -57,9 +58,11 @@ import { MessageReactionBar } from './MessageReactionBar';
 import { useMessageReactionActions } from '@/hooks/useMessageReactionActions';
 import { Smile } from 'lucide-react';
 import { COUNTRY_OPTIONS } from '@/constants/constant';
+import ReminderCard from './ReminderCard';
 
 interface MessageBubbleProps {
   message: MessageResponse;
+  reminder?: Reminder | null;
   isOwn: boolean;
   showAvatar?: boolean;
   senderName?: string;
@@ -67,6 +70,8 @@ interface MessageBubbleProps {
   onReply?: (message: MessageResponse) => void;
   onNavigateToMessage?: (messageId: string) => void;
   onNavigateToPoll?: (pollId: string) => void;
+  onNavigateToReminder?: (reminderId: string) => void;
+  onEditReminder?: (reminder: Reminder) => void;
   onForward?: (message: MessageResponse) => void;
   onHide?: (messageId: string) => void | Promise<void>;
   onRecall?: (messageId: string) => void | Promise<void>;
@@ -80,19 +85,24 @@ interface MessageBubbleProps {
   isRecalling?: boolean;
   isDeleting?: boolean;
   showPoll?: boolean;
+  showReminder?: boolean;
   disablePinActions?: boolean;
 }
 
 export function MessageBubble({
   message,
+  reminder,
   isOwn,
   showAvatar = false,
   showPoll = false,
+  showReminder = false,
   senderName,
   senderAvatar,
   onReply,
   onNavigateToMessage,
   onNavigateToPoll,
+  onNavigateToReminder,
+  onEditReminder,
   onForward,
   onHide,
   onRecall,
@@ -113,6 +123,7 @@ export function MessageBubble({
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [selectedTargetLang, setSelectedTargetLang] = useState<string>('Vietnamese');
   const [translatedText, setTranslatedText] = useState<string | null>(null);
+
   const [translateMessage, { isLoading: isTranslating }] = useTranslateMessageMutation();
 
   const { handleReaction, handleRemove } = useMessageReactionActions(Number(message.chatRoomId));
@@ -175,6 +186,7 @@ export function MessageBubble({
     [message.content],
   );
   const isPoll = useMemo(() => type === MessageTypeEnum.POLL, [type]);
+  const isReminder = useMemo(() => type === MessageTypeEnum.REMINDER, [type]);
   const disableReplyAction = isDeleting || isRecalling || isForwarding || isHiding || isPinning || !onReply;
   const disableForwardAction = isForwarding || isHiding || isRecalled || !onForward;
   const disableHideAction = isHiding || !onHide;
@@ -192,6 +204,7 @@ export function MessageBubble({
   const canShowTranslateAction = isText && !isSystem && !isRecalled;
 
   const pollId = isPoll ? extractMessageId(message.content) : null;
+  const reminderId = isReminder ? extractMessageId(message.content) : null;
   const { data: pollResponse } = useFetchPollByIdInChatRoomQuery(
     { chatRoomId: message.chatRoomId, pollId: pollId || '' },
     { skip: !pollId || !showPoll },
@@ -242,6 +255,32 @@ export function MessageBubble({
         [PollEvent.POLL_UNVOTED]: <BarChart className="h-3.5 w-3.5" />,
         [PollEvent.POLL_OPTION_ADDED]: <BarChart className="h-3.5 w-3.5" />,
         [PollEvent.POLL_CLOSED]: <BarChart className="h-3.5 w-3.5" />,
+      };
+
+      return {
+        icon: eventIcons[messageEvent],
+        text: finalContent,
+      };
+    } catch {
+      return {
+        icon: <Users className="h-3.5 w-3.5" />,
+        text: finalContent,
+      };
+    }
+  };
+
+  const getReminderMessageContent = () => {
+    const finalContent = extractMessageContent(message.content) || 'Có một sự kiện hệ thống xảy ra';
+    try {
+      const messageEvent = extractMessageEvent(message.content) as ReminderEvent;
+
+      const eventIcons: Record<ReminderEvent, JSX.Element> = {
+        [ReminderEvent.REMINDER_CREATED]: <Clock className="h-3.5 w-3.5" />,
+        [ReminderEvent.REMINDER_EXPIRED]: <Clock className="h-3.5 w-3.5" />,
+        [ReminderEvent.REMINDER_UPDATED]: <Clock className="h-3.5 w-3.5" />,
+        [ReminderEvent.REMINDER_DECLINED]: <Clock className="h-3.5 w-3.5" />,
+        [ReminderEvent.REMINDER_JOINED]: <Clock className="h-3.5 w-3.5" />,
+        [ReminderEvent.REMINDER_UNJOINED]: <Clock className="h-3.5 w-3.5" />,
       };
 
       return {
@@ -403,6 +442,36 @@ export function MessageBubble({
         </div>
 
         {showPoll && fetchedPoll && fetchedPoll.pollId === pollId && <PollCard poll={fetchedPoll} />}
+      </div>
+    );
+  }
+
+  if (isReminder) {
+    const reminderContent = getReminderMessageContent();
+    return (
+      <div>
+        <div className="flex justify-center my-2">
+          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-muted/50 text-muted-foreground">
+            {reminderContent.icon}
+            <span className="text-xs font-medium">{reminderContent.text}</span>
+            <span
+              className="text-xs font-medium text-primary cursor-pointer"
+              onClick={() => {
+                if (!reminderId) return;
+                if (onNavigateToReminder) {
+                  onNavigateToReminder(reminderId);
+                }
+              }}
+            >
+              Xem
+            </span>
+            <span className="text-xs opacity-70">• {timeAgo}</span>
+          </div>
+        </div>
+
+        {showReminder && reminder && reminder.reminderId.toString() === reminderId && (
+          <ReminderCard chatRoomId={reminder.chatRoomId} reminder={reminder} onEditReminder={onEditReminder} />
+        )}
       </div>
     );
   }
