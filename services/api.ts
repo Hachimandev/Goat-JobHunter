@@ -89,6 +89,7 @@ export const api = createApi({
     'Poll',
     'Tag',
     'MessageReaction',
+    'Reminder',
   ],
   endpoints: (builder) => ({
     ping: builder.query<string, void>({
@@ -134,6 +135,7 @@ export const api = createApi({
         method: 'GET',
       }),
     }),
+
   }),
 });
 

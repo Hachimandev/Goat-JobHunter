@@ -2,7 +2,7 @@
 
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { CHAT_MESSAGE_SCROLL_TOP_THRESHOLD } from '@/constants/constant';
-import { MessageResponse } from '@/types/model';
+import { MessageResponse, Reminder } from '@/types/model';
 import { MessageTypeEnum } from '@/types/enum';
 import { extractMessageId } from '@/utils/slug';
 import { useEffect, useRef, useMemo, useState, useCallback } from 'react';
@@ -31,6 +31,7 @@ const getMessageSignature = (content: string, replyToMessageId?: string | null, 
 
 interface MessageListProps {
   messages: MessageResponse[];
+  reminders: Reminder[];
   currentUserId?: string;
   isGroup?: boolean;
   onLoadOlderMessages?: () => Promise<void> | void;
@@ -38,6 +39,7 @@ interface MessageListProps {
   isLoadingOlderMessages?: boolean;
   onReplyMessage?: (message: MessageResponse) => void;
   onNavigateToMessage?: (messageId: string) => void;
+  onEditReminder?: (reminder: Reminder) => void;
   onForwardMessage?: (message: MessageResponse) => void;
   isForwardingMessage?: boolean;
   onHideMessage?: (messageId: string) => Promise<void> | void;
@@ -55,6 +57,7 @@ interface MessageListProps {
 
 export function MessageList({
   messages,
+  reminders,
   currentUserId,
   isGroup = false,
   onLoadOlderMessages,
@@ -62,6 +65,7 @@ export function MessageList({
   isLoadingOlderMessages = false,
   onReplyMessage,
   onNavigateToMessage,
+  onEditReminder,
   onForwardMessage,
   isForwardingMessage = false,
   onHideMessage,
@@ -98,6 +102,24 @@ export function MessageList({
       if (!prev) map[pid] = m;
       else if (new Date(m.createdAt) > new Date(prev.createdAt)) map[pid] = m;
     }
+    const result: Record<string, string> = {};
+    for (const k of Object.keys(map)) result[k] = map[k].messageId;
+    return result;
+  }, [messages]);
+
+  const latestReminderMessageIdByReminderId = useMemo(() => {
+    const map: Record<string, MessageResponse> = {};
+
+    for (const m of messages) {
+      if (m.messageType !== MessageTypeEnum.REMINDER) continue;
+      const rid = extractMessageId(m.content);
+      if (!rid) continue;
+
+      const prev = map[rid];
+      if (!prev) map[rid] = m;
+      else if (new Date(m.createdAt) > new Date(prev.createdAt)) map[rid] = m;
+    }
+
     const result: Record<string, string> = {};
     for (const k of Object.keys(map)) result[k] = map[k].messageId;
     return result;
@@ -436,10 +458,14 @@ export function MessageList({
           {renderedItems.map((item) => {
             if (item.kind === 'message') {
               const message = item.message as MessageResponse;
+              const reminderAsMessage = reminders.find(
+                (r) => String(r.reminderId) === extractMessageId(message.content),
+              );
               return (
                 <div key={message.messageId} data-message-id={message.messageId} tabIndex={-1} className="outline-none">
                   <MessageBubble
                     message={message}
+                    reminder={reminderAsMessage ?? null}
                     isOwn={message.sender.accountId.toString() === currentUserId}
                     showAvatar={isGroup}
                     senderName={message.sender.fullName || message.sender.username}
@@ -448,10 +474,19 @@ export function MessageList({
                       message.messageType === MessageTypeEnum.POLL &&
                       latestPollMessageIdByPollId[extractMessageId(message.content) || ''] === message.messageId
                     }
+                    showReminder={
+                      message.messageType === MessageTypeEnum.REMINDER &&
+                      latestReminderMessageIdByReminderId[extractMessageId(message.content) || ''] === message.messageId
+                    }
                     onNavigateToPoll={(pid: string) => {
                       const target = latestPollMessageIdByPollId[pid];
                       if (target && onNavigateToMessage) onNavigateToMessage(target);
                     }}
+                    onNavigateToReminder={(rid: string) => {
+                      const target = latestReminderMessageIdByReminderId[rid];
+                      if (target && onNavigateToMessage) onNavigateToMessage(target);
+                    }}
+                    onEditReminder={onEditReminder}
                     onReply={onReplyMessage}
                     onNavigateToMessage={onNavigateToMessage}
                     onForward={onForwardMessage}
@@ -482,6 +517,7 @@ export function MessageList({
                     <div key={m.messageId} data-message-id={m.messageId} tabIndex={-1} className="outline-none">
                       <MessageBubble
                         message={m}
+                        reminder={reminders.find((r) => String(r.reminderId) === extractMessageId(m.content)) ?? null}
                         isOwn={m.sender.accountId.toString() === currentUserId}
                         showAvatar={isGroup}
                         senderName={m.sender.fullName || m.sender.username}
@@ -490,10 +526,19 @@ export function MessageList({
                           m.messageType === MessageTypeEnum.POLL &&
                           latestPollMessageIdByPollId[extractMessageId(m.content) || ''] === m.messageId
                         }
+                        showReminder={
+                          m.messageType === MessageTypeEnum.REMINDER &&
+                          latestReminderMessageIdByReminderId[extractMessageId(m.content) || ''] === m.messageId
+                        }
                         onNavigateToPoll={(pid: string) => {
                           const target = latestPollMessageIdByPollId[pid];
                           if (target && onNavigateToMessage) onNavigateToMessage(target);
                         }}
+                        onNavigateToReminder={(rid: string) => {
+                          const target = latestReminderMessageIdByReminderId[rid];
+                          if (target && onNavigateToMessage) onNavigateToMessage(target);
+                        }}
+                        onEditReminder={onEditReminder}
                         onReply={onReplyMessage}
                         onNavigateToMessage={onNavigateToMessage}
                         onForward={onForwardMessage}

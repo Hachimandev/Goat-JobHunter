@@ -27,8 +27,7 @@ import { Loader2 } from 'lucide-react';
 import useCallRoomActions from '@/hooks/useCallRoomActions';
 import { CallWindow } from '@/app/(chat)/messages/components/CallWindow';
 import { ChatRole } from '@/services/chatRoom/groupChat/groupChatType';
-import { usePresenceStatus } from '@/hooks/usePresenceStatus';
-import { formatActivityTime } from '@/utils/formatDate';
+import { useGetRemindersByChatRoomQuery } from '@/services/chatRoom/reminder/reminderApi';
 
 export default function ChatRoomPage() {
   const params = useParams();
@@ -101,6 +100,12 @@ export default function ChatRoomPage() {
   } = useFetchChatRoomsByIdQuery(parsedChatRoomId, {
     skip: isInvalidChatRoomId,
   });
+
+  const { data: remindersResponse } = useGetRemindersByChatRoomQuery(
+    { chatRoomId: parsedChatRoomId, page: 0, size: 50 },
+    { skip: !chatRoomId },
+  );
+  const reminders = useMemo(() => remindersResponse?.data || [], [remindersResponse]);
 
   useEffect(() => {
     if (isInvalidChatRoomId) {
@@ -510,6 +515,7 @@ export default function ChatRoomPage() {
       <ChatWindow
         chatRoom={currentChatRoom}
         messages={messages}
+        reminders={reminders}
         currentUserId={user?.accountId?.toString()}
         isChatBlocked={isBlocked}
         chatBlockedReason={blockedReason}
