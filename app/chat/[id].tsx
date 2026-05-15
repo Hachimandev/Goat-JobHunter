@@ -1,4 +1,5 @@
 import BottomSheet from "@gorhom/bottom-sheet";
+import { Picker } from "@react-native-picker/picker";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import React, {
   useCallback,
@@ -34,6 +35,7 @@ import { MessageActionsSheet } from "@/components/chat/MessageActionsSheet";
 import { MessageItem } from "@/components/chat/MessageItem";
 
 import { PollVoteModal } from "@/components/chat/PollVoteModal";
+import { TRANSLATE_LANGUAGE_OPTIONS } from "@/constants/constant";
 import useChatActionsMobile from "@/hooks/useChatActionsMobile";
 import { useChatRoomTypingIndicator } from "@/hooks/useChatRoomTypingIndicator";
 import { useDissolveGroup } from "@/hooks/useDissolveGroup";
@@ -44,6 +46,7 @@ import {
   useFetchMessagesInChatRoomQuery,
   useForwardMessageBatchMutation,
 } from "@/services/chatRoom/chatRoomApi";
+import { useTranslateMessageMutation } from "@/services/ai/conversationApi";
 import {
   GroupPermissionsResponse,
   useGetMemberInGroupChatQuery,
@@ -135,6 +138,14 @@ export default function ChatDetailScreen() {
   const [isForwardModalOpen, setIsForwardModalOpen] = useState(false);
   const [isInvitePanelOpen, setIsInvitePanelOpen] = useState(false);
   const [isBannerDismissed, setIsBannerDismissed] = useState(false);
+  const [isTranslateModalOpen, setIsTranslateModalOpen] = useState(false);
+  const [selectedTargetLang, setSelectedTargetLang] =
+    useState("Vietnamese");
+  const [translatedMessageText, setTranslatedMessageText] = useState<
+    string | null
+  >(null);
+  const [translateMessage, { isLoading: isTranslatingMessage }] =
+    useTranslateMessageMutation();
 
   const flatListRef = useRef<FlatList>(null);
 
@@ -305,6 +316,51 @@ export default function ChatDetailScreen() {
     if (contentToCopy) {
       await Clipboard.setStringAsync(contentToCopy);
       bottomSheetRef.current?.close();
+    }
+  };
+
+  const canTranslateSelectedMessage = Boolean(
+    selectedMessage?.content?.trim() &&
+      selectedMessage?.messageType !== "SYSTEM" &&
+      selectedMessage?.messageType !== "POLL" &&
+      !selectedMessage?.isHidden,
+  );
+
+  const openTranslateMessageModal = () => {
+    if (!canTranslateSelectedMessage) {
+      Alert.alert("Thông báo", "Tin nhắn này không có nội dung để dịch");
+      return;
+    }
+
+    setTranslatedMessageText(null);
+    setIsTranslateModalOpen(true);
+    bottomSheetRef.current?.close();
+  };
+
+  const handleTranslateSelectedMessage = async () => {
+    const content = selectedMessage?.content?.trim();
+    if (!content) {
+      return;
+    }
+
+    try {
+      const response = await translateMessage({
+        content,
+        targetLang: selectedTargetLang,
+      }).unwrap();
+      const nextTranslatedText = response?.data?.translatedText;
+
+      if (!nextTranslatedText) {
+        Alert.alert("Lỗi", "Không thể dịch tin nhắn");
+        return;
+      }
+
+      setTranslatedMessageText(nextTranslatedText);
+    } catch (error: any) {
+      Alert.alert(
+        "Lỗi",
+        error?.data?.message || "Đã có lỗi xảy ra khi dịch tin nhắn",
+      );
     }
   };
 
@@ -613,6 +669,8 @@ export default function ChatDetailScreen() {
           setIsForwardModalOpen(true);
           bottomSheetRef.current?.close();
         }}
+        canTranslate={canTranslateSelectedMessage}
+        onTranslate={openTranslateMessageModal}
         onPin={async () => {
           if (!canManagePins) {
             Alert.alert(
@@ -653,6 +711,73 @@ export default function ChatDetailScreen() {
         onClose={() => setIsForwardModalOpen(false)}
         onForwardSelect={handleForwardSubmit}
       />
+
+      <Modal
+        visible={isTranslateModalOpen}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setIsTranslateModalOpen(false)}
+      >
+        <View style={styles.overlay}>
+          <View style={styles.translateBox}>
+            <View style={styles.translateHeader}>
+              <Text style={styles.translateTitle}>Dịch tin nhắn</Text>
+              <TouchableOpacity onPress={() => setIsTranslateModalOpen(false)}>
+                <Ionicons name="close" size={22} color="#111827" />
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.translatePickerBox}>
+              <Picker
+                selectedValue={selectedTargetLang}
+                onValueChange={(value) => setSelectedTargetLang(value)}
+              >
+                {TRANSLATE_LANGUAGE_OPTIONS.map((option) => (
+                  <Picker.Item
+                    key={option.value}
+                    label={option.label}
+                    value={option.value}
+                  />
+                ))}
+              </Picker>
+            </View>
+
+            <View style={styles.translateBlock}>
+              <Text style={styles.translateLabel}>Tin nhắn gốc</Text>
+              <Text style={styles.translateContent}>
+                {selectedMessage?.content}
+              </Text>
+            </View>
+
+            {translatedMessageText && (
+              <View style={styles.translateBlock}>
+                <Text style={styles.translateLabel}>Bản dịch</Text>
+                <Text style={styles.translatedContent}>
+                  {translatedMessageText}
+                </Text>
+              </View>
+            )}
+
+            <TouchableOpacity
+              style={[
+                styles.translateButton,
+                isTranslatingMessage && { opacity: 0.65 },
+              ]}
+              onPress={handleTranslateSelectedMessage}
+              disabled={isTranslatingMessage}
+            >
+              {isTranslatingMessage ? (
+                <ActivityIndicator size="small" color="#fff" />
+              ) : (
+                <>
+                  <Ionicons name="language-outline" size={18} color="#fff" />
+                  <Text style={styles.translateButtonText}>Dịch</Text>
+                </>
+              )}
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
 
       <EmojiPicker
         open={isEmojiOpen}
@@ -882,5 +1007,70 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: "700",
     color: "#0f172a",
+  },
+  translateBox: {
+    width: "88%",
+    maxHeight: "82%",
+    backgroundColor: "#fff",
+    borderRadius: 16,
+    padding: 16,
+  },
+  translateHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 12,
+  },
+  translateTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#111827",
+  },
+  translatePickerBox: {
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+    borderRadius: 12,
+    overflow: "hidden",
+    marginBottom: 12,
+  },
+  translateBlock: {
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+    backgroundColor: "#F9FAFB",
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 12,
+  },
+  translateLabel: {
+    color: "#6B7280",
+    fontSize: 12,
+    fontWeight: "700",
+    marginBottom: 6,
+    textTransform: "uppercase",
+  },
+  translateContent: {
+    color: "#111827",
+    fontSize: 15,
+    lineHeight: 21,
+  },
+  translatedContent: {
+    color: "#0084FF",
+    fontSize: 15,
+    lineHeight: 21,
+    fontWeight: "600",
+  },
+  translateButton: {
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: "#0084FF",
+    alignItems: "center",
+    justifyContent: "center",
+    flexDirection: "row",
+    gap: 8,
+  },
+  translateButtonText: {
+    color: "#fff",
+    fontSize: 15,
+    fontWeight: "700",
   },
 });

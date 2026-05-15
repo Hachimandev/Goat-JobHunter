@@ -164,6 +164,19 @@ export const COLOR_OPTIONS = [
   '#64748b', // slate-500
 ];
 
+export const TRANSLATE_LANGUAGE_OPTIONS = [
+  { label: 'Tiếng Việt', value: 'Vietnamese' },
+  { label: 'Tiếng Anh', value: 'English' },
+  { label: 'Tiếng Trung', value: 'Chinese' },
+  { label: 'Tiếng Nhật', value: 'Japanese' },
+  { label: 'Tiếng Hàn', value: 'Korean' },
+  { label: 'Tiếng Pháp', value: 'French' },
+  { label: 'Tiếng Đức', value: 'German' },
+  { label: 'Tiếng Tây Ban Nha', value: 'Spanish' },
+  { label: 'Tiếng Thái', value: 'Thai' },
+  { label: 'Tiếng Indonesia', value: 'Indonesian' },
+];
+
 export const RATING_TYPES = [
   { value: 'salaryBenefits', label: 'Lương thưởng & phúc lợi' },
   { value: 'trainingLearning', label: 'Đào tạo & học hỏi' },
