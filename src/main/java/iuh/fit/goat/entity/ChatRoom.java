@@ -21,7 +21,7 @@ import static jakarta.persistence.FetchType.LAZY;
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
-@ToString(exclude = {"members", "chatRoomTagAssignments"})
+@ToString(exclude = {"members", "chatRoomTagAssignments", "reminders"})
 @FilterDef(name = "activeChatRoomFilter")
 public class ChatRoom extends BaseEntity {
     @Id
@@ -87,4 +87,12 @@ public class ChatRoom extends BaseEntity {
             condition = "deleted_at IS NULL"
     )
     private List<ChatRoomTagAssignment> chatRoomTagAssignments = new ArrayList<>();
+
+    @OneToMany(mappedBy = "chatRoom", fetch = LAZY, cascade = {PERSIST, MERGE, REMOVE})
+    @JsonIgnore
+    @Filter(
+            name = "activeReminderFilter",
+            condition = "deleted_at IS NULL"
+    )
+    private List<Reminder> reminders = new ArrayList<>();
 }

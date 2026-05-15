@@ -1,4 +1,4 @@
-package iuh.fit.goat.config;
+package iuh.fit.goat.config.async;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
