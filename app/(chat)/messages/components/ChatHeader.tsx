@@ -5,7 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { CallSession, ChatRoom } from '@/types/model';
 import { CallStatusEnum, ChatRoomType } from '@/types/enum';
-import { Info, Phone, PhoneCall, Pin, Search, Users, Video } from 'lucide-react';
+import { Info, Phone, PhoneCall, Pin, Search, Users, Video, Bell } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { cn } from '@/lib/utils';
 import { usePresenceStatus } from '@/hooks/usePresenceStatus';
@@ -28,6 +28,7 @@ interface ChatHeaderProps {
   canJoinOngoingCall?: boolean;
   isJoiningOngoingCall?: boolean;
   onJoinOngoingCall?: () => void;
+  onOpenReminder?: () => void;
 }
 
 export function ChatHeader({
@@ -194,6 +195,15 @@ export function ChatHeader({
           title="Tìm kiếm tin nhắn"
         >
           <Search className="h-5 w-5" />
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-9 w-9 rounded-full"
+          onClick={() => onOpenReminder && onOpenReminder()}
+          title="Tạo nhắc hẹn"
+        >
+          <Bell className="h-5 w-5" />
         </Button>
         <Button
           variant="ghost"

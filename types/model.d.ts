@@ -16,6 +16,8 @@ import {
   NotificationTypeEnum,
   Visibility,
   WorkingType,
+  ReminderRepeatType,
+  ReminderRsvpStatus,
 } from '@/types/enum';
 import { LucideIcon } from 'lucide-react';
 
@@ -657,3 +659,28 @@ export type ChatRoomTagAssignment = {
   tagColor: string;
   systemTag: boolean;
 };
+
+export type Reminder = {
+  reminderId: number;
+  title: string;
+  content?: string | null;
+  reminderTime: string;
+  nextTriggerTime?: string | null;
+  lastTriggeredAt?: string | null;
+  repeatType: ReminderRepeatType;
+  allowResponse: boolean;
+  active: boolean;
+  creatorId: number;
+  chatRoomId: number;
+  participants: ReminderParticipantResponse[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type ReminderParticipant = {
+  accountId: number;
+  username: string;
+  avatar?: string | null;
+  status: ReminderRsvpStatus;
+  respondedAt?: string | null;
+}

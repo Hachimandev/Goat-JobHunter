@@ -18,9 +18,11 @@ import {
   Check,
   RefreshCcw,
   UserPen,
+  UsersRound,
+  Clock,
 } from 'lucide-react';
 import { useMemo, useState } from 'react';
-import { ChatRoom } from '@/types/model';
+import { ChatRoom, PinnedMessage } from '@/types/model';
 import { ManageGroupPanel } from './ManageGroupPanel';
 import { useGetMemberInGroupChatQuery, useAddMemberToGroupMutation } from '@/services/chatRoom/groupChat/groupChatApi';
 import { ChatMemberItem } from '@/app/(chat)/messages/components/ChatMemberItem';
@@ -54,22 +56,28 @@ import { ChatRole } from '@/services/chatRoom/groupChat/groupChatType';
 
 interface GroupDetailsPanelProps {
   chatRoom: ChatRoom;
+  pinnedMessages: PinnedMessage[];
   isOpen: boolean;
   onClose: () => void;
   readOnly?: boolean;
   handleLeaveGroup: () => Promise<void>;
   isLeavingGroup: boolean;
+  onNavigateToMessage?: (messageId: string) => void;
 }
 
 export function GroupDetailsPanel({
   chatRoom,
+  pinnedMessages,
   isOpen,
   onClose,
   readOnly = false,
   handleLeaveGroup,
   isLeavingGroup,
+  onNavigateToMessage,
 }: Readonly<GroupDetailsPanelProps>) {
   const [isMembersOpen, setIsMembersOpen] = useState(true);
+  const [isJoinRequestsOpen, setIsJoinRequestsOpen] = useState(true);
+  const [isGroupDataOpen, setIsGroupDataOpen] = useState(true);
   const [addMemberModalOpen, setAddMemberModalOpen] = useState(false);
   const [editGroupModalOpen, setEditGroupModalOpen] = useState(false);
   const [leaveConfirmOpen, setLeaveConfirmOpen] = useState(false);
@@ -222,18 +230,6 @@ export function GroupDetailsPanel({
 
               <Separator />
 
-              <Button
-                type="button"
-                variant="secondary"
-                className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-accent/50 justify-start"
-                onClick={() => setNewsPanelOpen(true)}
-              >
-                <Notebook className="h-4 w-4" />
-                <span className="text-sm">Xem bảng tin nhóm</span>
-              </Button>
-
-              <Separator />
-
               {chatRoom.type === ChatRoomType.GROUP && (
                 <InviteLinkPanel roomId={chatRoom.roomId} canManageInvite={currentUserRole === ChatRole.OWNER} />
               )}
@@ -241,103 +237,121 @@ export function GroupDetailsPanel({
               {chatRoom.type === ChatRoomType.GROUP && canProcessJoinRequests && (
                 <>
                   <Separator />
-                  <div className="bg-accent/30 rounded-lg p-3 space-y-3">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <h3 className="font-semibold text-sm">Yêu cầu tham gia ({pendingJoinRequests.length})</h3>
-                      </div>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="rounded-xl"
-                        title="Làm mới"
-                        onClick={() => refetchJoinRequests()}
-                      >
-                        <RefreshCcw className={`h-4 w-4 ${isFetchingJoinRequests ? 'animate-spin' : ''}`} />
-                        Làm mới
-                      </Button>
-                    </div>
-                    {isLoadingJoinRequests && (
-                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                        Đang tải yêu cầu...
-                      </div>
-                    )}
-                    {!isLoadingJoinRequests && pendingJoinRequests.length === 0 && (
-                      <div className="text-xs text-muted-foreground">Không có yêu cầu chờ duyệt.</div>
-                    )}
-                    <div className="space-y-2 max-h-48 overflow-y-auto">
-                      {!isLoadingJoinRequests &&
-                        pendingJoinRequests.map((request) => (
-                          <div
-                            key={request.requestId}
-                            className="flex items-center gap-3 p-3 rounded-xl hover:bg-accent/50 transition-colors justify-between w-full border"
-                          >
-                            <div className="flex items-center justify-between gap-2 w-full">
-                              <div className="flex items-center gap-3 min-w-0">
-                                <Avatar className="h-10 w-10 shrink-0">
-                                  <AvatarImage src={request.avatar || '/placeholder.svg'} alt={request.fullName} />
-                                  <AvatarFallback>{request.fullName.charAt(0)}</AvatarFallback>
-                                </Avatar>
-                                <div className="min-w-0">
-                                  <p className="text-sm font-medium">
-                                    {truncate(request.fullName || request.username, { length: 30 })}
-                                  </p>
-                                  <p className="text-xs text-muted-foreground">
-                                    @{truncate(request.username, { length: 30 })}
-                                  </p>
+                  <Collapsible open={isJoinRequestsOpen} onOpenChange={setIsJoinRequestsOpen}>
+                    <div className="bg-accent/30 rounded-lg overflow-hidden">
+                      <CollapsibleTrigger asChild>
+                        <Button
+                          className="w-full flex items-center justify-between p-3 py-6 hover:bg-accent/50 transition-colors cursor-pointer rounded-xl"
+                          variant="ghost"
+                        >
+                          <div className="flex items-center gap-2">
+                            <UsersRound className="h-5 w-5" />
+                            <h3 className="font-semibold text-sm">Yêu cầu tham gia ({pendingJoinRequests.length})</h3>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="rounded-xl"
+                              title="Làm mới"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                refetchJoinRequests();
+                              }}
+                            >
+                              <RefreshCcw className={`h-4 w-4 ${isFetchingJoinRequests ? 'animate-spin' : ''}`} />
+                              Làm mới
+                            </Button>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <ChevronDown
+                              className={`h-4 w-4 transition-transform duration-200 ${isJoinRequestsOpen ? 'rotate-180' : ''}`}
+                            />
+                          </div>
+                        </Button>
+                      </CollapsibleTrigger>
+
+                      <CollapsibleContent className="data-[state=open]:animate-collapsible-down data-[state=closed]:animate-collapsible-up">
+                        <div className="px-2 pb-2 space-y-2">
+                          {isLoadingJoinRequests && (
+                            <div className="flex items-center justify-center py-4">
+                              <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                            </div>
+                          )}
+                          {!isLoadingJoinRequests && pendingJoinRequests.length === 0 && (
+                            <div className="text-center py-4 text-sm text-muted-foreground">Không có yêu cầu chờ duyệt.</div>
+                          )}
+                          {!isLoadingJoinRequests &&
+                            pendingJoinRequests.map((request) => (
+                              <div
+                                key={request.requestId}
+                                className="flex items-center gap-3 p-3 rounded-xl hover:bg-accent/50 transition-colors justify-between w-full border"
+                              >
+                                <div className="flex items-center justify-between gap-2 w-full">
+                                  <div className="flex items-center gap-3 min-w-0">
+                                    <Avatar className="h-10 w-10 shrink-0">
+                                      <AvatarImage src={request.avatar || '/placeholder.svg'} alt={request.fullName} />
+                                      <AvatarFallback>{request.fullName.charAt(0)}</AvatarFallback>
+                                    </Avatar>
+                                    <div className="min-w-0">
+                                      <p className="text-sm font-medium">
+                                        {truncate(request.fullName || request.username, { length: 30 })}
+                                      </p>
+                                      <p className="text-xs text-muted-foreground">
+                                        @{truncate(request.username, { length: 30 })}
+                                      </p>
+                                    </div>
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <Button
+                                      type="button"
+                                      size="icon-sm"
+                                      variant="default"
+                                      className="rounded-xl text-xs"
+                                      title="Duyệt yêu cầu"
+                                      disabled={isApprovingJoinRequest || isRejectingJoinRequest}
+                                      onClick={() =>
+                                        approveJoinRequest({ roomId: chatRoom.roomId, requestId: request.requestId })
+                                          .unwrap()
+                                          .then(() => toast.success('Đã duyệt yêu cầu tham gia'))
+                                          .catch(() => toast.error('Không thể duyệt yêu cầu'))
+                                      }
+                                    >
+                                      {isApprovingJoinRequest ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check />}
+                                    </Button>
+                                    <Button
+                                      type="button"
+                                      size="icon-sm"
+                                      variant="destructive"
+                                      className="rounded-xl text-xs"
+                                      title="Từ chối yêu cầu"
+                                      disabled={isApprovingJoinRequest || isRejectingJoinRequest}
+                                      onClick={() =>
+                                        rejectJoinRequest({ roomId: chatRoom.roomId, requestId: request.requestId })
+                                          .unwrap()
+                                          .then(() => toast.success('Đã từ chối yêu cầu tham gia'))
+                                          .catch(() => toast.error('Không thể từ chối yêu cầu'))
+                                      }
+                                    >
+                                      {isRejectingJoinRequest ? <Loader2 className="h-4 w-4 animate-spin" /> : <X />}
+                                    </Button>
+                                    <Button
+                                      type="button"
+                                      size="icon-sm"
+                                      variant="outline"
+                                      className="rounded-xl text-xs"
+                                      title="Xem thông tin"
+                                    >
+                                      <Link href={`/hub/users/${request.accountId}`}>
+                                        <UserPen />
+                                      </Link>
+                                    </Button>
+                                  </div>
                                 </div>
                               </div>
-                              <div className="flex items-center gap-2">
-                                <Button
-                                  type="button"
-                                  size="icon-sm"
-                                  variant="default"
-                                  className="rounded-xl text-xs"
-                                  title="Duyệt yêu cầu"
-                                  disabled={isApprovingJoinRequest || isRejectingJoinRequest}
-                                  onClick={() =>
-                                    approveJoinRequest({ roomId: chatRoom.roomId, requestId: request.requestId })
-                                      .unwrap()
-                                      .then(() => toast.success('Đã duyệt yêu cầu tham gia'))
-                                      .catch(() => toast.error('Không thể duyệt yêu cầu'))
-                                  }
-                                >
-                                  {isApprovingJoinRequest ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check />}
-                                </Button>
-                                <Button
-                                  type="button"
-                                  size="icon-sm"
-                                  variant="destructive"
-                                  className="rounded-xl text-xs"
-                                  title="Từ chối yêu cầu"
-                                  disabled={isApprovingJoinRequest || isRejectingJoinRequest}
-                                  onClick={() =>
-                                    rejectJoinRequest({ roomId: chatRoom.roomId, requestId: request.requestId })
-                                      .unwrap()
-                                      .then(() => toast.success('Đã từ chối yêu cầu tham gia'))
-                                      .catch(() => toast.error('Không thể từ chối yêu cầu'))
-                                  }
-                                >
-                                  {isRejectingJoinRequest ? <Loader2 className="h-4 w-4 animate-spin" /> : <X />}
-                                </Button>
-                                <Button
-                                  type="button"
-                                  size="icon-sm"
-                                  variant="outline"
-                                  className="rounded-xl text-xs"
-                                  title="Xem thông tin"
-                                >
-                                  <Link href={`/hub/users/${request.accountId}`}>
-                                    <UserPen />
-                                  </Link>
-                                </Button>
-                              </div>
-                            </div>
-                          </div>
-                        ))}
+                            ))}
+                        </div>
+                      </CollapsibleContent>
                     </div>
-                  </div>
+                  </Collapsible>
                 </>
               )}
 
@@ -411,9 +425,44 @@ export function GroupDetailsPanel({
                 </div>
               </Collapsible>
 
+              <Separator />
+
+              <Collapsible open={isGroupDataOpen} onOpenChange={setIsGroupDataOpen}>
+                <div className="bg-accent/30 rounded-lg overflow-hidden">
+                  <CollapsibleTrigger asChild>
+                    <Button
+                      className="w-full flex items-center justify-between p-3 py-6 hover:bg-accent/50 transition-colors cursor-pointer rounded-xl"
+                      variant="ghost"
+                    >
+                      <div className="flex items-center gap-2">
+                        <h3 className="font-semibold text-sm">Bảng tin nhóm</h3>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <ChevronDown
+                          className={`h-4 w-4 transition-transform duration-200 ${isGroupDataOpen ? 'rotate-180' : ''}`}
+                        />
+                      </div>
+                    </Button>
+                  </CollapsibleTrigger>
+
+                  <CollapsibleContent className="data-[state=open]:animate-collapsible-down data-[state=closed]:animate-collapsible-up">
+                    <div className="space-y-4 px-2 pb-2">
+                      <div className="flex items-center gap-2 py-2">
+                          <Clock className="h-5 w-5" />
+                          <h3 className="font-semibold text-sm">Danh sách nhắc hẹn</h3>
+                      </div>
+                      <div className="flex items-center gap-2 py-2 cursor-pointer rounded-xl hover:bg-accent/50" onClick={() => setNewsPanelOpen(true)}>
+                          <Notebook className="h-5 w-5" />
+                          <h3 className="font-semibold text-sm">Ghim, bình chọn</h3>
+                      </div>
+                    </div>
+                  </CollapsibleContent>
+                </div>
+              </Collapsible>
+
               {canLeaveGroup && <Separator />}
 
-              <div className="pb-2 space-y-1 mt-2">
+              <div className="space-y-1">
                 {canLeaveGroup && !readOnly && (
                   <Button
                     variant="destructive"
@@ -455,6 +504,8 @@ export function GroupDetailsPanel({
           chatRoomId={chatRoom.roomId}
           disableCreatePoll={!canCreatePoll}
           createPollDisabledReason={createPollDisabledReason}
+          onNavigateToMessage={onNavigateToMessage}
+          pinnedMessages={pinnedMessages}
         />
       </div>
 

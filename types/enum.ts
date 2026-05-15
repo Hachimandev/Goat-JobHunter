@@ -169,3 +169,17 @@ export enum CallEndReasonEnum {
   REMOVED = 'REMOVED',
   NETWORK_ERROR = 'NETWORK_ERROR',
 }
+
+export enum ReminderRepeatType {
+  NONE = 'none',
+  DAILY = 'daily',
+  WEEKLY = 'weekly',
+  MONTHLY = 'monthly',
+  YEARLY = 'yearly',
+}
+
+export enum ReminderRsvpStatus {
+  PENDING = 'Pending',
+  ACCEPTED = 'Accepted',
+  REJECTED = 'Rejected',
+}
