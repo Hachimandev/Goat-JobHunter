@@ -9,7 +9,6 @@ import { ChatRoomType } from '@/types/enum';
 import { GroupDetailsPanel } from '@/app/(chat)/messages/components/GroupDetailsPanel';
 import { SearchMessagesDialog } from '@/app/(chat)/messages/components/SearchMessagesDialog';
 import { ChatTypingIndicator } from '@/app/(chat)/messages/components/ChatTypingIndicator';
-import ReminderModal from '@/app/(chat)/messages/components/ReminderModal';
 import type { SendContactCardsSubmitResult } from '@/services/chatRoom/chatRoomType';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
@@ -118,7 +117,6 @@ export function ChatWindow({
 }: Readonly<ChatWindowProps>) {
   const { isOpen: isDetailsOpen, toggle, close } = useDetailsPanelState();
   const [isPinnedPanelOpen, setIsPinnedPanelOpen] = useState(false);
-  const [isReminderOpen, setIsReminderOpen] = useState(false);
   const reminderFormState = useReminderFormState();
   const isGroup = chatRoom.type === ChatRoomType.GROUP;
   const isDissolved = Boolean(chatRoom.deletedAt && chatRoom.type === ChatRoomType.GROUP);
@@ -164,7 +162,6 @@ export function ChatWindow({
           chatRoom={chatRoom}
           onToggleDetails={toggle}
           isDetailsOpen={isDetailsOpen}
-          onOpenReminder={() => setIsReminderOpen(true)}
           onShowPinnedMessages={() => setIsPinnedPanelOpen(!isPinnedPanelOpen)}
           onOpenSearch={handleOpenSearch}
           pinnedMessagesCount={pinnedMessages.length}
@@ -264,7 +261,6 @@ export function ChatWindow({
             onNavigateToMessage={onNavigateToMessage}
           />
         )}
-        <ReminderModal open={isReminderOpen} onOpenChange={setIsReminderOpen} chatRoomId={chatRoom.roomId} />
       </div>
 
       {isDetailsOpen && !isGroup && (

@@ -86,6 +86,7 @@ export default function NewChatRoomPage() {
     <ChatWindow
       chatRoom={chatRoom}
       messages={[]}
+      reminders={[]}
       currentUserId={user?.accountId?.toString()}
       isChatBlocked={isBlockedAnyDirection}
       chatBlockedReason={blockedReason}
