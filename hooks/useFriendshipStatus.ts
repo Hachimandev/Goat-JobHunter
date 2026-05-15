@@ -1,59 +1,92 @@
 import { useMemo } from "react";
 import { useUser } from "@/hooks/useUser";
 import {
-  useCheckPairStatusQuery,
+  useGetMyBlockedUsersQuery,
+  useGetMyFriendshipsQuery,
   useGetMySentFriendRequestsQuery,
   useGetMyReceivedFriendRequestsQuery,
 } from "@/services/friendship/friendshipApi";
 import { RelationshipState } from "@/services/friendship/friendshipType";
 
+const STATUS_PAGE_SIZE = 1000;
+
 export function useFriendshipStatus(targetAccountId: number) {
   const { user, isSignedIn } = useUser();
   const isSelf = user?.accountId === targetAccountId;
+  const shouldFetch = Boolean(isSignedIn && targetAccountId && !isSelf);
 
-  const { data, isLoading, isFetching } = useCheckPairStatusQuery(
-    targetAccountId,
+  const {
+    data: friendships,
+    isLoading: isLoadingFriendships,
+    isFetching: isFetchingFriendships,
+  } = useGetMyFriendshipsQuery(
+    { size: STATUS_PAGE_SIZE },
     {
-      skip: !isSignedIn || !targetAccountId,
+      skip: !shouldFetch,
     },
   );
 
-  const { data: sentRequests } = useGetMySentFriendRequestsQuery(
-    { size: 1000 },
+  const {
+    data: blockedUsers,
+    isLoading: isLoadingBlocked,
+    isFetching: isFetchingBlocked,
+  } = useGetMyBlockedUsersQuery(
+    { page: 1, size: STATUS_PAGE_SIZE },
     {
-      skip: !isSignedIn,
+      skip: !shouldFetch,
     },
   );
 
-  const { data: receivedRequests } = useGetMyReceivedFriendRequestsQuery(
-    { size: 1000 },
+  const {
+    data: sentRequests,
+    isLoading: isLoadingSent,
+    isFetching: isFetchingSent,
+  } = useGetMySentFriendRequestsQuery(
+    { size: STATUS_PAGE_SIZE },
     {
-      skip: !isSignedIn,
+      skip: !shouldFetch,
     },
   );
 
-  const pair = data?.data ?? null;
-  const relationshipState = pair?.relationshipState ?? RelationshipState.NONE;
-  const isBlockedByMe = pair?.blockedByMe ?? false;
-  const isBlockedByOther = pair?.blockedByOther ?? false;
-  const isBlockedAnyDirection =
-    relationshipState === RelationshipState.BLOCKED ||
-    isBlockedByMe ||
-    isBlockedByOther;
-  const isFriend = relationshipState === RelationshipState.FRIEND;
+  const {
+    data: receivedRequests,
+    isLoading: isLoadingReceived,
+    isFetching: isFetchingReceived,
+  } = useGetMyReceivedFriendRequestsQuery(
+    { size: STATUS_PAGE_SIZE },
+    {
+      skip: !shouldFetch,
+    },
+  );
 
-  const hasSentRequest =
-    sentRequests?.data?.result?.some(
-      (req) =>
-        req.status === "PENDING" &&
-        req.counterpart.accountId === targetAccountId,
-    ) ?? false;
-  const hasReceivedRequest =
-    receivedRequests?.data?.result?.some(
-      (req) =>
-        req.status === "PENDING" &&
-        req.counterpart.accountId === targetAccountId,
-    ) ?? false;
+  const friendship = friendships?.data?.result?.find(
+    (item) => item.friend.accountId === targetAccountId,
+  );
+  const blockedUser = blockedUsers?.data?.result?.find(
+    (item) => item.accountId === targetAccountId,
+  );
+  const outgoingRequest = sentRequests?.data?.result?.find(
+    (req) =>
+      req.status === "PENDING" &&
+      req.counterpart.accountId === targetAccountId,
+  );
+  const incomingRequest = receivedRequests?.data?.result?.find(
+    (req) =>
+      req.status === "PENDING" &&
+      req.counterpart.accountId === targetAccountId,
+  );
+
+  const isFriend = Boolean(friendship);
+  const isBlockedByMe = Boolean(blockedUser);
+  const isBlockedByOther = false;
+  const isBlockedAnyDirection = isBlockedByMe || isBlockedByOther;
+  const hasSentRequest = Boolean(outgoingRequest);
+  const hasReceivedRequest = Boolean(incomingRequest);
+  const relationshipState = isBlockedByMe
+    ? RelationshipState.BLOCKED
+    : isFriend
+      ? RelationshipState.FRIEND
+      : RelationshipState.NONE;
 
   const canSendRequest = useMemo(
     () =>
@@ -78,15 +111,42 @@ export function useFriendshipStatus(targetAccountId: number) {
       !isSelf &&
       isSignedIn &&
       relationshipState === RelationshipState.NONE &&
-      false,
-    [isSelf, isSignedIn, relationshipState],
+      Boolean(incomingRequest?.requestId),
+    [isSelf, isSignedIn, relationshipState, incomingRequest?.requestId],
   );
 
-  const isLoadingPair = isLoading || isFetching;
+  const canReject = canAccept;
+  const canCancel = useMemo(
+    () =>
+      !isSelf &&
+      isSignedIn &&
+      relationshipState === RelationshipState.NONE &&
+      Boolean(outgoingRequest?.requestId),
+    [isSelf, isSignedIn, relationshipState, outgoingRequest?.requestId],
+  );
+
+  const isLoadingPair =
+    shouldFetch &&
+    (isLoadingFriendships ||
+      isFetchingFriendships ||
+      isLoadingBlocked ||
+      isFetchingBlocked ||
+      isLoadingSent ||
+      isFetchingSent ||
+      isLoadingReceived ||
+      isFetchingReceived);
 
   return {
     targetAccountId,
-    pair,
+    pair: {
+      accountId: user?.accountId,
+      targetAccountId,
+      relationshipState,
+      blockedByMe: isBlockedByMe,
+      blockedByOther: isBlockedByOther,
+    },
+    incomingRequestId: incomingRequest?.requestId ?? null,
+    outgoingRequestId: outgoingRequest?.requestId ?? null,
     isSelf,
     isFriend,
     hasSentRequest,
@@ -96,8 +156,8 @@ export function useFriendshipStatus(targetAccountId: number) {
     isBlockedAnyDirection,
     canSendRequest,
     canAccept,
-    canReject: false,
-    canCancel: false,
+    canReject,
+    canCancel,
     canBlock: !isSelf && isSignedIn && !isBlockedAnyDirection,
     canUnblock: !isSelf && isSignedIn && isBlockedByMe,
     isLoadingPair,

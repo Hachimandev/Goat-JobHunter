@@ -124,6 +124,7 @@ export const friendshipApi = api.injectEndpoints({
       }),
       invalidatesTags: [
         { type: "Friendship", id: "LIST" },
+        { type: "Friendship", id: "BLOCKED_LIST" },
         { type: "FriendRequest", id: "LIST" },
         { type: "FriendRequest", id: "RECEIVED" },
         { type: "FriendRequest", id: "SENT" },
@@ -137,6 +138,7 @@ export const friendshipApi = api.injectEndpoints({
       }),
       invalidatesTags: [
         { type: "Friendship", id: "LIST" },
+        { type: "Friendship", id: "BLOCKED_LIST" },
         { type: "FriendRequest", id: "LIST" },
         { type: "FriendRequest", id: "RECEIVED" },
         { type: "FriendRequest", id: "SENT" },
@@ -148,9 +150,11 @@ export const friendshipApi = api.injectEndpoints({
       { page: number; size: number }
     >({
       query: ({ page, size }) => ({
-        url: `/friend-requests/me/blocked?page=${page}&size=${size}`,
+        url: "/friend-requests/me/block",
         method: "GET",
+        params: { page, size, sort: ["blockedSince,desc"] },
       }),
+      providesTags: [{ type: "Friendship", id: "BLOCKED_LIST" }],
     }),
 
     checkPairStatus: builder.query<CheckPairStatusResponse, number>({

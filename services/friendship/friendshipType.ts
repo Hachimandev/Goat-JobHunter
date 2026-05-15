@@ -106,11 +106,6 @@ export type UnblockUserRequest = {
 
 export type UnblockUserResponse = IBackendRes<PairSnapshot>;
 
-export type GetBlockedUsersResponse = IBackendRes<{
-  content: BlockedUser[];
-  totalElements: number;
-  totalPages: number;
-  currentPage: number;
-}>;
+export type GetBlockedUsersResponse = IBackendRes<IModelPaginate<BlockedUser>>;
 
 export type CheckPairStatusResponse = IBackendRes<PairSnapshot>;

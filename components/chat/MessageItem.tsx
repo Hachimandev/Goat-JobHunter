@@ -17,6 +17,7 @@ import { PollItem } from "./PollItem";
 import { MessageReactionPicker } from "./MessageReactionPicker";
 import { MessageReactionBar } from "./MessageReactionBar";
 import { useMessageReactionActions } from "../../hooks/useMessageReactionActions";
+import { router } from "expo-router";
 
 interface MessageItemProps {
   item: MessageType;
@@ -43,6 +44,14 @@ const isS3FileUrl = (url: string) =>
   typeof url === "string" &&
   url.includes("amazonaws.com") &&
   /\.(pdf|doc|docx|xls|xlsx|ppt|pptx|txt|zip|rar)$/i.test(url);
+
+const openUserProfile = (accountId?: number) => {
+  if (!accountId) return;
+  router.push({
+    pathname: "/profile/[userId]",
+    params: { userId: String(accountId) },
+  });
+};
 
 export const MessageItem = ({
   item,
@@ -351,10 +360,17 @@ export const MessageItem = ({
         ]}
       >
         {!isMe && (
-          <Image
-            source={{ uri: item.sender?.avatar }}
-            style={styles.smallAvatar}
-          />
+          <TouchableOpacity
+            activeOpacity={0.75}
+            onPress={() => openUserProfile(item.sender?.accountId)}
+          >
+            <Image
+              source={{
+                uri: item.sender?.avatar || "https://via.placeholder.com/100",
+              }}
+              style={styles.smallAvatar}
+            />
+          </TouchableOpacity>
         )}
 
         <TouchableOpacity
