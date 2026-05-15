@@ -1,3 +1,5 @@
+import { useRouter } from "expo-router";
+import { Check, X } from "lucide-react-native";
 import {
   ActivityIndicator,
   Image,
@@ -6,7 +8,6 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { Check, X } from "lucide-react-native";
 
 export type FriendRequestItem = {
   requestId: number;
@@ -40,11 +41,22 @@ export function FriendRequestRow({
   onReject,
   onCancel,
 }: FriendRequestRowProps) {
+  const router = useRouter();
   const isReceived = type === "received";
+  const openProfile = () => {
+    router.push({
+      pathname: "/profile/[userId]",
+      params: { userId: String(item.counterpart.accountId) },
+    });
+  };
 
   return (
     <View style={styles.rowContainer}>
-      <View style={styles.userInfo}>
+      <TouchableOpacity
+        style={styles.userInfo}
+        activeOpacity={0.75}
+        onPress={openProfile}
+      >
         {item.counterpart.avatar ? (
           <Image
             source={{ uri: item.counterpart.avatar }}
@@ -65,7 +77,8 @@ export function FriendRequestRow({
             @{item.counterpart.username || "unknown"}
           </Text>
         </View>
-      </View>
+      </TouchableOpacity>
+
       <View style={styles.actionGroup}>
         {isReceived ? (
           <>

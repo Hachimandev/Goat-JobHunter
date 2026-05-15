@@ -1,12 +1,5 @@
-import {
-  ActivityIndicator,
-  Image,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from "react-native";
-import { X } from "lucide-react-native";
+import { useRouter } from "expo-router";
+import { Image, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 export type FriendItem = {
   relationshipId: number;
@@ -25,14 +18,23 @@ interface FriendRowProps {
   onRemove: (relationshipId: number, targetUserId: number) => void;
 }
 
-export function FriendRow({
-  item,
-  isRemoving = false,
-  onRemove,
-}: FriendRowProps) {
+export function FriendRow({ item }: FriendRowProps) {
+  const router = useRouter();
+
+  const openProfile = () => {
+    router.push({
+      pathname: "/profile/[userId]",
+      params: { userId: String(item.friend.accountId) },
+    });
+  };
+
   return (
     <View style={styles.rowContainer}>
-      <View style={styles.userInfo}>
+      <TouchableOpacity
+        style={styles.userInfo}
+        activeOpacity={0.75}
+        onPress={openProfile}
+      >
         {item.friend.avatar ? (
           <Image source={{ uri: item.friend.avatar }} style={styles.avatar} />
         ) : (
@@ -50,20 +52,7 @@ export function FriendRow({
             @{item.friend.username || "unknown"}
           </Text>
         </View>
-      </View>
-
-      {/* <TouchableOpacity
-        style={[styles.actionButton, styles.removeButton]}
-        onPress={() => onRemove(item.relationshipId, item.friend.accountId)}
-        disabled={isRemoving}
-      >
-        {isRemoving ? (
-          <ActivityIndicator color="#fff" />
-        ) : (
-          <X size={16} color="#fff" />
-        )}
-        <Text style={styles.actionText}>Xóa bạn</Text>
-      </TouchableOpacity> */}
+      </TouchableOpacity>
     </View>
   );
 }
@@ -120,22 +109,5 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: "#6b7280",
     marginTop: 2,
-  },
-  actionButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 10,
-  },
-  removeButton: {
-    backgroundColor: "#dc2626",
-    marginLeft: 12,
-  },
-  actionText: {
-    color: "#fff",
-    fontSize: 13,
-    fontWeight: "600",
-    marginLeft: 6,
   },
 });

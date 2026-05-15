@@ -62,10 +62,11 @@ type PinnedMessage = {
 };
 
 export default function ChatDetailScreen() {
-  const { id, name, avatar } = useLocalSearchParams<{
+  const { id, name, avatar, targetUserId } = useLocalSearchParams<{
     id: string;
     name: string;
     avatar: string;
+    targetUserId?: string;
   }>();
   const chatRoomId = Number(id);
   const { user } = useUser();
@@ -178,6 +179,9 @@ export default function ChatDetailScreen() {
     });
 
   const isGroupChat = chatRoomData?.data?.type === "GROUP";
+  const directProfileUserId = !isGroupChat
+    ? Number(chatRoomData?.data?.counterpartAccountId || targetUserId)
+    : undefined;
   const groupPermissions: GroupPermissionsResponse = {
     allowMemberUpdate: chatRoomData?.data?.allowMemberUpdate ?? true,
     allowMemberPin: chatRoomData?.data?.allowMemberPin ?? true,
@@ -339,6 +343,11 @@ export default function ChatDetailScreen() {
           name={chatRoomData?.data?.name || name}
           avatar={chatRoomData?.data?.avatar || avatar}
           status="Đang hoạt động"
+          profileUserId={
+            directProfileUserId && Number.isFinite(directProfileUserId)
+              ? directProfileUserId
+              : undefined
+          }
           onPressInfo={() =>
             router.push({
               pathname: "/chat/detail",
@@ -346,6 +355,10 @@ export default function ChatDetailScreen() {
                 id: chatRoomId.toString(),
                 name: chatRoomData?.data?.name || name,
                 avatar: chatRoomData?.data?.avatar || avatar,
+                targetUserId:
+                  directProfileUserId && Number.isFinite(directProfileUserId)
+                    ? String(directProfileUserId)
+                    : undefined,
                 messages: JSON.stringify(messagesList || []),
                 role: currentUserRole,
                 allowMemberUpdate: String(groupPermissions.allowMemberUpdate),

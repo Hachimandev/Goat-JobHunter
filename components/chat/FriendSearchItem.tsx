@@ -9,6 +9,7 @@ import {
 import { useCallback, useState } from "react";
 import { useFriendActions } from "@/hooks/useFriendActions";
 import { useFriendshipStatus } from "@/hooks/useFriendshipStatus";
+import { useRouter } from "expo-router";
 
 export type ChatSearchUser = {
   accountId: number;
@@ -23,10 +24,30 @@ interface FriendSearchItemProps {
 }
 
 export function FriendSearchItem({ item, onPress }: FriendSearchItemProps) {
+  const router = useRouter();
   const { handleSendFriendRequest } = useFriendActions();
-  const { isFriend, hasSentRequest, hasReceivedRequest, isLoadingPair } =
-    useFriendshipStatus(item.accountId);
+  const {
+    isFriend,
+    hasSentRequest,
+    hasReceivedRequest,
+    isBlockedByMe,
+    isBlockedByOther,
+    isLoadingPair,
+  } = useFriendshipStatus(item.accountId);
   const [isSending, setIsSending] = useState(false);
+
+  const handleOpenProfile = useCallback(
+    (event: unknown) => {
+      if (event && typeof (event as any)?.stopPropagation === "function") {
+        (event as any).stopPropagation();
+      }
+      router.push({
+        pathname: "/profile/[userId]",
+        params: { userId: String(item.accountId) },
+      });
+    },
+    [item.accountId, router],
+  );
 
   const handleAddFriend = useCallback(
     async (event: unknown) => {
@@ -54,16 +75,30 @@ export function FriendSearchItem({ item, onPress }: FriendSearchItemProps) {
 
   return (
     <TouchableOpacity style={styles.chatItem} onPress={() => onPress(item)}>
-      <Image
-        source={{ uri: item.avatar || "https://via.placeholder.com/100" }}
-        style={styles.avatar}
-      />
-      <View style={styles.chatContent}>
+      <TouchableOpacity activeOpacity={0.75} onPress={handleOpenProfile}>
+        <Image
+          source={{ uri: item.avatar || "https://via.placeholder.com/100" }}
+          style={styles.avatar}
+        />
+      </TouchableOpacity>
+      <TouchableOpacity
+        style={styles.chatContent}
+        activeOpacity={0.75}
+        onPress={handleOpenProfile}
+      >
         <Text style={styles.chatName}>{item.fullName}</Text>
         <Text style={styles.chatMessage}>@{item.username}</Text>
-      </View>
+      </TouchableOpacity>
       <View style={styles.buttonContainer}>
-        {isFriend ? (
+        {isBlockedByMe ? (
+          <View style={[styles.statusTag, styles.blockedTag]}>
+            <Text style={styles.statusTagText}>đã chặn</Text>
+          </View>
+        ) : isBlockedByOther ? (
+          <View style={[styles.statusTag, styles.blockedTag]}>
+            <Text style={styles.statusTagText}>bị chặn</Text>
+          </View>
+        ) : isFriend ? (
           <View style={styles.statusTag}>
             <Text style={styles.statusTagText}>bạn bè</Text>
           </View>
@@ -169,5 +204,8 @@ const styles = StyleSheet.create({
     color: "#9ca3af", // light gray
     fontSize: 13,
     fontWeight: "600",
+  },
+  blockedTag: {
+    backgroundColor: "#f3f4f6",
   },
 });

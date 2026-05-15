@@ -31,10 +31,12 @@ export default function ChatDetail() {
     allowMemberCreateVote: allowMemberCreateVoteParam,
     allowMemberSendMessage: allowMemberSendMessageParam,
     allowModeratorSendMessage: allowModeratorSendMessageParam,
+    targetUserId,
   } = useLocalSearchParams<{
     id: string;
     name: string;
     avatar: string;
+    targetUserId?: string;
     role?: ChatRole;
     allowMemberUpdate?: string;
     allowMemberPin?: string;
@@ -55,6 +57,9 @@ export default function ChatDetail() {
     });
   const chatRoom = chatRoomData?.data;
   const isGroupChat = chatRoom?.type === "GROUP";
+  const directProfileUserId = !isGroupChat
+    ? Number(chatRoom?.counterpartAccountId || targetUserId)
+    : undefined;
 
   const { data: mediaData } = useFetchMediaInChatRoomQuery(
     { chatRoomId },
@@ -161,7 +166,18 @@ export default function ChatDetail() {
       {/* QUICK ACTIONS */}
       {!isGroupChat && (
         <View style={styles.quickActions}>
-          <TouchableOpacity style={styles.quickItem}>
+          <TouchableOpacity
+            style={styles.quickItem}
+            onPress={() => {
+              if (!directProfileUserId || !Number.isFinite(directProfileUserId)) {
+                return;
+              }
+              router.push({
+                pathname: "/profile/[userId]",
+                params: { userId: String(directProfileUserId) },
+              });
+            }}
+          >
             <Ionicons name="person-outline" size={20} />
             <Text style={styles.quickText}>Profile</Text>
           </TouchableOpacity>

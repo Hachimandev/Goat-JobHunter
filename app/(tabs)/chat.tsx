@@ -108,6 +108,7 @@ export default function ChatListScreen() {
             id: existingRoom.roomId,
             name: targetUser.fullName,
             avatar: targetUser.avatar, // Truyền luôn avatar qua để UI đẹp
+            targetUserId: String(targetUser.accountId),
           },
         });
       } else {
@@ -123,6 +124,7 @@ export default function ChatListScreen() {
               id: res.data.roomId,
               name: targetUser.fullName,
               avatar: targetUser.avatar,
+              targetUserId: String(targetUser.accountId),
             },
           });
         }
@@ -324,6 +326,9 @@ export default function ChatListScreen() {
                       id: item.roomId,
                       name: item.name,
                       avatar: item.avatar,
+                      targetUserId: item.counterpartAccountId
+                        ? String(item.counterpartAccountId)
+                        : undefined,
                     },
                   })
                 }
