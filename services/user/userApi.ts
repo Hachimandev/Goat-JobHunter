@@ -116,3 +116,5 @@ export const {
   useUnfollowCompaniesMutation,
   useCheckReviewedCompaniesQuery,
 } = userApi;
+
+export const useGetUserByIdQuery = useFetchUserByIdQuery;

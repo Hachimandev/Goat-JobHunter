@@ -197,10 +197,10 @@ export const chatRoomApi = api.injectEndpoints({
           requestData.content = content;
         }
 
-        const requestBlob = new Blob([JSON.stringify(requestData)], {
+        formData.append("request", {
+          string: JSON.stringify(requestData),
           type: "application/json",
-        });
-        formData.append("request", requestBlob);
+        } as any);
 
         return {
           url: `/chatrooms/messages`,

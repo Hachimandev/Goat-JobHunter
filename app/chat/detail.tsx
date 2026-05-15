@@ -69,7 +69,7 @@ export default function ChatDetail() {
     { chatRoomId },
     { skip: !chatRoomId },
   );
-  const { data: membersData, refetch } = useGetMemberInGroupChatQuery(
+  const { data: membersData, refetch: refetchMembers } = useGetMemberInGroupChatQuery(
     chatRoomId,
     {
       skip: !isGroupChat || !chatRoomId,
@@ -120,9 +120,11 @@ export default function ChatDetail() {
 
   useFocusEffect(
     React.useCallback(() => {
-      refetch();
+      if (isGroupChat) {
+        refetchMembers();
+      }
       refetchChatRoom();
-    }, [refetch, refetchChatRoom]),
+    }, [isGroupChat, refetchMembers, refetchChatRoom]),
   );
 
   return (
@@ -292,7 +294,9 @@ export default function ChatDetail() {
         groupAvatar={chatRoomData?.data?.avatar || avatar || ""}
         onClose={() => setIsEditModalVisible(false)}
         onSuccess={() => {
-          refetch();
+          if (isGroupChat) {
+            refetchMembers();
+          }
         }}
         onRefetch={refetchChatRoom}
       />

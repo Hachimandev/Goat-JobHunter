@@ -9,7 +9,6 @@ import {
 import { useCallback, useState } from "react";
 import { useFriendActions } from "@/hooks/useFriendActions";
 import { useFriendshipStatus } from "@/hooks/useFriendshipStatus";
-import { useRouter } from "expo-router";
 
 export type ChatSearchUser = {
   accountId: number;
@@ -24,7 +23,6 @@ interface FriendSearchItemProps {
 }
 
 export function FriendSearchItem({ item, onPress }: FriendSearchItemProps) {
-  const router = useRouter();
   const { handleSendFriendRequest } = useFriendActions();
   const {
     isFriend,
@@ -35,19 +33,6 @@ export function FriendSearchItem({ item, onPress }: FriendSearchItemProps) {
     isLoadingPair,
   } = useFriendshipStatus(item.accountId);
   const [isSending, setIsSending] = useState(false);
-
-  const handleOpenProfile = useCallback(
-    (event: unknown) => {
-      if (event && typeof (event as any)?.stopPropagation === "function") {
-        (event as any).stopPropagation();
-      }
-      router.push({
-        pathname: "/profile/[userId]",
-        params: { userId: String(item.accountId) },
-      });
-    },
-    [item.accountId, router],
-  );
 
   const handleAddFriend = useCallback(
     async (event: unknown) => {
@@ -75,20 +60,14 @@ export function FriendSearchItem({ item, onPress }: FriendSearchItemProps) {
 
   return (
     <TouchableOpacity style={styles.chatItem} onPress={() => onPress(item)}>
-      <TouchableOpacity activeOpacity={0.75} onPress={handleOpenProfile}>
-        <Image
-          source={{ uri: item.avatar || "https://via.placeholder.com/100" }}
-          style={styles.avatar}
-        />
-      </TouchableOpacity>
-      <TouchableOpacity
-        style={styles.chatContent}
-        activeOpacity={0.75}
-        onPress={handleOpenProfile}
-      >
+      <Image
+        source={{ uri: item.avatar || "https://via.placeholder.com/100" }}
+        style={styles.avatar}
+      />
+      <View style={styles.chatContent}>
         <Text style={styles.chatName}>{item.fullName}</Text>
         <Text style={styles.chatMessage}>@{item.username}</Text>
-      </TouchableOpacity>
+      </View>
       <View style={styles.buttonContainer}>
         {isBlockedByMe ? (
           <View style={[styles.statusTag, styles.blockedTag]}>
