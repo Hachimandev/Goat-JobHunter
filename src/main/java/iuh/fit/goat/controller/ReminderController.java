@@ -10,6 +10,7 @@ import iuh.fit.goat.service.ReminderService;
 import iuh.fit.goat.util.SecurityUtil;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -32,11 +33,11 @@ public class ReminderController {
 
 	@GetMapping
 	public ResponseEntity<List<ReminderResponse>> getRemindersByChatRoom(
-			@PathVariable Long chatRoomId
+			@PathVariable Long chatRoomId, Pageable pageable
 	) throws InvalidException {
 		String email = SecurityUtil.getCurrentUserLogin().orElseThrow(() -> new InvalidException("User not authenticated"));
 		Account account = accountService.handleGetAccountByEmail(email);
-		return ResponseEntity.ok(reminderService.getRemindersByChatRoom(chatRoomId, account));
+		return ResponseEntity.ok(reminderService.getRemindersByChatRoom(chatRoomId, account, pageable));
 	}
 
 	@PostMapping

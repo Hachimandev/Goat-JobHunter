@@ -6,6 +6,7 @@ import iuh.fit.goat.dto.response.reminder.ReminderResponse;
 import iuh.fit.goat.entity.Account;
 import iuh.fit.goat.entity.Reminder;
 import iuh.fit.goat.exception.InvalidException;
+import org.springframework.data.domain.Pageable;
 
 import java.util.List;
 
@@ -18,7 +19,7 @@ public interface ReminderService {
 
     List<ReminderResponse> getMyReminders(Account currentAccount);
 
-    List<ReminderResponse> getRemindersByChatRoom(Long chatRoomId, Account currentAccount) throws InvalidException;
+    List<ReminderResponse> getRemindersByChatRoom(Long chatRoomId, Account currentAccount, Pageable pageable) throws InvalidException;
 
     void processReminderDispatch(Reminder reminder);
 }

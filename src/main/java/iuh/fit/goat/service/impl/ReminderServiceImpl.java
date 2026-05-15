@@ -18,6 +18,7 @@ import iuh.fit.goat.service.ReminderService;
 import iuh.fit.goat.service.helper.MessageHelper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Pageable;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -61,7 +62,7 @@ public class ReminderServiceImpl implements ReminderService {
     }
 
     @Override
-    public List<ReminderResponse> getRemindersByChatRoom(Long chatRoomId, Account currentAccount) throws InvalidException {
+    public List<ReminderResponse> getRemindersByChatRoom(Long chatRoomId, Account currentAccount, Pageable pageable) throws InvalidException {
         ChatRoom chatRoom = this.messageHelper.getChatRoom(chatRoomId);
 
         boolean isCurrentAccountMember = chatRoom.getMembers().stream()
@@ -71,7 +72,18 @@ public class ReminderServiceImpl implements ReminderService {
         if (!isCurrentAccountMember) throw new InvalidException("Bạn không phải là thành viên của phòng chat này");
 
         List<Reminder> reminders = this.reminderRepository.findByChatRoomId(chatRoomId);
-        return reminders.stream()
+        List<Reminder> sortedReminders = reminders.stream().sorted(
+                (p1, p2) -> p2.getCreatedAt().compareTo(p1.getCreatedAt())
+        ).toList();
+
+        int pageNumber = pageable.getPageNumber();
+        int pageSize = pageable.getPageSize();
+        int startIndex = pageNumber * pageSize;
+        int endIndex = Math.min(startIndex + pageSize, sortedReminders.size());
+
+        if (startIndex >= sortedReminders.size()) return List.of();
+
+        return sortedReminders.subList(startIndex, endIndex).stream()
                 .map(this::toReminderResponse)
                 .collect(Collectors.toList());
     }
