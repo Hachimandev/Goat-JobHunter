@@ -42,3 +42,17 @@ export type CountUnreadMessagesRequest = {
 };
 
 export type CountUnreadMessagesResponse = IBackendRes<UnreadMessageResponse[]>;
+
+export type TypingIndicatorRequest = {
+  chatRoomId: number;
+  typing: boolean;
+};
+
+export type TypingIndicatorResponse = {
+  chatRoomId: number;
+  accountId: number;
+  username: string;
+  avatar: string;
+  typing: boolean;
+  updatedAt: string;
+};

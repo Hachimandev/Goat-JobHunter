@@ -8,6 +8,8 @@ import {
   FetchMessagesInChatRoomResponse,
   SendMessageToChatRoomRequest,
   SendMessageToNewChatRoomRequest,
+  TypingIndicatorRequest,
+  TypingIndicatorResponse,
 } from "@/services/chatRoom/chatRoomType";
 import { IBackendRes } from "@/types/api";
 import { ChatRoom, MessageType } from "@/types/model";
@@ -389,6 +391,17 @@ export const chatRoomApi = api.injectEndpoints({
         }
       },
     }),
+
+    setTypingIndicator: builder.mutation<
+      TypingIndicatorResponse,
+      TypingIndicatorRequest
+    >({
+      query: ({ chatRoomId, typing }) => ({
+        url: `/chatrooms/${chatRoomId}/typing`,
+        method: "PUT",
+        data: { typing },
+      }),
+    }),
   }),
 });
 
@@ -405,4 +418,5 @@ export const {
   useDeleteMessagePermanentMutation,
   useCountUnreadMessagesByCurrentAccountQuery,
   useForwardMessageBatchMutation,
+  useSetTypingIndicatorMutation,
 } = chatRoomApi;
