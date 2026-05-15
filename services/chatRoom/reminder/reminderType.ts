@@ -1,32 +1,31 @@
-import { IBackendRes } from "@/types/api";
-import { ReminderRepeatType, ReminderRsvpStatus } from "@/types/enum";
-import { Reminder } from "@/types/model";
+import { IBackendRes } from '@/types/api';
+import { ReminderRepeatType, ReminderRsvpStatus } from '@/types/enum';
+import { Reminder } from '@/types/model';
 
 export type FetchRemindersInChatRoomRequest = {
-    chatRoomId: number;
-    page?: number;
-    size?: number;
+  chatRoomId: number;
+  page?: number;
+  size?: number;
 };
 export type FetchRemindersInChatRoomResponse = IBackendRes<Reminder[]>;
 
 export type CreateReminderRequest = {
-    chatRoomId: number;
-    title: string;
-    content: string;
-    reminderTime: string;
-    repeatType: ReminderRepeatType;
-    participantIds: number[];
-    allowResponse: boolean;
+  chatRoomId: number;
+  title: string;
+  content: string;
+  reminderTime: string;
+  repeatType: ReminderRepeatType;
+  allowResponse: boolean;
 };
 export type ReminderResponse = IBackendRes<Reminder>;
 
 export type RespondReminderRequest = {
-    chatRoomId: number;
-    reminderId: number;
-    status: ReminderRsvpStatus;
+  chatRoomId: number;
+  reminderId: number;
+  status: ReminderRsvpStatus;
 };
 
 export type DeclineReminderRequest = {
-    chatRoomId: number;
-    reminderId: number;
+  chatRoomId: number;
+  reminderId: number;
 };

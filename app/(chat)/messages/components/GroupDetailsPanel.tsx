@@ -42,6 +42,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import GroupNewsPanel from './GroupNewsPanel';
+import ReminderDetailPanel from './ReminderDetailPanel';
 import AssetTabSection from '@/app/(chat)/messages/components/AssetTabSection';
 import InviteLinkPanel from './InviteLinkPanel';
 import { ChatRoomType } from '@/types/enum';
@@ -83,6 +84,7 @@ export function GroupDetailsPanel({
   const [leaveConfirmOpen, setLeaveConfirmOpen] = useState(false);
   const [managePanelOpen, setManagePanelOpen] = useState(false);
   const [newsPanelOpen, setNewsPanelOpen] = useState(false);
+  const [reminderPanelOpen, setReminderPanelOpen] = useState(false);
 
   const {
     data: memberData,
@@ -240,9 +242,8 @@ export function GroupDetailsPanel({
                   <Collapsible open={isJoinRequestsOpen} onOpenChange={setIsJoinRequestsOpen}>
                     <div className="bg-accent/30 rounded-lg overflow-hidden">
                       <CollapsibleTrigger asChild>
-                        <Button
+                        <div
                           className="w-full flex items-center justify-between p-3 py-6 hover:bg-accent/50 transition-colors cursor-pointer rounded-xl"
-                          variant="ghost"
                         >
                           <div className="flex items-center gap-2">
                             <UsersRound className="h-5 w-5" />
@@ -266,7 +267,7 @@ export function GroupDetailsPanel({
                               className={`h-4 w-4 transition-transform duration-200 ${isJoinRequestsOpen ? 'rotate-180' : ''}`}
                             />
                           </div>
-                        </Button>
+                        </div>
                       </CollapsibleTrigger>
 
                       <CollapsibleContent className="data-[state=open]:animate-collapsible-down data-[state=closed]:animate-collapsible-up">
@@ -277,7 +278,9 @@ export function GroupDetailsPanel({
                             </div>
                           )}
                           {!isLoadingJoinRequests && pendingJoinRequests.length === 0 && (
-                            <div className="text-center py-4 text-sm text-muted-foreground">Không có yêu cầu chờ duyệt.</div>
+                            <div className="text-center py-4 text-sm text-muted-foreground">
+                              Không có yêu cầu chờ duyệt.
+                            </div>
                           )}
                           {!isLoadingJoinRequests &&
                             pendingJoinRequests.map((request) => (
@@ -315,7 +318,11 @@ export function GroupDetailsPanel({
                                           .catch(() => toast.error('Không thể duyệt yêu cầu'))
                                       }
                                     >
-                                      {isApprovingJoinRequest ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check />}
+                                      {isApprovingJoinRequest ? (
+                                        <Loader2 className="h-4 w-4 animate-spin" />
+                                      ) : (
+                                        <Check />
+                                      )}
                                     </Button>
                                     <Button
                                       type="button"
@@ -360,9 +367,8 @@ export function GroupDetailsPanel({
               <Collapsible open={isMembersOpen} onOpenChange={setIsMembersOpen}>
                 <div className="bg-accent/30 rounded-lg overflow-hidden">
                   <CollapsibleTrigger asChild>
-                    <Button
+                    <div
                       className="w-full flex items-center justify-between p-3 py-6 hover:bg-accent/50 transition-colors cursor-pointer rounded-xl"
-                      variant="ghost"
                     >
                       <div className="flex items-center gap-2">
                         <Users className="h-5 w-5" />
@@ -388,7 +394,7 @@ export function GroupDetailsPanel({
                           className={`h-4 w-4 transition-transform duration-200 ${isMembersOpen ? 'rotate-180' : ''}`}
                         />
                       </div>
-                    </Button>
+                    </div>
                   </CollapsibleTrigger>
 
                   <CollapsibleContent className="data-[state=open]:animate-collapsible-down data-[state=closed]:animate-collapsible-up">
@@ -447,13 +453,19 @@ export function GroupDetailsPanel({
 
                   <CollapsibleContent className="data-[state=open]:animate-collapsible-down data-[state=closed]:animate-collapsible-up">
                     <div className="space-y-4 px-2 pb-2">
-                      <div className="flex items-center gap-2 py-2">
-                          <Clock className="h-5 w-5" />
-                          <h3 className="font-semibold text-sm">Danh sách nhắc hẹn</h3>
+                      <div
+                        className="flex items-center gap-2 py-2 cursor-pointer rounded-xl hover:bg-accent/50"
+                        onClick={() => setReminderPanelOpen(true)}
+                      >
+                        <Clock className="h-5 w-5" />
+                        <h3 className="font-semibold text-sm">Danh sách nhắc hẹn</h3>
                       </div>
-                      <div className="flex items-center gap-2 py-2 cursor-pointer rounded-xl hover:bg-accent/50" onClick={() => setNewsPanelOpen(true)}>
-                          <Notebook className="h-5 w-5" />
-                          <h3 className="font-semibold text-sm">Ghim, bình chọn</h3>
+                      <div
+                        className="flex items-center gap-2 py-2 cursor-pointer rounded-xl hover:bg-accent/50"
+                        onClick={() => setNewsPanelOpen(true)}
+                      >
+                        <Notebook className="h-5 w-5" />
+                        <h3 className="font-semibold text-sm">Ghim, bình chọn</h3>
                       </div>
                     </div>
                   </CollapsibleContent>
@@ -506,6 +518,11 @@ export function GroupDetailsPanel({
           createPollDisabledReason={createPollDisabledReason}
           onNavigateToMessage={onNavigateToMessage}
           pinnedMessages={pinnedMessages}
+        />
+        <ReminderDetailPanel
+          open={reminderPanelOpen}
+          onOpenChange={setReminderPanelOpen}
+          chatRoomId={chatRoom.roomId}
         />
       </div>
 

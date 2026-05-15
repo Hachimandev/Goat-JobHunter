@@ -171,15 +171,15 @@ export enum CallEndReasonEnum {
 }
 
 export enum ReminderRepeatType {
-  NONE = 'none',
-  DAILY = 'daily',
-  WEEKLY = 'weekly',
-  MONTHLY = 'monthly',
-  YEARLY = 'yearly',
+  NONE = 'NONE',
+  DAILY = 'DAILY',
+  WEEKLY = 'WEEKLY',
+  MONTHLY = 'MONTHLY',
+  YEARLY = 'YEARLY',
 }
 
 export enum ReminderRsvpStatus {
-  PENDING = 'Pending',
-  ACCEPTED = 'Accepted',
-  REJECTED = 'Rejected',
+  PENDING = 'PENDING',
+  ACCEPTED = 'ACCEPTED',
+  REJECTED = 'REJECTED',
 }
