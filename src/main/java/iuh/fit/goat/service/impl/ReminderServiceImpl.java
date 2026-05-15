@@ -246,8 +246,6 @@ public class ReminderServiceImpl implements ReminderService {
             if (!shouldNotify) continue;
 
             try {
-                this.sendReminderRealtime(participant, reminder, triggerTime);
-                this.persistReminderNotification(reminder, participant.getAccount());
                 participant.setLastNotifiedAt(triggerTime);
             } catch (Exception ex) {
                 log.error("Failed to notify participant {} for reminder {}: {}",
@@ -271,33 +269,6 @@ public class ReminderServiceImpl implements ReminderService {
                 reminder.getCreator(),
                 this.toReminderResponse(reminder)
         );
-    }
-
-    private void sendReminderRealtime(ReminderParticipant participant, Reminder reminder, Instant triggerTime) {
-        ReminderRealtimeResponse payload = ReminderRealtimeResponse.builder()
-                .reminderId(reminder.getReminderId())
-                .title(reminder.getTitle())
-                .content(reminder.getContent())
-                .triggerTime(triggerTime)
-                .chatRoomId(reminder.getChatRoom() != null ? reminder.getChatRoom().getRoomId() : null)
-                .creatorId(reminder.getCreator().getAccountId())
-                .build();
-
-        this.messagingTemplate.convertAndSendToUser(
-                participant.getAccount().getEmail(),
-                "/queue/reminders",
-                payload
-        );
-    }
-
-    private void persistReminderNotification(Reminder reminder, Account recipient) {
-        Notification notification = new Notification();
-        notification.setType(NotificationType.valueOf("REMINDER"));
-        notification.setRecipient(recipient);
-        notification.setActors(List.of(reminder.getCreator()));
-
-        Notification saved = this.notificationService.createNotification(notification);
-        this.notificationService.sendNotificationToUser(recipient, saved);
     }
 
     private Instant calculateNextTriggerTime(Instant currentTriggerTime, ReminderRepeatType repeatType) {

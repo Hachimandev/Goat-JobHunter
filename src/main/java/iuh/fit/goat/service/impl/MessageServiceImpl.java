@@ -816,7 +816,7 @@ public class MessageServiceImpl implements MessageService {
                 .chatRoomId(chatRoomId.toString())
                 .sender(senderInfo)
                 .content(content)
-                .messageType(MessageType.POLL)
+                .messageType(MessageType.REMINDER)
                 .isHidden(false)
                 .isForwarded(false)
                 .originalMessageId(null)

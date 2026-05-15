@@ -135,42 +135,42 @@ public class MessageUtil {
             case REMINDER_CREATED -> {
                 ReminderResponse reminder = (ReminderResponse) params[0];
 
-                yield String.format("(event:%s) %s đã tạo một lịch hẹn mới: %s (Xem %s)",
+                yield String.format("(event:%s) %s đã tạo một nhắc hẹn mới: %s (Xem %s)",
                         MessageEvent.REMINDER_CREATED, actorName, reminder.getTitle(), reminder.getReminderId());
             }
 
             case REMINDER_UPDATED -> {
                 ReminderResponse reminder = (ReminderResponse) params[0];
 
-                yield String.format("(event:%s) %s đã cập nhật lịch hẹn: %s (Xem %s)",
+                yield String.format("(event:%s) %s đã cập nhật nhắc hẹn: %s (Xem %s)",
                         MessageEvent.REMINDER_UPDATED, actorName, reminder.getTitle(), reminder.getReminderId());
             }
 
             case REMINDER_EXPIRED -> {
                 ReminderResponse reminder = (ReminderResponse) params[0];
 
-                yield String.format("(event:%s) Lịch hẹn đã đến hạn: %s (Xem %s)",
+                yield String.format("(event:%s) Nhắc hẹn đã đến hạn: %s (Xem %s)",
                         MessageEvent.REMINDER_EXPIRED, reminder.getTitle(), reminder.getReminderId());
             }
 
             case REMINDER_DECLINED -> {
                 ReminderResponse reminder = (ReminderResponse) params[0];
 
-                yield String.format("(event:%s) %s đã hủy lịch hẹn: %s (Xem %s)",
+                yield String.format("(event:%s) %s đã hủy nhắc hẹn: %s (Xem %s)",
                         MessageEvent.REMINDER_DECLINED, actorName, reminder.getTitle(), reminder.getReminderId());
             }
 
             case REMINDER_JOINED -> {
                 ReminderResponse reminder = (ReminderResponse) params[0];
 
-                yield String.format("(event:%s) %s đã tham gia lịch hẹn: %s (Xem %s)",
+                yield String.format("(event:%s) %s đã tham gia nhắc hẹn: %s (Xem %s)",
                         MessageEvent.REMINDER_JOINED, actorName, reminder.getTitle(), reminder.getReminderId());
             }
 
             case REMINDER_UNJOINED -> {
                 ReminderResponse reminder = (ReminderResponse) params[0];
 
-                yield String.format("(event:%s) %s không tham gia lịch hẹn: %s (Xem %s)",
+                yield String.format("(event:%s) %s không tham gia nhắc hẹn: %s (Xem %s)",
                         MessageEvent.REMINDER_UNJOINED, actorName, reminder.getTitle(), reminder.getReminderId());
             }
         };

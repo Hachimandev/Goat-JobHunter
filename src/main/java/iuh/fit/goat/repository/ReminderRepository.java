@@ -16,7 +16,7 @@ public interface ReminderRepository extends JpaRepository<Reminder, Long>, JpaSp
     Optional<Reminder> findByReminderIdAndDeletedAtIsNull(Long reminderId);
 
     @Query("""
-        SELECT r FROM Reminder r
+        SELECT r FROM Reminder r JOIN FETCH r.creator
         WHERE r.deletedAt IS NULL
         AND r.active = true
         AND r.nextTriggerTime <= :currentTime
