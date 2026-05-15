@@ -33,6 +33,8 @@ interface ChatInputProps {
   onRemoveFile: (idx: number) => void;
   onMediaCaptured: (assets: ImagePicker.ImagePickerAsset[]) => void;
   disabledReason?: string;
+  onTypingChange?: (typing: boolean) => void | Promise<void>;
+  onTypingStop?: () => void | Promise<void>;
 }
 
 export const ChatInput = ({
@@ -52,7 +54,22 @@ export const ChatInput = ({
   onMediaCaptured,
   disabled,
   disabledReason,
+  onTypingChange,
+  onTypingStop,
 }: ChatInputProps) => {
+  const handleTextChange = (value: string) => {
+    setText(value);
+
+    if (!disabled) {
+      void onTypingChange?.(value.trim().length > 0);
+    }
+  };
+
+  const handleSendPress = async () => {
+    await onTypingStop?.();
+    onSend();
+  };
+
   const handleImageBtnPress = () => {
     if (Platform.OS === "ios") {
       ActionSheetIOS.showActionSheetWithOptions(
@@ -190,7 +207,7 @@ export const ChatInput = ({
 
         <TextInput
           value={text}
-          onChangeText={setText}
+          onChangeText={handleTextChange}
           placeholder={
             disabled ? disabledReason || "Không thể nhắn tin" : "Tin nhắn"
           }
@@ -200,7 +217,7 @@ export const ChatInput = ({
         />
 
         <TouchableOpacity
-          onPress={onSend}
+          onPress={() => void handleSendPress()}
           style={[
             styles.sendBtn,
             !text.trim() &&

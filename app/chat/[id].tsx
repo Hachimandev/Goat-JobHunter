@@ -27,6 +27,7 @@ import EmojiPicker from "rn-emoji-keyboard";
 
 import { ChatHeader } from "@/components/chat/ChatHeader";
 import { ChatInput } from "@/components/chat/ChatInput";
+import { ChatTypingIndicator } from "@/components/chat/ChatTypingIndicator";
 import { ForwardModal } from "@/components/chat/ForwardModal";
 import { InviteLinkPanel } from "@/components/chat/InviteLinkPanel";
 import { MessageActionsSheet } from "@/components/chat/MessageActionsSheet";
@@ -34,6 +35,7 @@ import { MessageItem } from "@/components/chat/MessageItem";
 
 import { PollVoteModal } from "@/components/chat/PollVoteModal";
 import useChatActionsMobile from "@/hooks/useChatActionsMobile";
+import { useChatRoomTypingIndicator } from "@/hooks/useChatRoomTypingIndicator";
 import { useDissolveGroup } from "@/hooks/useDissolveGroup";
 import { useNotificationManager } from "@/hooks/useNotificationManager";
 import { useUser } from "@/hooks/useUser";
@@ -208,6 +210,11 @@ export default function ChatDetailScreen() {
     currentUserRole,
     groupPermissions,
   });
+  const {
+    typingParticipants,
+    markTyping,
+    stopTyping,
+  } = useChatRoomTypingIndicator(chatRoomId, user?.accountId);
 
   useEffect(() => {
     setActiveChatRoom(chatRoomId);
@@ -242,6 +249,7 @@ export default function ChatDetailScreen() {
     const imagesToSend = [...selectedImages];
     const filesToSend = [...selectedFiles];
 
+    await stopTyping();
     setText("");
     setSelectedImages([]);
     setSelectedFiles([]);
@@ -550,6 +558,8 @@ export default function ChatDetailScreen() {
           }
         />
 
+        <ChatTypingIndicator typingParticipants={typingParticipants} />
+
         <ChatInput
           text={text}
           setText={setText}
@@ -584,6 +594,8 @@ export default function ChatDetailScreen() {
                 ? "Bạn bị chặn"
                 : sendPermissionDeniedReason || undefined
           }
+          onTypingChange={markTyping}
+          onTypingStop={stopTyping}
         />
       </KeyboardAvoidingView>
 
@@ -645,7 +657,13 @@ export default function ChatDetailScreen() {
       <EmojiPicker
         open={isEmojiOpen}
         onClose={() => setIsEmojiOpen(false)}
-        onEmojiSelected={(emoji) => setText((prev) => prev + emoji.emoji)}
+        onEmojiSelected={(emoji) => {
+          setText((prev) => {
+            const nextText = prev + emoji.emoji;
+            void markTyping(nextText.trim().length > 0);
+            return nextText;
+          });
+        }}
       />
       {showForwardToast && (
         <View style={styles.toastOverlay} pointerEvents="none">
