@@ -1,17 +1,23 @@
 package iuh.fit.goat.service.impl;
 
 import iuh.fit.goat.entity.Job;
+import iuh.fit.goat.entity.Reminder;
 import iuh.fit.goat.repository.JobRepository;
+import iuh.fit.goat.repository.ReminderRepository;
 import iuh.fit.goat.service.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.Year;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
 
 @Service
 @RequiredArgsConstructor
@@ -22,7 +28,11 @@ public class ScheduledServiceImpl implements ScheduledService {
     private final CompanyAwardService companyAwardService;
     private final ReminderService reminderService;
 
+    private final ReminderRepository reminderRepository;
     private final JobRepository jobRepository;
+
+    @Qualifier("reminderExecutor")
+    private final Executor executor;
 
     @Override
 //    @Scheduled(cron = "0 0 0 * * *")
@@ -77,10 +87,26 @@ public class ScheduledServiceImpl implements ScheduledService {
     }
 
     @Override
-    @Scheduled(cron = "0 */15 * * * *")
-    @Transactional
+    @Scheduled(fixedDelay = 5000)
     public void dispatchDueReminders() {
-        this.reminderService.dispatchDueReminders();
-        log.info("Dispatched due reminders!");
+        Instant now = Instant.now();
+        List<Reminder> dueReminders = this.reminderRepository.findDueReminders(now);
+
+        if(dueReminders.isEmpty()) return;
+
+        List<CompletableFuture<Void>> futures = dueReminders.stream()
+                .map(reminder -> CompletableFuture.runAsync(
+                        () -> {
+                            try {
+                                this.reminderService.processReminderDispatch(reminder);
+                            } catch (Exception ex) {
+                                log.error("Failed to dispatch reminder {}: {}", reminder.getReminderId(), ex.getMessage(), ex);
+                            }
+                        },
+                        executor
+                ))
+                .toList();
+
+        CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
     }
 }

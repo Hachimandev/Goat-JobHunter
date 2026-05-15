@@ -4,6 +4,7 @@ import iuh.fit.goat.dto.request.reminder.CreateReminderRequest;
 import iuh.fit.goat.dto.request.reminder.ReminderRsvpRequest;
 import iuh.fit.goat.dto.response.reminder.ReminderResponse;
 import iuh.fit.goat.entity.Account;
+import iuh.fit.goat.entity.Reminder;
 import iuh.fit.goat.exception.InvalidException;
 
 import java.util.List;
@@ -19,6 +20,6 @@ public interface ReminderService {
 
     List<ReminderResponse> getRemindersByChatRoom(Long chatRoomId, Account currentAccount) throws InvalidException;
 
-    void dispatchDueReminders();
+    void processReminderDispatch(Reminder reminder);
 }
 

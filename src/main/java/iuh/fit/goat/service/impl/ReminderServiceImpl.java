@@ -26,7 +26,6 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
 import java.util.stream.Collectors;
-import java.util.concurrent.*;
 
 @Service
 @RequiredArgsConstructor
@@ -41,9 +40,6 @@ public class ReminderServiceImpl implements ReminderService {
 
     private final MessageHelper messageHelper;
     private final SimpMessagingTemplate messagingTemplate;
-
-    private static final int THREAD_POOL_SIZE = 5;
-    private final ExecutorService executorService = Executors.newFixedThreadPool(THREAD_POOL_SIZE);
 
     @Override
     public List<ReminderResponse> getMyReminders(Account currentAccount) {
@@ -174,37 +170,7 @@ public class ReminderServiceImpl implements ReminderService {
 
     @Override
     @Transactional
-    public void dispatchDueReminders() {
-        Instant now = Instant.now();
-        List<Reminder> dueReminders = this.reminderRepository.findDueReminders(now);
-
-        List<CompletableFuture<Void>> futures = dueReminders.stream()
-                .map(reminder -> CompletableFuture.runAsync(
-                    () -> {
-                        try {
-                            processReminderDispatch(reminder);
-                        } catch (Exception ex) {
-                            log.error("Failed to dispatch reminder {}: {}", reminder.getReminderId(), ex.getMessage(), ex);
-                        }
-                    },
-                    executorService
-                ))
-                .toList();
-
-        CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
-    }
-
-    Instant calculateNextTriggerTime(Instant currentTriggerTime, ReminderRepeatType repeatType) {
-        return switch (repeatType) {
-            case DAILY -> currentTriggerTime.plus(1, ChronoUnit.DAYS);
-            case WEEKLY -> currentTriggerTime.plus(7, ChronoUnit.DAYS);
-            case MONTHLY -> currentTriggerTime.plus(30, ChronoUnit.DAYS);
-            case YEARLY -> currentTriggerTime.plus(365, ChronoUnit.DAYS);
-            default -> null;
-        };
-    }
-
-    private void processReminderDispatch(Reminder reminder) {
+    public void processReminderDispatch(Reminder reminder) {
         Instant triggerTime = reminder.getNextTriggerTime();
         if (triggerTime == null) return;
 
@@ -214,35 +180,19 @@ public class ReminderServiceImpl implements ReminderService {
                         ReminderRsvpStatus.ACCEPTED
                 );
 
-        List<ReminderParticipant> updatedParticipants = new ArrayList<>();
+        for(ReminderParticipant participant : acceptedParticipants) {
+            boolean shouldNotify = participant.getLastNotifiedAt() == null || participant.getLastNotifiedAt().isBefore(triggerTime);
+            if (!shouldNotify) continue;
 
-        List<CompletableFuture<Void>> notificationFutures = acceptedParticipants.stream()
-                .filter(participant -> 
-                        participant.getLastNotifiedAt() == null || 
-                        participant.getLastNotifiedAt().isBefore(triggerTime)
-                )
-                .map(participant -> CompletableFuture.runAsync(
-                    () -> {
-                        try {
-                            sendReminderRealtime(participant, reminder, triggerTime);
-                            persistReminderNotification(reminder, participant.getAccount());
-                            participant.setLastNotifiedAt(triggerTime);
-                            synchronized (updatedParticipants) {
-                                updatedParticipants.add(participant);
-                            }
-                        } catch (Exception ex) {
-                            log.error("Failed to notify participant {} for reminder {}: {}",
-                                    participant.getAccount().getAccountId(), reminder.getReminderId(), ex.getMessage(), ex);
-                        }
-                    },
-                    executorService
-                ))
-                .toList();
-
-        CompletableFuture.allOf(notificationFutures.toArray(new CompletableFuture[0]))
-                .join();
-
-        if (!updatedParticipants.isEmpty()) this.reminderParticipantRepository.saveAll(updatedParticipants);
+            try {
+                this.sendReminderRealtime(participant, reminder, triggerTime);
+                this.persistReminderNotification(reminder, participant.getAccount());
+                participant.setLastNotifiedAt(triggerTime);
+            } catch (Exception ex) {
+                log.error("Failed to notify participant {} for reminder {}: {}",
+                        participant.getAccount().getAccountId(), reminder.getReminderId(), ex.getMessage(), ex);
+            }
+        }
 
         reminder.setLastTriggeredAt(triggerTime);
         Instant nextTriggerTime = calculateNextTriggerTime(triggerTime, reminder.getRepeatType());
@@ -287,6 +237,16 @@ public class ReminderServiceImpl implements ReminderService {
 
         Notification saved = this.notificationService.createNotification(notification);
         this.notificationService.sendNotificationToUser(recipient, saved);
+    }
+
+    private Instant calculateNextTriggerTime(Instant currentTriggerTime, ReminderRepeatType repeatType) {
+        return switch (repeatType) {
+            case DAILY -> currentTriggerTime.plus(1, ChronoUnit.DAYS);
+            case WEEKLY -> currentTriggerTime.plus(7, ChronoUnit.DAYS);
+            case MONTHLY -> currentTriggerTime.plus(30, ChronoUnit.DAYS);
+            case YEARLY -> currentTriggerTime.plus(365, ChronoUnit.DAYS);
+            default -> null;
+        };
     }
 
     private ChatRoom validateChatRoomIfPresent(Account currentAccount, Long chatRoomId) throws InvalidException {
