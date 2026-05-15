@@ -2,6 +2,7 @@ package iuh.fit.goat.service;
 
 import iuh.fit.goat.dto.request.reminder.CreateReminderRequest;
 import iuh.fit.goat.dto.request.reminder.ReminderRsvpRequest;
+import iuh.fit.goat.dto.request.reminder.UpdateReminderRequest;
 import iuh.fit.goat.dto.response.reminder.ReminderResponse;
 import iuh.fit.goat.entity.Account;
 import iuh.fit.goat.entity.Reminder;
@@ -22,5 +23,7 @@ public interface ReminderService {
     List<ReminderResponse> getRemindersByChatRoom(Long chatRoomId, Account currentAccount, Pageable pageable) throws InvalidException;
 
     void processReminderDispatch(Reminder reminder);
+
+    ReminderResponse updateReminder(Account currentAccount, Long reminderId, UpdateReminderRequest request) throws InvalidException;
 }
 

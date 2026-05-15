@@ -32,7 +32,7 @@ public class ScheduledServiceImpl implements ScheduledService {
     private final JobRepository jobRepository;
 
     @Qualifier("reminderExecutor")
-    private final Executor executor;
+    private final Executor reminderExecutor;
 
     @Override
 //    @Scheduled(cron = "0 0 0 * * *")
@@ -103,7 +103,7 @@ public class ScheduledServiceImpl implements ScheduledService {
                                 log.error("Failed to dispatch reminder {}: {}", reminder.getReminderId(), ex.getMessage(), ex);
                             }
                         },
-                        executor
+                        reminderExecutor
                 ))
                 .toList();
 

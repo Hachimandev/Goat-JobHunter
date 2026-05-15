@@ -139,6 +139,13 @@ public class MessageUtil {
                         MessageEvent.REMINDER_CREATED, actorName, reminder.getTitle(), reminder.getReminderId());
             }
 
+            case REMINDER_UPDATED -> {
+                ReminderResponse reminder = (ReminderResponse) params[0];
+
+                yield String.format("(event:%s) %s đã cập nhật lịch hẹn: %s (Xem %s)",
+                        MessageEvent.REMINDER_UPDATED, actorName, reminder.getTitle(), reminder.getReminderId());
+            }
+
             case REMINDER_EXPIRED -> {
                 ReminderResponse reminder = (ReminderResponse) params[0];
 

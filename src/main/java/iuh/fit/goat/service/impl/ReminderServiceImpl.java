@@ -3,6 +3,7 @@ package iuh.fit.goat.service.impl;
 import iuh.fit.goat.common.MessageEvent;
 import iuh.fit.goat.dto.request.reminder.CreateReminderRequest;
 import iuh.fit.goat.dto.request.reminder.ReminderRsvpRequest;
+import iuh.fit.goat.dto.request.reminder.UpdateReminderRequest;
 import iuh.fit.goat.dto.response.reminder.ReminderParticipantResponse;
 import iuh.fit.goat.dto.response.reminder.ReminderRealtimeResponse;
 import iuh.fit.goat.dto.response.reminder.ReminderResponse;
@@ -96,7 +97,7 @@ public class ReminderServiceImpl implements ReminderService {
         }
 
         ChatRoom chatRoom = validateChatRoomIfPresent(currentAccount, chatRoomId);
-        List<Account> participants = resolveParticipants(currentAccount, chatRoom, request.getParticipantIds());
+        List<Account> participants = resolveParticipants(chatRoom);
 
         Reminder reminder = new Reminder();
         reminder.setTitle(request.getTitle());
@@ -174,6 +175,54 @@ public class ReminderServiceImpl implements ReminderService {
 
         this.messageService.createAndSendReminderMessage(
                 reminder.getChatRoom().getRoomId(), MessageEvent.REMINDER_DECLINED,
+                currentAccount, reminderResponse
+        );
+
+        return reminderResponse;
+    }
+
+    @Override
+    @Transactional
+    public ReminderResponse updateReminder(Account currentAccount, Long reminderId, UpdateReminderRequest request) throws InvalidException {
+        Reminder reminder = this.reminderRepository.findByReminderIdAndDeletedAtIsNull(reminderId)
+                .orElseThrow(() -> new InvalidException("Nhắc hẹn không tồn tại"));
+
+        boolean isCreator = Objects.equals(reminder.getCreator().getAccountId(), currentAccount.getAccountId());
+        if (!isCreator) throw new InvalidException("Chỉ người tạo mới có thể cập nhật nhắc hẹn");
+
+        Instant now = Instant.now();
+        if (request.getReminderTime() != null && !request.getReminderTime().isAfter(now)) {
+            throw new InvalidException("Thời gian nhắc phải ở tương lai");
+        }
+
+        if (request.getTitle() != null) reminder.setTitle(request.getTitle());
+        if (request.getContent() != null) reminder.setContent(request.getContent());
+        if (request.getReminderTime() != null) {
+            reminder.setReminderTime(request.getReminderTime());
+            reminder.setNextTriggerTime(request.getReminderTime());
+            reminder.setActive(true);
+        }
+        if (request.getRepeatType() != null) reminder.setRepeatType(request.getRepeatType());
+        if (request.getAllowResponse() != null) {
+            boolean allow = request.getAllowResponse();
+            reminder.setAllowResponse(allow);
+            if (!allow) {
+                List<ReminderParticipant> parts = this.reminderParticipantRepository
+                        .findByReminder_ReminderIdAndDeletedAtIsNull(reminderId);
+                for (ReminderParticipant p : parts) {
+                    p.setRsvpStatus(ReminderRsvpStatus.ACCEPTED);
+                }
+                this.reminderParticipantRepository.saveAll(parts);
+            }
+        }
+
+        this.reminderRepository.save(reminder);
+
+        ReminderResponse reminderResponse = this.toReminderResponse(reminder);
+
+        this.messageService.createAndSendReminderMessage(
+                reminder.getChatRoom().getRoomId(),
+                MessageEvent.REMINDER_UPDATED,
                 currentAccount, reminderResponse
         );
 
@@ -276,35 +325,13 @@ public class ReminderServiceImpl implements ReminderService {
         return chatRoom;
     }
 
-    private List<Account> resolveParticipants(Account currentAccount, ChatRoom chatRoom, List<Long> participantIds)
-            throws InvalidException
-    {
-        Set<Long> requestedIds = new LinkedHashSet<>();
-        if (participantIds != null) {
-            requestedIds.addAll(participantIds);
-        }
-        requestedIds.add(currentAccount.getAccountId());
+    private List<Account> resolveParticipants(ChatRoom chatRoom) {
+        Set<Long> chatMemberIds = chatRoom.getMembers().stream()
+                .filter(member -> member.getDeletedAt() == null)
+                .map(member -> member.getAccount().getAccountId())
+                .collect(Collectors.toSet());
 
-        List<Account> accounts = this.accountRepository.findAllByAccountIdInAndDeletedAtIsNull(new ArrayList<>(requestedIds));
-        if (accounts.size() != requestedIds.size()) {
-            throw new InvalidException("Danh sách người tham gia có tài khoản không tồn tại");
-        }
-
-        if (chatRoom != null) {
-            Set<Long> chatMemberIds = chatRoom.getMembers().stream()
-                    .filter(member -> member.getDeletedAt() == null)
-                    .map(member -> member.getAccount().getAccountId())
-                    .collect(Collectors.toSet());
-
-            boolean allInChatRoom = accounts.stream()
-                    .allMatch(account -> chatMemberIds.contains(account.getAccountId()));
-
-            if (!allInChatRoom) {
-                throw new InvalidException("Người tham gia phải thuộc cùng phòng chat");
-            }
-        }
-
-        return accounts;
+        return this.accountRepository.findAllByAccountIdInAndDeletedAtIsNull(new ArrayList<>(chatMemberIds));
     }
 
     private ReminderParticipant buildParticipant(
