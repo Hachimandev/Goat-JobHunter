@@ -1,10 +1,12 @@
 import { Ionicons } from "@expo/vector-icons";
+import { Picker } from "@react-native-picker/picker";
 import React from "react";
 import {
   ActionSheetIOS,
   ActivityIndicator,
   Alert,
   Image,
+  Modal,
   Platform,
   ScrollView,
   StyleSheet,
@@ -14,6 +16,8 @@ import {
   View,
 } from "react-native";
 
+import { TRANSLATE_LANGUAGE_OPTIONS } from "@/constants/constant";
+import { useTranslateMessageMutation } from "@/services/ai/conversationApi";
 import * as ImagePicker from "expo-image-picker";
 
 interface ChatInputProps {
@@ -57,6 +61,15 @@ export const ChatInput = ({
   onTypingChange,
   onTypingStop,
 }: ChatInputProps) => {
+  const [isTranslateModalOpen, setIsTranslateModalOpen] = React.useState(false);
+  const [selectedTargetLang, setSelectedTargetLang] =
+    React.useState("Vietnamese");
+  const [translatedText, setTranslatedText] = React.useState<string | null>(
+    null,
+  );
+  const [translateMessage, { isLoading: isTranslating }] =
+    useTranslateMessageMutation();
+
   const handleTextChange = (value: string) => {
     setText(value);
 
@@ -68,6 +81,45 @@ export const ChatInput = ({
   const handleSendPress = async () => {
     await onTypingStop?.();
     onSend();
+  };
+
+  const openTranslateModal = () => {
+    if (!text.trim()) {
+      Alert.alert("Thông báo", "Vui lòng nhập nội dung để dịch");
+      return;
+    }
+
+    setTranslatedText(null);
+    setIsTranslateModalOpen(true);
+  };
+
+  const handleTranslate = async () => {
+    const content = text.trim();
+    if (!content) {
+      Alert.alert("Thông báo", "Vui lòng nhập nội dung để dịch");
+      return;
+    }
+
+    try {
+      const response = await translateMessage({
+        content,
+        targetLang: selectedTargetLang,
+      }).unwrap();
+      const nextTranslatedText = response?.data?.translatedText;
+
+      if (!nextTranslatedText) {
+        Alert.alert("Lỗi", "Không thể dịch văn bản");
+        return;
+      }
+
+      setTranslatedText(nextTranslatedText);
+      handleTextChange(nextTranslatedText);
+    } catch (error: any) {
+      Alert.alert(
+        "Lỗi",
+        error?.data?.message || "Đã có lỗi xảy ra khi dịch nội dung",
+      );
+    }
   };
 
   const handleImageBtnPress = () => {
@@ -205,6 +257,14 @@ export const ChatInput = ({
           <Ionicons name="attach" size={28} color="#0084FF" />
         </TouchableOpacity>
 
+        <TouchableOpacity
+          onPress={openTranslateModal}
+          disabled={disabled || !text.trim()}
+          style={{ marginLeft: 10, opacity: text.trim() ? 1 : 0.45 }}
+        >
+          <Ionicons name="language-outline" size={25} color="#0084FF" />
+        </TouchableOpacity>
+
         <TextInput
           value={text}
           onChangeText={handleTextChange}
@@ -238,6 +298,69 @@ export const ChatInput = ({
           )}
         </TouchableOpacity>
       </View>
+
+      <Modal
+        visible={isTranslateModalOpen}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setIsTranslateModalOpen(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.translateModal}>
+            <View style={styles.translateHeader}>
+              <Text style={styles.translateTitle}>Dịch nội dung</Text>
+              <TouchableOpacity onPress={() => setIsTranslateModalOpen(false)}>
+                <Ionicons name="close" size={22} color="#111827" />
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.pickerBox}>
+              <Picker
+                selectedValue={selectedTargetLang}
+                onValueChange={(value) => setSelectedTargetLang(value)}
+              >
+                {TRANSLATE_LANGUAGE_OPTIONS.map((option) => (
+                  <Picker.Item
+                    key={option.value}
+                    label={option.label}
+                    value={option.value}
+                  />
+                ))}
+              </Picker>
+            </View>
+
+            <View style={styles.translateBlock}>
+              <Text style={styles.translateLabel}>Nội dung hiện tại</Text>
+              <Text style={styles.translateContent}>{text}</Text>
+            </View>
+
+            {translatedText && (
+              <View style={styles.translateBlock}>
+                <Text style={styles.translateLabel}>Bản dịch</Text>
+                <Text style={styles.translatedContent}>{translatedText}</Text>
+              </View>
+            )}
+
+            <TouchableOpacity
+              style={[
+                styles.translateButton,
+                isTranslating && { opacity: 0.65 },
+              ]}
+              onPress={handleTranslate}
+              disabled={isTranslating}
+            >
+              {isTranslating ? (
+                <ActivityIndicator size="small" color="#fff" />
+              ) : (
+                <>
+                  <Ionicons name="language-outline" size={18} color="#fff" />
+                  <Text style={styles.translateButtonText}>Dịch</Text>
+                </>
+              )}
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 };
@@ -317,4 +440,74 @@ const styles = StyleSheet.create({
   },
   fileNameText: { fontSize: 10, marginTop: 4, color: "#444" },
   removeFileBtn: { position: "absolute", top: -2, right: -2 },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.35)",
+    justifyContent: "center",
+    paddingHorizontal: 18,
+  },
+  translateModal: {
+    backgroundColor: "#fff",
+    borderRadius: 16,
+    padding: 16,
+    maxHeight: "82%",
+  },
+  translateHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 12,
+  },
+  translateTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#111827",
+  },
+  pickerBox: {
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+    borderRadius: 12,
+    overflow: "hidden",
+    marginBottom: 12,
+  },
+  translateBlock: {
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+    backgroundColor: "#F9FAFB",
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 12,
+  },
+  translateLabel: {
+    color: "#6B7280",
+    fontSize: 12,
+    fontWeight: "700",
+    marginBottom: 6,
+    textTransform: "uppercase",
+  },
+  translateContent: {
+    color: "#111827",
+    fontSize: 15,
+    lineHeight: 21,
+  },
+  translatedContent: {
+    color: "#0084FF",
+    fontSize: 15,
+    lineHeight: 21,
+    fontWeight: "600",
+  },
+  translateButton: {
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: "#0084FF",
+    alignItems: "center",
+    justifyContent: "center",
+    flexDirection: "row",
+    gap: 8,
+  },
+  translateButtonText: {
+    color: "#fff",
+    fontSize: 15,
+    fontWeight: "700",
+  },
 });

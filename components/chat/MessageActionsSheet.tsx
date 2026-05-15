@@ -15,6 +15,8 @@ interface MessageActionsSheetProps {
   onRevoke: () => void;
   onDelete: () => void;
   onCopy: () => void;
+  onTranslate?: () => void;
+  canTranslate?: boolean;
   isGroupDissolved?: boolean;
 }
 
@@ -32,6 +34,8 @@ export const MessageActionsSheet = forwardRef<
       onRevoke,
       onDelete,
       onCopy,
+      onTranslate,
+      canTranslate = false,
       isGroupDissolved,
     },
     ref,
@@ -40,8 +44,8 @@ export const MessageActionsSheet = forwardRef<
       if (isGroupDissolved) {
         return ["20%"];
       }
-      return ["38%"];
-    }, [isGroupDissolved]);
+      return canTranslate ? ["44%"] : ["38%"];
+    }, [canTranslate, isGroupDissolved]);
 
     const renderBackdrop = useCallback(
       (props: any) => (
@@ -65,6 +69,7 @@ export const MessageActionsSheet = forwardRef<
         ref={ref}
         index={-1}
         snapPoints={snapPoints}
+        backdropComponent={renderBackdrop}
         enablePanDownToClose
       >
         <BottomSheetView style={styles.sheetContainer}>
@@ -86,6 +91,13 @@ export const MessageActionsSheet = forwardRef<
                 <Ionicons name="arrow-redo-outline" size={22} color="#475569" />
                 <Text style={styles.sheetTextNormal}>Chuyển tiếp</Text>
               </TouchableOpacity>
+
+              {canTranslate && onTranslate && (
+                <TouchableOpacity style={styles.sheetItem} onPress={onTranslate}>
+                  <Ionicons name="language-outline" size={22} color="#475569" />
+                  <Text style={styles.sheetTextNormal}>Dịch tin nhắn</Text>
+                </TouchableOpacity>
+              )}
 
               {canPin && (
                 <TouchableOpacity style={styles.sheetItem} onPress={onPin}>
