@@ -81,6 +81,20 @@ export enum ChatRoomPrivacy {
   PRIVATE = "PRIVATE",
 }
 
+export enum ReminderRepeatType {
+  NONE = "NONE",
+  DAILY = "DAILY",
+  WEEKLY = "WEEKLY",
+  MONTHLY = "MONTHLY",
+  YEARLY = "YEARLY",
+}
+
+export enum ReminderRsvpStatus {
+  PENDING = "PENDING",
+  ACCEPTED = "ACCEPTED",
+  REJECTED = "REJECTED",
+}
+
 export enum MessageTypeEnum {
   TEXT = "TEXT",
   IMAGE = "IMAGE",

@@ -6,7 +6,6 @@ import {
   KeyboardAvoidingView,
   Modal,
   Platform,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Switch,
@@ -15,6 +14,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import DateTimePickerModal from "react-native-modal-datetime-picker";
 
 interface CreatePollModalProps {
@@ -40,6 +40,8 @@ export const CreatePollModal = ({
   const [isPinned, setIsPinned] = useState(false);
   const [isMultiple, setIsMultiple] = useState(false);
   const [canAddOption, setCanAddOption] = useState(true);
+
+  const insets = useSafeAreaInsets();
 
   const [createPoll, { isLoading }] = useCreatePollMutation();
 
@@ -91,7 +93,12 @@ export const CreatePollModal = ({
       animationType="slide"
       presentationStyle="fullScreen"
     >
-      <SafeAreaView style={styles.safeArea}>
+      <View
+        style={[
+          styles.safeArea,
+          { paddingTop: insets.top, paddingBottom: insets.bottom },
+        ]}
+      >
         <KeyboardAvoidingView
           behavior={Platform.OS === "ios" ? "padding" : "height"}
           style={{ flex: 1 }}
@@ -102,7 +109,10 @@ export const CreatePollModal = ({
               <Text style={styles.headerBtnTxt}>Hủy</Text>
             </TouchableOpacity>
             <Text style={styles.headerTitle}>Tạo bình chọn</Text>
-            <TouchableOpacity onPress={onSubmit} disabled={isLoading || disabled}>
+            <TouchableOpacity
+              onPress={onSubmit}
+              disabled={isLoading || disabled}
+            >
               <Text
                 style={[
                   styles.headerBtnTxt,
@@ -122,7 +132,8 @@ export const CreatePollModal = ({
             {disabled && (
               <View style={styles.disabledNotice}>
                 <Text style={styles.disabledNoticeText}>
-                  {disabledReason || "Bạn không có quyền tạo bình chọn trong nhóm này"}
+                  {disabledReason ||
+                    "Bạn không có quyền tạo bình chọn trong nhóm này"}
                 </Text>
               </View>
             )}
@@ -234,7 +245,7 @@ export const CreatePollModal = ({
           }}
           onCancel={() => setDatePickerVisibility(false)}
         />
-      </SafeAreaView>
+      </View>
     </Modal>
   );
 };

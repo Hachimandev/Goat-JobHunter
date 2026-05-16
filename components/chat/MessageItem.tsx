@@ -11,9 +11,19 @@ import {
   Text,
   TouchableOpacity,
   View,
+  Alert,
+  Animated,
 } from "react-native";
 import ImageView from "react-native-image-viewing";
 import { PollItem } from "./PollItem";
+import { ReminderCard } from "./ReminderCard";
+import { ReminderDetailModal } from "./ReminderDetailModal";
+import {
+  useGetRemindersByChatRoomQuery,
+  useRespondToReminderMutation,
+  useDeclineReminderMutation,
+} from "@/services/chatRoom/reminder/reminderApi";
+import { ReminderRsvpStatus } from "@/types/enum";
 import { MessageReactionPicker } from "./MessageReactionPicker";
 import { MessageReactionBar } from "./MessageReactionBar";
 import { useMessageReactionActions } from "../../hooks/useMessageReactionActions";
@@ -24,10 +34,14 @@ interface MessageItemProps {
   isMe: boolean;
   onLongPress: (item: any) => void;
   onNavigateToMessage?: (messageId: string) => void;
+  getReminderMessageId?: (reminderId: string) => string | null;
   isSending?: boolean;
   currentUser?: any;
   showPoll?: boolean;
+  showReminder?: boolean;
   isGroupChat?: boolean;
+  isHighlighted?: boolean;
+  getPollMessageId?: (pid: string) => string | null;
 }
 
 const isS3ImageUrl = (url: string) =>
@@ -53,15 +67,58 @@ const openUserProfile = (accountId?: number) => {
   });
 };
 
+const extractMessageEvent = (message: string) => {
+  const match = message.match(/\(event:(.*?)\)/i);
+  return match?.[1] || null;
+};
+
+const extractMessageId = (message: string) => {
+  const match = message.match(/\(Xem[: ]+([^)]+)\)/i);
+  return match?.[1]?.trim() || null;
+};
+
+const extractMessageContent = (message: string) =>
+  message
+    .replace(/\(event:.*?\)\s*/i, "")
+    .replace(/\s*\(Xem[: ]+.*?\)\s*/i, "")
+    .trim();
+
+const getReminderEventIcon = (event: string | null) => {
+  if (event?.includes("EXPIRED")) return "alarm-outline";
+  if (event?.includes("UPDATED")) return "create-outline";
+  return "time-outline";
+};
+
+const getRepeatTypeLabel = (repeatType?: string) => {
+  const labels: Record<string, string> = {
+    NONE: "Không lặp lại",
+    DAILY: "Hằng ngày",
+    WEEKLY: "Hằng tuần",
+    MONTHLY: "Hằng tháng",
+    YEARLY: "Hằng năm",
+  };
+  return repeatType ? labels[repeatType] || repeatType : undefined;
+};
+
+const extractPollId = (content?: string | null) => {
+  if (!content) return null;
+  const match = content.match(/poll_([a-z0-9]+)/);
+  return match ? match[0] : null;
+};
+
 export const MessageItem = ({
   item,
   isMe,
   onLongPress,
   onNavigateToMessage,
+  getReminderMessageId,
   isSending,
   currentUser,
   showPoll = false,
+  showReminder = false,
   isGroupChat = false,
+  isHighlighted,
+  getPollMessageId,
 }: MessageItemProps) => {
   const [visible, setIsVisible] = useState(false);
   const [imageIndex, setImageIndex] = useState(0);
@@ -76,7 +133,10 @@ export const MessageItem = ({
     await handleRemove(item.messageId, emoji);
 
   const isSystem = item.messageType === "SYSTEM";
+  const isReminder = String(item.messageType) === "REMINDER";
   const content = item.content || "";
+  const isReminderMessage =
+    isReminder || (isSystem && /REMINDER|nhắc hẹn/i.test(content));
   const isS3Image = isS3ImageUrl(content);
   const isS3Video = isS3VideoUrl(content);
   const isS3File = isS3FileUrl(content);
@@ -86,6 +146,34 @@ export const MessageItem = ({
     player.loop = false;
     player.muted = false;
   });
+
+  const fadeAnim = React.useRef(new Animated.Value(0)).current;
+
+  React.useEffect(() => {
+    if (isHighlighted) {
+      fadeAnim.setValue(0);
+      Animated.sequence([
+        Animated.timing(fadeAnim, {
+          toValue: 1,
+          duration: 400,
+          useNativeDriver: false,
+        }),
+        Animated.delay(1000),
+        Animated.timing(fadeAnim, {
+          toValue: 0,
+          duration: 600,
+          useNativeDriver: false,
+        }),
+      ]).start();
+    }
+  }, [isHighlighted, fadeAnim]);
+
+  const highlightStyle = {
+    backgroundColor: fadeAnim.interpolate({
+      inputRange: [0, 1],
+      outputRange: ["transparent", "rgba(0, 132, 255, 0.25)"],
+    }),
+  };
 
   const MAX_VISIBLE_MEDIA = 4;
 
@@ -115,6 +203,14 @@ export const MessageItem = ({
     return { icon: "information-circle", color: "#6B7280", bg: "#F3F4F6" };
   };
 
+  const extractReminderTitle = (content: string) => {
+    // Try to extract title after a colon, fallback to stripped system content
+    const stripped = extractSystemContent(content);
+    const idx = stripped.indexOf(":");
+    if (idx !== -1) return stripped.slice(idx + 1).trim();
+    return stripped;
+  };
+
   const isPoll = item.messageType === "POLL";
 
   const extractSystemContent = (content: string) => {
@@ -125,9 +221,66 @@ export const MessageItem = ({
   };
 
   const extractPinnedId = (content: string) => {
-    const match = content.match(/msg_([a-z0-9]+)/);
-    return match ? `msg_${match[1]}` : null;
+    // match msg_<id>
+    const msgMatch = content.match(/msg_([a-z0-9\-]+)/i);
+    if (msgMatch) return `msg_${msgMatch[1]}`;
+
+    // match (Xem 152) or (Xem: 152)
+    const xemMatch = content.match(/\(Xem[: ]*([0-9]+)\)/i);
+    if (xemMatch) return `msg_${xemMatch[1]}`;
+
+    return null;
   };
+
+  const chatRoomIdNum = Number(item.chatRoomId || 0);
+  const { data: remindersRes } = useGetRemindersByChatRoomQuery(
+    { chatRoomId: chatRoomIdNum },
+    { skip: !isReminderMessage || !chatRoomIdNum },
+  );
+  const [respondToReminder] = useRespondToReminderMutation();
+  const [declineReminder] = useDeclineReminderMutation();
+  const [showReminderModal, setShowReminderModal] = React.useState(false);
+
+  const reminderId = extractMessageId(content);
+  const reminderIdNum = reminderId ? Number(reminderId) : null;
+  const reminderData = reminderId
+    ? remindersRes?.data?.find(
+        (reminder: any) => String(reminder.reminderId) === String(reminderId),
+      )
+    : null;
+  const reminderEvent = extractMessageEvent(content);
+  const reminderDisplayText =
+    extractMessageContent(content) || "Có một sự kiện nhắc hẹn xảy ra";
+  const reminderTitle =
+    reminderData?.title || extractReminderTitle(content) || "Nhắc hẹn";
+  const reminderTime =
+    (reminderData as any)?.nextTriggerTime ||
+    reminderData?.reminderTime ||
+    item.createdAt;
+  const reminderExpired =
+    reminderEvent === "REMINDER_EXPIRED" ||
+    content.includes("REMINDER_EXPIRED") ||
+    (reminderTime ? new Date(reminderTime).getTime() <= Date.now() : false);
+  const reminderParticipants = Array.isArray(
+    (reminderData as any)?.participants,
+  )
+    ? (reminderData as any).participants
+    : [];
+  const acceptedCount =
+    (reminderData as any)?.acceptCount ??
+    reminderParticipants.filter(
+      (participant: any) => participant.status === ReminderRsvpStatus.ACCEPTED,
+    ).length;
+  const declinedCount =
+    (reminderData as any)?.declineCount ??
+    reminderParticipants.filter(
+      (participant: any) => participant.status === ReminderRsvpStatus.REJECTED,
+    ).length;
+  const userReminderStatus =
+    (reminderData as any)?.userRsvp ||
+    reminderParticipants.find(
+      (participant: any) => participant.accountId === currentUser?.accountId,
+    )?.status;
 
   const handleOpenImage = (index: number) => {
     setImageIndex(index);
@@ -174,7 +327,18 @@ export const MessageItem = ({
             <Text style={styles.pollEventText}>
               {extractSystemContent(item.content)}
             </Text>
-            <TouchableOpacity onPress={() => onLongPress(item)}>
+            <TouchableOpacity
+              onPress={() => {
+                const pid = extractPollId(item.content);
+                const targetMsgId = pid ? getPollMessageId?.(pid) : null;
+                if (targetMsgId) onNavigateToMessage?.(targetMsgId);
+                else
+                  Alert.alert(
+                    "Thông báo",
+                    "Không thể tìm thấy bình chọn liên quan.",
+                  );
+              }}
+            >
               <Text style={styles.viewLink}> Xem</Text>
             </TouchableOpacity>
           </View>
@@ -272,6 +436,118 @@ export const MessageItem = ({
     );
   };
 
+  const handleJoinReminder = async () => {
+    if (!reminderData || !reminderIdNum) {
+      return Alert.alert("Ghi chú", "Không tìm thấy lịch hẹn để tham gia");
+    }
+    try {
+      await respondToReminder({
+        chatRoomId: chatRoomIdNum,
+        reminderId: reminderData.reminderId,
+        status: ReminderRsvpStatus.ACCEPTED,
+      }).unwrap();
+    } catch (err: any) {
+      Alert.alert("Lỗi", err?.data?.message || "Không thể tham gia");
+    }
+  };
+
+  const handleDeclineReminder = async () => {
+    if (!reminderData || !reminderIdNum) {
+      return Alert.alert("Ghi chú", "Không tìm thấy lịch hẹn để từ chối");
+    }
+    try {
+      await respondToReminder({
+        chatRoomId: chatRoomIdNum,
+        reminderId: reminderData.reminderId,
+        status: ReminderRsvpStatus.REJECTED,
+      }).unwrap();
+    } catch (err: any) {
+      Alert.alert("Lỗi", err?.data?.message || "Không thể từ chối");
+    }
+  };
+
+  const handleChangeRsvp = () => {
+    Alert.alert("Xác nhận tham gia", "", [
+      { text: "Đóng", style: "cancel" },
+      { text: "Tham gia", onPress: handleJoinReminder },
+      { text: "Từ chối", onPress: handleDeclineReminder },
+    ]);
+  };
+
+  if (isReminderMessage) {
+    const timeAgo = formatDistanceToNow(new Date(item.createdAt), {
+      locale: vi,
+    }).replace("khoảng ", "");
+    const shouldShowReminderCard =
+      Boolean(reminderData) && (showReminder || !isReminder);
+
+    return (
+      <View style={styles.systemMessageContainer}>
+        <Animated.View style={[{ borderRadius: 18 }, highlightStyle]}>
+          <View style={styles.reminderEventRow}>
+            <Ionicons
+              name={getReminderEventIcon(reminderEvent) as any}
+              size={14}
+              color="#0F766E"
+              style={{ marginRight: 6 }}
+            />
+            <Text style={styles.reminderEventText} numberOfLines={2}>
+              {reminderDisplayText}
+            </Text>
+            <TouchableOpacity
+              onPress={() => {
+                const rid = reminderId;
+                const targetMsgId = rid ? getReminderMessageId?.(rid) : null;
+                const pinned = extractPinnedId(content);
+                if (targetMsgId) onNavigateToMessage?.(targetMsgId);
+                else if (pinned) onNavigateToMessage?.(pinned);
+                else
+                  Alert.alert(
+                    "Thông báo",
+                    "Không thể tìm thấy tin nhắn liên quan.",
+                  );
+              }}
+            >
+              <Text style={styles.reminderViewLink}> Xem</Text>
+            </TouchableOpacity>
+            <Text style={styles.systemTimeText}> • {timeAgo}</Text>
+          </View>
+        </Animated.View>
+
+        {shouldShowReminderCard && (
+          <View style={styles.reminderCardWrap}>
+            <Animated.View
+              style={[{ width: "100%", borderRadius: 10 }, highlightStyle]}
+            >
+              <ReminderCard
+                title={reminderTitle}
+                createdAt={reminderTime}
+                expired={reminderExpired}
+                content={reminderData?.content}
+                repeatLabel={getRepeatTypeLabel(reminderData?.repeatType)}
+                allowResponse={reminderData?.allowResponse !== false}
+                acceptedCount={acceptedCount}
+                declinedCount={declinedCount}
+                userStatus={userReminderStatus}
+                onView={() => setShowReminderModal(true)}
+                onJoin={handleJoinReminder}
+                onDecline={handleDeclineReminder}
+                onChangeRsvp={handleChangeRsvp}
+              />
+            </Animated.View>
+          </View>
+        )}
+
+        <ReminderDetailModal
+          visible={showReminderModal}
+          onClose={() => setShowReminderModal(false)}
+          chatRoomId={chatRoomIdNum}
+          reminderId={reminderIdNum}
+        />
+      </View>
+    );
+  }
+
   const renderReplyHeaderLabel = () => {
     if (!item.replyContext || isRevoked) return null;
     return (
@@ -315,29 +591,33 @@ export const MessageItem = ({
 
     return (
       <View style={styles.systemMessageContainer}>
-        <View style={[styles.systemMessageRow, { backgroundColor: config.bg }]}>
-          <Ionicons
-            name={config.icon as any}
-            size={14}
-            color={config.color}
-            style={{ marginRight: 6 }}
-          />
-          <Text style={styles.systemMessageText} numberOfLines={2}>
-            <Text style={{ color: "#374151", fontWeight: "500" }}>
-              {displayBody}
-            </Text>
-            {pinnedMsgId && (
-              <Text
-                style={styles.viewPinnedBtn}
-                onPress={() => onNavigateToMessage?.(pinnedMsgId)}
-              >
-                {" "}
-                Xem
+        <Animated.View style={[{ borderRadius: 20 }, highlightStyle]}>
+          <View
+            style={[styles.systemMessageRow, { backgroundColor: config.bg }]}
+          >
+            <Ionicons
+              name={config.icon as any}
+              size={14}
+              color={config.color}
+              style={{ marginRight: 6 }}
+            />
+            <Text style={styles.systemMessageText} numberOfLines={2}>
+              <Text style={{ color: "#374151", fontWeight: "500" }}>
+                {displayBody}
               </Text>
-            )}
-            <Text style={styles.systemTimeText}> • {timeAgo}</Text>
-          </Text>
-        </View>
+              {pinnedMsgId && (
+                <Text
+                  style={styles.viewPinnedBtn}
+                  onPress={() => onNavigateToMessage?.(pinnedMsgId)}
+                >
+                  {" "}
+                  Xem
+                </Text>
+              )}
+              <Text style={styles.systemTimeText}> • {timeAgo}</Text>
+            </Text>
+          </View>
+        </Animated.View>
       </View>
     );
   }
@@ -373,57 +653,62 @@ export const MessageItem = ({
           </TouchableOpacity>
         )}
 
-        <TouchableOpacity
-          onLongPress={() => onLongPress(item)}
-          onPress={() => {
-            if (!isRevoked && !isPoll) {
-              setShowReactionPicker(true);
-            }
-          }}
-          activeOpacity={0.8}
-          style={{ maxWidth: "85%" }}
-          disabled={isRevoked || isPoll}
+        <Animated.View
+          style={[{ maxWidth: "85%", borderRadius: 20 }, highlightStyle]}
         >
-          {renderForwardLabel()}
-          {renderReplyHeaderLabel()}
+          <TouchableOpacity
+            onLongPress={() => onLongPress(item)}
+            onPress={() => {
+              if (!isRevoked && !isPoll) {
+                setShowReactionPicker(true);
+              }
+            }}
+            activeOpacity={0.8}
+            disabled={isRevoked || isPoll}
+          >
+            {renderForwardLabel()}
+            {renderReplyHeaderLabel()}
 
-          <View style={styles.bubbleContainer}>
-            {/* KHỐI TRÍCH DẪN REPLY */}
-            {item.replyContext && !isRevoked && (
-              <TouchableOpacity
-                activeOpacity={0.7}
-                onPress={() =>
-                  onNavigateToMessage?.(item.replyContext!.originalMessageId)
-                }
+            <View style={styles.bubbleContainer}>
+              {/* KHỐI TRÍCH DẪN REPLY */}
+              {item.replyContext && !isRevoked && (
+                <TouchableOpacity
+                  activeOpacity={0.7}
+                  onPress={() =>
+                    onNavigateToMessage?.(item.replyContext!.originalMessageId)
+                  }
+                  style={[
+                    styles.replyQuoteBox,
+                    isMe ? styles.myReplyQuote : styles.otherReplyQuote,
+                  ]}
+                >
+                  <Text numberOfLines={1} style={styles.replyQuoteText}>
+                    {item.replyContext.contentPreview || "Tin nhắn..."}
+                  </Text>
+                </TouchableOpacity>
+              )}
+
+              {/* BONG BÓNG NỘI DUNG CHÍNH */}
+              <View
                 style={[
-                  styles.replyQuoteBox,
-                  isMe ? styles.myReplyQuote : styles.otherReplyQuote,
+                  item.mediaItems?.length || isS3Image || isS3Video || isPoll
+                    ? styles.mediaContainer
+                    : [
+                        styles.bubble,
+                        isMe ? styles.myBubble : styles.otherBubble,
+                      ],
+                  isRevoked && styles.revokedBubble,
+                  item.replyContext && !isRevoked
+                    ? styles.bubbleWithReply
+                    : null,
+                  isSending && { opacity: 0.7 },
                 ]}
               >
-                <Text numberOfLines={1} style={styles.replyQuoteText}>
-                  {item.replyContext.contentPreview || "Tin nhắn..."}
-                </Text>
-              </TouchableOpacity>
-            )}
-
-            {/* BONG BÓNG NỘI DUNG CHÍNH */}
-            <View
-              style={[
-                item.mediaItems?.length || isS3Image || isS3Video || isPoll
-                  ? styles.mediaContainer
-                  : [
-                      styles.bubble,
-                      isMe ? styles.myBubble : styles.otherBubble,
-                    ],
-                isRevoked && styles.revokedBubble,
-                item.replyContext && !isRevoked ? styles.bubbleWithReply : null,
-                isSending && { opacity: 0.7 },
-              ]}
-            >
-              {renderMainContent()}
+                {renderMainContent()}
+              </View>
             </View>
-          </View>
-        </TouchableOpacity>
+          </TouchableOpacity>
+        </Animated.View>
       </View>
 
       <View style={{ marginTop: 4, marginLeft: isMe ? 0 : 30 }}>
@@ -583,6 +868,34 @@ const styles = StyleSheet.create({
   systemMessageText: { fontSize: 12, textAlign: "center", flexShrink: 1 },
   viewPinnedBtn: { color: "#059669", fontWeight: "bold" },
   systemTimeText: { color: "#9CA3AF", fontSize: 11 },
+  reminderEventRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 18,
+    maxWidth: "95%",
+    backgroundColor: "#ECFDF5",
+    borderWidth: 1,
+    borderColor: "#CCFBF1",
+  },
+  reminderEventText: {
+    color: "#374151",
+    fontSize: 12,
+    fontWeight: "600",
+    flexShrink: 1,
+  },
+  reminderViewLink: {
+    color: "#0F766E",
+    fontSize: 12,
+    fontWeight: "800",
+  },
+  reminderCardWrap: {
+    width: "100%",
+    alignItems: "center",
+    marginTop: 8,
+  },
 
   pollWrapper: { width: "100%", alignItems: "center", marginVertical: 10 },
   pollEventContainer: {
