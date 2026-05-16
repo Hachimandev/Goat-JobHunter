@@ -140,8 +140,7 @@ export default function ChatDetailScreen() {
   const [isInvitePanelOpen, setIsInvitePanelOpen] = useState(false);
   const [isBannerDismissed, setIsBannerDismissed] = useState(false);
   const [isTranslateModalOpen, setIsTranslateModalOpen] = useState(false);
-  const [selectedTargetLang, setSelectedTargetLang] =
-    useState("Vietnamese");
+  const [selectedTargetLang, setSelectedTargetLang] = useState("Vietnamese");
   const [translatedMessageText, setTranslatedMessageText] = useState<
     string | null
   >(null);
@@ -149,6 +148,10 @@ export default function ChatDetailScreen() {
     useTranslateMessageMutation();
 
   const flatListRef = useRef<FlatList>(null);
+
+  const [highlightedMessageId, setHighlightedMessageId] = useState<
+    string | null
+  >(null);
 
   const handleNavigateToMessage = (messageId: string) => {
     const currentMessages = Array.isArray(messagesData?.data?.result)
@@ -165,6 +168,8 @@ export default function ChatDetailScreen() {
         animated: true,
         viewPosition: 0.5,
       });
+      setHighlightedMessageId(messageId);
+      setTimeout(() => setHighlightedMessageId(null), 2000);
     } else {
       Alert.alert(
         "Thông báo",
@@ -207,7 +212,9 @@ export default function ChatDetailScreen() {
     skip: !chatRoomId || !isGroupChat,
   });
   const members = membersData?.data || [];
-  const currentUserRole = members.find((m) => m.accountId === user?.accountId)?.role;
+  const currentUserRole = members.find(
+    (m) => m.accountId === user?.accountId,
+  )?.role;
   const canManagePins =
     !isGroupChat ||
     currentUserRole !== "MEMBER" ||
@@ -225,11 +232,8 @@ export default function ChatDetailScreen() {
     currentUserRole,
     groupPermissions,
   });
-  const {
-    typingParticipants,
-    markTyping,
-    stopTyping,
-  } = useChatRoomTypingIndicator(chatRoomId, user?.accountId);
+  const { typingParticipants, markTyping, stopTyping } =
+    useChatRoomTypingIndicator(chatRoomId, user?.accountId);
 
   useEffect(() => {
     setActiveChatRoom(chatRoomId);
@@ -248,7 +252,9 @@ export default function ChatDetailScreen() {
   );
 
   const messagesList = useMemo(() => {
-    return Array.isArray(messagesData?.data?.result) ? messagesData.data.result : [];
+    return Array.isArray(messagesData?.data?.result)
+      ? messagesData.data.result
+      : [];
   }, [messagesData]);
 
   const onSend = async () => {
@@ -325,9 +331,9 @@ export default function ChatDetailScreen() {
 
   const canTranslateSelectedMessage = Boolean(
     selectedMessage?.content?.trim() &&
-      selectedMessage?.messageType !== "SYSTEM" &&
-      selectedMessage?.messageType !== "POLL" &&
-      !selectedMessage?.isHidden,
+    selectedMessage?.messageType !== "SYSTEM" &&
+    selectedMessage?.messageType !== "POLL" &&
+    !selectedMessage?.isHidden,
   );
 
   const openTranslateMessageModal = () => {
@@ -371,9 +377,15 @@ export default function ChatDetailScreen() {
   const [selectedPoll, setSelectedPoll] = useState<any>(null);
   const [isVoteModalOpen, setIsVoteModalOpen] = useState(false);
 
-  const extractPollId = (content: string) => {
+  const extractPollId = (content?: string | null) => {
+    if (!content) return null;
     const match = content.match(/poll_([a-z0-9]+)/);
     return match ? match[0] : null;
+  };
+  const extractReminderId = (content?: string | null) => {
+    if (!content) return null;
+    const match = content.match(/\(Xem[: ]+([^)]+)\)/i);
+    return match?.[1]?.trim() || null;
   };
   const latestPollMessageIdByPollId = useMemo(() => {
     const map: Record<string, any> = {};
@@ -386,6 +398,24 @@ export default function ChatDetailScreen() {
       const prev = map[pid];
       if (!prev) map[pid] = m;
       else if (new Date(m.createdAt) > new Date(prev.createdAt)) map[pid] = m;
+    }
+    const result: Record<string, string> = {};
+    for (const k of Object.keys(map)) result[k] = map[k].messageId;
+    return result;
+  }, [messagesList]);
+  const latestReminderMessageIdByReminderId = useMemo(() => {
+    const map: Record<string, any> = {};
+    for (const m of messagesList) {
+      if (String(m.messageType) !== "REMINDER") continue;
+
+      const reminderId = extractReminderId(m.content);
+      if (!reminderId) continue;
+
+      const prev = map[reminderId];
+      if (!prev) map[reminderId] = m;
+      else if (new Date(m.createdAt) > new Date(prev.createdAt)) {
+        map[reminderId] = m;
+      }
     }
     const result: Record<string, string> = {};
     for (const k of Object.keys(map)) result[k] = map[k].messageId;
@@ -608,8 +638,21 @@ export default function ChatDetailScreen() {
                   extractPollId(item.content) || ""
                 ] === item.messageId
               }
+              showReminder={
+                String(item.messageType) === "REMINDER" &&
+                latestReminderMessageIdByReminderId[
+                  extractReminderId(item.content) || ""
+                ] === item.messageId
+              }
               onNavigateToMessage={handleNavigateToMessage}
+              getReminderMessageId={(rid: string) =>
+                latestReminderMessageIdByReminderId[rid] || null
+              }
+              getPollMessageId={(pid: string) =>
+                latestPollMessageIdByPollId[pid] || null
+              }
               isGroupChat={chatRoomData?.data?.type === "GROUP"}
+              isHighlighted={highlightedMessageId === item.messageId}
             />
           )}
           onScrollToIndexFailed={(info) => {

@@ -43,9 +43,9 @@ export type UserResponse = {
   };
   createdAt: string;
   updatedAt: string;
-  dateOfBirth?: string;
-  applicant?: ApplicantResponse;
-  recruiter?: RecruiterResponse;
+  // dateOfBirth?: string;
+  // applicant?: ApplicantResponse;
+  // recruiter?: RecruiterResponse;
 };
 
 export type RecruiterResponse = UserResponse & {
@@ -60,8 +60,8 @@ export type ApplicantResponse = UserResponse & {
   availableStatus: boolean;
   education: Education;
   level: Level;
-  experience?: number;
-  skills?: Skill[];
+  // experience?: number;
+  // skills?: Skill[];
 };
 
 export type FetchCurrentApplicantDto = {

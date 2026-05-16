@@ -3,6 +3,8 @@ import {
   ChatRoomPrivacy,
   CompanySize,
   Level,
+  ReminderRepeatType,
+  ReminderRsvpStatus,
   WorkingType,
 } from "./enum";
 
@@ -231,7 +233,13 @@ export type MessageType = {
   reactions?: {
     emoji: string;
     count: number;
-    users: { accountId: number; fullName: string; username: string; avatar: string; reactedAt: string }[];
+    users: {
+      accountId: number;
+      fullName: string;
+      username: string;
+      avatar: string;
+      reactedAt: string;
+    }[];
   }[];
 };
 
@@ -321,6 +329,19 @@ export type Poll = {
   expiresAt?: string | null;
   createdAt: string;
   updatedAt: string;
+};
+
+export type Reminder = {
+  reminderId: number;
+  title: string;
+  content: string;
+  reminderTime: string;
+  repeatType: ReminderRepeatType;
+  allowResponse: boolean;
+  createdAt: string;
+  createdBy: string;
+  updatedAt: string;
+  updatedBy: string;
 };
 
 export type PollVote = {
