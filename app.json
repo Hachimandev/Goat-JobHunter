@@ -24,7 +24,9 @@
         "applinks:www.goat-jobhunter.click"
       ],
       "infoPlist": {
-        "LSApplicationQueriesSchemes": ["goatjobhunter"],
+        "LSApplicationQueriesSchemes": [
+          "goatjobhunter"
+        ],
         "NSCameraUsageDescription": "Ứng dụng cần quyền camera để tham gia cuộc gọi video.",
         "NSMicrophoneUsageDescription": "Ứng dụng cần quyền micro để tham gia cuộc gọi thoại và video."
       }
@@ -56,7 +58,10 @@
               "pathPrefix": "/invite"
             }
           ],
-          "category": ["BROWSABLE", "DEFAULT"]
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ]
         }
       ]
     },
@@ -77,10 +82,17 @@
       ],
       "@react-native-community/datetimepicker",
       "expo-video",
-      "expo-camera"
+      "expo-camera",
+      "expo-web-browser"
     ],
     "experiments": {
       "typedRoutes": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "e30b756a-65e8-4f40-9744-6c1057814806"
+      }
     }
   }
 }
