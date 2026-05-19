@@ -34,6 +34,7 @@ public class MessageResponse {
     private String originalMessageId;
     private Instant createdAt;
     private Instant updatedAt;
+    private List<ReactionGroupResponse> reactions;
 
     @Getter
     @Setter
@@ -89,5 +90,29 @@ public class MessageResponse {
         private Instant endedAt;
         private Long durationSeconds;
         private ChatCallEndReason endReason;
+    }
+
+    @Getter
+    @Setter
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @Builder
+    public static class ReactionGroupResponse {
+        private String emoji;
+        private int count;
+        private List<UserReactionInfo> users;
+    }
+
+    @Getter
+    @Setter
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @Builder
+    public static class UserReactionInfo {
+        private Long accountId;
+        private String fullName;
+        private String username;
+        private String avatar;
+        private Instant reactedAt;
     }
 }

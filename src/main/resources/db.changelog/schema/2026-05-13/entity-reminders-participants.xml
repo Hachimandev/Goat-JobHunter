@@ -1,0 +1,125 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+                      http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-5.0.xsd"
+        objectQuotingStrategy="QUOTE_ONLY_RESERVED_WORDS">
+    <changeSet id="1778683252895-4" author="minhdat">
+        <createSequence incrementBy="50" sequenceName="reminder_participants_seq" startValue="1"/>
+    </changeSet>
+    <changeSet id="1778683252895-5" author="minhdat">
+        <createSequence incrementBy="50" sequenceName="reminders_seq" startValue="1"/>
+    </changeSet>
+    <changeSet id="1778683252895-6" author="minhdat">
+        <createTable tableName="reminder_participants">
+            <column name="participant_id" type="BIGINT">
+                <constraints nullable="false" primaryKey="true" primaryKeyName="pk_reminder_participants"/>
+            </column>
+            <column name="created_at" type="DATETIME"/>
+            <column name="created_by" type="VARCHAR(255)"/>
+            <column name="updated_at" type="DATETIME"/>
+            <column name="updated_by" type="VARCHAR(255)"/>
+            <column name="deleted_at" type="DATETIME"/>
+            <column name="deleted_by" type="VARCHAR(255)"/>
+            <column name="last_notified_at" type="DATETIME"/>
+            <column name="rsvp_status" type="VARCHAR(255)"/>
+            <column name="reminder_id" type="BIGINT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="account_id" type="BIGINT">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+    </changeSet>
+    <changeSet id="1778683252895-7" author="minhdat">
+        <createTable tableName="reminders">
+            <column name="reminder_id" type="BIGINT">
+                <constraints nullable="false" primaryKey="true" primaryKeyName="pk_reminders"/>
+            </column>
+            <column name="created_at" type="DATETIME"/>
+            <column name="created_by" type="VARCHAR(255)"/>
+            <column name="updated_at" type="DATETIME"/>
+            <column name="updated_by" type="VARCHAR(255)"/>
+            <column name="deleted_at" type="DATETIME"/>
+            <column name="deleted_by" type="VARCHAR(255)"/>
+            <column name="title" type="VARCHAR(255)"/>
+            <column name="content" type="VARCHAR(255)"/>
+            <column name="reminder_time" type="DATETIME"/>
+            <column name="next_trigger_time" type="DATETIME"/>
+            <column name="last_triggered_at" type="DATETIME"/>
+            <column name="allow_response" type="BOOLEAN">
+                <constraints nullable="false"/>
+            </column>
+            <column name="active" type="BOOLEAN">
+                <constraints nullable="false"/>
+            </column>
+            <column name="repeat_type" type="VARCHAR(32)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="creator_id" type="BIGINT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="chat_room_id" type="BIGINT"/>
+        </createTable>
+    </changeSet>
+    <changeSet id="1778683252895-8" author="minhdat">
+        <addUniqueConstraint columnNames="reminder_id, account_id" constraintName="uq_reminder_participant"
+                             tableName="reminder_participants"/>
+    </changeSet>
+    <changeSet id="1778683252895-9" author="minhdat">
+        <createIndex indexName="idx_reminder_participants_account_deleted" tableName="reminder_participants">
+            <column name="account_id"/>
+            <column name="deleted_at"/>
+        </createIndex>
+    </changeSet>
+    <changeSet id="1778683252895-10" author="minhdat">
+        <createIndex indexName="idx_reminder_participants_reminder_deleted" tableName="reminder_participants">
+            <column name="reminder_id"/>
+            <column name="deleted_at"/>
+        </createIndex>
+    </changeSet>
+    <changeSet id="1778683252895-11" author="minhdat">
+        <createIndex indexName="idx_reminders_chat_room_deleted" tableName="reminders">
+            <column name="chat_room_id"/>
+            <column name="deleted_at"/>
+        </createIndex>
+    </changeSet>
+    <changeSet id="1778683252895-12" author="minhdat">
+        <createIndex indexName="idx_reminders_creator_deleted" tableName="reminders">
+            <column name="creator_id"/>
+            <column name="deleted_at"/>
+        </createIndex>
+    </changeSet>
+    <changeSet id="1778683252895-13" author="minhdat">
+        <createIndex indexName="idx_reminders_next_trigger_active" tableName="reminders">
+            <column name="next_trigger_time"/>
+            <column name="active"/>
+            <column name="deleted_at"/>
+        </createIndex>
+    </changeSet>
+    <changeSet id="1778683252895-14" author="minhdat">
+        <addForeignKeyConstraint baseColumnNames="chat_room_id" baseTableName="reminders"
+                                 constraintName="FK_REMINDERS_ON_CHAT_ROOM" referencedColumnNames="room_id"
+                                 referencedTableName="chat_rooms"/>
+    </changeSet>
+    <changeSet id="1778683252895-15" author="minhdat">
+        <addForeignKeyConstraint baseColumnNames="creator_id" baseTableName="reminders"
+                                 constraintName="FK_REMINDERS_ON_CREATOR" referencedColumnNames="account_id"
+                                 referencedTableName="accounts"/>
+    </changeSet>
+    <changeSet id="1778683252895-16" author="minhdat">
+        <addForeignKeyConstraint baseColumnNames="account_id" baseTableName="reminder_participants"
+                                 constraintName="FK_REMINDER_PARTICIPANTS_ON_ACCOUNT" referencedColumnNames="account_id"
+                                 referencedTableName="accounts"/>
+    </changeSet>
+    <changeSet id="1778683252895-17" author="minhdat">
+        <addForeignKeyConstraint baseColumnNames="reminder_id" baseTableName="reminder_participants"
+                                 constraintName="FK_REMINDER_PARTICIPANTS_ON_REMINDER"
+                                 referencedColumnNames="reminder_id" referencedTableName="reminders"/>
+    </changeSet>
+    <changeSet id="1778683252895-1" author="minhdat">
+        <modifyDataType columnName="status" newDataType="VARCHAR(255)" tableName="chat_room_join_requests"/>
+    </changeSet>
+
+</databaseChangeLog>

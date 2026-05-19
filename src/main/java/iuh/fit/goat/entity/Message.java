@@ -9,6 +9,7 @@ import software.amazon.awssdk.enhanced.dynamodb.mapper.annotations.*;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 
 @DynamoDbBean
 @Data
@@ -38,6 +39,7 @@ public class Message {
     private String originalMessageId;
     private Instant createdAt;
     private Instant updatedAt;
+    private Map<String, List<UserReaction>> reactions;
 
     @DynamoDbSortKey
     @DynamoDbAttribute("messageSk")
@@ -115,6 +117,16 @@ public class Message {
     @DynamoDbAttribute("updatedAt")
     public Instant getUpdatedAt() {
         return updatedAt;
+    }
+
+    @DynamoDbAttribute("reactions")
+    public Map<String, List<UserReaction>> getReactions() {
+        return reactions;
+    }
+
+    @DynamoDbAttribute("reactions")
+    public void setReactions(Map<String, List<UserReaction>> reactions) {
+        this.reactions = reactions;
     }
 
     public static String buildMessageSk(Long timestamp, String messageId) {

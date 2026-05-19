@@ -8,6 +8,7 @@ import iuh.fit.goat.dto.response.message.MessageDeletedEventResponse;
 import iuh.fit.goat.dto.response.message.MessageTranslationResponse;
 import iuh.fit.goat.dto.response.ResultPaginationResponse;
 import iuh.fit.goat.dto.response.poll.PollResponse;
+import iuh.fit.goat.dto.response.reminder.ReminderResponse;
 import iuh.fit.goat.entity.Account;
 import iuh.fit.goat.entity.ChatCallSession;
 import iuh.fit.goat.entity.Message;
@@ -68,4 +69,6 @@ public interface MessageService {
 
     MessageTranslationResponse translateMessage(String content, String targetLang)
             throws InvalidException;
+
+    void createAndSendReminderMessage(Long chatRoomId, MessageEvent type, Account actor, ReminderResponse reminder);
 }

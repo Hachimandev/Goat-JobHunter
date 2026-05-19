@@ -26,7 +26,9 @@ public enum SoftDeleteFilter {
     RESUMEEVALUATION("activeResumeEvaluationFilter"),
     DEVICE("activeDeviceFilter"),
     TAG("activeTagFilter"),
-    CHAT_ROOM_TAG_ASSIGNMENT("activeChatRoomTagAssignmentFilter");
+    CHAT_ROOM_TAG_ASSIGNMENT("activeChatRoomTagAssignmentFilter"),
+    REMINDER("activeReminderFilter"),
+    REMINDER_PARTICIPANT("activeReminderParticipantFilter");
 
     private final String value;
 

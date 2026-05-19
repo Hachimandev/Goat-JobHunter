@@ -30,7 +30,7 @@ import static jakarta.persistence.FetchType.LAZY;
         "role", "addresses", "actorNotifications", "recipientNotifications",
         "savedJobs", "savedBlogs", "followedCompanies", "blogs", "comments",
         "blogReactions", "commentReactions", "reportedTickets", "assignedTickets",
-        "memberships", "devices", "tags", "chatRoomTagAssignments"
+        "memberships", "devices", "tags", "chatRoomTagAssignments", "reminders", "participants"
 })
 @FilterDef(name = "activeAccountFilter")
 public abstract class Account extends BaseEntity {
@@ -183,6 +183,22 @@ public abstract class Account extends BaseEntity {
             condition = "deleted_at IS NULL"
     )
     private List<ChatRoomTagAssignment> chatRoomTagAssignments = new ArrayList<>();
+
+    @OneToMany(mappedBy = "creator", fetch = LAZY, cascade = {PERSIST, MERGE, REMOVE})
+    @JsonIgnore
+    @Filter(
+            name = "activeReminderFilter",
+            condition = "deleted_at IS NULL"
+    )
+    private List<Reminder> reminders = new ArrayList<>();
+
+    @OneToMany(mappedBy = "account", fetch = LAZY, cascade = {PERSIST, MERGE, REMOVE})
+    @JsonIgnore
+    @Filter(
+            name = "activeReminderParticipantFilter",
+            condition = "deleted_at IS NULL"
+    )
+    private List<ReminderParticipant> participants = new ArrayList<>();
 
     public void addAddress(Address address) {
         this.addresses.add(address);

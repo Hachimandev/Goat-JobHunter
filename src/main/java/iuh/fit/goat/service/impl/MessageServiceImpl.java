@@ -12,6 +12,7 @@ import iuh.fit.goat.dto.response.message.MessageTranslationResponse;
 import iuh.fit.goat.dto.response.ResultPaginationResponse;
 import iuh.fit.goat.dto.response.StorageResponse;
 import iuh.fit.goat.dto.response.poll.PollResponse;
+import iuh.fit.goat.dto.response.reminder.ReminderResponse;
 import iuh.fit.goat.entity.Account;
 import iuh.fit.goat.entity.ChatCallSession;
 import iuh.fit.goat.entity.ChatMember;
@@ -797,5 +798,33 @@ public class MessageServiceImpl implements MessageService {
                 .translatedText(translatedText)
                 .targetLang(targetLang != null ? targetLang.trim() : null)
                 .build();
+    }
+
+    @Override
+    public void createAndSendReminderMessage(Long chatRoomId, MessageEvent type, Account actor, ReminderResponse reminder) {
+        String content = MessageUtil.generateSystemMessage(type, actor, reminder);
+        Instant now = Instant.now();
+        long timestamp = now.toEpochMilli();
+
+        String messageId = this.messageHelper.generateMessageId();
+        String messageSk = Message.buildMessageSk(timestamp, messageId);
+        SenderInfo senderInfo = this.messageHelper.buildSenderInfo(actor);
+
+        Message message = Message.builder()
+                .messageId(messageId)
+                .messageSk(messageSk)
+                .chatRoomId(chatRoomId.toString())
+                .sender(senderInfo)
+                .content(content)
+                .messageType(MessageType.REMINDER)
+                .isHidden(false)
+                .isForwarded(false)
+                .originalMessageId(null)
+                .createdAt(Instant.now())
+                .updatedAt(Instant.now())
+                .build();
+        Message savedMessage = messageRepository.saveMessage(message);
+
+        this.messageHelper.sendMessageToUsers(chatRoomId, savedMessage);
     }
 }

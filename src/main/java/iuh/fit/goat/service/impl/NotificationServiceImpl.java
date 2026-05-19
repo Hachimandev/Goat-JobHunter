@@ -9,6 +9,7 @@ import iuh.fit.goat.entity.*;
 import iuh.fit.goat.repository.*;
 import iuh.fit.goat.service.NotificationService;
 import iuh.fit.goat.service.RedisService;
+import iuh.fit.goat.util.EntityUtil;
 import iuh.fit.goat.util.SecurityUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -289,9 +290,9 @@ public class NotificationServiceImpl implements NotificationService {
 
         NotificationResponse.UserNotification actor = new NotificationResponse.UserNotification(
                 notification.getLastActor().getAccountId(),
-                notification.getLastActor().getUsername() == null ? "" : notification.getLastActor().getUsername(),
-                notification.getLastActor().getUsername(),
-                notification.getLastActor().getAvatar()
+                 notification.getLastActor().getUsername() == null ? "" :  notification.getLastActor().getUsername(),
+                 notification.getLastActor().getUsername(),
+                 notification.getLastActor().getAvatar()
         );
         response.setLastActor(actor);
         response.setActorCount(notification.getActorCount());
