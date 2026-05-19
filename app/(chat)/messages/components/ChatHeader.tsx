@@ -28,6 +28,7 @@ interface ChatHeaderProps {
   canJoinOngoingCall?: boolean;
   isJoiningOngoingCall?: boolean;
   onJoinOngoingCall?: () => void;
+  onOpenReminder?: () => void;
 }
 
 export function ChatHeader({
@@ -107,9 +108,7 @@ export function ChatHeader({
             <div>
               <h2 className="font-semibold text-sm">{chatRoom.name}</h2>
               {isOnline && (
-                <div className="rounded-full border-white text-xs text-primary font-bold truncate">
-                  Đang hoạt động
-                </div>
+                <div className="rounded-full border-white text-xs text-primary font-bold truncate">Đang hoạt động</div>
               )}
               {!isGroup && !isOnline && hasActivity && (
                 <div className="rounded-full border-white text-xs text-muted-foreground font-bold truncate">

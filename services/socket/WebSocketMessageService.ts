@@ -18,6 +18,8 @@ import {
 import { pollApi } from '../poll/pollApi';
 import { ChatRole } from '@/services/chatRoom/groupChat/groupChatType';
 import { TypingIndicatorParticipant, upsertTypingIndicator } from '@/services/chatRoom/typing/typingIndicatorRuntime';
+import { ReactionUpdateEvent } from '@/services/chatRoom/reaction/messageReactionType';
+import { reminderApi } from '../chatRoom/reminder/reminderApi';
 
 type DeleteMessageRealtimeEvent = {
   eventType?: string;
@@ -83,7 +85,7 @@ export class WebSocketMessageService {
 
         const message = payload as MessageResponse;
 
-        if (message.messageType === 'SYSTEM' || message.messageType === 'POLL') {
+        if (message.messageType === 'SYSTEM' || message.messageType === 'POLL' || message.messageType === 'REMINDER') {
           this.handleGroupEvent(chatRoomId, message);
           this.handleMessage(chatRoomId, message);
           return;
@@ -106,6 +108,15 @@ export class WebSocketMessageService {
         upsertTypingIndicator(chatRoomId, payload);
       } catch (err) {
         console.error('❌ Parse typing indicator error:', err);
+      }
+    });
+
+    this.client.subscribe(`/topic/chatrooms/${chatRoomId}/reactions`, (frame) => {
+      try {
+        const payload = JSON.parse(frame.body) as ReactionUpdateEvent;
+        this.handleReactionUpdate(chatRoomId, payload);
+      } catch (err) {
+        console.error('❌ Parse reaction event error:', err);
       }
     });
 
@@ -461,16 +472,80 @@ export class WebSocketMessageService {
             { type: 'ChatRoom', id: 'LIST' },
           ]),
         );
-      } else if (content.includes('cuộc bình chọn')) {
+      } else if (content.toLocaleLowerCase().includes('cuộc bình chọn')) {
         this.dispatch(
           pollApi.util.invalidateTags([
             { type: 'Poll', id: `POLLS_${chatRoomId}` },
             { type: 'ChatRoom', id: `POLL_${chatRoomId}_${chatRoomId}` },
           ]),
         );
+      } else if (content.toLocaleLowerCase().includes('nhắc hẹn')) {
+        this.dispatch(reminderApi.util.invalidateTags([{ type: 'Reminder', id: `REMINDERS_${chatRoomId}` }]));
       }
     } catch (error) {
       console.error('Failed to parse system message:', error);
     }
+  }
+
+  private handleReactionUpdate(chatRoomId: number, payload: ReactionUpdateEvent) {
+    const firstPageQueryArg = this.getFirstPageMessageQueryArg(chatRoomId);
+    this.dispatch(
+      chatRoomApi.util.updateQueryData('fetchMessagesInChatRoom', firstPageQueryArg, (draft) => {
+        const draftMessages = draft?.data?.result;
+        if (!draftMessages) return;
+        const messageIndex = draftMessages.findIndex((m) => m.messageId === payload.messageId);
+        if (messageIndex === -1) return;
+        const message = draftMessages[messageIndex];
+        if (!message.reactions) message.reactions = [];
+
+        const existingGroupIndex = message.reactions.findIndex((r) => r.emoji === payload.emoji);
+
+        if (payload.action === 'REMOVED') {
+          if (existingGroupIndex !== -1) {
+            message.reactions[existingGroupIndex].users = message.reactions[existingGroupIndex].users.filter(
+              (u) => u.accountId !== payload.user.accountId,
+            );
+            message.reactions[existingGroupIndex].count = message.reactions[existingGroupIndex].users.length;
+            if (message.reactions[existingGroupIndex].count === 0) message.reactions.splice(existingGroupIndex, 1);
+          }
+        } else if (payload.action === 'ADDED') {
+          if (existingGroupIndex === -1) {
+            message.reactions.push({ emoji: payload.emoji, count: 1, users: [payload.user] });
+          } else {
+            const existingUserIndex = message.reactions[existingGroupIndex].users.findIndex(
+              (u) => u.accountId === payload.user.accountId,
+            );
+            if (existingUserIndex === -1) {
+              message.reactions[existingGroupIndex].users.push(payload.user);
+              message.reactions[existingGroupIndex].count = message.reactions[existingGroupIndex].users.length;
+            }
+          }
+        } else if (payload.action === 'REPLACED') {
+          if (payload.previousEmoji) {
+            const prevGroupIndex = message.reactions.findIndex((r) => r.emoji === payload.previousEmoji);
+            if (prevGroupIndex !== -1) {
+              message.reactions[prevGroupIndex].users = message.reactions[prevGroupIndex].users.filter(
+                (u) => u.accountId !== payload.user.accountId,
+              );
+              message.reactions[prevGroupIndex].count = message.reactions[prevGroupIndex].users.length;
+              if (message.reactions[prevGroupIndex].count === 0) message.reactions.splice(prevGroupIndex, 1);
+            }
+          }
+          const newGroupIndex = message.reactions.findIndex((r) => r.emoji === payload.emoji);
+          if (newGroupIndex === -1) {
+            message.reactions.push({ emoji: payload.emoji, count: 1, users: [payload.user] });
+          } else {
+            const existingUserIndex = message.reactions[newGroupIndex].users.findIndex(
+              (u) => u.accountId === payload.user.accountId,
+            );
+            if (existingUserIndex === -1) {
+              message.reactions[newGroupIndex].users.push(payload.user);
+              message.reactions[newGroupIndex].count = message.reactions[newGroupIndex].users.length;
+            }
+          }
+        }
+        message.reactions.sort((a, b) => b.count - a.count);
+      }),
+    );
   }
 }

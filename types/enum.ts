@@ -96,6 +96,7 @@ export enum MessageTypeEnum {
   CALL = 'CALL',
   SYSTEM = 'SYSTEM',
   POLL = 'POLL',
+  REMINDER = 'REMINDER',
 }
 
 export enum MessageEvent {
@@ -118,6 +119,15 @@ export enum PollEvent {
   POLL_UNVOTED = 'POLL_UNVOTED',
   POLL_OPTION_ADDED = 'POLL_OPTION_ADDED',
   POLL_CLOSED = 'POLL_CLOSED',
+}
+
+export enum ReminderEvent {
+  REMINDER_CREATED = 'REMINDER_CREATED',
+  REMINDER_EXPIRED = 'REMINDER_EXPIRED',
+  REMINDER_UPDATED = 'REMINDER_UPDATED',
+  REMINDER_DECLINED = 'REMINDER_DECLINED',
+  REMINDER_JOINED = 'REMINDER_JOINED',
+  REMINDER_UNJOINED = 'REMINDER_UNJOINED',
 }
 
 export enum ReactionType {
@@ -168,4 +178,18 @@ export enum CallEndReasonEnum {
   TIMEOUT = 'TIMEOUT',
   REMOVED = 'REMOVED',
   NETWORK_ERROR = 'NETWORK_ERROR',
+}
+
+export enum ReminderRepeatType {
+  NONE = 'NONE',
+  DAILY = 'DAILY',
+  WEEKLY = 'WEEKLY',
+  MONTHLY = 'MONTHLY',
+  YEARLY = 'YEARLY',
+}
+
+export enum ReminderRsvpStatus {
+  PENDING = 'PENDING',
+  ACCEPTED = 'ACCEPTED',
+  REJECTED = 'REJECTED',
 }

@@ -1,5 +1,5 @@
 import dayjs from 'dayjs';
-import { differenceInHours, format, isToday, isYesterday } from 'date-fns';
+import { differenceInHours, format, isToday, isTomorrow, isYesterday } from 'date-fns';
 import { vi } from 'date-fns/locale';
 
 function formatDate(dateString: string): string {
@@ -90,4 +90,32 @@ function formatActivityTime(lastHeartbeatAt?: string): string {
   return years > 0 ? `${years} năm trước` : '';
 }
 
-export { formatDate, formatDateTime, getDaysSinceCreation, getTimeLabel, formatLastMessageTime, formatActivityTime };
+function formatReminderTime(dateString: string) {
+  const date = new Date(dateString);
+  if (isToday(date)) return `Hôm nay lúc ${format(date, 'HH:mm')}`;
+  if (isYesterday(date)) return `Hôm qua lúc ${format(date, 'HH:mm')}`;
+  if (isTomorrow(date)) return `Ngày mai lúc ${format(date, 'HH:mm')}`;
+  return format(date, "dd/MM/yyyy 'lúc' HH:mm", { locale: vi });
+}
+
+function getDateBlock(dateString: string) {
+  const date = new Date(dateString);
+  const weekday = format(date, 'EEEE', { locale: vi });
+
+  return {
+    weekday: weekday.charAt(0).toUpperCase() + weekday.slice(1),
+    day: format(date, 'dd'),
+    month: format(date, 'M'),
+  };
+}
+
+export {
+  formatDate,
+  formatDateTime,
+  getDaysSinceCreation,
+  getTimeLabel,
+  formatLastMessageTime,
+  formatActivityTime,
+  formatReminderTime,
+  getDateBlock,
+};
