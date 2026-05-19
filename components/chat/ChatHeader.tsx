@@ -10,6 +10,8 @@ interface ChatHeaderProps {
   profileUserId?: number;
   onPressInfo?: () => void;
   onPressInvite?: () => void;
+  onStartVoiceCall?: () => void;
+  onStartVideoCall?: () => void;
 }
 
 export const ChatHeader = ({
@@ -19,6 +21,8 @@ export const ChatHeader = ({
   profileUserId,
   onPressInfo,
   onPressInvite,
+  onStartVoiceCall,
+  onStartVideoCall,
 }: ChatHeaderProps) => {
   const handleOpenProfile = () => {
     if (!profileUserId) return;
@@ -67,12 +71,16 @@ export const ChatHeader = ({
       </View>
 
       <View style={styles.rightActions}>
-        <TouchableOpacity style={styles.headerBtn}>
-          <Ionicons name="videocam" size={24} color="#0084FF" />
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.headerBtn}>
-          <Ionicons name="call" size={22} color="#0084FF" />
-        </TouchableOpacity>
+        {onStartVideoCall && (
+          <TouchableOpacity style={styles.headerBtn} onPress={onStartVideoCall}>
+            <Ionicons name="videocam" size={24} color="#0084FF" />
+          </TouchableOpacity>
+        )}
+        {onStartVoiceCall && (
+          <TouchableOpacity style={styles.headerBtn} onPress={onStartVoiceCall}>
+            <Ionicons name="call" size={22} color="#0084FF" />
+          </TouchableOpacity>
+        )}
         {onPressInvite && (
           <TouchableOpacity style={styles.headerBtn} onPress={onPressInvite}>
             <Ionicons name="share-social" size={24} color="#0084FF" />

@@ -41,6 +41,8 @@ import { useChatRoomTypingIndicator } from "@/hooks/useChatRoomTypingIndicator";
 import { useDissolveGroup } from "@/hooks/useDissolveGroup";
 import { useNotificationManager } from "@/hooks/useNotificationManager";
 import { useUser } from "@/hooks/useUser";
+import { useCallRoomActions } from "@/hooks/useCallRoomActions";
+import { CallTypeEnum } from "@/types/enum";
 import {
   useFetchChatRoomsByIdQuery,
   useFetchMessagesInChatRoomQuery,
@@ -196,6 +198,8 @@ export default function ChatDetailScreen() {
       pollingInterval: 3000,
     });
 
+  const { handleStartCall, watchChatRoom } = useCallRoomActions();
+
   const isGroupChat = chatRoomData?.data?.type === "GROUP";
   const directProfileUserId = !isGroupChat
     ? Number(chatRoomData?.data?.counterpartAccountId || targetUserId)
@@ -242,6 +246,11 @@ export default function ChatDetailScreen() {
     }
     return () => setActiveChatRoom(null);
   }, [chatRoomId, refetch, setActiveChatRoom]);
+
+  useEffect(() => {
+    watchChatRoom(chatRoomId);
+    return () => watchChatRoom(null);
+  }, [chatRoomId, watchChatRoom]);
 
   useFocusEffect(
     useCallback(() => {
@@ -310,6 +319,14 @@ export default function ChatDetailScreen() {
       await handleLeaveGroup(Number(chatRoomId), name);
     }
   };
+
+  const handleStartVoiceCall = useCallback(() => {
+    void handleStartCall(chatRoomId, CallTypeEnum.VOICE);
+  }, [handleStartCall, chatRoomId]);
+
+  const handleStartVideoCall = useCallback(() => {
+    void handleStartCall(chatRoomId, CallTypeEnum.VIDEO);
+  }, [handleStartCall, chatRoomId]);
 
   const isDirectBlocked = chatRoomData?.data?.blocked || false;
   const isGroupDissolved =
@@ -474,6 +491,8 @@ export default function ChatDetailScreen() {
               ? () => setIsInvitePanelOpen(true)
               : undefined
           }
+          onStartVoiceCall={handleStartVoiceCall}
+          onStartVideoCall={handleStartVideoCall}
         />
 
         {pinnedMessage && (

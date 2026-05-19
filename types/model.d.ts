@@ -1,4 +1,7 @@
 import {
+  CallEndReasonEnum,
+  CallStatusEnum,
+  CallTypeEnum,
   ApplicationStatus,
   ChatRoomPrivacy,
   CompanySize,
@@ -377,4 +380,56 @@ export type ChatRoomTagAssignment = {
   tagName: string;
   tagColor: string;
   systemTag: boolean;
+};
+
+export type CallParticipant = {
+  account: {
+    accountId: number;
+    avatar?: string | null;
+    username: string;
+    fullName: string;
+    email: string;
+  };
+  publisher: boolean;
+  joinedAt: string;
+  leftAt?: string | null;
+};
+
+export type CallRtcCredentials = {
+  sessionId: number;
+  appId: string;
+  channelName: string;
+  token: string;
+  uid: number;
+  expiresAtEpochMs: number;
+  ttlSeconds: number;
+  publisher: boolean;
+};
+
+export type CallSession = {
+  sessionId: number;
+  chatRoomId: number;
+  chatRoomType?: ChatRoomType;
+  chatRoomName?: string | null;
+  chatRoomAvatar?: string | null;
+  status: CallStatusEnum;
+  agoraChannelName: string;
+  initiatorAccountId: number;
+  startedAt: string;
+  endedAt?: string | null;
+  endReason?: CallEndReasonEnum | null;
+  participants: CallParticipant[];
+  callType?: CallTypeEnum;
+  rtc?: CallRtcCredentials;
+};
+
+export type CallTokenResponse = {
+  sessionId: number;
+  appId: string;
+  channelName: string;
+  uid: number;
+  token: string;
+  expiresAtEpochMs: number;
+  ttlSeconds: number;
+  publisher: boolean;
 };

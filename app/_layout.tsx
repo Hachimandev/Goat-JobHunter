@@ -165,6 +165,7 @@ export default function RootLayout() {
               options={{ headerShown: false }}
             />
             <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+            <Stack.Screen name="(call)" options={{ headerShown: false }} />
           </Stack>
           <NotificationProvider />
         </PersistGate>
