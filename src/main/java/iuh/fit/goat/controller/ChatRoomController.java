@@ -408,16 +408,47 @@ public class ChatRoomController {
     /**
      * Send messages tới chat room có sẵn
      * Hỗ trợ:
-     * - Text only (JSON)
      * - Files only (multipart)
      * - Files + text (multipart)
      */
     @PostMapping(
             value = "/{id}/messages",
-            consumes = {
-                    MediaType.MULTIPART_FORM_DATA_VALUE,
-                    MediaType.APPLICATION_JSON_VALUE
-            }
+            consumes = MediaType.APPLICATION_JSON_VALUE
+    )
+    public ResponseEntity<List<MessageResponse>> sendTextMessageToExistChatRoom(
+            @PathVariable Long id,
+            @RequestBody @Valid MessageCreateRequest request
+    ) throws InvalidException {
+        String email = SecurityUtil.getCurrentUserLogin()
+                .orElseThrow(() -> new InvalidException("User not authenticated"));
+
+        Account currentAccount = this.accountService.handleGetAccountByEmail(email);
+        if (currentAccount == null) {
+            throw new InvalidException("User not found");
+        }
+
+        if (!this.chatRoomService.isUserInChatRoom(id, currentAccount.getAccountId())) {
+            throw new InvalidException("User is not belong to this chat room");
+        }
+
+        if (request == null || request.getContent() == null || request.getContent().isBlank()) {
+            throw new InvalidException("At least one file or text content is required");
+        }
+
+        log.info("Sending text-only message to chatRoom: {}", id);
+
+        MessageCreateRequest textRequest = new MessageCreateRequest(
+                request.getContent(),
+                request.getReplyToMessageId()
+        );
+        Message textMessage = messageService.sendMessage(id, textRequest, currentAccount);
+        MessageResponse response = this.messageHelper.toMessageResponse(textMessage);
+        return ResponseEntity.ok(new ArrayList<>(Collections.singletonList(response)));
+    }
+
+    @PostMapping(
+            value = "/{id}/messages",
+            consumes = MediaType.MULTIPART_FORM_DATA_VALUE
     )
     public ResponseEntity<List<MessageResponse>> sendMessageToExistChatRoom(
             @PathVariable Long id,
@@ -445,7 +476,7 @@ public class ChatRoomController {
             return ResponseEntity.ok(new ArrayList<>(response));
         }
 
-        // Case 2: Text only (JSON - backward compatible)
+        // Case 2: Text only sent as multipart
         if (request != null && request.getContent() != null && !request.getContent().isBlank()) {
 
             log.info("Sending text-only message to chatRoom: {}", id);
