@@ -24,15 +24,14 @@
         "applinks:www.goat-jobhunter.click"
       ],
       "infoPlist": {
-        "LSApplicationQueriesSchemes": [
-          "goatjobhunter"
-        ],
+        "LSApplicationQueriesSchemes": ["goatjobhunter"],
         "NSCameraUsageDescription": "Ứng dụng cần quyền camera để tham gia cuộc gọi video.",
         "NSMicrophoneUsageDescription": "Ứng dụng cần quyền micro để tham gia cuộc gọi thoại và video."
       }
     },
     "android": {
       "package": "com.anonymous.goatjobhuntermobile",
+      "usesCleartextTraffic": true,
       "permissions": [
         "android.permission.INTERNET",
         "android.permission.CAMERA",
@@ -58,10 +57,7 @@
               "pathPrefix": "/invite"
             }
           ],
-          "category": [
-            "BROWSABLE",
-            "DEFAULT"
-          ]
+          "category": ["BROWSABLE", "DEFAULT"]
         }
       ]
     },

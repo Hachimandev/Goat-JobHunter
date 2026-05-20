@@ -118,10 +118,10 @@ export default function useChatActionsMobile({
       requestPayload.replyToMessageId = replyToMessageId;
     }
 
-    formData.append("request", {
-      string: JSON.stringify(requestPayload),
+    const requestBlob = new Blob([JSON.stringify(requestPayload)], {
       type: "application/json",
-    } as any);
+    });
+    formData.append("request", requestBlob as any);
 
     return formData;
   };
@@ -145,18 +145,21 @@ export default function useChatActionsMobile({
     }
 
     try {
-      const formData = await createChatFormData(
-        content,
-        images,
-        replyToMessageId,
-        documents,
-      );
+      const hasAttachments =
+        Boolean(images?.length) || Boolean(documents.length);
 
       await sendMessageToChatRoom({
         chatRoomId,
         content: content,
         replyToMessageId: replyToMessageId,
-        data: formData,
+        data: hasAttachments
+          ? await createChatFormData(
+              content,
+              images,
+              replyToMessageId,
+              documents,
+            )
+          : undefined,
       } as any).unwrap();
 
       return { success: true };

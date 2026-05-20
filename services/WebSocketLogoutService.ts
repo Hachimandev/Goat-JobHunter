@@ -1,6 +1,7 @@
 import { Client, StompSubscription } from '@stomp/stompjs';
 import SockJS from 'sockjs-client';
 import { Alert, Platform, ToastAndroid } from 'react-native';
+import { SOCKET_URL } from './network';
 
 let stompClient: Client | null = null;
 let logoutSubscription: StompSubscription | null = null;
@@ -20,7 +21,7 @@ export function connectWebSocketLogout(email: string, onLogout: (isForceLogout: 
 
   // Derive WebSocket URL from API_URL
   // e.g., http://192.168.0.5:5000/api/v1 → http://192.168.0.5:5000/ws
-  let socketUrl = process.env.EXPO_PUBLIC_SOCKET_URL;
+  let socketUrl = SOCKET_URL;
   if (!socketUrl) {
     const apiUrl = process.env.EXPO_PUBLIC_API_URL;
     if (!apiUrl) {
