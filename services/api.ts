@@ -1,12 +1,12 @@
 import { BaseQueryFn, createApi } from "@reduxjs/toolkit/query/react";
 import { AxiosError, AxiosRequestConfig } from "axios";
 import axiosInstance from "./axios";
+import { API_BASE_URL } from "./network";
 
 const axiosBaseQuery =
   (
     { baseUrl }: { baseUrl: string } = {
-      baseUrl:
-        process.env.EXPO_PUBLIC_API_URL || "http://localhost:5000/api/v1",
+      baseUrl: API_BASE_URL,
     },
   ): BaseQueryFn<
     {
@@ -43,7 +43,7 @@ const axiosBaseQuery =
 export const api = createApi({
   reducerPath: "api",
   baseQuery: axiosBaseQuery({
-    baseUrl: process.env.EXPO_PUBLIC_API_URL || "http://localhost:5000/api/v1",
+    baseUrl: API_BASE_URL,
   }),
   tagTypes: [
     "Job",

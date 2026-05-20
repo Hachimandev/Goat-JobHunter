@@ -29,6 +29,7 @@
     },
     "android": {
       "package": "com.anonymous.goatjobhuntermobile",
+      "usesCleartextTraffic": true,
       "intentFilters": [
         {
           "action": "VIEW",

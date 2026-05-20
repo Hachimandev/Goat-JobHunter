@@ -3,6 +3,7 @@ import SockJS from "sockjs-client";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { useSetTypingIndicatorMutation } from "@/services/chatRoom/chatRoomApi";
+import { SOCKET_URL } from "@/services/network";
 import {
   getTypingIndicators,
   subscribeTypingIndicators,
@@ -13,7 +14,7 @@ import {
 const TYPING_STOP_DELAY_MS = 2500;
 
 const getSocketUrl = () => {
-  const configuredSocketUrl = process.env.EXPO_PUBLIC_SOCKET_URL;
+  const configuredSocketUrl = SOCKET_URL;
   if (configuredSocketUrl) {
     return configuredSocketUrl;
   }
