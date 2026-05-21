@@ -8,6 +8,7 @@ import {
   ChatRole,
   GroupPermissionsResponse,
 } from "@/services/chatRoom/groupChat/groupChatApi";
+import * as FileSystem from "expo-file-system/legacy";
 import * as ImagePicker from "expo-image-picker";
 import { useCallback, useState } from "react";
 import { Alert, Platform } from "react-native";
@@ -118,10 +119,19 @@ export default function useChatActionsMobile({
       requestPayload.replyToMessageId = replyToMessageId;
     }
 
-    const requestBlob = new Blob([JSON.stringify(requestPayload)], {
-      type: "application/json",
-    });
-    formData.append("request", requestBlob as any);
+    if (Object.keys(requestPayload).length > 0) {
+      const jsonString = JSON.stringify(requestPayload);
+      const tempFileUri =
+        FileSystem.cacheDirectory + `request_${Date.now()}.json`;
+      await FileSystem.writeAsStringAsync(tempFileUri, jsonString, {
+        encoding: FileSystem.EncodingType.UTF8,
+      });
+      formData.append("request", {
+        uri: tempFileUri,
+        name: "request.json",
+        type: "application/json",
+      } as any);
+    }
 
     return formData;
   };
