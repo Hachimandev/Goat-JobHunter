@@ -102,10 +102,14 @@ export const chatRoomApi = api.injectEndpoints({
       query: ({ chatRoomId, ...args }) => {
         // @ts-ignore
         const bodyData = args.data || args;
+        const isMultipart = bodyData instanceof FormData;
         return {
           url: `/chatrooms/${chatRoomId}/messages`,
           method: "POST",
           data: bodyData,
+          headers: isMultipart
+            ? { "Content-Type": "multipart/form-data" }
+            : undefined,
         };
       },
       invalidatesTags: (result, error, { chatRoomId }) => [
@@ -199,6 +203,7 @@ export const chatRoomApi = api.injectEndpoints({
           requestData.content = content;
         }
 
+        formData.append("request", JSON.stringify(requestData));
         formData.append("request", {
           string: JSON.stringify(requestData),
           type: "application/json",
@@ -208,6 +213,7 @@ export const chatRoomApi = api.injectEndpoints({
           url: `/chatrooms/messages`,
           method: "POST",
           data: formData,
+          headers: { "Content-Type": "multipart/form-data" },
         };
       },
       async onQueryStarted(_, { dispatch, queryFulfilled }) {
