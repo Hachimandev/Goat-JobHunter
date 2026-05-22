@@ -204,6 +204,10 @@ export const chatRoomApi = api.injectEndpoints({
         }
 
         formData.append("request", JSON.stringify(requestData));
+        formData.append("request", {
+          string: JSON.stringify(requestData),
+          type: "application/json",
+        } as any);
 
         return {
           url: `/chatrooms/messages`,

@@ -9,6 +9,7 @@ import {
   Text,
   TouchableOpacity,
   View,
+  Image,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import {
@@ -19,6 +20,8 @@ import {
   useGetMyReceivedFriendRequestsQuery,
   useGetMySentFriendRequestsQuery,
   useRejectFriendRequestMutation,
+  useGetMyBlockedUsersQuery,
+  useUnblockUserMutation,
 } from "@/services/friendship/friendshipApi";
 import { FriendRow } from "./components/FriendRow";
 import { FriendRequestRow } from "./components/FriendRequestRow";
@@ -27,6 +30,7 @@ const tabs = [
   { key: "friends", label: "Bạn bè" },
   { key: "received", label: "Đã nhận" },
   { key: "sent", label: "Đã gửi" },
+  { key: "blocked", label: "Đã chặn" },
 ] as const;
 
 type TabKey = (typeof tabs)[number]["key"];
@@ -51,6 +55,13 @@ type FriendRequestItem = {
     username?: string;
     avatar?: string;
   };
+};
+
+type BlockedUserItem = {
+  accountId: number;
+  fullName?: string;
+  username?: string;
+  avatar?: string;
 };
 
 export default function FriendsScreen() {
@@ -78,21 +89,31 @@ export default function FriendsScreen() {
     refetch: refetchSent,
   } = useGetMySentFriendRequestsQuery({ page: 1, size: 50 });
 
+  const {
+    data: blockedData,
+    isLoading: isBlockedLoading,
+    isFetching: isBlockedFetching,
+    refetch: refetchBlocked,
+  } = useGetMyBlockedUsersQuery({ page: 1, size: 50 });
+
   const [acceptFriendRequest] = useAcceptFriendRequestMutation();
   const [rejectFriendRequest] = useRejectFriendRequestMutation();
   const [cancelFriendRequest] = useCancelFriendRequestMutation();
   const [blockUser] = useBlockUserMutation();
+  const [unblockUser] = useUnblockUserMutation();
   const [pendingAction, setPendingAction] = useState<
     | { type: "accept"; id: number }
     | { type: "reject"; id: number }
     | { type: "cancel"; id: number }
     | { type: "remove"; id: number }
+    | { type: "unblock"; id: number }
     | null
   >(null);
 
   const friends = friendsData?.data?.result ?? [];
   const receivedRequests = receivedData?.data?.result ?? [];
   const sentRequests = sentData?.data?.result ?? [];
+  const blockedUsers = blockedData?.data?.result ?? [];
 
   const handleBack = () => {
     if (router.canGoBack()) {
@@ -192,13 +213,36 @@ export default function FriendsScreen() {
     );
   };
 
+  const handleUnblock = async (targetUserId: number) => {
+    Alert.alert("Bỏ chặn", "Bạn có chắc muốn bỏ chặn người dùng này?", [
+      { text: "Hủy", style: "cancel" },
+      {
+        text: "Xác nhận",
+        style: "destructive",
+        onPress: async () => {
+          setPendingAction({ type: "unblock", id: targetUserId });
+          try {
+            await unblockUser({ targetUserId }).unwrap();
+            await refetchBlocked();
+          } catch {
+            Alert.alert("Lỗi", "Không thể bỏ chặn. Vui lòng thử lại.");
+          } finally {
+            setPendingAction(null);
+          }
+        },
+      },
+    ]);
+  };
+
   const isLoading =
     isFriendsLoading ||
     isReceivedLoading ||
     isSentLoading ||
+    isBlockedLoading ||
     isFriendsFetching ||
     isReceivedFetching ||
-    isSentFetching;
+    isSentFetching ||
+    isBlockedFetching;
 
   const renderEmpty = (message: string) => (
     <View style={styles.emptyContainer}>
@@ -280,21 +324,88 @@ export default function FriendsScreen() {
       );
     }
 
-    if (isSentLoading) {
-      return (
-        <ActivityIndicator
-          style={styles.loading}
-          size="large"
-          color="#1976d2"
-        />
-      );
+    if (selectedTab === "sent") {
+      if (isSentLoading) {
+        return (
+          <ActivityIndicator
+            style={styles.loading}
+            size="large"
+            color="#1976d2"
+          />
+        );
+      }
+
+      if (sentRequests.length === 0) {
+        return renderEmpty("Bạn chưa gửi lời mời kết bạn nào.");
+      }
+
+      return sentRequests.map((request) => renderRequestRow(request, "sent"));
     }
 
-    if (sentRequests.length === 0) {
-      return renderEmpty("Bạn chưa gửi lời mời kết bạn nào.");
-    }
+    // Render blocked users tab
+    if (selectedTab === "blocked") {
+      if (isBlockedLoading) {
+        return (
+          <ActivityIndicator
+            style={styles.loading}
+            size="large"
+            color="#1976d2"
+          />
+        );
+      }
 
-    return sentRequests.map((request) => renderRequestRow(request, "sent"));
+      if (blockedUsers.length === 0) {
+        return renderEmpty("Bạn chưa chặn ai cả.");
+      }
+
+      return blockedUsers.map((user: BlockedUserItem) => (
+        <View key={user.accountId} style={styles.blockedUserRow}>
+          <TouchableOpacity
+            style={styles.blockedUserInfo}
+            activeOpacity={0.75}
+            onPress={() =>
+              router.push({
+                pathname: "/profile/[userId]",
+                params: { userId: String(user.accountId) },
+              })
+            }
+          >
+            {user.avatar ? (
+              <Image source={{ uri: user.avatar }} style={styles.avatar} />
+            ) : (
+              <View style={styles.avatarFallback}>
+                <Text style={styles.avatarFallbackText}>
+                  {user.fullName?.charAt(0) || "U"}
+                </Text>
+              </View>
+            )}
+            <View style={styles.userDetails}>
+              <Text style={styles.nameText}>
+                {user.fullName || "Người dùng"}
+              </Text>
+              <Text style={styles.usernameText}>
+                @{user.username || "unknown"}
+              </Text>
+            </View>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.unblockButton}
+            onPress={() => handleUnblock(user.accountId)}
+            disabled={
+              pendingAction?.type === "unblock" &&
+              pendingAction.id === user.accountId
+            }
+          >
+            <Text style={styles.unblockButtonText}>
+              {pendingAction?.type === "unblock" &&
+              pendingAction.id === user.accountId
+                ? "Đang xử lý..."
+                : "Bỏ chặn"}
+            </Text>
+          </TouchableOpacity>
+        </View>
+      ));
+    }
   };
 
   return (
@@ -485,5 +596,44 @@ const styles = StyleSheet.create({
   },
   loading: {
     marginTop: 44,
+  },
+  blockedUserRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: "#fff",
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 12,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.06,
+    shadowRadius: 4,
+    elevation: 1,
+  },
+  blockedUserInfo: {
+    flexDirection: "row",
+    alignItems: "center",
+    flex: 1,
+  },
+  userDetails: {
+    flex: 1,
+    marginLeft: 12,
+  },
+  usernameText: {
+    fontSize: 13,
+    color: "#6b7280",
+    marginTop: 2,
+  },
+  unblockButton: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    backgroundColor: "#6c757d",
+    borderRadius: 6,
+  },
+  unblockButtonText: {
+    color: "#fff",
+    fontSize: 12,
+    fontWeight: "600",
   },
 });

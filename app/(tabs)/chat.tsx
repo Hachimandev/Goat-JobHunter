@@ -108,6 +108,7 @@ export default function ChatListScreen() {
             id: existingRoom.roomId,
             name: targetUser.fullName,
             avatar: targetUser.avatar, // Truyền luôn avatar qua để UI đẹp
+            targetUserId: String(targetUser.accountId),
           },
         });
       } else {
@@ -123,6 +124,7 @@ export default function ChatListScreen() {
               id: res.data.roomId,
               name: targetUser.fullName,
               avatar: targetUser.avatar,
+              targetUserId: String(targetUser.accountId),
             },
           });
         }
@@ -202,12 +204,23 @@ export default function ChatListScreen() {
     <SafeAreaView style={styles.container}>
       {/* HEADER ZALO STYLE */}
       <View style={styles.zaloHeader}>
-        <Image
-          source={{
-            uri: (user as any)?.avatar || "https://via.placeholder.com/100",
+        <TouchableOpacity
+          activeOpacity={0.75}
+          onPress={() => {
+            if (!user?.accountId) return;
+            router.push({
+              pathname: "/profile/[userId]",
+              params: { userId: String(user.accountId) },
+            });
           }}
-          style={styles.myAvatar}
-        />
+        >
+          <Image
+            source={{
+              uri: (user as any)?.avatar || "https://via.placeholder.com/100",
+            }}
+            style={styles.myAvatar}
+          />
+        </TouchableOpacity>
         <View style={styles.searchContainer}>
           <Search size={18} color="#fff" style={styles.searchIcon} />
           <TextInput
@@ -324,6 +337,9 @@ export default function ChatListScreen() {
                       id: item.roomId,
                       name: item.name,
                       avatar: item.avatar,
+                      targetUserId: item.counterpartAccountId
+                        ? String(item.counterpartAccountId)
+                        : undefined,
                     },
                   })
                 }

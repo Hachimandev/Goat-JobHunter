@@ -14,6 +14,7 @@ import {
   useRejectJoinRequestMutation,
 } from "@/services/chatRoom/invite/inviteApi";
 import { Feather, Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
+import { CreateReminderModal } from "./CreateReminderModal";
 import BottomSheet from "@gorhom/bottom-sheet";
 import { router } from "expo-router";
 import React, { useCallback, useRef, useState } from "react";
@@ -54,6 +55,7 @@ export const GroupManagementPanel = ({
   const { handleUpdateRole: callUpdateRoleApi } =
     useUpdateMemberRole(refetchMembers);
   const [isPollModalVisible, setPollModalVisible] = useState(false);
+  const [isReminderModalVisible, setReminderModalVisible] = useState(false);
 
   const members = membersData?.data || [];
 
@@ -377,6 +379,15 @@ export const GroupManagementPanel = ({
           )}
           <TouchableOpacity
             style={styles.actionButton}
+            onPress={() => setReminderModalVisible(true)}
+          >
+            <Ionicons name="calendar-outline" size={20} color="#0084FF" />
+            <Text style={[styles.actionButtonText, { color: "#000" }]}>
+              Tạo lịch hẹn
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.actionButton}
             onPress={onHandleLeaveGroup}
           >
             <Feather name="log-out" size={18} color="#FF3B30" />
@@ -404,6 +415,11 @@ export const GroupManagementPanel = ({
         chatRoomId={groupId}
         disabled={!canCreatePoll}
         disabledReason={createPollDisabledReason}
+      />
+      <CreateReminderModal
+        visible={isReminderModalVisible}
+        onClose={() => setReminderModalVisible(false)}
+        chatRoomId={groupId}
       />
       <MemberInfoModal
         ref={bottomSheetRef}

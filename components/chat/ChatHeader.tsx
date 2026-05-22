@@ -7,6 +7,7 @@ interface ChatHeaderProps {
   name: string;
   avatar?: string;
   status?: string;
+  profileUserId?: number;
   onPressInfo?: () => void;
   onPressInvite?: () => void;
 }
@@ -15,9 +16,18 @@ export const ChatHeader = ({
   name,
   avatar,
   status = "Đang hoạt động",
+  profileUserId,
   onPressInfo,
   onPressInvite,
 }: ChatHeaderProps) => {
+  const handleOpenProfile = () => {
+    if (!profileUserId) return;
+    router.push({
+      pathname: "/profile/[userId]",
+      params: { userId: String(profileUserId) },
+    });
+  };
+
   return (
     <View style={styles.header}>
       <View style={styles.leftContainer}>
@@ -28,21 +38,32 @@ export const ChatHeader = ({
           <Ionicons name="chevron-back" size={28} color="#0084FF" />
         </TouchableOpacity>
 
-        <Image
-          source={{ uri: avatar || "https://via.placeholder.com/100" }}
-          style={styles.avatar}
-        />
+        <TouchableOpacity
+          activeOpacity={profileUserId ? 0.75 : 1}
+          onPress={handleOpenProfile}
+          disabled={!profileUserId}
+        >
+          <Image
+            source={{ uri: avatar || "https://via.placeholder.com/100" }}
+            style={styles.avatar}
+          />
+        </TouchableOpacity>
 
-        <View style={styles.headerInfo}>
-          <Text 
-            style={styles.headerTitle} 
+        <TouchableOpacity
+          style={styles.headerInfo}
+          activeOpacity={profileUserId ? 0.75 : 1}
+          onPress={handleOpenProfile}
+          disabled={!profileUserId}
+        >
+          <Text
+            style={styles.headerTitle}
             numberOfLines={1}
             ellipsizeMode="tail"
           >
             {name}
           </Text>
           <Text style={styles.headerStatus}>{status}</Text>
-        </View>
+        </TouchableOpacity>
       </View>
 
       <View style={styles.rightActions}>

@@ -66,6 +66,7 @@ export const api = createApi({
     "Tag",
     "Friendship",
     "FriendRequest",
+    "Reminder",
   ],
   endpoints: () => ({}),
 });
