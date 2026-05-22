@@ -1,5 +1,7 @@
 package iuh.fit.goat.controller;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import iuh.fit.goat.dto.request.chat.*;
 import iuh.fit.goat.dto.request.message.ContactCardMessageRequest;
 import iuh.fit.goat.dto.request.message.ForwardMessageRequest;
@@ -56,6 +58,7 @@ public class ChatRoomController {
     private final SimpMessagingTemplate messagingTemplate;
 
     private final MessageHelper messageHelper;
+    private final ObjectMapper objectMapper;
 
     @GetMapping("/me")
     public ResponseEntity<ResultPaginationResponse> getMyChatRooms(
@@ -360,7 +363,7 @@ public class ChatRoomController {
             }
     )
     public ResponseEntity<ChatRoom> sendMessageToNewChatRoom(
-            @RequestPart(required = false) @Valid MessageToNewChatRoom request,
+            @RequestPart(name = "request", required = false) String requestJson,
             @RequestPart(required = false) List<MultipartFile> files
     ) throws InvalidException {
         String email = SecurityUtil.getCurrentUserLogin()
@@ -369,6 +372,11 @@ public class ChatRoomController {
         Account currentAccount = this.accountService.handleGetAccountByEmail(email);
         if (currentAccount == null) {
             throw new InvalidException("User not found");
+        }
+
+        MessageToNewChatRoom request = parseMultipartRequest(requestJson, MessageToNewChatRoom.class);
+        if (request == null) {
+            throw new InvalidException("Request is required");
         }
 
         if (request.getAccountId() == null) {
@@ -453,7 +461,7 @@ public class ChatRoomController {
     public ResponseEntity<List<MessageResponse>> sendMessageToExistChatRoom(
             @PathVariable Long id,
             @RequestPart(required = false) List<MultipartFile> files,
-            @RequestPart(required = false) @Valid MessageCreateRequest request
+            @RequestPart(name = "request", required = false) String requestJson
     ) throws InvalidException {
         String email = SecurityUtil.getCurrentUserLogin()
                 .orElseThrow(() -> new InvalidException("User not authenticated"));
@@ -466,6 +474,8 @@ public class ChatRoomController {
         if (!this.chatRoomService.isUserInChatRoom(id, currentAccount.getAccountId())) {
             throw new InvalidException("User is not belong to this chat room");
         }
+
+        MessageCreateRequest request = parseMultipartRequest(requestJson, MessageCreateRequest.class);
 
         // Case 1: Files + optional text (multipart)
         if (files != null && !files.isEmpty()) {
@@ -491,6 +501,18 @@ public class ChatRoomController {
         }
 
         throw new InvalidException("At least one file or text content is required");
+    }
+
+    private <T> T parseMultipartRequest(String requestJson, Class<T> requestType) throws InvalidException {
+        if (requestJson == null || requestJson.isBlank()) {
+            return null;
+        }
+
+        try {
+            return objectMapper.readValue(requestJson, requestType);
+        } catch (JsonProcessingException e) {
+            throw new InvalidException("Invalid request payload");
+        }
     }
 
     @PostMapping("/{id}/messages/contact")
