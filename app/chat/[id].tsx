@@ -118,6 +118,7 @@ export default function ChatDetailScreen() {
       const result = await DocumentPicker.getDocumentAsync({
         type: "*/*",
         multiple: true,
+        copyToCacheDirectory: true,
       });
 
       if (!result.canceled) {

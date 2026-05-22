@@ -102,14 +102,10 @@ export const chatRoomApi = api.injectEndpoints({
       query: ({ chatRoomId, ...args }) => {
         // @ts-ignore
         const bodyData = args.data || args;
-        const isMultipart = bodyData instanceof FormData;
         return {
           url: `/chatrooms/${chatRoomId}/messages`,
           method: "POST",
           data: bodyData,
-          headers: isMultipart
-            ? { "Content-Type": "multipart/form-data" }
-            : undefined,
         };
       },
       invalidatesTags: (result, error, { chatRoomId }) => [
@@ -188,14 +184,6 @@ export const chatRoomApi = api.injectEndpoints({
       SendMessageToNewChatRoomRequest
     >({
       query: ({ accountId, content, files }) => {
-        const formData = new FormData();
-
-        if (files && files.length > 0) {
-          files.forEach((file) => {
-            formData.append("files", file);
-          });
-        }
-
         const requestData: { accountId: number; content?: string } = {
           accountId,
         };
@@ -203,13 +191,24 @@ export const chatRoomApi = api.injectEndpoints({
           requestData.content = content;
         }
 
+        if (!files?.length) {
+          return {
+            url: `/chatrooms/messages`,
+            method: "POST",
+            data: requestData,
+          };
+        }
+
+        const formData = new FormData();
+        files.forEach((file) => {
+          formData.append("files", file);
+        });
         formData.append("request", JSON.stringify(requestData));
 
         return {
           url: `/chatrooms/messages`,
           method: "POST",
           data: formData,
-          headers: { "Content-Type": "multipart/form-data" },
         };
       },
       async onQueryStarted(_, { dispatch, queryFulfilled }) {
