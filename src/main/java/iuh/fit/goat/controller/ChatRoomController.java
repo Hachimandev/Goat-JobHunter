@@ -357,12 +357,32 @@ public class ChatRoomController {
      */
     @PostMapping(
             value = "/messages",
-            consumes = {
-                    MediaType.MULTIPART_FORM_DATA_VALUE,
-                    MediaType.APPLICATION_JSON_VALUE
-            }
+            consumes = MediaType.APPLICATION_JSON_VALUE
     )
-    public ResponseEntity<ChatRoom> sendMessageToNewChatRoom(
+    public ResponseEntity<ChatRoom> sendTextMessageToNewChatRoom(
+            @RequestBody @Valid MessageToNewChatRoom request
+    ) throws InvalidException {
+        String email = SecurityUtil.getCurrentUserLogin()
+                .orElseThrow(() -> new InvalidException("User not authenticated"));
+
+        Account currentAccount = this.accountService.handleGetAccountByEmail(email);
+        if (currentAccount == null) {
+            throw new InvalidException("User not found");
+        }
+
+        if (request.getAccountId() == null) {
+            throw new InvalidException("Receiver account ID is required");
+        }
+
+        ChatRoom chatRoom = this.chatRoomService.createNewSingleChatRoom(currentAccount, request);
+        return ResponseEntity.ok(chatRoom);
+    }
+
+    @PostMapping(
+            value = "/messages",
+            consumes = MediaType.MULTIPART_FORM_DATA_VALUE
+    )
+    public ResponseEntity<ChatRoom> sendMultipartMessageToNewChatRoom(
             @RequestPart(name = "request", required = false) String requestJson,
             @RequestPart(required = false) List<MultipartFile> files
     ) throws InvalidException {
@@ -383,7 +403,6 @@ public class ChatRoomController {
             throw new InvalidException("Receiver account ID is required");
         }
 
-        // Case 1: Files + optional text (multipart)
         if (files != null && !files.isEmpty()) {
             log.info("Creating new chatRoom with {} files to receiver: {}",
                     files.size(), request.getAccountId());
@@ -393,19 +412,6 @@ public class ChatRoomController {
                     request,
                     files
             );
-            return ResponseEntity.ok(chatRoom);
-        }
-
-        // Case 2: Text only (JSON - backward compatible)
-        if (request.getContent() != null && !request.getContent().isBlank()) {
-            log.info("Creating new chatRoom with text to receiver: {}",
-                    request.getAccountId());
-
-            MessageToNewChatRoom textRequest = new MessageToNewChatRoom(
-                    request.getContent(), request.getAccountId());
-
-            ChatRoom chatRoom = chatRoomService.createNewSingleChatRoom(
-                    currentAccount, textRequest);
             return ResponseEntity.ok(chatRoom);
         }
 
