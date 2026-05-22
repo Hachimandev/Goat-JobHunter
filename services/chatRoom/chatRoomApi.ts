@@ -184,14 +184,6 @@ export const chatRoomApi = api.injectEndpoints({
       SendMessageToNewChatRoomRequest
     >({
       query: ({ accountId, content, files }) => {
-        const formData = new FormData();
-
-        if (files && files.length > 0) {
-          files.forEach((file) => {
-            formData.append("files", file);
-          });
-        }
-
         const requestData: { accountId: number; content?: string } = {
           accountId,
         };
@@ -199,6 +191,19 @@ export const chatRoomApi = api.injectEndpoints({
           requestData.content = content;
         }
 
+        if (!files?.length) {
+          return {
+            url: `/chatrooms/messages`,
+            method: "POST",
+            data: requestData,
+          };
+        }
+
+        const formData = new FormData();
+        files.forEach((file) => {
+          formData.append("files", file);
+        });
+        formData.append("request", JSON.stringify(requestData));
         formData.append("request", {
           string: JSON.stringify(requestData),
           type: "application/json",
