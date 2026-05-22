@@ -1,5 +1,7 @@
 package iuh.fit.goat.controller;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import iuh.fit.goat.dto.request.chat.*;
 import iuh.fit.goat.dto.request.message.ContactCardMessageRequest;
 import iuh.fit.goat.dto.request.message.ForwardMessageRequest;
@@ -56,6 +58,7 @@ public class ChatRoomController {
     private final SimpMessagingTemplate messagingTemplate;
 
     private final MessageHelper messageHelper;
+    private final ObjectMapper objectMapper;
 
     @GetMapping("/me")
     public ResponseEntity<ResultPaginationResponse> getMyChatRooms(
@@ -354,14 +357,10 @@ public class ChatRoomController {
      */
     @PostMapping(
             value = "/messages",
-            consumes = {
-                    MediaType.MULTIPART_FORM_DATA_VALUE,
-                    MediaType.APPLICATION_JSON_VALUE
-            }
+            consumes = MediaType.APPLICATION_JSON_VALUE
     )
-    public ResponseEntity<ChatRoom> sendMessageToNewChatRoom(
-            @RequestPart(required = false) @Valid MessageToNewChatRoom request,
-            @RequestPart(required = false) List<MultipartFile> files
+    public ResponseEntity<ChatRoom> sendTextMessageToNewChatRoom(
+            @RequestBody @Valid MessageToNewChatRoom request
     ) throws InvalidException {
         String email = SecurityUtil.getCurrentUserLogin()
                 .orElseThrow(() -> new InvalidException("User not authenticated"));
@@ -375,7 +374,35 @@ public class ChatRoomController {
             throw new InvalidException("Receiver account ID is required");
         }
 
-        // Case 1: Files + optional text (multipart)
+        ChatRoom chatRoom = this.chatRoomService.createNewSingleChatRoom(currentAccount, request);
+        return ResponseEntity.ok(chatRoom);
+    }
+
+    @PostMapping(
+            value = "/messages",
+            consumes = MediaType.MULTIPART_FORM_DATA_VALUE
+    )
+    public ResponseEntity<ChatRoom> sendMultipartMessageToNewChatRoom(
+            @RequestPart(name = "request", required = false) String requestJson,
+            @RequestPart(required = false) List<MultipartFile> files
+    ) throws InvalidException {
+        String email = SecurityUtil.getCurrentUserLogin()
+                .orElseThrow(() -> new InvalidException("User not authenticated"));
+
+        Account currentAccount = this.accountService.handleGetAccountByEmail(email);
+        if (currentAccount == null) {
+            throw new InvalidException("User not found");
+        }
+
+        MessageToNewChatRoom request = parseMultipartRequest(requestJson, MessageToNewChatRoom.class);
+        if (request == null) {
+            throw new InvalidException("Request is required");
+        }
+
+        if (request.getAccountId() == null) {
+            throw new InvalidException("Receiver account ID is required");
+        }
+
         if (files != null && !files.isEmpty()) {
             log.info("Creating new chatRoom with {} files to receiver: {}",
                     files.size(), request.getAccountId());
@@ -385,19 +412,6 @@ public class ChatRoomController {
                     request,
                     files
             );
-            return ResponseEntity.ok(chatRoom);
-        }
-
-        // Case 2: Text only (JSON - backward compatible)
-        if (request.getContent() != null && !request.getContent().isBlank()) {
-            log.info("Creating new chatRoom with text to receiver: {}",
-                    request.getAccountId());
-
-            MessageToNewChatRoom textRequest = new MessageToNewChatRoom(
-                    request.getContent(), request.getAccountId());
-
-            ChatRoom chatRoom = chatRoomService.createNewSingleChatRoom(
-                    currentAccount, textRequest);
             return ResponseEntity.ok(chatRoom);
         }
 
@@ -453,7 +467,7 @@ public class ChatRoomController {
     public ResponseEntity<List<MessageResponse>> sendMessageToExistChatRoom(
             @PathVariable Long id,
             @RequestPart(required = false) List<MultipartFile> files,
-            @RequestPart(required = false) @Valid MessageCreateRequest request
+            @RequestPart(name = "request", required = false) String requestJson
     ) throws InvalidException {
         String email = SecurityUtil.getCurrentUserLogin()
                 .orElseThrow(() -> new InvalidException("User not authenticated"));
@@ -466,6 +480,8 @@ public class ChatRoomController {
         if (!this.chatRoomService.isUserInChatRoom(id, currentAccount.getAccountId())) {
             throw new InvalidException("User is not belong to this chat room");
         }
+
+        MessageCreateRequest request = parseMultipartRequest(requestJson, MessageCreateRequest.class);
 
         // Case 1: Files + optional text (multipart)
         if (files != null && !files.isEmpty()) {
@@ -491,6 +507,18 @@ public class ChatRoomController {
         }
 
         throw new InvalidException("At least one file or text content is required");
+    }
+
+    private <T> T parseMultipartRequest(String requestJson, Class<T> requestType) throws InvalidException {
+        if (requestJson == null || requestJson.isBlank()) {
+            return null;
+        }
+
+        try {
+            return objectMapper.readValue(requestJson, requestType);
+        } catch (JsonProcessingException e) {
+            throw new InvalidException("Invalid request payload");
+        }
     }
 
     @PostMapping("/{id}/messages/contact")
