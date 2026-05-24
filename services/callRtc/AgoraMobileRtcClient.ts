@@ -6,6 +6,7 @@ import {
   createAgoraRtcEngine,
   IRtcEngine,
   IRtcEngineEventHandler,
+  RemoteVideoState,
 } from "react-native-agora";
 import { CallTypeEnum } from "@/types/enum";
 
@@ -124,9 +125,24 @@ class AgoraMobileRtcClient {
       onUserJoined: (_connection, remoteUid) => {
         this.remoteParticipants.set(remoteUid, {
           audioActive: true,
-          videoActive: this.currentCallType === CallTypeEnum.VIDEO,
+          videoActive: false,
         });
         this.emitRemoteParticipants();
+      },
+      onRemoteVideoStateChanged: (_connection, remoteUid, state, _reason) => {
+        const prev = this.remoteParticipants.get(remoteUid) ?? {
+          audioActive: true,
+          videoActive: false,
+        };
+
+        const videoActive =
+          state === RemoteVideoState.RemoteVideoStateStarting ||
+          state === RemoteVideoState.RemoteVideoStateDecoding;
+
+        if (prev.videoActive !== videoActive) {
+          this.remoteParticipants.set(remoteUid, { ...prev, videoActive });
+          this.emitRemoteParticipants();
+        }
       },
       onUserOffline: (_connection, remoteUid) => {
         this.remoteParticipants.delete(remoteUid);
