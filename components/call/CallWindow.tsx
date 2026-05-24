@@ -128,11 +128,25 @@ export const CallWindow = React.memo(function CallWindow({
   const renderDirectVideo = () => (
     <View style={styles.directVideoStage}>
       <View style={styles.remoteStage}>
-        {remoteUid !== null && remoteMediaState.videoActive ? (
-          <RtcSurfaceView
-            style={styles.remoteVideo}
-            canvas={{ uid: remoteUid, renderMode: RenderModeType.RenderModeHidden }}
-          />
+        {remoteUid !== null && showVideo ? (
+          <>
+            <RtcSurfaceView
+              style={styles.remoteVideo}
+              canvas={{ uid: remoteUid, renderMode: RenderModeType.RenderModeHidden }}
+            />
+            {!remoteMediaState.videoActive && (
+              <View style={styles.remoteFallbackOverlay}>
+                <Image
+                  source={{ uri: remoteParticipant?.account.avatar || currentCall.chatRoomAvatar || "https://via.placeholder.com/160" }}
+                  style={styles.remoteFallbackAvatar}
+                />
+                <Text style={styles.remoteFallbackName}>
+                  {remoteParticipant?.account.fullName || currentCall.chatRoomName || "Đối phương"}
+                </Text>
+                <Text style={styles.remoteFallbackCaption}>Đối phương chưa bật camera</Text>
+              </View>
+            )}
+          </>
         ) : (
           <View style={styles.remoteFallback}>
             <Image
@@ -287,6 +301,7 @@ const styles = StyleSheet.create({
   remoteStage: { flex: 1, borderRadius: 28, overflow: "hidden", backgroundColor: "#101826" },
   remoteVideo: { flex: 1 },
   remoteFallback: { flex: 1, alignItems: "center", justifyContent: "center", gap: 12, backgroundColor: "#101826" },
+  remoteFallbackOverlay: { ...StyleSheet.absoluteFillObject, alignItems: "center", justifyContent: "center", gap: 12, backgroundColor: "rgba(16,24,38,0.92)" },
   remoteFallbackAvatar: { width: 124, height: 124, borderRadius: 62 },
   remoteFallbackName: { color: "#FFFFFF", fontSize: 20, fontWeight: "700" },
   remoteFallbackCaption: { color: "#B3C4E1", fontSize: 14 },
