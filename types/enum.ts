@@ -100,3 +100,23 @@ export enum MessageTypeEnum {
   IMAGE = "IMAGE",
   FILE = "FILE",
 }
+
+export enum CallTypeEnum {
+  VOICE = "VOICE",
+  VIDEO = "VIDEO",
+}
+
+export enum CallStatusEnum {
+  PENDING = "PENDING",
+  ACTIVE = "ACTIVE",
+  ENDED = "ENDED",
+  CANCELLED = "CANCELLED",
+}
+
+export enum CallEndReasonEnum {
+  HANGUP = "HANGUP",
+  NO_ANSWER = "NO_ANSWER",
+  TIMEOUT = "TIMEOUT",
+  REMOVED = "REMOVED",
+  NETWORK_ERROR = "NETWORK_ERROR",
+}

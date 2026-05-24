@@ -54,7 +54,7 @@ export default function SignInScreen() {
 
       if (result.success) {
         const redirectPath = normalizeRedirectPath(
-          typeof redirect === "string" ? redirect : undefined
+          typeof redirect === "string" ? redirect : undefined,
         );
         if (Platform.OS === "web") {
           // Trên web, chuyển trang ngay lập tức, không dùng Alert
@@ -76,7 +76,7 @@ export default function SignInScreen() {
           // The error handling already happens in signIn function with Alert
           return;
         } else {
-          setErrors({ root: "Đăng nhập thất bại. Vui lòng thử lại." });
+          setErrors({ root: JSON.stringify(result) });
         }
       }
     } catch (error: any) {

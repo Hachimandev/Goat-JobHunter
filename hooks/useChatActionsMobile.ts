@@ -114,7 +114,8 @@ export default function useChatActionsMobile({
           asset.type === "video" ||
           fileExtension === "mp4" ||
           fileExtension === "mov";
-        const mimeType = asset.mimeType || (isVideo ? "video/mp4" : "image/jpeg");
+        const mimeType =
+          asset.mimeType || (isVideo ? "video/mp4" : "image/jpeg");
 
         formData.append("files", {
           uri,
