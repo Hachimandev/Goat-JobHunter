@@ -96,11 +96,19 @@ export function useCallRoomActions() {
         const channelName = activeCall.rtc?.channelName ?? activeCall.agoraChannelName;
         const nextParticipantMediaStates: Record<number, { audioActive: boolean; videoActive: boolean }> = {};
 
+        console.log("[useCallRoomActions] onRemoteParticipantsStateChange:", {
+          participantsFromRtc: participants,
+          callParticipants: activeCall.participants.map((p) => ({ accountId: p.account.accountId, leftAt: p.leftAt })),
+          channelName,
+        });
+
         for (const participant of activeCall.participants) {
           if (participant.leftAt || participant.account.accountId === user?.accountId) continue;
           const uid = computeAgoraUid(participant.account.accountId, activeCall.sessionId, channelName);
+          console.log("[useCallRoomActions] computeAgoraUid:", { accountId: participant.account.accountId, computedUid: uid });
           if (uid === null) continue;
           const remote = participants.find((p) => p.uid === uid);
+          console.log("[useCallRoomActions] find remote:", { computedUid: uid, foundRemote: remote });
           if (remote) {
             nextParticipantMediaStates[participant.account.accountId] = {
               audioActive: remote.audioActive,
@@ -108,6 +116,8 @@ export function useCallRoomActions() {
             };
           }
         }
+
+        console.log("[useCallRoomActions] nextParticipantMediaStates:", nextParticipantMediaStates);
 
         dispatch(
           setParticipantMediaStates({

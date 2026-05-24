@@ -123,6 +123,7 @@ class AgoraMobileRtcClient {
         );
       },
       onUserJoined: (_connection, remoteUid) => {
+        console.log("[AgoraMobileRtcClient] onUserJoined:", { remoteUid });
         this.remoteParticipants.set(remoteUid, {
           audioActive: true,
           videoActive: false,
@@ -130,6 +131,7 @@ class AgoraMobileRtcClient {
         this.emitRemoteParticipants();
       },
       onRemoteVideoStateChanged: (_connection, remoteUid, state, _reason) => {
+        console.log("[AgoraMobileRtcClient] onRemoteVideoStateChanged:", { remoteUid, state, RemoteVideoStateStarting: RemoteVideoState.RemoteVideoStateStarting, RemoteVideoStateDecoding: RemoteVideoState.RemoteVideoStateDecoding });
         const prev = this.remoteParticipants.get(remoteUid) ?? {
           audioActive: true,
           videoActive: false,
@@ -139,8 +141,20 @@ class AgoraMobileRtcClient {
           state === RemoteVideoState.RemoteVideoStateStarting ||
           state === RemoteVideoState.RemoteVideoStateDecoding;
 
+        console.log("[AgoraMobileRtcClient] videoActive changed:", { remoteUid, prevVideoActive: prev.videoActive, newVideoActive: videoActive });
         if (prev.videoActive !== videoActive) {
           this.remoteParticipants.set(remoteUid, { ...prev, videoActive });
+          this.emitRemoteParticipants();
+        }
+      },
+      onFirstRemoteVideoDecoded: (_connection, remoteUid, _width, _height, _elapsed) => {
+        console.log("[AgoraMobileRtcClient] onFirstRemoteVideoDecoded:", { remoteUid });
+        const prev = this.remoteParticipants.get(remoteUid) ?? {
+          audioActive: true,
+          videoActive: false,
+        };
+        if (!prev.videoActive) {
+          this.remoteParticipants.set(remoteUid, { ...prev, videoActive: true });
           this.emitRemoteParticipants();
         }
       },
@@ -200,6 +214,14 @@ class AgoraMobileRtcClient {
     return this.enqueueOperation(async () => {
       if (this.sessionId === params.sessionId && this.engine) return;
       await this.cleanupInternal();
+
+      console.log("[AgoraMobileRtcClient] joinAndPublish:", {
+        sessionId: params.sessionId,
+        callType: params.callType,
+        appId: params.appId,
+        channelName: params.channelName,
+        uid: params.uid,
+      });
 
       this.engine = createAgoraRtcEngine();
       this.sessionId = params.sessionId;
