@@ -16,7 +16,6 @@ describe("useCallRoomActions", () => {
     expect(content).toContain("from \"@/services/chatRoom/call/callApi\"");
     expect(content).toContain("from \"@/services/callRtc/AgoraMobileRtcClient\"");
     expect(content).toContain("from \"@/services/callRtc/agoraUid\"");
-    expect(content).toContain("from \"@/services/socket/WebSocketCallService\"");
   });
 
   it("should export all required action handlers", () => {
@@ -30,7 +29,6 @@ describe("useCallRoomActions", () => {
     expect(content).toContain("handleToggleLocalVideo");
     expect(content).toContain("handleToggleSpeaker");
     expect(content).toContain("handleSwitchCamera");
-    expect(content).toContain("watchChatRoom");
   });
 
   it("should use RTK Query mutations", () => {
@@ -49,13 +47,6 @@ describe("useCallRoomActions", () => {
     expect(content).toContain("onLocalMediaStateChange");
     expect(content).toContain("onTokenWillExpire");
     expect(content).toContain("onError");
-  });
-
-  it("should manage WebSocket lifecycle", () => {
-    expect(content).toContain("WebSocketCallService");
-    expect(content).toContain("webSocketCallServiceRef");
-    expect(content).toContain(".connect()");
-    expect(content).toContain(".disconnect()");
   });
 
   it("should handle permissions for Android", () => {

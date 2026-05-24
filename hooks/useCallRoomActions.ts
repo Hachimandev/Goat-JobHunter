@@ -1,5 +1,5 @@
 // Goat-JobHunter-Mobile-FE/hooks/useCallRoomActions.ts
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { Alert, Platform, PermissionsAndroid } from "react-native";
 import { router } from "expo-router";
 import { useAppDispatch, useAppSelector } from "@/lib/hooks";
@@ -42,7 +42,6 @@ import {
 } from "@/services/chatRoom/call/callApi";
 import { agoraMobileRtcClient } from "@/services/callRtc/AgoraMobileRtcClient";
 import { computeAgoraUid } from "@/services/callRtc/agoraUid";
-import { WebSocketCallService } from "@/services/socket/WebSocketCallService";
 
 const ensureCallPermissions = async (callType: CallTypeEnum): Promise<boolean> => {
   if (Platform.OS !== "android") return true;
@@ -77,11 +76,8 @@ export function useCallRoomActions() {
   const [endCall] = useEndCallMutation();
   const [issueCallToken] = useIssueCallTokenMutation();
 
-  const [watchedChatRoomId, setWatchedChatRoomId] = useState<number | null>(null);
-
   const currentCallRef = useRef<CallSession | null>(currentCall);
   const tokenHydratingSessionIdRef = useRef<number | null>(null);
-  const webSocketCallServiceRef = useRef<WebSocketCallService | null>(null);
 
   useEffect(() => {
     currentCallRef.current = currentCall;
@@ -160,25 +156,6 @@ export function useCallRoomActions() {
       agoraMobileRtcClient.configure({});
     };
   }, [dispatch, issueCallToken, user?.accountId]);
-
-  // WebSocket lifecycle
-  useEffect(() => {
-    if (webSocketCallServiceRef.current) {
-      webSocketCallServiceRef.current.disconnect();
-      webSocketCallServiceRef.current = null;
-    }
-    if (!watchedChatRoomId) return;
-
-    const nextService = new WebSocketCallService(
-      store.dispatch as typeof store.dispatch,
-      watchedChatRoomId,
-    );
-    webSocketCallServiceRef.current = nextService;
-    nextService.connect();
-    return () => {
-      nextService.disconnect();
-    };
-  }, [watchedChatRoomId]);
 
   // Auto RTC connection when currentCall changes
   useEffect(() => {
@@ -414,7 +391,6 @@ export function useCallRoomActions() {
     participantMediaStates,
     speakerEnabled,
     isRtcReady: rtcConnectionState === "connected" || rtcConnectionState === "reconnecting",
-    watchChatRoom: setWatchedChatRoomId,
     handleStartCall,
     handleJoinCallSession,
     handleAcceptIncomingCall,
