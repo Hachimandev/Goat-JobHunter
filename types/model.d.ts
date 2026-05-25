@@ -1,4 +1,15 @@
-import { ApplicationStatus, CompanySize, Level, WorkingType } from "./enum";
+import {
+  CallEndReasonEnum,
+  CallStatusEnum,
+  CallTypeEnum,
+  ApplicationStatus,
+  ChatRoomPrivacy,
+  CompanySize,
+  Level,
+  ReminderRepeatType,
+  ReminderRsvpStatus,
+  WorkingType,
+} from "./enum";
 
 export type Address = {
   addressId: number;
@@ -222,11 +233,28 @@ export type MessageType = {
   };
   isForwarded?: boolean;
   poll?: Poll;
+  reactions?: {
+    emoji: string;
+    count: number;
+    users: {
+      accountId: number;
+      fullName: string;
+      username: string;
+      avatar: string;
+      reactedAt: string;
+    }[];
+  }[];
 };
 
 export type ChatRoom = {
   roomId: number;
   type: ChatRoomType;
+  privacy: ChatRoomPrivacy;
+  allowMemberUpdate: boolean;
+  allowMemberPin: boolean;
+  allowMemberCreateVote: boolean;
+  allowMemberSendMessage: boolean;
+  allowModeratorSendMessage: boolean;
   name: string;
   avatar: string | null;
   memberCount: number;
@@ -306,6 +334,19 @@ export type Poll = {
   updatedAt: string;
 };
 
+export type Reminder = {
+  reminderId: number;
+  title: string;
+  content: string;
+  reminderTime: string;
+  repeatType: ReminderRepeatType;
+  allowResponse: boolean;
+  createdAt: string;
+  createdBy: string;
+  updatedAt: string;
+  updatedBy: string;
+};
+
 export type PollVote = {
   voteId: string;
   poll: {
@@ -322,4 +363,73 @@ export type PollVote = {
     avatar: string;
   };
   createdAt: string;
+};
+
+export type Tag = {
+  tagId: number;
+  name: string;
+  color: string;
+  systemTag: boolean;
+};
+
+export type ChatRoomTagAssignment = {
+  assignmentId: number;
+  roomId: number;
+  accountId: number;
+  tagId: number;
+  tagName: string;
+  tagColor: string;
+  systemTag: boolean;
+};
+
+export type CallParticipant = {
+  account: {
+    accountId: number;
+    avatar?: string | null;
+    username: string;
+    fullName: string;
+    email: string;
+  };
+  publisher: boolean;
+  joinedAt: string;
+  leftAt?: string | null;
+};
+
+export type CallRtcCredentials = {
+  sessionId: number;
+  appId: string;
+  channelName: string;
+  token: string;
+  uid: number;
+  expiresAtEpochMs: number;
+  ttlSeconds: number;
+  publisher: boolean;
+};
+
+export type CallSession = {
+  sessionId: number;
+  chatRoomId: number;
+  chatRoomType?: ChatRoomType;
+  chatRoomName?: string | null;
+  chatRoomAvatar?: string | null;
+  status: CallStatusEnum;
+  agoraChannelName: string;
+  initiatorAccountId: number;
+  startedAt: string;
+  endedAt?: string | null;
+  endReason?: CallEndReasonEnum | null;
+  participants: CallParticipant[];
+  callType?: CallTypeEnum;
+  rtc?: CallRtcCredentials;
+};
+
+export type CallTokenResponse = {
+  sessionId: number;
+  appId: string;
+  channelName: string;
+  uid: number;
+  token: string;
+  expiresAtEpochMs: number;
+  ttlSeconds: number;
+  publisher: boolean;
 };

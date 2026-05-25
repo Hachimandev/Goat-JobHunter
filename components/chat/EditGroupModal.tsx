@@ -9,7 +9,6 @@ import {
   Image,
   ScrollView,
   Modal,
-  Platform,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
@@ -66,7 +65,9 @@ export const EditGroupModal = ({
         }
 
         // Check file size (2MB = 2 * 1024 * 1024 bytes)
-        const fileSizeInMB = asset.fileSize ? asset.fileSize / (1024 * 1024) : 0;
+        const fileSizeInMB = asset.fileSize
+          ? asset.fileSize / (1024 * 1024)
+          : 0;
         if (fileSizeInMB > 2) {
           alert("Kích thước ảnh tối đa 2MB");
           return;
@@ -82,12 +83,12 @@ export const EditGroupModal = ({
   };
 
   const handleSubmit = async () => {
-    const success = await handleEditGroup(
+    const success = await handleEditGroup({
       groupId,
       groupName,
       newGroupName,
-      selectedImage
-    );
+      avatarAsset: selectedImage,
+    });
 
     if (success) {
       if (onRefetch) {
@@ -123,7 +124,10 @@ export const EditGroupModal = ({
             </TouchableOpacity>
           </View>
 
-          <ScrollView style={styles.scrollContent} showsVerticalScrollIndicator={false}>
+          <ScrollView
+            style={styles.scrollContent}
+            showsVerticalScrollIndicator={false}
+          >
             {/* Avatar Section */}
             <View style={styles.avatarSection}>
               <View style={styles.avatarContainer}>
@@ -145,7 +149,9 @@ export const EditGroupModal = ({
                   <Ionicons name="camera" size={16} color="#fff" />
                 </TouchableOpacity>
               </View>
-              <Text style={styles.avatarHint}>Chỉ chấp nhận ảnh, tối đa 2MB</Text>
+              <Text style={styles.avatarHint}>
+                Chỉ chấp nhận ảnh, tối đa 2MB
+              </Text>
             </View>
 
             {/* Group Name Section */}
@@ -160,9 +166,7 @@ export const EditGroupModal = ({
                 editable={!isLoading}
                 placeholderTextColor="#999"
               />
-              <Text style={styles.charCount}>
-                {newGroupName.length}/100
-              </Text>
+              <Text style={styles.charCount}>{newGroupName.length}/100</Text>
             </View>
 
             {/* Info */}

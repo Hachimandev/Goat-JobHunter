@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState } from "react";
 import {
   View,
   Text,
@@ -10,14 +10,14 @@ import {
   KeyboardAvoidingView,
   Platform,
   Alert,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
-import { useForm, Controller } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
-import CheckPasswordStrength from '../../components/common/CheckPasswordStrength';
-import { useResetPasswordMutation } from '../../services/user/userApi';
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { useRouter } from "expo-router";
+import { useForm, Controller } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
+import CheckPasswordStrength from "../../components/common/CheckPasswordStrength";
+import { useResetPasswordMutation } from "../../services/user/userApi";
 
 const resetPasswordSchema = z
   .object({
@@ -27,7 +27,7 @@ const resetPasswordSchema = z
       .min(8, "Mật khẩu phải có ít nhất 8 ký tự")
       .regex(
         /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/,
-        "Mật khẩu phải chứa chữ hoa, chữ thường và số"
+        "Mật khẩu phải chứa chữ hoa, chữ thường và số",
       ),
     confirmPassword: z.string(),
   })
@@ -50,13 +50,13 @@ export default function ForgotPasswordScreen() {
   } = useForm<ResetPasswordFormData>({
     resolver: zodResolver(resetPasswordSchema),
     defaultValues: {
-      email: '',
-      newPassword: '',
-      confirmPassword: '',
+      email: "",
+      newPassword: "",
+      confirmPassword: "",
     },
   });
 
-  const newPassword = watch('newPassword');
+  const newPassword = watch("newPassword");
 
   const onSubmit = async (data: ResetPasswordFormData) => {
     try {
@@ -66,24 +66,23 @@ export default function ForgotPasswordScreen() {
       }).unwrap();
 
       if (response.statusCode === 200) {
-        Alert.alert(
-          'Thành công',
-          'Mã xác thực đã được gửi đến email của bạn',
-          [
-            {
-              text: 'OK',
-              onPress: () => router.push(`/(auth)/otp?email=${encodeURIComponent(data.email)}`),
-            },
-          ]
-        );
+        Alert.alert("Thành công", "Mã xác thực đã được gửi đến email của bạn", [
+          {
+            text: "OK",
+            onPress: () =>
+              router.push(
+                `/(auth)/otp?email=${encodeURIComponent(data.email)}`,
+              ),
+          },
+        ]);
       }
     } catch (error: any) {
-      console.error('Reset password error:', error);
-      
+      console.error("Reset password error:", error);
+
       if (error?.status === 404) {
-        Alert.alert('Lỗi', 'Email không tồn tại!');
+        Alert.alert("Lỗi", "Email không tồn tại!");
       } else {
-        Alert.alert('Lỗi', 'Có lỗi xảy ra. Vui lòng thử lại!');
+        Alert.alert("Lỗi", "Có lỗi xảy ra. Vui lòng thử lại!");
       }
     }
   };
@@ -91,7 +90,7 @@ export default function ForgotPasswordScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
         style={styles.keyboardView}
       >
         <ScrollView
@@ -102,7 +101,10 @@ export default function ForgotPasswordScreen() {
         >
           {/* Header */}
           <View style={styles.header}>
-            <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+            <TouchableOpacity
+              onPress={() => router.back()}
+              style={styles.backButton}
+            >
               <Text style={styles.backButtonText}>‹ Quay lại đăng nhập</Text>
             </TouchableOpacity>
           </View>
@@ -154,7 +156,10 @@ export default function ForgotPasswordScreen() {
                   name="newPassword"
                   render={({ field: { onChange, onBlur, value } }) => (
                     <TextInput
-                      style={[styles.input, errors.newPassword && styles.inputError]}
+                      style={[
+                        styles.input,
+                        errors.newPassword && styles.inputError,
+                      ]}
                       placeholder="*********"
                       placeholderTextColor="#9ca3af"
                       value={value}
@@ -166,7 +171,9 @@ export default function ForgotPasswordScreen() {
                   )}
                 />
                 {errors.newPassword && (
-                  <Text style={styles.errorText}>{errors.newPassword.message}</Text>
+                  <Text style={styles.errorText}>
+                    {errors.newPassword.message}
+                  </Text>
                 )}
                 <CheckPasswordStrength password={newPassword} />
               </View>
@@ -181,7 +188,10 @@ export default function ForgotPasswordScreen() {
                   name="confirmPassword"
                   render={({ field: { onChange, onBlur, value } }) => (
                     <TextInput
-                      style={[styles.input, errors.confirmPassword && styles.inputError]}
+                      style={[
+                        styles.input,
+                        errors.confirmPassword && styles.inputError,
+                      ]}
                       placeholder="*********"
                       placeholderTextColor="#9ca3af"
                       value={value}
@@ -193,13 +203,18 @@ export default function ForgotPasswordScreen() {
                   )}
                 />
                 {errors.confirmPassword && (
-                  <Text style={styles.errorText}>{errors.confirmPassword.message}</Text>
+                  <Text style={styles.errorText}>
+                    {errors.confirmPassword.message}
+                  </Text>
                 )}
               </View>
 
               {/* Submit Button */}
               <TouchableOpacity
-                style={[styles.submitButton, isLoading && styles.submitButtonDisabled]}
+                style={[
+                  styles.submitButton,
+                  isLoading && styles.submitButtonDisabled,
+                ]}
                 onPress={handleSubmit(onSubmit)}
                 disabled={isLoading}
               >
@@ -220,7 +235,7 @@ export default function ForgotPasswordScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f9fafb',
+    backgroundColor: "#f9fafb",
   },
   keyboardView: {
     flex: 1,
@@ -240,30 +255,30 @@ const styles = StyleSheet.create({
   },
   backButtonText: {
     fontSize: 14,
-    color: '#1976d2',
-    fontWeight: '600',
+    color: "#1976d2",
+    fontWeight: "600",
   },
   card: {
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#e5e7eb',
-    overflow: 'hidden',
+    borderColor: "#e5e7eb",
+    overflow: "hidden",
   },
   cardHeader: {
     padding: 24,
     borderBottomWidth: 1,
-    borderBottomColor: '#e5e7eb',
+    borderBottomColor: "#e5e7eb",
   },
   title: {
     fontSize: 20,
-    fontWeight: 'bold',
-    color: '#111827',
+    fontWeight: "bold",
+    color: "#111827",
     marginBottom: 8,
   },
   subtitle: {
     fontSize: 14,
-    color: '#6b7280',
+    color: "#6b7280",
     lineHeight: 20,
   },
   cardContent: {
@@ -274,46 +289,45 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: 14,
-    fontWeight: '600',
-    color: '#374151',
+    fontWeight: "600",
+    color: "#374151",
     marginBottom: 8,
   },
   required: {
-    color: '#ef4444',
+    color: "#ef4444",
   },
   input: {
     height: 48,
     borderWidth: 1,
-    borderColor: '#d1d5db',
+    borderColor: "#d1d5db",
     borderRadius: 12,
     paddingHorizontal: 16,
     fontSize: 14,
-    color: '#111827',
-    backgroundColor: '#fff',
+    color: "#111827",
+    backgroundColor: "#fff",
   },
   inputError: {
-    borderColor: '#ef4444',
+    borderColor: "#ef4444",
   },
   errorText: {
     fontSize: 12,
-    color: '#ef4444',
+    color: "#ef4444",
     marginTop: 4,
   },
   submitButton: {
     height: 48,
-    backgroundColor: '#1976d2',
+    backgroundColor: "#1976d2",
     borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     marginTop: 8,
   },
   submitButtonDisabled: {
-    backgroundColor: '#9ca3af',
+    backgroundColor: "#9ca3af",
   },
   submitButtonText: {
     fontSize: 16,
-    fontWeight: '600',
-    color: '#fff',
+    fontWeight: "600",
+    color: "#fff",
   },
 });
-

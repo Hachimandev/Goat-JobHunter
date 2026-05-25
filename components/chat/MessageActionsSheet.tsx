@@ -11,9 +11,12 @@ interface MessageActionsSheetProps {
   onReply: () => void;
   onForward: () => void;
   onPin: () => void;
+  canPin?: boolean;
   onRevoke: () => void;
   onDelete: () => void;
   onCopy: () => void;
+  onTranslate?: () => void;
+  canTranslate?: boolean;
   isGroupDissolved?: boolean;
 }
 
@@ -27,9 +30,12 @@ export const MessageActionsSheet = forwardRef<
       onReply,
       onForward,
       onPin,
+      canPin = true,
       onRevoke,
       onDelete,
       onCopy,
+      onTranslate,
+      canTranslate = false,
       isGroupDissolved,
     },
     ref,
@@ -38,8 +44,8 @@ export const MessageActionsSheet = forwardRef<
       if (isGroupDissolved) {
         return ["20%"];
       }
-      return ["38%"];
-    }, [isGroupDissolved]);
+      return canTranslate ? ["44%"] : ["38%"];
+    }, [canTranslate, isGroupDissolved]);
 
     const renderBackdrop = useCallback(
       (props: any) => (
@@ -63,6 +69,7 @@ export const MessageActionsSheet = forwardRef<
         ref={ref}
         index={-1}
         snapPoints={snapPoints}
+        backdropComponent={renderBackdrop}
         enablePanDownToClose
       >
         <BottomSheetView style={styles.sheetContainer}>
@@ -85,10 +92,19 @@ export const MessageActionsSheet = forwardRef<
                 <Text style={styles.sheetTextNormal}>Chuyển tiếp</Text>
               </TouchableOpacity>
 
-              <TouchableOpacity style={styles.sheetItem} onPress={onPin}>
-                <Ionicons name="pin-outline" size={22} color="#475569" />
-                <Text style={styles.sheetTextNormal}>Ghim tin nhắn</Text>
-              </TouchableOpacity>
+              {canTranslate && onTranslate && (
+                <TouchableOpacity style={styles.sheetItem} onPress={onTranslate}>
+                  <Ionicons name="language-outline" size={22} color="#475569" />
+                  <Text style={styles.sheetTextNormal}>Dịch tin nhắn</Text>
+                </TouchableOpacity>
+              )}
+
+              {canPin && (
+                <TouchableOpacity style={styles.sheetItem} onPress={onPin}>
+                  <Ionicons name="pin-outline" size={22} color="#475569" />
+                  <Text style={styles.sheetTextNormal}>Ghim tin nhắn</Text>
+                </TouchableOpacity>
+              )}
 
               <View style={styles.separator} />
 

@@ -1,5 +1,5 @@
 import { Education, Gender, Level } from "./enum";
-import { Address, Contact } from "./model";
+import { Address, Contact, Skill } from "./model";
 
 export type CreateBlogDto = {
   content: string;
@@ -43,6 +43,9 @@ export type UserResponse = {
   };
   createdAt: string;
   updatedAt: string;
+  // dateOfBirth?: string;
+  // applicant?: ApplicantResponse;
+  // recruiter?: RecruiterResponse;
 };
 
 export type RecruiterResponse = UserResponse & {
@@ -57,6 +60,8 @@ export type ApplicantResponse = UserResponse & {
   availableStatus: boolean;
   education: Education;
   level: Level;
+  // experience?: number;
+  // skills?: Skill[];
 };
 
 export type FetchCurrentApplicantDto = {

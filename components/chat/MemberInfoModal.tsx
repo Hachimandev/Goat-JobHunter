@@ -157,7 +157,7 @@ export const MemberInfoModal = forwardRef<BottomSheet, MemberInfoModalProps>(
                 onUpdateRole(
                   member.chatMemberId.toString(),
                   member.fullName,
-                  "OWNER",
+                  ChatRole.OWNER,
                 )
               }
             >

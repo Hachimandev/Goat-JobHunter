@@ -5,9 +5,10 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "myapp",
+    "scheme": "goatjobhunter",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
+    "owner": "truongconghai-2",
     "splash": {
       "image": "./assets/images/splash-icon.png",
       "resizeMode": "contain",
@@ -18,10 +19,48 @@
       "bundleIdentifier": "com.anonymous.goatjobhuntermobile",
       "config": {
         "googleMapsApiKey": "YOUR_IOS_GOOGLE_MAPS_API_KEY"
+      },
+      "associatedDomains": [
+        "applinks:goat-jobhunter.click",
+        "applinks:www.goat-jobhunter.click"
+      ],
+      "infoPlist": {
+        "LSApplicationQueriesSchemes": ["goatjobhunter"],
+        "NSCameraUsageDescription": "Ứng dụng cần quyền camera để tham gia cuộc gọi video.",
+        "NSMicrophoneUsageDescription": "Ứng dụng cần quyền micro để tham gia cuộc gọi thoại và video."
       }
     },
     "android": {
-      "package": "com.anonymous.goatjobhuntermobile"
+      "package": "com.anonymous.goatjobhuntermobile",
+      "usesCleartextTraffic": true,
+      "permissions": [
+        "android.permission.INTERNET",
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.MODIFY_AUDIO_SETTINGS",
+        "android.permission.ACCESS_NETWORK_STATE",
+        "android.permission.BLUETOOTH",
+        "android.permission.BLUETOOTH_CONNECT"
+      ],
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "autoVerify": true,
+          "data": [
+            {
+              "scheme": "https",
+              "host": "goat-jobhunter.click",
+              "pathPrefix": "/invite"
+            },
+            {
+              "scheme": "https",
+              "host": "www.goat-jobhunter.click",
+              "pathPrefix": "/invite"
+            }
+          ],
+          "category": ["BROWSABLE", "DEFAULT"]
+        }
+      ]
     },
     "web": {
       "bundler": "metro",
@@ -30,19 +69,20 @@
     },
     "plugins": [
       "expo-router",
-      [
-        "expo-splash-screen",
-        {
-          "imageWidth": 200,
-          "resizeMode": "contain",
-          "backgroundColor": "#ffffff"
-        }
-      ],
+      "expo-splash-screen",
       "@react-native-community/datetimepicker",
-      "expo-video"
+      "expo-video",
+      "expo-camera",
+      "expo-web-browser"
     ],
     "experiments": {
       "typedRoutes": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "e30b756a-65e8-4f40-9744-6c1057814806"
+      }
     }
   }
 }

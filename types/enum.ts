@@ -76,8 +76,47 @@ export enum ChatRoomType {
   GROUP = "GROUP",
 }
 
+export enum ChatRoomPrivacy {
+  PUBLIC = "PUBLIC",
+  PRIVATE = "PRIVATE",
+}
+
+export enum ReminderRepeatType {
+  NONE = "NONE",
+  DAILY = "DAILY",
+  WEEKLY = "WEEKLY",
+  MONTHLY = "MONTHLY",
+  YEARLY = "YEARLY",
+}
+
+export enum ReminderRsvpStatus {
+  PENDING = "PENDING",
+  ACCEPTED = "ACCEPTED",
+  REJECTED = "REJECTED",
+}
+
 export enum MessageTypeEnum {
   TEXT = "TEXT",
   IMAGE = "IMAGE",
   FILE = "FILE",
+}
+
+export enum CallTypeEnum {
+  VOICE = "VOICE",
+  VIDEO = "VIDEO",
+}
+
+export enum CallStatusEnum {
+  PENDING = "PENDING",
+  ACTIVE = "ACTIVE",
+  ENDED = "ENDED",
+  CANCELLED = "CANCELLED",
+}
+
+export enum CallEndReasonEnum {
+  HANGUP = "HANGUP",
+  NO_ANSWER = "NO_ANSWER",
+  TIMEOUT = "TIMEOUT",
+  REMOVED = "REMOVED",
+  NETWORK_ERROR = "NETWORK_ERROR",
 }

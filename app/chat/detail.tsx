@@ -6,32 +6,60 @@ import {
   useFetchFilesInChatRoomQuery,
   useFetchMediaInChatRoomQuery,
 } from "@/services/chatRoom/chatRoomApi";
-import { useGetMemberInGroupChatQuery } from "@/services/chatRoom/groupChat/groupChatApi";
+import {
+  ChatRole,
+  GroupPermissionsResponse,
+  useGetMemberInGroupChatQuery,
+} from "@/services/chatRoom/groupChat/groupChatApi";
 import { Ionicons } from "@expo/vector-icons";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
+import { ChatRoomPrivacy } from "@/types/enum";
 
 import React, { useState } from "react";
 import { Image, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { GroupSettingPanel } from "@/components/chat/GroupSettingPanel";
 
 export default function ChatDetail() {
-  const { id, name, avatar } = useLocalSearchParams<{
+  const {
+    id,
+    name,
+    avatar,
+    role: roleParam,
+    allowMemberUpdate: allowMemberUpdateParam,
+    allowMemberPin: allowMemberPinParam,
+    allowMemberCreateVote: allowMemberCreateVoteParam,
+    allowMemberSendMessage: allowMemberSendMessageParam,
+    allowModeratorSendMessage: allowModeratorSendMessageParam,
+    targetUserId,
+  } = useLocalSearchParams<{
     id: string;
     name: string;
     avatar: string;
+    targetUserId?: string;
+    role?: ChatRole;
+    allowMemberUpdate?: string;
+    allowMemberPin?: string;
+    allowMemberCreateVote?: string;
+    allowMemberSendMessage?: string;
+    allowModeratorSendMessage?: string;
   }>();
   const { user } = useUser();
   const chatRoomId = Number(id);
-  const [activeTab, setActiveTab] = useState<"media" | "files" | "group">(
-    "media",
-  );
+  const [activeTab, setActiveTab] = useState<
+    "media" | "files" | "group" | "groupSetting"
+  >("media");
   const [isEditModalVisible, setIsEditModalVisible] = useState(false);
 
-  const { data: chatRoomData, refetch: refetchChatRoom } = useFetchChatRoomsByIdQuery(chatRoomId, {
-    skip: !chatRoomId,
-  });
+  const { data: chatRoomData, refetch: refetchChatRoom } =
+    useFetchChatRoomsByIdQuery(chatRoomId, {
+      skip: !chatRoomId,
+    });
   const chatRoom = chatRoomData?.data;
   const isGroupChat = chatRoom?.type === "GROUP";
+  const directProfileUserId = !isGroupChat
+    ? Number(chatRoom?.counterpartAccountId || targetUserId)
+    : undefined;
 
   const { data: mediaData } = useFetchMediaInChatRoomQuery(
     { chatRoomId },
@@ -41,7 +69,7 @@ export default function ChatDetail() {
     { chatRoomId },
     { skip: !chatRoomId },
   );
-  const { data: membersData, refetch } = useGetMemberInGroupChatQuery(
+  const { data: membersData, refetch: refetchMembers } = useGetMemberInGroupChatQuery(
     chatRoomId,
     {
       skip: !isGroupChat || !chatRoomId,
@@ -51,17 +79,52 @@ export default function ChatDetail() {
   const media = mediaData?.data?.result || [];
   const files = filesData?.data?.result || [];
   const members = membersData?.data || [];
-
-  // Check if user is owner
-  const isOwner = members.some(
-    (m) => m.accountId === user?.accountId && m.role === "OWNER",
+  const currentUserMember = members.find(
+    (m) => m.accountId === user?.accountId,
   );
+  const currentUserRole = currentUserMember?.role || roleParam;
+  const isOwner = currentUserRole === ChatRole.OWNER;
+  const isModerator = currentUserRole === ChatRole.MODERATOR;
+
+  const parseBoolParam = (value?: string) =>
+    value === undefined ? undefined : value === "true";
+
+  const resolvedPermissions = {
+    allowMemberUpdate:
+      chatRoomData?.data?.allowMemberUpdate ??
+      parseBoolParam(allowMemberUpdateParam) ??
+      true,
+    allowMemberPin:
+      chatRoomData?.data?.allowMemberPin ??
+      parseBoolParam(allowMemberPinParam) ??
+      true,
+    allowMemberCreateVote:
+      chatRoomData?.data?.allowMemberCreateVote ??
+      parseBoolParam(allowMemberCreateVoteParam) ??
+      true,
+    allowMemberSendMessage:
+      chatRoomData?.data?.allowMemberSendMessage ??
+      parseBoolParam(allowMemberSendMessageParam) ??
+      true,
+    allowModeratorSendMessage:
+      chatRoomData?.data?.allowModeratorSendMessage ??
+      parseBoolParam(allowModeratorSendMessageParam) ??
+      true,
+  } satisfies GroupPermissionsResponse;
+
+  const allowMemberUpdate = resolvedPermissions.allowMemberUpdate;
+  const canShowEditButton =
+    currentUserRole === ChatRole.OWNER ||
+    currentUserRole === ChatRole.MODERATOR ||
+    (currentUserRole === ChatRole.MEMBER && allowMemberUpdate);
 
   useFocusEffect(
     React.useCallback(() => {
-      refetch();
+      if (isGroupChat) {
+        refetchMembers();
+      }
       refetchChatRoom();
-    }, [refetch, refetchChatRoom]),
+    }, [isGroupChat, refetchMembers, refetchChatRoom]),
   );
 
   return (
@@ -78,12 +141,19 @@ export default function ChatDetail() {
       {/* PROFILE */}
       <View style={styles.profile}>
         <Image
-          source={{ uri: chatRoomData?.data?.avatar || avatar || "https://i.pravatar.cc/150?img=12" }}
+          source={{
+            uri:
+              chatRoomData?.data?.avatar ||
+              avatar ||
+              "https://i.pravatar.cc/150?img=12",
+          }}
           style={styles.avatar}
         />
         <View style={styles.nameContainer}>
-          <Text style={styles.name}>{chatRoomData?.data?.name || name || "Nhóm"}</Text>
-          {isGroupChat && (isOwner || members.find((m) => m.accountId === user?.accountId)?.role === "MODERATOR") && (
+          <Text style={styles.name}>
+            {chatRoomData?.data?.name || name || "Nhóm"}
+          </Text>
+          {isGroupChat && canShowEditButton && (
             <TouchableOpacity
               onPress={() => setIsEditModalVisible(true)}
               style={styles.editGroupButton}
@@ -98,7 +168,18 @@ export default function ChatDetail() {
       {/* QUICK ACTIONS */}
       {!isGroupChat && (
         <View style={styles.quickActions}>
-          <TouchableOpacity style={styles.quickItem}>
+          <TouchableOpacity
+            style={styles.quickItem}
+            onPress={() => {
+              if (!directProfileUserId || !Number.isFinite(directProfileUserId)) {
+                return;
+              }
+              router.push({
+                pathname: "/profile/[userId]",
+                params: { userId: String(directProfileUserId) },
+              });
+            }}
+          >
             <Ionicons name="person-outline" size={20} />
             <Text style={styles.quickText}>Profile</Text>
           </TouchableOpacity>
@@ -139,6 +220,18 @@ export default function ChatDetail() {
             <Text>Nhóm</Text>
           </TouchableOpacity>
         )}
+
+        {isGroupChat && (isOwner || isModerator) && (
+          <TouchableOpacity
+            style={[
+              styles.tab,
+              activeTab === "groupSetting" && styles.activeTab,
+            ]}
+            onPress={() => setActiveTab("groupSetting")}
+          >
+            <Text>Cài đặt</Text>
+          </TouchableOpacity>
+        )}
       </View>
 
       {/* CONTENT */}
@@ -176,6 +269,19 @@ export default function ChatDetail() {
             groupId={chatRoomId}
             groupAvatar={chatRoomData?.data?.avatar || avatar || ""}
             isOwner={isOwner}
+            groupPermissions={resolvedPermissions}
+            onRefetch={refetchChatRoom}
+          />
+        ) : activeTab === "groupSetting" ? (
+          <GroupSettingPanel
+            groupId={chatRoomId}
+            groupName={chatRoomData?.data?.name || name || "Nhóm"}
+            groupAvatar={chatRoomData?.data?.avatar || avatar || ""}
+            currentPrivacy={
+              chatRoomData?.data?.privacy || ChatRoomPrivacy.PUBLIC
+            }
+            currentRole={currentUserRole}
+            currentPermissions={resolvedPermissions}
             onRefetch={refetchChatRoom}
           />
         ) : null}
@@ -188,7 +294,9 @@ export default function ChatDetail() {
         groupAvatar={chatRoomData?.data?.avatar || avatar || ""}
         onClose={() => setIsEditModalVisible(false)}
         onSuccess={() => {
-          refetch();
+          if (isGroupChat) {
+            refetchMembers();
+          }
         }}
         onRefetch={refetchChatRoom}
       />

@@ -4,12 +4,49 @@ import {
   useSendMessageToChatRoomMutation,
   useSendMessageToNewChatRoomMutation,
 } from "@/services/chatRoom/chatRoomApi";
+import {
+  ChatRole,
+  GroupPermissionsResponse,
+} from "@/services/chatRoom/groupChat/groupChatApi";
+import * as FileSystem from "expo-file-system";
 import * as ImagePicker from "expo-image-picker";
 import { useCallback, useState } from "react";
 import { Alert, Platform } from "react-native";
 import { useUser } from "./useUser";
 
-export default function useChatActionsMobile() {
+interface UseChatActionsMobileParams {
+  isGroupChat?: boolean;
+  currentUserRole?: ChatRole;
+  groupPermissions?: GroupPermissionsResponse;
+}
+
+const getFileExtension = (value?: string | null) => {
+  const cleanValue = value?.split("?")[0] || "";
+  const extension = cleanValue.split(".").pop()?.toLowerCase();
+
+  return extension && extension !== cleanValue ? extension : "";
+};
+
+const normalizeUploadUri = async (uri: string, fileName?: string | null) => {
+  if (Platform.OS !== "android" || uri.startsWith("file://")) {
+    return uri;
+  }
+
+  const extension = getFileExtension(fileName || uri);
+  const cacheFileName = `upload_${Date.now()}_${Math.random()
+    .toString(36)
+    .slice(2)}${extension ? `.${extension}` : ""}`;
+  const cacheUri = `${FileSystem.cacheDirectory}${cacheFileName}`;
+
+  await FileSystem.copyAsync({ from: uri, to: cacheUri });
+  return cacheUri;
+};
+
+export default function useChatActionsMobile({
+  isGroupChat = false,
+  currentUserRole,
+  groupPermissions,
+}: UseChatActionsMobileParams = {}) {
   const { user, isSignedIn } = useUser();
 
   // Mutations
@@ -22,6 +59,28 @@ export default function useChatActionsMobile() {
   const [actioningMessageIds, setActioningMessageIds] = useState<Set<string>>(
     new Set(),
   );
+
+  const getSendPermissionDeniedReason = useCallback(() => {
+    if (!isGroupChat || !groupPermissions) {
+      return null;
+    }
+
+    if (
+      currentUserRole === ChatRole.MEMBER &&
+      groupPermissions.allowMemberSendMessage === false
+    ) {
+      return "Chỉ có chủ nhóm và quản trị viên mới có quyền gửi tin nhắn trong nhóm này";
+    }
+
+    if (
+      currentUserRole === ChatRole.MODERATOR &&
+      groupPermissions.allowModeratorSendMessage === false
+    ) {
+      return "Chỉ có chủ nhóm mới có quyền gửi tin nhắn trong nhóm này";
+    }
+
+    return null;
+  }, [currentUserRole, groupPermissions, isGroupChat]);
 
   const pickImage = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -45,33 +104,36 @@ export default function useChatActionsMobile() {
     const formData = new FormData();
 
     if (images && images.length > 0) {
-      images.forEach((asset) => {
-        const uri = asset.uri;
-        const fileExtension = uri.split(".").pop()?.toLowerCase();
+      for (const asset of images) {
+        const uri = await normalizeUploadUri(asset.uri, asset.fileName);
+        const fileExtension = getFileExtension(asset.fileName || uri);
         const fileName =
-          asset.fileName || `media_${Date.now()}.${fileExtension}`;
+          asset.fileName || `media_${Date.now()}.${fileExtension || "jpg"}`;
 
+        const isVideo =
+          asset.type === "video" ||
+          fileExtension === "mp4" ||
+          fileExtension === "mov";
         const mimeType =
-          asset.uri.includes("video") || fileExtension === "mp4"
-            ? "video/mp4"
-            : "image/jpeg";
+          asset.mimeType || (isVideo ? "video/mp4" : "image/jpeg");
 
         formData.append("files", {
-          uri: Platform.OS === "android" ? uri : uri.replace("file://", ""),
+          uri,
           name: fileName,
           type: mimeType,
         } as any);
-      });
+      }
     }
 
     if (documents && documents.length > 0) {
-      documents.forEach((doc) => {
+      for (const doc of documents) {
+        const uri = await normalizeUploadUri(doc.uri, doc.name);
         formData.append("files", {
-          uri: doc.uri,
+          uri,
           name: doc.name || `file_${Date.now()}`,
           type: doc.mimeType || "application/octet-stream",
         } as any);
-      });
+      }
     }
 
     const requestPayload: any = {};
@@ -82,10 +144,7 @@ export default function useChatActionsMobile() {
       requestPayload.replyToMessageId = replyToMessageId;
     }
 
-    formData.append("request", {
-      string: JSON.stringify(requestPayload),
-      type: "application/json",
-    } as any);
+    formData.append("request", JSON.stringify(requestPayload));
 
     return formData;
   };
@@ -102,19 +161,28 @@ export default function useChatActionsMobile() {
       return { success: false };
     }
 
+    const deniedReason = getSendPermissionDeniedReason();
+    if (deniedReason) {
+      Alert.alert("Thông báo", deniedReason);
+      return { success: false, reason: deniedReason };
+    }
+
     try {
-      const formData = await createChatFormData(
-        content,
-        images,
-        replyToMessageId,
-        documents,
-      );
+      const hasAttachments =
+        Boolean(images?.length) || Boolean(documents.length);
 
       await sendMessageToChatRoom({
         chatRoomId,
         content: content,
         replyToMessageId: replyToMessageId,
-        data: formData,
+        data: hasAttachments
+          ? await createChatFormData(
+              content,
+              images,
+              replyToMessageId,
+              documents,
+            )
+          : undefined,
       } as any).unwrap();
 
       return { success: true };
@@ -168,6 +236,7 @@ export default function useChatActionsMobile() {
     handleSendMessage,
     handleRecallMessage,
     handleDeleteMessage,
+    getSendPermissionDeniedReason,
     pickImage,
     isMessageLoading,
     isSending: isSendingMessage || isSendingNewMessage,

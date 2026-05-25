@@ -1,5 +1,6 @@
 import { api } from "@/services/api";
 import { IBackendRes } from "@/types/api";
+import { ChatRoomPrivacy } from "@/types/enum";
 
 interface CreateGroupChatRequest {
   accountIds: number[];
@@ -10,6 +11,7 @@ interface CreateGroupChatRequest {
 interface UpdateGroupInfoRequest {
   name?: string;
   avatar?: string;
+  privacy?: ChatRoomPrivacy;
 }
 
 interface AddMemberRequest {
@@ -20,7 +22,22 @@ interface UpdateMemberRoleRequest {
   role: ChatRole;
 }
 
-export type ChatRole = "OWNER" | "MODERATOR" | "MEMBER";
+export const ChatRole = {
+  OWNER: "OWNER",
+  MODERATOR: "MODERATOR",
+  MEMBER: "MEMBER",
+} as const;
+
+// eslint-disable-next-line @typescript-eslint/no-redeclare
+export type ChatRole = (typeof ChatRole)[keyof typeof ChatRole];
+
+export interface GroupPermissionsResponse {
+  allowMemberUpdate: boolean;
+  allowMemberPin: boolean;
+  allowMemberCreateVote: boolean;
+  allowMemberSendMessage: boolean;
+  allowModeratorSendMessage: boolean;
+}
 
 interface ChatRoomResponse {
   aiModel: string | null;
@@ -32,6 +49,7 @@ interface ChatRoomResponse {
   name: string;
   roomId: number;
   type: "GROUP";
+  privacy: ChatRoomPrivacy;
   updatedAt: string;
   updatedBy: string;
 }
@@ -76,6 +94,36 @@ export const groupChatApi = api
         }),
         invalidatesTags: (result, error, { chatroomId }) => [
           { type: "ChatRoom", id: chatroomId },
+        ],
+      }),
+
+      getGroupPermissions: builder.query<
+        IBackendRes<GroupPermissionsResponse>,
+        number
+      >({
+        query: (chatRoomId) => ({
+          url: `/chatrooms/group/${chatRoomId}/permissions`,
+          method: "GET",
+        }),
+        providesTags: (result, error, chatRoomId) => [
+          { type: "ChatRoom", id: chatRoomId },
+          { type: "ChatMember", id: chatRoomId },
+        ],
+      }),
+
+      updateGroupPermissions: builder.mutation<
+        IBackendRes<GroupPermissionsResponse>,
+        { chatRoomId: number } & GroupPermissionsResponse
+      >({
+        query: ({ chatRoomId, ...data }) => ({
+          url: `/chatrooms/group/${chatRoomId}/permissions`,
+          method: "PUT",
+          data,
+        }),
+        invalidatesTags: (result, error, { chatRoomId }) => [
+          { type: "ChatRoom", id: chatRoomId },
+          { type: "ChatRoom", id: "LIST" },
+          { type: "ChatMember", id: chatRoomId },
         ],
       }),
 
@@ -168,6 +216,8 @@ export const groupChatApi = api
 export const {
   useCreateGroupChatMutation,
   useUpdateGroupInfoMutation,
+  useGetGroupPermissionsQuery,
+  useUpdateGroupPermissionsMutation,
   useLeaveGroupChatMutation,
   useGetMemberInGroupChatQuery,
   useAddMemberToGroupMutation,

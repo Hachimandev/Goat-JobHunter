@@ -2,10 +2,10 @@ import { useCreatePollMutation } from "@/services/poll/pollApi";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import React, { useState } from "react";
 import {
+  Alert,
   KeyboardAvoidingView,
   Modal,
   Platform,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Switch,
@@ -14,9 +14,24 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import DateTimePickerModal from "react-native-modal-datetime-picker";
 
-export const CreatePollModal = ({ visible, onClose, chatRoomId }: any) => {
+interface CreatePollModalProps {
+  visible: boolean;
+  onClose: () => void;
+  chatRoomId: number;
+  disabled?: boolean;
+  disabledReason?: string;
+}
+
+export const CreatePollModal = ({
+  visible,
+  onClose,
+  chatRoomId,
+  disabled = false,
+  disabledReason,
+}: CreatePollModalProps) => {
   const [question, setQuestion] = useState("");
   const [options, setOptions] = useState(["", ""]);
   const [deadline, setDeadline] = useState<Date | null>(null);
@@ -25,6 +40,8 @@ export const CreatePollModal = ({ visible, onClose, chatRoomId }: any) => {
   const [isPinned, setIsPinned] = useState(false);
   const [isMultiple, setIsMultiple] = useState(false);
   const [canAddOption, setCanAddOption] = useState(true);
+
+  const insets = useSafeAreaInsets();
 
   const [createPoll, { isLoading }] = useCreatePollMutation();
 
@@ -39,8 +56,17 @@ export const CreatePollModal = ({ visible, onClose, chatRoomId }: any) => {
   };
 
   const onSubmit = async () => {
+    if (disabled) {
+      Alert.alert(
+        "Thông báo",
+        disabledReason || "Bạn không có quyền tạo bình chọn trong nhóm này",
+      );
+      return;
+    }
+
     if (!question.trim() || options.filter((o) => o.trim()).length < 2) {
-      return alert("Vui lòng nhập câu hỏi và ít nhất 2 lựa chọn");
+      Alert.alert("Thông báo", "Vui lòng nhập câu hỏi và ít nhất 2 lựa chọn");
+      return;
     }
 
     try {
@@ -56,8 +82,8 @@ export const CreatePollModal = ({ visible, onClose, chatRoomId }: any) => {
       onClose();
       setQuestion("");
       setOptions(["", ""]);
-    } catch (err) {
-      alert("Tạo bình chọn thất bại");
+    } catch {
+      Alert.alert("Lỗi", "Tạo bình chọn thất bại");
     }
   };
 
@@ -67,7 +93,12 @@ export const CreatePollModal = ({ visible, onClose, chatRoomId }: any) => {
       animationType="slide"
       presentationStyle="fullScreen"
     >
-      <SafeAreaView style={styles.safeArea}>
+      <View
+        style={[
+          styles.safeArea,
+          { paddingTop: insets.top, paddingBottom: insets.bottom },
+        ]}
+      >
         <KeyboardAvoidingView
           behavior={Platform.OS === "ios" ? "padding" : "height"}
           style={{ flex: 1 }}
@@ -78,12 +109,15 @@ export const CreatePollModal = ({ visible, onClose, chatRoomId }: any) => {
               <Text style={styles.headerBtnTxt}>Hủy</Text>
             </TouchableOpacity>
             <Text style={styles.headerTitle}>Tạo bình chọn</Text>
-            <TouchableOpacity onPress={onSubmit} disabled={isLoading}>
+            <TouchableOpacity
+              onPress={onSubmit}
+              disabled={isLoading || disabled}
+            >
               <Text
                 style={[
                   styles.headerBtnTxt,
                   styles.submitBtn,
-                  isLoading && { opacity: 0.5 },
+                  (isLoading || disabled) && { opacity: 0.5 },
                 ]}
               >
                 Xong
@@ -95,6 +129,15 @@ export const CreatePollModal = ({ visible, onClose, chatRoomId }: any) => {
             style={styles.container}
             keyboardShouldPersistTaps="handled"
           >
+            {disabled && (
+              <View style={styles.disabledNotice}>
+                <Text style={styles.disabledNoticeText}>
+                  {disabledReason ||
+                    "Bạn không có quyền tạo bình chọn trong nhóm này"}
+                </Text>
+              </View>
+            )}
+
             <View style={styles.inputSection}>
               <TextInput
                 placeholder="Đặt câu hỏi bình chọn"
@@ -202,7 +245,7 @@ export const CreatePollModal = ({ visible, onClose, chatRoomId }: any) => {
           }}
           onCancel={() => setDatePickerVisibility(false)}
         />
-      </SafeAreaView>
+      </View>
     </Modal>
   );
 };
@@ -223,6 +266,17 @@ const styles = StyleSheet.create({
   submitBtn: { color: "#0084FF", fontWeight: "600" },
   container: { flex: 1, backgroundColor: "#F2F2F7" },
   inputSection: { backgroundColor: "#fff", padding: 16, marginBottom: 12 },
+  disabledNotice: {
+    margin: 12,
+    padding: 12,
+    borderRadius: 10,
+    backgroundColor: "#FFEAEA",
+  },
+  disabledNoticeText: {
+    color: "#B42318",
+    fontSize: 13,
+    fontWeight: "500",
+  },
   questionInput: { fontSize: 16, minHeight: 60, textAlignVertical: "top" },
   charCount: {
     textAlign: "right",

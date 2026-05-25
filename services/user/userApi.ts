@@ -3,6 +3,7 @@ import {
   CheckCompaniesFollowedResponse,
   CheckReviewedCompaniesResponse,
   FetchUsersResponse,
+  FetchUserResponse,
   FollowCompaniesRequest,
   ResetPasswordRequest,
   ResetPasswordResponse,
@@ -50,6 +51,18 @@ export const userApi = api
         providesTags: ["User"],
       }),
 
+      fetchUserById: builder.query<FetchUserResponse, number | string>({
+        query: (userId) => ({
+          url: `/users/${userId}`,
+          method: "GET",
+        }),
+        providesTags: (_result, _error, userId) => [
+          { type: "User", id: userId },
+          { type: "Applicant", id: userId },
+          { type: "Recruiter", id: userId },
+        ],
+      }),
+
       // Follow Company APIs
       checkCompaniesFollowed: builder.query<
         CheckCompaniesFollowedResponse,
@@ -95,6 +108,7 @@ export const userApi = api
 
 export const {
   useLazySearchUsersQuery,
+  useFetchUserByIdQuery,
   useUpdatePasswordMutation,
   useResetPasswordMutation,
   useCheckCompaniesFollowedQuery,
@@ -102,3 +116,5 @@ export const {
   useUnfollowCompaniesMutation,
   useCheckReviewedCompaniesQuery,
 } = userApi;
+
+export const useGetUserByIdQuery = useFetchUserByIdQuery;

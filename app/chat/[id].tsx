@@ -1,4 +1,5 @@
 import BottomSheet from "@gorhom/bottom-sheet";
+import { Picker } from "@react-native-picker/picker";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import React, {
   useCallback,
@@ -19,25 +20,39 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import {
+  SafeAreaView,
+  useSafeAreaInsets,
+} from "react-native-safe-area-context";
 import EmojiPicker from "rn-emoji-keyboard";
 
 import { ChatHeader } from "@/components/chat/ChatHeader";
 import { ChatInput } from "@/components/chat/ChatInput";
+import { ChatTypingIndicator } from "@/components/chat/ChatTypingIndicator";
 import { ForwardModal } from "@/components/chat/ForwardModal";
+import { InviteLinkPanel } from "@/components/chat/InviteLinkPanel";
 import { MessageActionsSheet } from "@/components/chat/MessageActionsSheet";
 import { MessageItem } from "@/components/chat/MessageItem";
 
 import { PollVoteModal } from "@/components/chat/PollVoteModal";
+import { TRANSLATE_LANGUAGE_OPTIONS } from "@/constants/constant";
 import useChatActionsMobile from "@/hooks/useChatActionsMobile";
+import { useChatRoomTypingIndicator } from "@/hooks/useChatRoomTypingIndicator";
 import { useDissolveGroup } from "@/hooks/useDissolveGroup";
 import { useNotificationManager } from "@/hooks/useNotificationManager";
 import { useUser } from "@/hooks/useUser";
+import { useCallRoomActions } from "@/hooks/useCallRoomActions";
+import { CallTypeEnum } from "@/types/enum";
 import {
   useFetchChatRoomsByIdQuery,
   useFetchMessagesInChatRoomQuery,
   useForwardMessageBatchMutation,
 } from "@/services/chatRoom/chatRoomApi";
+import { useTranslateMessageMutation } from "@/services/ai/conversationApi";
+import {
+  GroupPermissionsResponse,
+  useGetMemberInGroupChatQuery,
+} from "@/services/chatRoom/groupChat/groupChatApi";
 import {
   useGetPinnedMessagesQuery,
   usePinMessageMutation,
@@ -54,10 +69,11 @@ type PinnedMessage = {
 };
 
 export default function ChatDetailScreen() {
-  const { id, name, avatar } = useLocalSearchParams<{
+  const { id, name, avatar, targetUserId } = useLocalSearchParams<{
     id: string;
     name: string;
     avatar: string;
+    targetUserId?: string;
   }>();
   const chatRoomId = Number(id);
   const { user } = useUser();
@@ -65,6 +81,7 @@ export default function ChatDetailScreen() {
   const [forwardMessageBatch] = useForwardMessageBatchMutation();
   const [showForwardToast, setShowForwardToast] = useState(false);
   const headerHeight = useHeaderHeight();
+  const insets = useSafeAreaInsets();
 
   const { data: pinnedData, refetch: refetchPinned } =
     useGetPinnedMessagesQuery(
@@ -104,6 +121,7 @@ export default function ChatDetailScreen() {
       const result = await DocumentPicker.getDocumentAsync({
         type: "*/*",
         multiple: true,
+        copyToCacheDirectory: true,
       });
 
       if (!result.canceled) {
@@ -122,9 +140,21 @@ export default function ChatDetailScreen() {
   const [selectedImages, setSelectedImages] = useState<any[]>([]);
   const [isEmojiOpen, setIsEmojiOpen] = useState(false);
   const [isForwardModalOpen, setIsForwardModalOpen] = useState(false);
+  const [isInvitePanelOpen, setIsInvitePanelOpen] = useState(false);
   const [isBannerDismissed, setIsBannerDismissed] = useState(false);
+  const [isTranslateModalOpen, setIsTranslateModalOpen] = useState(false);
+  const [selectedTargetLang, setSelectedTargetLang] = useState("Vietnamese");
+  const [translatedMessageText, setTranslatedMessageText] = useState<
+    string | null
+  >(null);
+  const [translateMessage, { isLoading: isTranslatingMessage }] =
+    useTranslateMessageMutation();
 
   const flatListRef = useRef<FlatList>(null);
+
+  const [highlightedMessageId, setHighlightedMessageId] = useState<
+    string | null
+  >(null);
 
   const handleNavigateToMessage = (messageId: string) => {
     const currentMessages = Array.isArray(messagesData?.data?.result)
@@ -141,6 +171,8 @@ export default function ChatDetailScreen() {
         animated: true,
         viewPosition: 0.5,
       });
+      setHighlightedMessageId(messageId);
+      setTimeout(() => setHighlightedMessageId(null), 2000);
     } else {
       Alert.alert(
         "Thông báo",
@@ -150,20 +182,12 @@ export default function ChatDetailScreen() {
   };
 
   const bottomSheetRef = useRef<BottomSheet>(null);
-  const {
-    handleSendMessage,
-    handleRecallMessage,
-    handleDeleteMessage,
-    pickImage,
-    isSending,
-  } = useChatActionsMobile();
   const [pinMessage] = usePinMessageMutation();
 
   const {
     data: messagesData,
     isLoading,
     refetch,
-    isFetching,
   } = useFetchMessagesInChatRoomQuery(
     { chatRoomId, size: 50, page: 0 },
     { skip: !chatRoomId, pollingInterval: 5000 },
@@ -175,13 +199,54 @@ export default function ChatDetailScreen() {
       pollingInterval: 3000,
     });
 
+  const { handleStartCall, currentCall } = useCallRoomActions();
+
+  const isGroupChat = chatRoomData?.data?.type === "GROUP";
+  const directProfileUserId = !isGroupChat
+    ? Number(chatRoomData?.data?.counterpartAccountId || targetUserId)
+    : undefined;
+  const groupPermissions: GroupPermissionsResponse = {
+    allowMemberUpdate: chatRoomData?.data?.allowMemberUpdate ?? true,
+    allowMemberPin: chatRoomData?.data?.allowMemberPin ?? true,
+    allowMemberCreateVote: chatRoomData?.data?.allowMemberCreateVote ?? true,
+    allowMemberSendMessage: chatRoomData?.data?.allowMemberSendMessage ?? true,
+    allowModeratorSendMessage:
+      chatRoomData?.data?.allowModeratorSendMessage ?? true,
+  };
+  const { data: membersData } = useGetMemberInGroupChatQuery(chatRoomId, {
+    skip: !chatRoomId || !isGroupChat,
+  });
+  const members = membersData?.data || [];
+  const currentUserRole = members.find(
+    (m) => m.accountId === user?.accountId,
+  )?.role;
+  const canManagePins =
+    !isGroupChat ||
+    currentUserRole !== "MEMBER" ||
+    groupPermissions.allowMemberPin !== false;
+
+  const {
+    handleSendMessage,
+    handleRecallMessage,
+    handleDeleteMessage,
+    getSendPermissionDeniedReason,
+    pickImage,
+    isSending,
+  } = useChatActionsMobile({
+    isGroupChat,
+    currentUserRole,
+    groupPermissions,
+  });
+  const { typingParticipants, markTyping, stopTyping } =
+    useChatRoomTypingIndicator(chatRoomId, user?.accountId);
+
   useEffect(() => {
     setActiveChatRoom(chatRoomId);
     if (chatRoomId) {
       refetch();
     }
     return () => setActiveChatRoom(null);
-  }, [chatRoomId]);
+  }, [chatRoomId, refetch, setActiveChatRoom]);
 
   useFocusEffect(
     useCallback(() => {
@@ -191,9 +256,11 @@ export default function ChatDetailScreen() {
     }, [chatRoomId, refetchChatRoom]),
   );
 
-  const messagesList = Array.isArray(messagesData?.data?.result)
-    ? messagesData.data.result
-    : [];
+  const messagesList = useMemo(() => {
+    return Array.isArray(messagesData?.data?.result)
+      ? messagesData.data.result
+      : [];
+  }, [messagesData]);
 
   const onSend = async () => {
     if (
@@ -208,6 +275,7 @@ export default function ChatDetailScreen() {
     const imagesToSend = [...selectedImages];
     const filesToSend = [...selectedFiles];
 
+    await stopTyping();
     setText("");
     setSelectedImages([]);
     setSelectedFiles([]);
@@ -248,10 +316,19 @@ export default function ChatDetailScreen() {
     }
   };
 
+  const handleStartVoiceCall = useCallback(() => {
+    void handleStartCall(chatRoomId, CallTypeEnum.VOICE);
+  }, [handleStartCall, chatRoomId]);
+
+  const handleStartVideoCall = useCallback(() => {
+    void handleStartCall(chatRoomId, CallTypeEnum.VIDEO);
+  }, [handleStartCall, chatRoomId]);
+
   const isDirectBlocked = chatRoomData?.data?.blocked || false;
   const isGroupDissolved =
     chatRoomData?.data?.deletedAt !== null &&
     chatRoomData?.data?.deletedAt !== undefined;
+  const sendPermissionDeniedReason = getSendPermissionDeniedReason();
 
   const handleCopyMessage = async () => {
     if (!selectedMessage) return;
@@ -265,12 +342,63 @@ export default function ChatDetailScreen() {
     }
   };
 
+  const canTranslateSelectedMessage = Boolean(
+    selectedMessage?.content?.trim() &&
+    selectedMessage?.messageType !== "SYSTEM" &&
+    selectedMessage?.messageType !== "POLL" &&
+    !selectedMessage?.isHidden,
+  );
+
+  const openTranslateMessageModal = () => {
+    if (!canTranslateSelectedMessage) {
+      Alert.alert("Thông báo", "Tin nhắn này không có nội dung để dịch");
+      return;
+    }
+
+    setTranslatedMessageText(null);
+    setIsTranslateModalOpen(true);
+    bottomSheetRef.current?.close();
+  };
+
+  const handleTranslateSelectedMessage = async () => {
+    const content = selectedMessage?.content?.trim();
+    if (!content) {
+      return;
+    }
+
+    try {
+      const response = await translateMessage({
+        content,
+        targetLang: selectedTargetLang,
+      }).unwrap();
+      const nextTranslatedText = response?.data?.translatedText;
+
+      if (!nextTranslatedText) {
+        Alert.alert("Lỗi", "Không thể dịch tin nhắn");
+        return;
+      }
+
+      setTranslatedMessageText(nextTranslatedText);
+    } catch (error: any) {
+      Alert.alert(
+        "Lỗi",
+        error?.data?.message || "Đã có lỗi xảy ra khi dịch tin nhắn",
+      );
+    }
+  };
+
   const [selectedPoll, setSelectedPoll] = useState<any>(null);
   const [isVoteModalOpen, setIsVoteModalOpen] = useState(false);
 
-  const extractPollId = (content: string) => {
+  const extractPollId = (content?: string | null) => {
+    if (!content) return null;
     const match = content.match(/poll_([a-z0-9]+)/);
     return match ? match[0] : null;
+  };
+  const extractReminderId = (content?: string | null) => {
+    if (!content) return null;
+    const match = content.match(/\(Xem[: ]+([^)]+)\)/i);
+    return match?.[1]?.trim() || null;
   };
   const latestPollMessageIdByPollId = useMemo(() => {
     const map: Record<string, any> = {};
@@ -283,6 +411,24 @@ export default function ChatDetailScreen() {
       const prev = map[pid];
       if (!prev) map[pid] = m;
       else if (new Date(m.createdAt) > new Date(prev.createdAt)) map[pid] = m;
+    }
+    const result: Record<string, string> = {};
+    for (const k of Object.keys(map)) result[k] = map[k].messageId;
+    return result;
+  }, [messagesList]);
+  const latestReminderMessageIdByReminderId = useMemo(() => {
+    const map: Record<string, any> = {};
+    for (const m of messagesList) {
+      if (String(m.messageType) !== "REMINDER") continue;
+
+      const reminderId = extractReminderId(m.content);
+      if (!reminderId) continue;
+
+      const prev = map[reminderId];
+      if (!prev) map[reminderId] = m;
+      else if (new Date(m.createdAt) > new Date(prev.createdAt)) {
+        map[reminderId] = m;
+      }
     }
     const result: Record<string, string> = {};
     for (const k of Object.keys(map)) result[k] = map[k].messageId;
@@ -304,6 +450,11 @@ export default function ChatDetailScreen() {
           name={chatRoomData?.data?.name || name}
           avatar={chatRoomData?.data?.avatar || avatar}
           status="Đang hoạt động"
+          profileUserId={
+            directProfileUserId && Number.isFinite(directProfileUserId)
+              ? directProfileUserId
+              : undefined
+          }
           onPressInfo={() =>
             router.push({
               pathname: "/chat/detail",
@@ -311,10 +462,34 @@ export default function ChatDetailScreen() {
                 id: chatRoomId.toString(),
                 name: chatRoomData?.data?.name || name,
                 avatar: chatRoomData?.data?.avatar || avatar,
+                targetUserId:
+                  directProfileUserId && Number.isFinite(directProfileUserId)
+                    ? String(directProfileUserId)
+                    : undefined,
                 messages: JSON.stringify(messagesList || []),
+                role: currentUserRole,
+                allowMemberUpdate: String(groupPermissions.allowMemberUpdate),
+                allowMemberPin: String(groupPermissions.allowMemberPin),
+                allowMemberCreateVote: String(
+                  groupPermissions.allowMemberCreateVote,
+                ),
+                allowMemberSendMessage: String(
+                  groupPermissions.allowMemberSendMessage,
+                ),
+                allowModeratorSendMessage: String(
+                  groupPermissions.allowModeratorSendMessage,
+                ),
               },
             })
           }
+          onPressInvite={
+            chatRoomData?.data?.type === "GROUP"
+              ? () => setIsInvitePanelOpen(true)
+              : undefined
+          }
+          onStartVoiceCall={handleStartVoiceCall}
+          onStartVideoCall={handleStartVideoCall}
+          isCallActive={Boolean(currentCall)}
         />
 
         {pinnedMessage && (
@@ -345,25 +520,27 @@ export default function ChatDetailScreen() {
               </TouchableOpacity>
             )}
 
-            <TouchableOpacity
-              onPress={() => {
-                Alert.alert("Bỏ ghim", "Bạn có chắc muốn bỏ ghim?", [
-                  { text: "Hủy" },
-                  {
-                    text: "OK",
-                    onPress: async () => {
-                      await unpinMessage({
-                        chatRoomId,
-                        messageId: pinnedMessage.message.messageId,
-                      }).unwrap();
-                      await refetchPinned();
+            {canManagePins && (
+              <TouchableOpacity
+                onPress={() => {
+                  Alert.alert("Bỏ ghim", "Bạn có chắc muốn bỏ ghim?", [
+                    { text: "Hủy" },
+                    {
+                      text: "OK",
+                      onPress: async () => {
+                        await unpinMessage({
+                          chatRoomId,
+                          messageId: pinnedMessage.message.messageId,
+                        }).unwrap();
+                        await refetchPinned();
+                      },
                     },
-                  },
-                ]);
-              }}
-            >
-              <Ionicons name="close" size={18} color="#999" />
-            </TouchableOpacity>
+                  ]);
+                }}
+              >
+                <Ionicons name="close" size={18} color="#999" />
+              </TouchableOpacity>
+            )}
           </View>
         )}
 
@@ -391,30 +568,33 @@ export default function ChatDetailScreen() {
                     </TouchableOpacity>
 
                     {/* nút xóa ghim */}
-                    <TouchableOpacity
-                      onPress={() => {
-                        Alert.alert("Bỏ ghim", "Xóa ghim tin nhắn này?", [
-                          { text: "Hủy" },
-                          {
-                            text: "OK",
-                            onPress: async () => {
-                              try {
-                                await unpinMessage({
-                                  chatRoomId,
-                                  messageId: item.message.messageId,
-                                }).unwrap();
+                    {canManagePins && (
+                      <TouchableOpacity
+                        onPress={() => {
+                          Alert.alert("Bỏ ghim", "Xóa ghim tin nhắn này?", [
+                            { text: "Hủy" },
+                            {
+                              text: "OK",
+                              onPress: async () => {
+                                try {
+                                  await unpinMessage({
+                                    chatRoomId,
+                                    messageId: item.message.messageId,
+                                  }).unwrap();
 
-                                await refetchPinned();
-                              } catch (e) {
-                                Alert.alert("Lỗi", "Không thể bỏ ghim");
-                              }
+                                  await refetchPinned();
+                                } catch (e) {
+                                  console.error("Lỗi bỏ ghim:", e);
+                                  Alert.alert("Lỗi", "Không thể bỏ ghim");
+                                }
+                              },
                             },
-                          },
-                        ]);
-                      }}
-                    >
-                      <Ionicons name="close" size={18} color="#999" />
-                    </TouchableOpacity>
+                          ]);
+                        }}
+                      >
+                        <Ionicons name="close" size={18} color="#999" />
+                      </TouchableOpacity>
+                    )}
                   </View>
                 )}
               />
@@ -474,8 +654,21 @@ export default function ChatDetailScreen() {
                   extractPollId(item.content) || ""
                 ] === item.messageId
               }
+              showReminder={
+                String(item.messageType) === "REMINDER" &&
+                latestReminderMessageIdByReminderId[
+                  extractReminderId(item.content) || ""
+                ] === item.messageId
+              }
               onNavigateToMessage={handleNavigateToMessage}
+              getReminderMessageId={(rid: string) =>
+                latestReminderMessageIdByReminderId[rid] || null
+              }
+              getPollMessageId={(pid: string) =>
+                latestPollMessageIdByPollId[pid] || null
+              }
               isGroupChat={chatRoomData?.data?.type === "GROUP"}
+              isHighlighted={highlightedMessageId === item.messageId}
             />
           )}
           onScrollToIndexFailed={(info) => {
@@ -492,6 +685,8 @@ export default function ChatDetailScreen() {
             ) : null
           }
         />
+
+        <ChatTypingIndicator typingParticipants={typingParticipants} />
 
         <ChatInput
           text={text}
@@ -517,20 +712,25 @@ export default function ChatDetailScreen() {
             setSelectedFiles((prev) => prev.filter((_, i) => i !== idx))
           }
           onOpenEmoji={() => setIsEmojiOpen(true)}
-          disabled={isDirectBlocked || isGroupDissolved}
+          disabled={
+            isDirectBlocked || isGroupDissolved || !!sendPermissionDeniedReason
+          }
           disabledReason={
             isGroupDissolved
               ? "Nhóm đã bị giải tán"
               : isDirectBlocked
                 ? "Bạn bị chặn"
-                : undefined
+                : sendPermissionDeniedReason || undefined
           }
+          onTypingChange={markTyping}
+          onTypingStop={stopTyping}
         />
       </KeyboardAvoidingView>
 
       <MessageActionsSheet
         ref={bottomSheetRef}
         selectedMessage={selectedMessage}
+        canPin={canManagePins}
         onCopy={handleCopyMessage}
         isGroupDissolved={isGroupDissolved}
         onReply={() => {
@@ -541,7 +741,18 @@ export default function ChatDetailScreen() {
           setIsForwardModalOpen(true);
           bottomSheetRef.current?.close();
         }}
+        canTranslate={canTranslateSelectedMessage}
+        onTranslate={openTranslateMessageModal}
         onPin={async () => {
+          if (!canManagePins) {
+            Alert.alert(
+              "Thông báo",
+              "Bạn không có quyền ghim tin nhắn trong nhóm này",
+            );
+            bottomSheetRef.current?.close();
+            return;
+          }
+
           if (selectedMessage) {
             await pinMessage({
               chatRoomId,
@@ -573,10 +784,83 @@ export default function ChatDetailScreen() {
         onForwardSelect={handleForwardSubmit}
       />
 
+      <Modal
+        visible={isTranslateModalOpen}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setIsTranslateModalOpen(false)}
+      >
+        <View style={styles.overlay}>
+          <View style={styles.translateBox}>
+            <View style={styles.translateHeader}>
+              <Text style={styles.translateTitle}>Dịch tin nhắn</Text>
+              <TouchableOpacity onPress={() => setIsTranslateModalOpen(false)}>
+                <Ionicons name="close" size={22} color="#111827" />
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.translatePickerBox}>
+              <Picker
+                selectedValue={selectedTargetLang}
+                onValueChange={(value) => setSelectedTargetLang(value)}
+              >
+                {TRANSLATE_LANGUAGE_OPTIONS.map((option) => (
+                  <Picker.Item
+                    key={option.value}
+                    label={option.label}
+                    value={option.value}
+                  />
+                ))}
+              </Picker>
+            </View>
+
+            <View style={styles.translateBlock}>
+              <Text style={styles.translateLabel}>Tin nhắn gốc</Text>
+              <Text style={styles.translateContent}>
+                {selectedMessage?.content}
+              </Text>
+            </View>
+
+            {translatedMessageText && (
+              <View style={styles.translateBlock}>
+                <Text style={styles.translateLabel}>Bản dịch</Text>
+                <Text style={styles.translatedContent}>
+                  {translatedMessageText}
+                </Text>
+              </View>
+            )}
+
+            <TouchableOpacity
+              style={[
+                styles.translateButton,
+                isTranslatingMessage && { opacity: 0.65 },
+              ]}
+              onPress={handleTranslateSelectedMessage}
+              disabled={isTranslatingMessage}
+            >
+              {isTranslatingMessage ? (
+                <ActivityIndicator size="small" color="#fff" />
+              ) : (
+                <>
+                  <Ionicons name="language-outline" size={18} color="#fff" />
+                  <Text style={styles.translateButtonText}>Dịch</Text>
+                </>
+              )}
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
       <EmojiPicker
         open={isEmojiOpen}
         onClose={() => setIsEmojiOpen(false)}
-        onEmojiSelected={(emoji) => setText((prev) => prev + emoji.emoji)}
+        onEmojiSelected={(emoji) => {
+          setText((prev) => {
+            const nextText = prev + emoji.emoji;
+            void markTyping(nextText.trim().length > 0);
+            return nextText;
+          });
+        }}
       />
       {showForwardToast && (
         <View style={styles.toastOverlay} pointerEvents="none">
@@ -595,6 +879,33 @@ export default function ChatDetailScreen() {
           setSelectedPoll(null);
         }}
       />
+
+      <Modal
+        visible={isInvitePanelOpen}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setIsInvitePanelOpen(false)}
+      >
+        <SafeAreaView style={styles.modalContainer}>
+          <View
+            style={[
+              styles.modalHeader,
+              { paddingTop: Math.max(insets.top, 12) },
+            ]}
+          >
+            <TouchableOpacity onPress={() => setIsInvitePanelOpen(false)}>
+              <Ionicons name="close" size={24} color="#000" />
+            </TouchableOpacity>
+            <Text style={styles.modalTitle}>Mời vào nhóm</Text>
+            <View style={{ width: 24 }} />
+          </View>
+          <InviteLinkPanel
+            roomId={chatRoomId}
+            isOwner={true}
+            setIsInvitePanelOpen={setIsInvitePanelOpen}
+          />
+        </SafeAreaView>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -749,5 +1060,89 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     borderBottomWidth: 1,
     borderColor: "#eee",
+  },
+  modalContainer: {
+    flex: 1,
+    backgroundColor: "#f8fafc",
+  },
+  modalHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderColor: "#e2e8f0",
+    backgroundColor: "#fff",
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#0f172a",
+  },
+  translateBox: {
+    width: "88%",
+    maxHeight: "82%",
+    backgroundColor: "#fff",
+    borderRadius: 16,
+    padding: 16,
+  },
+  translateHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 12,
+  },
+  translateTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#111827",
+  },
+  translatePickerBox: {
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+    borderRadius: 12,
+    overflow: "hidden",
+    marginBottom: 12,
+  },
+  translateBlock: {
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+    backgroundColor: "#F9FAFB",
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 12,
+  },
+  translateLabel: {
+    color: "#6B7280",
+    fontSize: 12,
+    fontWeight: "700",
+    marginBottom: 6,
+    textTransform: "uppercase",
+  },
+  translateContent: {
+    color: "#111827",
+    fontSize: 15,
+    lineHeight: 21,
+  },
+  translatedContent: {
+    color: "#0084FF",
+    fontSize: 15,
+    lineHeight: 21,
+    fontWeight: "600",
+  },
+  translateButton: {
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: "#0084FF",
+    alignItems: "center",
+    justifyContent: "center",
+    flexDirection: "row",
+    gap: 8,
+  },
+  translateButtonText: {
+    color: "#fff",
+    fontSize: 15,
+    fontWeight: "700",
   },
 });

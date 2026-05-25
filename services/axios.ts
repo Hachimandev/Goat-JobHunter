@@ -1,12 +1,13 @@
 import type { AxiosError, InternalAxiosRequestConfig } from "axios";
 import axios from "axios";
 import { tokenManager } from "../lib/tokenManager";
+import { API_BASE_URL } from "./network";
 
 // ============================================================
 // Cấu hình mặc định cho các request
 // ============================================================
 const axiosClient = axios.create({
-  baseURL: process.env.EXPO_PUBLIC_API_URL || "http://localhost:5000/api/v1",
+  baseURL: API_BASE_URL,
   timeout: 1000 * 60 * 10,
   withCredentials: true, // Enable cookie support for auth tokens
 });

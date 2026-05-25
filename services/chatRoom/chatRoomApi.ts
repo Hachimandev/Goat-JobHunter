@@ -8,6 +8,8 @@ import {
   FetchMessagesInChatRoomResponse,
   SendMessageToChatRoomRequest,
   SendMessageToNewChatRoomRequest,
+  TypingIndicatorRequest,
+  TypingIndicatorResponse,
 } from "@/services/chatRoom/chatRoomType";
 import { IBackendRes } from "@/types/api";
 import { ChatRoom, MessageType } from "@/types/model";
@@ -182,14 +184,6 @@ export const chatRoomApi = api.injectEndpoints({
       SendMessageToNewChatRoomRequest
     >({
       query: ({ accountId, content, files }) => {
-        const formData = new FormData();
-
-        if (files && files.length > 0) {
-          files.forEach((file) => {
-            formData.append("files", file);
-          });
-        }
-
         const requestData: { accountId: number; content?: string } = {
           accountId,
         };
@@ -197,10 +191,23 @@ export const chatRoomApi = api.injectEndpoints({
           requestData.content = content;
         }
 
-        const requestBlob = new Blob([JSON.stringify(requestData)], {
-          type: "application/json",
+        if (!files?.length) {
+          return {
+            url: `/chatrooms/messages`,
+            method: "POST",
+            data: requestData,
+          };
+        }
+
+        const formData = new FormData();
+        files.forEach((file) => {
+          formData.append("files", file);
         });
-        formData.append("request", requestBlob);
+        formData.append("request", JSON.stringify(requestData));
+        formData.append("request", {
+          string: JSON.stringify(requestData),
+          type: "application/json",
+        } as any);
 
         return {
           url: `/chatrooms/messages`,
@@ -389,6 +396,17 @@ export const chatRoomApi = api.injectEndpoints({
         }
       },
     }),
+
+    setTypingIndicator: builder.mutation<
+      TypingIndicatorResponse,
+      TypingIndicatorRequest
+    >({
+      query: ({ chatRoomId, typing }) => ({
+        url: `/chatrooms/${chatRoomId}/typing`,
+        method: "PUT",
+        data: { typing },
+      }),
+    }),
   }),
 });
 
@@ -405,4 +423,5 @@ export const {
   useDeleteMessagePermanentMutation,
   useCountUnreadMessagesByCurrentAccountQuery,
   useForwardMessageBatchMutation,
+  useSetTypingIndicatorMutation,
 } = chatRoomApi;

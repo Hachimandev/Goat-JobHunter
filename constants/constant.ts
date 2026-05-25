@@ -149,6 +149,34 @@ export const COUNTRY_OPTIONS = [
   { value: 'NEW_ZEALAND', label: 'New Zealand' },
 ];
 
+export const COLOR_OPTIONS = [
+  '#ef4444', // red-500
+  '#f97316', // orange-500
+  '#eab308', // yellow-500
+  '#22c55e', // green-500
+  '#06b6d4', // cyan-500
+  '#0ea5e9', // sky-500
+  '#3b82f6', // blue-500
+  '#6366f1', // indigo-500
+  '#8b5cf6', // violet-500
+  '#d946ef', // fuchsia-500
+  '#ec4899', // pink-500
+  '#64748b', // slate-500
+];
+
+export const TRANSLATE_LANGUAGE_OPTIONS = [
+  { label: 'Tiếng Việt', value: 'Vietnamese' },
+  { label: 'Tiếng Anh', value: 'English' },
+  { label: 'Tiếng Trung', value: 'Chinese' },
+  { label: 'Tiếng Nhật', value: 'Japanese' },
+  { label: 'Tiếng Hàn', value: 'Korean' },
+  { label: 'Tiếng Pháp', value: 'French' },
+  { label: 'Tiếng Đức', value: 'German' },
+  { label: 'Tiếng Tây Ban Nha', value: 'Spanish' },
+  { label: 'Tiếng Thái', value: 'Thai' },
+  { label: 'Tiếng Indonesia', value: 'Indonesian' },
+];
+
 export const RATING_TYPES = [
   { value: 'salaryBenefits', label: 'Lương thưởng & phúc lợi' },
   { value: 'trainingLearning', label: 'Đào tạo & học hỏi' },

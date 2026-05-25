@@ -67,18 +67,6 @@ export default function TabsLayout() {
           ),
         }}
       />
-      <Tabs.Screen
-        name="blog/[id]"
-        options={{
-          href: null,
-        }}
-      />
-      <Tabs.Screen
-        name="profile/info"
-        options={{
-          href: null,
-        }}
-      />
     </Tabs>
   );
 }
