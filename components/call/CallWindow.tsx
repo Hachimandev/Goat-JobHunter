@@ -128,8 +128,9 @@ export const CallWindow = React.memo(function CallWindow({
   const renderDirectVideo = () => (
     <View style={styles.directVideoStage}>
       <View style={styles.remoteStage}>
-        {remoteUid !== null && remoteMediaState.videoActive ? (
+        {remoteUid !== null && showVideo && remoteMediaState.videoActive ? (
           <RtcSurfaceView
+            key={`remote-video-${remoteUid}`}
             style={styles.remoteVideo}
             canvas={{ uid: remoteUid, renderMode: RenderModeType.RenderModeHidden }}
           />
@@ -287,6 +288,7 @@ const styles = StyleSheet.create({
   remoteStage: { flex: 1, borderRadius: 28, overflow: "hidden", backgroundColor: "#101826" },
   remoteVideo: { flex: 1 },
   remoteFallback: { flex: 1, alignItems: "center", justifyContent: "center", gap: 12, backgroundColor: "#101826" },
+  remoteFallbackOverlay: { ...StyleSheet.absoluteFillObject, alignItems: "center", justifyContent: "center", gap: 12, backgroundColor: "rgba(16,24,38,0.92)" },
   remoteFallbackAvatar: { width: 124, height: 124, borderRadius: 62 },
   remoteFallbackName: { color: "#FFFFFF", fontSize: 20, fontWeight: "700" },
   remoteFallbackCaption: { color: "#B3C4E1", fontSize: 14 },

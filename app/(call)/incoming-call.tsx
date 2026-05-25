@@ -1,5 +1,5 @@
 import React, { useEffect } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { BackHandler, Pressable, StyleSheet, Text, View } from "react-native";
 import { Image } from "expo-image";
 import { Ionicons } from "@expo/vector-icons";
 import Animated, {
@@ -20,7 +20,6 @@ export default function IncomingCallScreen() {
     incomingCall,
     handleAcceptIncomingCall,
     handleDeclineIncomingCall,
-    watchChatRoom,
   } = useCallRoomActions();
 
   const scale = useSharedValue(1);
@@ -34,11 +33,17 @@ export default function IncomingCallScreen() {
   }, []);
 
   useEffect(() => {
-    if (incomingCall) {
-      watchChatRoom(incomingCall.chatRoomId);
-    }
-    return () => watchChatRoom(null);
-  }, [incomingCall, watchChatRoom]);
+    const subscription = BackHandler.addEventListener(
+      "hardwareBackPress",
+      () => {
+        void handleDeclineIncomingCall();
+        if (router.canGoBack()) router.back();
+        else router.replace("/(tabs)/chat");
+        return true;
+      },
+    );
+    return () => subscription.remove();
+  }, [handleDeclineIncomingCall]);
 
   const pulseStyle = useAnimatedStyle(() => ({
     transform: [{ scale: scale.get() }],

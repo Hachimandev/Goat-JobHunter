@@ -199,7 +199,7 @@ export default function ChatDetailScreen() {
       pollingInterval: 3000,
     });
 
-  const { handleStartCall, watchChatRoom } = useCallRoomActions();
+  const { handleStartCall, currentCall } = useCallRoomActions();
 
   const isGroupChat = chatRoomData?.data?.type === "GROUP";
   const directProfileUserId = !isGroupChat
@@ -247,11 +247,6 @@ export default function ChatDetailScreen() {
     }
     return () => setActiveChatRoom(null);
   }, [chatRoomId, refetch, setActiveChatRoom]);
-
-  useEffect(() => {
-    watchChatRoom(chatRoomId);
-    return () => watchChatRoom(null);
-  }, [chatRoomId, watchChatRoom]);
 
   useFocusEffect(
     useCallback(() => {
@@ -494,6 +489,7 @@ export default function ChatDetailScreen() {
           }
           onStartVoiceCall={handleStartVoiceCall}
           onStartVideoCall={handleStartVideoCall}
+          isCallActive={Boolean(currentCall)}
         />
 
         {pinnedMessage && (

@@ -76,6 +76,7 @@ export class WebSocketCallService {
     if (!this.client) return;
     this.client.onConnect = () => {
       this.subscribeToCallEvents();
+      this.syncCurrentCall(this.chatRoomId);
     };
     this.client.onStompError = (frame) => {
       console.error("[WebSocketCall] STOMP error:", frame.headers.message);
@@ -120,6 +121,13 @@ export class WebSocketCallService {
       );
       if ("data" in result && result.data?.data) {
         const nextCall = result.data.data;
+        if (nextCall.status === CallStatusEnum.ENDED || nextCall.status === CallStatusEnum.CANCELLED) {
+          const existingCurrentCall = store.getState().call.currentCall;
+          if (existingCurrentCall?.sessionId === nextCall.sessionId) {
+            this.dispatch(endCurrentCall({ sessionId: nextCall.sessionId }));
+          }
+          return;
+        }
         const existingCurrentCall = store.getState().call.currentCall;
         const currentUserId = store.getState().auth.user?.accountId;
         const isCurrentUserParticipant =
@@ -167,6 +175,8 @@ export class WebSocketCallService {
     const currentUserId = store.getState().auth.user?.accountId;
     switch (payload.eventType) {
       case "CALL_STARTED": {
+        const existingCurrentCall = store.getState().call.currentCall;
+        if (existingCurrentCall) return;
         if (currentUserId && payload.actorAccountId !== currentUserId) {
           this.dispatch(
             setIncomingCall({
@@ -186,6 +196,8 @@ export class WebSocketCallService {
         return;
       }
       case "CALL_ENDED": {
+        const currentState = store.getState().call;
+        if (currentState.currentCall?.chatRoomId !== payload.chatRoomId) return;
         this.dispatch(
           endCurrentCall({
             sessionId: payload.sessionId,

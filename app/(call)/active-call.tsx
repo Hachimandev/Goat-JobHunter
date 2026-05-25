@@ -12,6 +12,7 @@ import { useCallRoomActions } from "@/hooks/useCallRoomActions";
 import { useUser } from "@/hooks/useUser";
 import { CallWindow } from "@/components/call/CallWindow";
 import { ChatRoomType } from "@/types/enum";
+import { useSubscribeCallEventsQuery } from "@/services/chatRoom/call/callRealtimeApi";
 
 export default function ActiveCallScreen() {
   const { user } = useUser();
@@ -32,6 +33,11 @@ export default function ActiveCallScreen() {
   } = useCallRoomActions();
 
   const currentUserId = user?.accountId;
+
+  // Keep WebSocket connected during active call to receive CALL_ENDED
+  useSubscribeCallEventsQuery(currentCall?.chatRoomId ?? 0, {
+    skip: !currentCall?.chatRoomId,
+  });
 
   // Redirect if no active call
   useEffect(() => {
