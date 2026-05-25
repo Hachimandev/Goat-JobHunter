@@ -128,25 +128,12 @@ export const CallWindow = React.memo(function CallWindow({
   const renderDirectVideo = () => (
     <View style={styles.directVideoStage}>
       <View style={styles.remoteStage}>
-        {remoteUid !== null && showVideo ? (
-          <>
-            <RtcSurfaceView
-              style={styles.remoteVideo}
-              canvas={{ uid: remoteUid, renderMode: RenderModeType.RenderModeHidden }}
-            />
-            {!remoteMediaState.videoActive && (
-              <View style={styles.remoteFallbackOverlay}>
-                <Image
-                  source={{ uri: remoteParticipant?.account.avatar || currentCall.chatRoomAvatar || "https://via.placeholder.com/160" }}
-                  style={styles.remoteFallbackAvatar}
-                />
-                <Text style={styles.remoteFallbackName}>
-                  {remoteParticipant?.account.fullName || currentCall.chatRoomName || "Đối phương"}
-                </Text>
-                <Text style={styles.remoteFallbackCaption}>Đối phương chưa bật camera</Text>
-              </View>
-            )}
-          </>
+        {remoteUid !== null && showVideo && remoteMediaState.videoActive ? (
+          <RtcSurfaceView
+            key={`remote-video-${remoteUid}`}
+            style={styles.remoteVideo}
+            canvas={{ uid: remoteUid, renderMode: RenderModeType.RenderModeHidden }}
+          />
         ) : (
           <View style={styles.remoteFallback}>
             <Image
