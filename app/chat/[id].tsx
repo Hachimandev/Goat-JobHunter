@@ -199,7 +199,7 @@ export default function ChatDetailScreen() {
       pollingInterval: 3000,
     });
 
-  const { handleStartCall } = useCallRoomActions();
+  const { handleStartCall, currentCall } = useCallRoomActions();
 
   const isGroupChat = chatRoomData?.data?.type === "GROUP";
   const directProfileUserId = !isGroupChat
@@ -489,6 +489,7 @@ export default function ChatDetailScreen() {
           }
           onStartVoiceCall={handleStartVoiceCall}
           onStartVideoCall={handleStartVideoCall}
+          isCallActive={Boolean(currentCall)}
         />
 
         {pinnedMessage && (

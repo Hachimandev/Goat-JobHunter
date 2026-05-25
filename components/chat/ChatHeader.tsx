@@ -12,6 +12,7 @@ interface ChatHeaderProps {
   onPressInvite?: () => void;
   onStartVoiceCall?: () => void;
   onStartVideoCall?: () => void;
+  isCallActive?: boolean;
 }
 
 export const ChatHeader = ({
@@ -23,6 +24,7 @@ export const ChatHeader = ({
   onPressInvite,
   onStartVoiceCall,
   onStartVideoCall,
+  isCallActive = false,
 }: ChatHeaderProps) => {
   const handleOpenProfile = () => {
     if (!profileUserId) return;
@@ -72,13 +74,21 @@ export const ChatHeader = ({
 
       <View style={styles.rightActions}>
         {onStartVideoCall && (
-          <TouchableOpacity style={styles.headerBtn} onPress={onStartVideoCall}>
-            <Ionicons name="videocam" size={24} color="#0084FF" />
+          <TouchableOpacity
+            style={[styles.headerBtn, isCallActive && styles.headerBtnDisabled]}
+            onPress={onStartVideoCall}
+            disabled={isCallActive}
+          >
+            <Ionicons name="videocam" size={24} color={isCallActive ? "#999" : "#0084FF"} />
           </TouchableOpacity>
         )}
         {onStartVoiceCall && (
-          <TouchableOpacity style={styles.headerBtn} onPress={onStartVoiceCall}>
-            <Ionicons name="call" size={22} color="#0084FF" />
+          <TouchableOpacity
+            style={[styles.headerBtn, isCallActive && styles.headerBtnDisabled]}
+            onPress={onStartVoiceCall}
+            disabled={isCallActive}
+          >
+            <Ionicons name="call" size={22} color={isCallActive ? "#999" : "#0084FF"} />
           </TouchableOpacity>
         )}
         {onPressInvite && (
@@ -112,4 +122,5 @@ const styles = StyleSheet.create({
   headerStatus: { color: "#888", fontSize: 11 },
   rightActions: { flexDirection: "row", alignItems: "center" },
   headerBtn: { padding: 6, marginHorizontal: 2 },
+  headerBtnDisabled: { opacity: 0.4 },
 });
