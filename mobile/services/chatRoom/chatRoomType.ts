@@ -1,0 +1,58 @@
+import { IBackendRes, IModelPaginate } from "@/types/api";
+import { ChatRoom, MessageType } from "@/types/model";
+
+export type FetchChatRoomsRequest = {
+  page?: number;
+  size?: number;
+};
+
+export type FetchMessagesInChatRoomRequest = {
+  chatRoomId: number;
+  page?: number;
+  size?: number;
+};
+
+export type FetchChatRoomsResponse = IBackendRes<IModelPaginate<ChatRoom>>;
+
+export type FetchMessagesInChatRoomResponse = IBackendRes<
+  IModelPaginate<MessageType>
+>;
+
+export type SendMessageToChatRoomRequest = {
+  chatRoomId: number;
+  content?: string;
+  files?: File[];
+  replyToMessageId?: string | null;
+};
+
+export type SendMessageToNewChatRoomRequest = {
+  accountId: number;
+  content?: string;
+  files?: File[];
+};
+
+export type UnreadMessageResponse = {
+  chatRoomId: number;
+  unreadCount: number;
+};
+
+export type CountUnreadMessagesRequest = {
+  page?: number;
+  size?: number;
+};
+
+export type CountUnreadMessagesResponse = IBackendRes<UnreadMessageResponse[]>;
+
+export type TypingIndicatorRequest = {
+  chatRoomId: number;
+  typing: boolean;
+};
+
+export type TypingIndicatorResponse = {
+  chatRoomId: number;
+  accountId: number;
+  username: string;
+  avatar: string;
+  typing: boolean;
+  updatedAt: string;
+};

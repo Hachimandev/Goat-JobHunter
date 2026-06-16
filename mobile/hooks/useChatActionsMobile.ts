@@ -1,0 +1,244 @@
+import {
+  useDeleteMessagePermanentMutation,
+  useRevokeMessageMutation,
+  useSendMessageToChatRoomMutation,
+  useSendMessageToNewChatRoomMutation,
+} from "@/services/chatRoom/chatRoomApi";
+import {
+  ChatRole,
+  GroupPermissionsResponse,
+} from "@/services/chatRoom/groupChat/groupChatApi";
+import * as FileSystem from "expo-file-system";
+import * as ImagePicker from "expo-image-picker";
+import { useCallback, useState } from "react";
+import { Alert, Platform } from "react-native";
+import { useUser } from "./useUser";
+
+interface UseChatActionsMobileParams {
+  isGroupChat?: boolean;
+  currentUserRole?: ChatRole;
+  groupPermissions?: GroupPermissionsResponse;
+}
+
+const getFileExtension = (value?: string | null) => {
+  const cleanValue = value?.split("?")[0] || "";
+  const extension = cleanValue.split(".").pop()?.toLowerCase();
+
+  return extension && extension !== cleanValue ? extension : "";
+};
+
+const normalizeUploadUri = async (uri: string, fileName?: string | null) => {
+  if (Platform.OS !== "android" || uri.startsWith("file://")) {
+    return uri;
+  }
+
+  const extension = getFileExtension(fileName || uri);
+  const cacheFileName = `upload_${Date.now()}_${Math.random()
+    .toString(36)
+    .slice(2)}${extension ? `.${extension}` : ""}`;
+  const cacheUri = `${FileSystem.cacheDirectory}${cacheFileName}`;
+
+  await FileSystem.copyAsync({ from: uri, to: cacheUri });
+  return cacheUri;
+};
+
+export default function useChatActionsMobile({
+  isGroupChat = false,
+  currentUserRole,
+  groupPermissions,
+}: UseChatActionsMobileParams = {}) {
+  const { user, isSignedIn } = useUser();
+
+  // Mutations
+  const [sendMessageToChatRoom, { isLoading: isSendingMessage }] =
+    useSendMessageToChatRoomMutation();
+  const [sendMessageToNewChatRoom, { isLoading: isSendingNewMessage }] =
+    useSendMessageToNewChatRoomMutation();
+  const [revokeMessage] = useRevokeMessageMutation();
+  const [deleteMessagePermanent] = useDeleteMessagePermanentMutation();
+  const [actioningMessageIds, setActioningMessageIds] = useState<Set<string>>(
+    new Set(),
+  );
+
+  const getSendPermissionDeniedReason = useCallback(() => {
+    if (!isGroupChat || !groupPermissions) {
+      return null;
+    }
+
+    if (
+      currentUserRole === ChatRole.MEMBER &&
+      groupPermissions.allowMemberSendMessage === false
+    ) {
+      return "Chỉ có chủ nhóm và quản trị viên mới có quyền gửi tin nhắn trong nhóm này";
+    }
+
+    if (
+      currentUserRole === ChatRole.MODERATOR &&
+      groupPermissions.allowModeratorSendMessage === false
+    ) {
+      return "Chỉ có chủ nhóm mới có quyền gửi tin nhắn trong nhóm này";
+    }
+
+    return null;
+  }, [currentUserRole, groupPermissions, isGroupChat]);
+
+  const pickImage = async () => {
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ["images", "videos"],
+      allowsMultipleSelection: true,
+      quality: 0.4,
+    });
+
+    if (!result.canceled) {
+      return result.assets;
+    }
+    return null;
+  };
+
+  const createChatFormData = async (
+    content?: string,
+    images?: ImagePicker.ImagePickerAsset[],
+    replyToMessageId?: string | null,
+    documents: any[] = [],
+  ) => {
+    const formData = new FormData();
+
+    if (images && images.length > 0) {
+      for (const asset of images) {
+        const uri = await normalizeUploadUri(asset.uri, asset.fileName);
+        const fileExtension = getFileExtension(asset.fileName || uri);
+        const fileName =
+          asset.fileName || `media_${Date.now()}.${fileExtension || "jpg"}`;
+
+        const isVideo =
+          asset.type === "video" ||
+          fileExtension === "mp4" ||
+          fileExtension === "mov";
+        const mimeType =
+          asset.mimeType || (isVideo ? "video/mp4" : "image/jpeg");
+
+        formData.append("files", {
+          uri,
+          name: fileName,
+          type: mimeType,
+        } as any);
+      }
+    }
+
+    if (documents && documents.length > 0) {
+      for (const doc of documents) {
+        const uri = await normalizeUploadUri(doc.uri, doc.name);
+        formData.append("files", {
+          uri,
+          name: doc.name || `file_${Date.now()}`,
+          type: doc.mimeType || "application/octet-stream",
+        } as any);
+      }
+    }
+
+    const requestPayload: any = {};
+    if (content && content.trim()) {
+      requestPayload.content = content;
+    }
+    if (replyToMessageId) {
+      requestPayload.replyToMessageId = replyToMessageId;
+    }
+
+    formData.append("request", JSON.stringify(requestPayload));
+
+    return formData;
+  };
+
+  const handleSendMessage = async (
+    chatRoomId: number,
+    content?: string,
+    images?: ImagePicker.ImagePickerAsset[],
+    replyToMessageId?: string | null,
+    documents: any[] = [],
+  ) => {
+    if (!isSignedIn || !user) {
+      Alert.alert("Lỗi", "Vui lòng đăng nhập.");
+      return { success: false };
+    }
+
+    const deniedReason = getSendPermissionDeniedReason();
+    if (deniedReason) {
+      Alert.alert("Thông báo", deniedReason);
+      return { success: false, reason: deniedReason };
+    }
+
+    try {
+      const hasAttachments =
+        Boolean(images?.length) || Boolean(documents.length);
+
+      await sendMessageToChatRoom({
+        chatRoomId,
+        content: content,
+        replyToMessageId: replyToMessageId,
+        data: hasAttachments
+          ? await createChatFormData(
+              content,
+              images,
+              replyToMessageId,
+              documents,
+            )
+          : undefined,
+      } as any).unwrap();
+
+      return { success: true };
+    } catch (error: any) {
+      const serverMsg = error?.data?.message || "Gửi tin nhắn thất bại.";
+      Alert.alert("Lỗi", serverMsg);
+      throw error;
+    }
+  };
+
+  // --- HÀNH ĐỘNG THU HỒI (RECALL/REVOKE) ---
+  const handleRecallMessage = async (chatRoomId: number, messageId: string) => {
+    if (!isSignedIn) return;
+    try {
+      setActioningMessageIds((prev) => new Set(prev).add(messageId));
+      await revokeMessage({ chatRoomId, messageId }).unwrap();
+    } catch (error: any) {
+      Alert.alert("Lỗi", "Không thể thu hồi tin nhắn.");
+    } finally {
+      setActioningMessageIds((prev) => {
+        const next = new Set(prev);
+        next.delete(messageId);
+        return next;
+      });
+    }
+  };
+
+  // --- HÀNH ĐỘNG XÓA VĨNH VIỄN (DELETE) ---
+  const handleDeleteMessage = async (chatRoomId: number, messageId: string) => {
+    if (!isSignedIn) return;
+    try {
+      setActioningMessageIds((prev) => new Set(prev).add(messageId));
+      await deleteMessagePermanent({ chatRoomId, messageId }).unwrap();
+    } catch (error: any) {
+      Alert.alert("Lỗi", error?.data?.message || "Không thể xóa tin nhắn.");
+    } finally {
+      setActioningMessageIds((prev) => {
+        const next = new Set(prev);
+        next.delete(messageId);
+        return next;
+      });
+    }
+  };
+
+  const isMessageLoading = useCallback(
+    (messageId: string) => actioningMessageIds.has(messageId),
+    [actioningMessageIds],
+  );
+
+  return {
+    handleSendMessage,
+    handleRecallMessage,
+    handleDeleteMessage,
+    getSendPermissionDeniedReason,
+    pickImage,
+    isMessageLoading,
+    isSending: isSendingMessage || isSendingNewMessage,
+  };
+}

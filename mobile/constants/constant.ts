@@ -1,0 +1,187 @@
+import { Level, WorkingType } from '../types/enum';
+
+export const LEVEL_OPTIONS = [
+  { value: Level.INTERN, label: 'Intern' },
+  { value: Level.FRESHER, label: 'Fresher' },
+  { value: Level.JUNIOR, label: 'Junior' },
+  { value: Level.MIDDLE, label: 'Middle' },
+  { value: Level.SENIOR, label: 'Senior' },
+];
+
+export const WORKING_TYPE_OPTIONS = [
+  { value: WorkingType.FULLTIME, label: 'Full time' },
+  { value: WorkingType.PARTTIME, label: 'Part time' },
+  { value: WorkingType.ONLINE, label: 'Online' },
+  { value: WorkingType.OFFLINE, label: 'Offline' },
+];
+
+export const LOCATION_OPTIONS = [
+  { label: 'Hà Nội', value: 'Hà Nội' },
+  { label: 'Hải Phòng', value: 'Hải Phòng' },
+  { label: 'Đà Nẵng', value: 'Đà Nẵng' },
+  { label: 'Hồ Chí Minh', value: 'Hồ Chí Minh' },
+  { label: 'Cần Thơ', value: 'Cần Thơ' },
+  { label: 'Thừa Thiên Huế', value: 'Thừa Thiên Huế' },
+  { label: 'Tuyên Quang', value: 'Tuyên Quang' },
+  { label: 'Lào Cai', value: 'Lào Cai' },
+  { label: 'Thái Nguyên', value: 'Thái Nguyên' },
+  { label: 'Phú Thọ', value: 'Phú Thọ' },
+  { label: 'Bắc Ninh', value: 'Bắc Ninh' },
+  { label: 'Hưng Yên', value: 'Hưng Yên' },
+  { label: 'Ninh Bình', value: 'Ninh Bình' },
+  { label: 'Quảng Trị', value: 'Quảng Trị' },
+  { label: 'Quảng Ngãi', value: 'Quảng Ngãi' },
+  { label: 'Gia Lai', value: 'Gia Lai' },
+  { label: 'Khánh Hòa', value: 'Khánh Hòa' },
+  { label: 'Lâm Đồng', value: 'Lâm Đồng' },
+  { label: 'Đắk Lắk', value: 'Đắk Lắk' },
+  { label: 'Đồng Nai', value: 'Đồng Nai' },
+  { label: 'Tây Ninh', value: 'Tây Ninh' },
+  { label: 'Vĩnh Long', value: 'Vĩnh Long' },
+  { label: 'Đồng Tháp', value: 'Đồng Tháp' },
+  { label: 'Cà Mau', value: 'Cà Mau' },
+  { label: 'An Giang', value: 'An Giang' },
+  { label: 'Lai Châu', value: 'Lai Châu' },
+  { label: 'Điện Biên', value: 'Điện Biên' },
+  { label: 'Sơn La', value: 'Sơn La' },
+  { label: 'Lạng Sơn', value: 'Lạng Sơn' },
+  { label: 'Quảng Ninh', value: 'Quảng Ninh' },
+  { label: 'Thanh Hóa', value: 'Thanh Hóa' },
+  { label: 'Nghệ An', value: 'Nghệ An' },
+  { label: 'Hà Tĩnh', value: 'Hà Tĩnh' },
+  { label: 'Cao Bằng', value: 'Cao Bằng' },
+];
+
+export const PAGINATION_PAGESIZE = [10, 20, 30, 40, 50];
+
+export const COMPANY_SIZE_OPTIONS = [
+  { value: 'STARTUP', label: 'Khởi nghiệp' },
+  { value: 'SMALL', label: 'Nhỏ' },
+  { value: 'MEDIUM', label: 'Vừa' },
+  { value: 'LARGE', label: 'Lớn' },
+  { value: 'ENTERPRISE', label: 'Tập đoàn' },
+];
+
+export const COMPANY_INDUSTRY_OPTIONS = [
+  { value: 'INFORMATION_TECHNOLOGY', label: 'Công nghệ thông tin (IT)' },
+  { value: 'SOFTWARE', label: 'Phát triển phần mềm' },
+  { value: 'ECOMMERCE', label: 'Thương mại điện tử' },
+  { value: 'FINANCE', label: 'Tài chính' },
+  { value: 'BANKING', label: 'Ngân hàng' },
+  { value: 'INSURANCE', label: 'Bảo hiểm' },
+  { value: 'FINTECH', label: 'Công nghệ tài chính (Fintech)' },
+  { value: 'EDUCATION', label: 'Giáo dục' },
+  { value: 'E_LEARNING', label: 'Đào tạo trực tuyến' },
+  { value: 'HEALTHCARE', label: 'Chăm sóc sức khỏe' },
+  { value: 'PHARMACEUTICAL', label: 'Dược phẩm' },
+  { value: 'BIOTECHNOLOGY', label: 'Công nghệ sinh học' },
+  { value: 'MANUFACTURING', label: 'Sản xuất' },
+  { value: 'INDUSTRIAL', label: 'Công nghiệp' },
+  { value: 'AUTOMOTIVE', label: 'Công nghiệp ô tô' },
+  { value: 'ELECTRONICS', label: 'Điện tử' },
+  { value: 'CONSTRUCTION', label: 'Xây dựng' },
+  { value: 'REAL_ESTATE', label: 'Bất động sản' },
+  { value: 'ARCHITECTURE', label: 'Kiến trúc' },
+  { value: 'RETAIL', label: 'Bán lẻ' },
+  { value: 'WHOLESALE', label: 'Bán buôn' },
+  { value: 'FMCG', label: 'Hàng tiêu dùng nhanh (FMCG)' },
+  { value: 'LOGISTICS', label: 'Logistics' },
+  { value: 'TRANSPORTATION', label: 'Vận tải' },
+  { value: 'SUPPLY_CHAIN', label: 'Chuỗi cung ứng' },
+  { value: 'FOOD_BEVERAGE', label: 'Thực phẩm & Đồ uống' },
+  { value: 'AGRICULTURE', label: 'Nông nghiệp' },
+  { value: 'ENERGY', label: 'Năng lượng' },
+  { value: 'OIL_GAS', label: 'Dầu khí' },
+  { value: 'RENEWABLE_ENERGY', label: 'Năng lượng tái tạo' },
+  { value: 'TELECOMMUNICATIONS', label: 'Viễn thông' },
+  { value: 'MEDIA', label: 'Truyền thông' },
+  { value: 'MARKETING', label: 'Marketing & Quảng cáo' },
+  { value: 'ENTERTAINMENT', label: 'Giải trí' },
+  { value: 'GAMING', label: 'Trò chơi điện tử (Game)' },
+  { value: 'SPORTS', label: 'Thể thao' },
+  { value: 'TOURISM', label: 'Du lịch' },
+  { value: 'HOSPITALITY', label: 'Khách sạn & Nhà hàng' },
+  { value: 'CONSULTING', label: 'Tư vấn' },
+  { value: 'LEGAL', label: 'Luật' },
+  { value: 'ACCOUNTING', label: 'Kế toán' },
+  { value: 'AUDITING', label: 'Kiểm toán' },
+  { value: 'HUMAN_RESOURCES', label: 'Nhân sự' },
+  { value: 'RECRUITMENT', label: 'Tuyển dụng' },
+  { value: 'NGO', label: 'Tổ chức phi lợi nhuận' },
+  { value: 'GOVERNMENT', label: 'Cơ quan nhà nước' },
+  { value: 'OTHER', label: 'Lĩnh vực khác' },
+];
+
+export const COUNTRY_OPTIONS = [
+  { value: 'VIETNAM', label: 'Việt Nam' },
+  { value: 'UNITED_STATES', label: 'Hoa Kỳ' },
+  { value: 'UNITED_KINGDOM', label: 'Vương quốc Anh' },
+  { value: 'CHINA', label: 'Trung Quốc' },
+  { value: 'JAPAN', label: 'Nhật Bản' },
+  { value: 'KOREA_SOUTH', label: 'Hàn Quốc' },
+  { value: 'SINGAPORE', label: 'Singapore' },
+  { value: 'THAILAND', label: 'Thái Lan' },
+  { value: 'MALAYSIA', label: 'Malaysia' },
+  { value: 'INDONESIA', label: 'Indonesia' },
+  { value: 'PHILIPPINES', label: 'Philippines' },
+  { value: 'INDIA', label: 'Ấn Độ' },
+  { value: 'AUSTRALIA', label: 'Úc' },
+  { value: 'CANADA', label: 'Canada' },
+  { value: 'GERMANY', label: 'Đức' },
+  { value: 'FRANCE', label: 'Pháp' },
+  { value: 'ITALY', label: 'Ý' },
+  { value: 'SPAIN', label: 'Tây Ban Nha' },
+  { value: 'NETHERLANDS', label: 'Hà Lan' },
+  { value: 'SWITZERLAND', label: 'Thụy Sĩ' },
+  { value: 'SWEDEN', label: 'Thụy Điển' },
+  { value: 'NORWAY', label: 'Na Uy' },
+  { value: 'DENMARK', label: 'Đan Mạch' },
+  { value: 'POLAND', label: 'Ba Lan' },
+  { value: 'TURKEY', label: 'Thổ Nhĩ Kỳ' },
+  { value: 'RUSSIA', label: 'Nga' },
+  { value: 'BRAZIL', label: 'Brazil' },
+  { value: 'MEXICO', label: 'Mexico' },
+  { value: 'ARGENTINA', label: 'Argentina' },
+  { value: 'SOUTH_AFRICA', label: 'Nam Phi' },
+  { value: 'EGYPT', label: 'Ai Cập' },
+  { value: 'SAUDI_ARABIA', label: 'Ả Rập Saudi' },
+  { value: 'UNITED_ARAB_EMIRATES', label: 'UAE' },
+  { value: 'NEW_ZEALAND', label: 'New Zealand' },
+];
+
+export const COLOR_OPTIONS = [
+  '#ef4444', // red-500
+  '#f97316', // orange-500
+  '#eab308', // yellow-500
+  '#22c55e', // green-500
+  '#06b6d4', // cyan-500
+  '#0ea5e9', // sky-500
+  '#3b82f6', // blue-500
+  '#6366f1', // indigo-500
+  '#8b5cf6', // violet-500
+  '#d946ef', // fuchsia-500
+  '#ec4899', // pink-500
+  '#64748b', // slate-500
+];
+
+export const TRANSLATE_LANGUAGE_OPTIONS = [
+  { label: 'Tiếng Việt', value: 'Vietnamese' },
+  { label: 'Tiếng Anh', value: 'English' },
+  { label: 'Tiếng Trung', value: 'Chinese' },
+  { label: 'Tiếng Nhật', value: 'Japanese' },
+  { label: 'Tiếng Hàn', value: 'Korean' },
+  { label: 'Tiếng Pháp', value: 'French' },
+  { label: 'Tiếng Đức', value: 'German' },
+  { label: 'Tiếng Tây Ban Nha', value: 'Spanish' },
+  { label: 'Tiếng Thái', value: 'Thai' },
+  { label: 'Tiếng Indonesia', value: 'Indonesian' },
+];
+
+export const RATING_TYPES = [
+  { value: 'salaryBenefits', label: 'Lương thưởng & phúc lợi' },
+  { value: 'trainingLearning', label: 'Đào tạo & học hỏi' },
+  { value: 'managementCaresAboutMe', label: 'Sự quan tâm đến nhân viên' },
+  { value: 'cultureFun', label: 'Văn hóa công ty' },
+  { value: 'officeWorkspace', label: 'Văn phòng làm việc' },
+];
+
