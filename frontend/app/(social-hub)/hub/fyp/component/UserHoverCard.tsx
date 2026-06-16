@@ -1,0 +1,101 @@
+import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Button } from '@/components/ui/button';
+import { MessageCircle } from 'lucide-react';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { useUser } from '@/hooks/useUser';
+import { useDirectMessageNavigation } from '@/hooks/useDirectMessageNavigation';
+import { Visibility } from '@/types/enum';
+import FriendActionButtons from '@/components/common/FriendActionButtons';
+import { useFriendshipStatus } from '@/hooks/useFriendshipStatus';
+
+interface UserHoverCardProps {
+  userId: number;
+  fullName: string;
+  avatar?: string;
+  username?: string;
+  bio?: string;
+  visibility?: Visibility | string | null;
+  children: React.ReactNode;
+}
+
+export function UserHoverCard({
+  userId,
+  fullName,
+  avatar,
+  username,
+  bio,
+  visibility,
+  children,
+}: Readonly<UserHoverCardProps>) {
+  const router = useRouter();
+  const { isSignedIn, user } = useUser();
+  const { navigateToDirectChat, isLoading } = useDirectMessageNavigation();
+  const { isBlockedAnyDirection } = useFriendshipStatus(userId);
+  const isSelf = user?.accountId === userId;
+  const isPrivateAccount = visibility === Visibility.PRIVATE;
+  const showMessageButton = !isSelf && !isPrivateAccount && !isBlockedAnyDirection;
+  const showAddFriendButton = !isSelf && !isPrivateAccount && !isBlockedAnyDirection; // only show add friend button when not self, not blocked, and can't message (likely not friend yet)
+  const showPrivateMessage = !isSelf && isPrivateAccount;
+  const showBlockedMessage = !isSelf && isBlockedAnyDirection;
+
+  const handleMessageClick = async (event: React.MouseEvent<HTMLButtonElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+
+    if (isSelf) return;
+
+    if (isPrivateAccount) return;
+
+    if (!isSignedIn) {
+      router.push('/signin');
+      return;
+    }
+
+    await navigateToDirectChat(userId, { visibility });
+  };
+
+  return (
+    <HoverCard openDelay={300}>
+      <HoverCardTrigger asChild>{children}</HoverCardTrigger>
+      <HoverCardContent className="w-80 rounded-xl" align="start">
+        <div className="space-y-4">
+          <div className="flex items-center gap-3">
+            <Avatar className="h-14 w-14">
+              <AvatarImage src={avatar || '/placeholder.svg'} alt={fullName} />
+              <AvatarFallback>{fullName[0]}</AvatarFallback>
+            </Avatar>
+            <div className="flex-1 min-w-0">
+              <Link href={`/hub/users/${userId}`} className="text-base font-semibold hover:underline">
+                {fullName}
+              </Link>
+              {username && <p className="text-sm text-muted-foreground">@{username}</p>}
+            </div>
+          </div>
+
+          {bio && <p className="text-sm text-muted-foreground line-clamp-3">{bio}</p>}
+
+          {showMessageButton && (
+            <div className="space-y-2">
+              <Button className="w-full rounded-xl" size="sm" onClick={handleMessageClick} disabled={isLoading}>
+                <MessageCircle className="h-4 w-4 mr-2" />
+                {isLoading ? 'Đang mở chat...' : 'Nhắn tin'}
+              </Button>
+
+              {showAddFriendButton && <FriendActionButtons className="w-full" targetUserId={userId} compact />}
+            </div>
+          )}
+
+          {showPrivateMessage && (
+            <p className="text-sm text-muted-foreground line-clamp-3">Tài khoản đang ở chế độ riêng tư.</p>
+          )}
+
+          {showBlockedMessage && (
+            <p className="text-sm text-muted-foreground line-clamp-3">Không thể nhắn tin khi đang ở trạng thái chặn.</p>
+          )}
+        </div>
+      </HoverCardContent>
+    </HoverCard>
+  );
+}

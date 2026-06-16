@@ -1,0 +1,231 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap');
+
+
+/* -------------------------------------------------------------------------- */
+/* Font */
+/* -------------------------------------------------------------------------- */
+
+/* Định nghĩa font cho Quill editor */
+.ql-snow .ql-picker.ql-font .ql-picker-label[data-value="arial"]::before,
+.ql-snow .ql-picker.ql-font .ql-picker-item[data-value="arial"]::before {
+    content: 'Arial';
+    font-family: Arial, sans-serif;
+    font-size: 12px !important;
+}
+
+.ql-snow .ql-picker.ql-font .ql-picker-label[data-value="comic-sans"]::before,
+.ql-snow .ql-picker.ql-font .ql-picker-item[data-value="comic-sans"]::before {
+    content: 'Comic Sans';
+    font-family: 'Comic Sans MS', cursive;
+    font-size: 12px !important;
+}
+
+.ql-snow .ql-picker.ql-font .ql-picker-label[data-value="courier-new"]::before,
+.ql-snow .ql-picker.ql-font .ql-picker-item[data-value="courier-new"]::before {
+    content: 'Courier New';
+    font-family: 'Courier New', monospace;
+    font-size: 12px !important;
+}
+
+.ql-snow .ql-picker.ql-font .ql-picker-label[data-value="georgia"]::before,
+.ql-snow .ql-picker.ql-font .ql-picker-item[data-value="georgia"]::before {
+    content: 'Georgia';
+    font-family: Georgia, serif;
+    font-size: 12px !important;
+}
+
+.ql-snow .ql-picker.ql-font .ql-picker-label[data-value="helvetica"]::before,
+.ql-snow .ql-picker.ql-font .ql-picker-item[data-value="helvetica"]::before {
+    content: 'Helvetica';
+    font-family: Helvetica, sans-serif;
+    font-size: 12px !important;
+}
+
+.ql-snow .ql-picker.ql-font .ql-picker-label[data-value="inter"]::before,
+.ql-snow .ql-picker.ql-font .ql-picker-item[data-value="inter"]::before {
+    content: 'Inter';
+    font-family: 'Inter', sans-serif;
+    font-size: 12px !important;
+}
+
+.ql-snow .ql-picker.ql-font .ql-picker-label[data-value="lucida"]::before,
+.ql-snow .ql-picker.ql-font .ql-picker-item[data-value="lucida"]::before {
+    content: 'Lucida';
+    font-family: 'Lucida Sans Unicode', sans-serif;
+    font-size: 12px !important;
+}
+
+.ql-snow .ql-picker.ql-font .ql-picker-label[data-value="times-new-roman"]::before,
+.ql-snow .ql-picker.ql-font .ql-picker-item[data-value="times-new-roman"]::before {
+    content: 'Times New Roman';
+    font-family: 'Times New Roman', serif;
+    font-size: 12px !important;
+}
+
+.ql-snow .ql-picker.ql-font .ql-picker-label[data-value="verdana"]::before,
+.ql-snow .ql-picker.ql-font .ql-picker-item[data-value="verdana"]::before {
+    content: 'Verdana';
+    font-family: Verdana, sans-serif;
+    font-size: 12px !important;
+}
+
+/* Áp dụng font cho nội dung editor */
+.ql-font-arial {
+    font-family: Arial, sans-serif;
+}
+
+.ql-font-comic-sans {
+    font-family: 'Comic Sans MS', cursive;
+}
+
+.ql-font-courier-new {
+    font-family: 'Courier New', monospace;
+}
+
+.ql-font-georgia {
+    font-family: Georgia, serif;
+}
+
+.ql-font-helvetica {
+    font-family: Helvetica, sans-serif;
+}
+
+.ql-font-inter {
+    font-family: 'Inter', sans-serif;
+}
+
+.ql-font-lucida {
+    font-family: 'Lucida Sans Unicode', sans-serif;
+}
+
+.ql-font-times-new-roman {
+    font-family: 'Times New Roman', serif;
+}
+
+.ql-font-verdana {
+    font-family: Verdana, sans-serif;
+}
+
+
+/* -------------------------------------------------------------------------- */
+/* Font size */
+/* -------------------------------------------------------------------------- */
+
+/* Size dropdown labels */
+.ql-snow .ql-picker.ql-size .ql-picker-label[data-value="8px"]::before,
+.ql-snow .ql-picker.ql-size .ql-picker-item[data-value="8px"]::before {
+    content: '8px';
+}
+
+.ql-snow .ql-picker.ql-size .ql-picker-label[data-value="10px"]::before,
+.ql-snow .ql-picker.ql-size .ql-picker-item[data-value="10px"]::before {
+    content: '10px';
+}
+
+.ql-snow .ql-picker.ql-size .ql-picker-label[data-value="12px"]::before,
+.ql-snow .ql-picker.ql-size .ql-picker-item[data-value="12px"]::before {
+    content: '12px';
+}
+
+.ql-snow .ql-picker.ql-size .ql-picker-label[data-value="14px"]::before,
+.ql-snow .ql-picker.ql-size .ql-picker-item[data-value="14px"]::before {
+    content: '14px';
+}
+
+.ql-snow .ql-picker.ql-size .ql-picker-label[data-value="16px"]::before,
+.ql-snow .ql-picker.ql-size .ql-picker-item[data-value="16px"]::before {
+    content: '16px';
+}
+
+.ql-snow .ql-picker.ql-size .ql-picker-label[data-value="18px"]::before,
+.ql-snow .ql-picker.ql-size .ql-picker-item[data-value="18px"]::before {
+    content: '18px';
+}
+
+.ql-snow .ql-picker.ql-size .ql-picker-label[data-value="20px"]::before,
+.ql-snow .ql-picker.ql-size .ql-picker-item[data-value="20px"]::before {
+    content: '20px';
+}
+
+.ql-snow .ql-picker.ql-size .ql-picker-label[data-value="24px"]::before,
+.ql-snow .ql-picker.ql-size .ql-picker-item[data-value="24px"]::before {
+    content: '24px';
+}
+
+.ql-snow .ql-picker.ql-size .ql-picker-label[data-value="28px"]::before,
+.ql-snow .ql-picker.ql-size .ql-picker-item[data-value="28px"]::before {
+    content: '28px';
+}
+
+.ql-snow .ql-picker.ql-size .ql-picker-label[data-value="32px"]::before,
+.ql-snow .ql-picker.ql-size .ql-picker-item[data-value="32px"]::before {
+    content: '32px';
+}
+
+.ql-snow .ql-picker.ql-size .ql-picker-label[data-value="36px"]::before,
+.ql-snow .ql-picker.ql-size .ql-picker-item[data-value="36px"]::before {
+    content: '36px';
+}
+
+.ql-snow .ql-picker.ql-size .ql-picker-label[data-value="48px"]::before,
+.ql-snow .ql-picker.ql-size .ql-picker-item[data-value="48px"]::before {
+    content: '48px';
+}
+
+.ql-snow .ql-picker.ql-size .ql-picker-label[data-value="64px"]::before,
+.ql-snow .ql-picker.ql-size .ql-picker-item[data-value="64px"]::before {
+    content: '64px';
+}
+
+/* Apply sizes to editor content */
+.ql-size-8px {
+    font-size: 8px;
+}
+
+.ql-size-10px {
+    font-size: 10px;
+}
+
+.ql-size-12px {
+    font-size: 12px;
+}
+
+.ql-size-14px {
+    font-size: 14px;
+}
+
+.ql-size-16px {
+    font-size: 16px;
+}
+
+.ql-size-18px {
+    font-size: 18px;
+}
+
+.ql-size-20px {
+    font-size: 20px;
+}
+
+.ql-size-24px {
+    font-size: 24px;
+}
+
+.ql-size-28px {
+    font-size: 28px;
+}
+
+.ql-size-32px {
+    font-size: 32px;
+}
+
+.ql-size-36px {
+    font-size: 36px;
+}
+
+.ql-size-48px {
+    font-size: 48px;
+}
+
+.ql-size-64px {
+    font-size: 64px;
+}

@@ -1,0 +1,686 @@
+import {
+  ApplicationStatus,
+  CallEndReasonEnum,
+  ChatRoomPrivacy,
+  ChatRoomType,
+  CallStatusEnum,
+  CallTypeEnum,
+  CompanySize,
+  Education,
+  Gender,
+  InterviewStatus,
+  InterviewType,
+  Level,
+  MessageTypeEnum,
+  MessageTypeRole,
+  NotificationTypeEnum,
+  Visibility,
+  WorkingType,
+  ReminderRepeatType,
+  ReminderRsvpStatus,
+} from '@/types/enum';
+import { LucideIcon } from 'lucide-react';
+
+export type Address = {
+  addressId: number;
+  province: string;
+  fullAddress: string;
+  createdAt?: string;
+  createdBy?: string;
+  updatedAt?: string;
+  updatedBy?: string;
+};
+
+export type Account = {
+  accountId: number;
+  username: string;
+  email: string;
+  password: string;
+  avatar?: string;
+  enabled: boolean;
+  locked: boolean;
+  visibility?: Visibility;
+  addresses: Address[];
+  createdAt: string;
+  createdBy: string;
+  updatedAt: string;
+  updatedBy: string;
+
+  role: Role;
+};
+
+export type User = Account & {
+  phone: string;
+  dob: string;
+  fullName: string;
+  gender: Gender;
+  coverPhoto: string;
+  headline: string;
+  bio: string;
+};
+
+export type Recruiter = User & {
+  position: string;
+  company: Company;
+};
+
+export type Applicant = User & {
+  availableStatus: boolean;
+  education: Education;
+  level: Level;
+};
+
+export type Company = Account & {
+  name: string;
+  description: string;
+  logo: string;
+  size: CompanySize;
+  verified: boolean;
+  country: string;
+  industry: string;
+  workingDays: string;
+  overtimePolicy: string;
+  coverPhoto?: string;
+  website?: string;
+  phone?: string;
+  awards?: CompanyAward[];
+};
+
+export type CompanyAward = {
+  companyAwardId: number;
+  type: string;
+  year: number;
+  average?: number;
+  totalReviews?: number;
+};
+
+export type Review = {
+  reviewId: number;
+  rating: {
+    overall: number;
+    salaryBenefits: number;
+    trainingLearning: number;
+    managementCaresAboutMe: number;
+    cultureFun: number;
+    officeWorkspace: number;
+  };
+  summary: string;
+  experience: string;
+  suggestion: string;
+  recommended: boolean;
+  verified: boolean;
+  enabled: boolean;
+
+  user: User;
+  company: Company;
+
+  createdAt?: string;
+  createdBy?: string;
+  updatedAt?: string;
+  updatedBy?: string;
+};
+
+export type Skill = {
+  skillId: number;
+  name: string;
+
+  createdAt: string;
+  createdBy: string;
+  updatedAt: string;
+  updatedBy: string;
+};
+
+export type Career = {
+  careerId: number;
+  name: string;
+
+  createdAt: string;
+  createdBy: string;
+  updatedAt: string;
+  updatedBy: string;
+};
+
+export type Job = {
+  jobId: number;
+  description: string;
+  startDate: string;
+  endDate: string;
+  active: boolean;
+  enabled: boolean;
+  level: Level;
+  quantity: number;
+  salary: number;
+  title: string;
+  workingType: WorkingType;
+  address: Address;
+  skills: Skill[];
+  career: Career;
+  company: Company;
+  createdAt: string;
+  createdBy: string;
+  updatedAt: string;
+  updatedBy: string;
+};
+
+export type Application = {
+  applicationId: number;
+  email: string;
+  coverLetter: string;
+  status: ApplicationStatus;
+
+  job: { jobId: string; title: string };
+  applicant: { accountId: number; email: string; fullName: string };
+  resume: { resumeId: number; fileUrl: string };
+  interview?: {
+    interviewId?: number;
+    scheduledAt?: string;
+  };
+
+  createdAt: string;
+  createdBy: string;
+  updatedAt: string;
+  updatedBy: string;
+};
+
+export type Permission = {
+  permissionId: number;
+  apiPath: string;
+  method: string;
+  module: string;
+  name: string;
+
+  createdAt: string;
+  createdBy: string;
+  updatedAt: string;
+  updatedBy: string;
+};
+
+export type Role = {
+  roleId: number;
+  description: string;
+  active: boolean;
+  name: string;
+
+  permissions: Permission[];
+
+  createdAt: string;
+  createdBy: string;
+  updatedAt: string;
+  updatedBy: string;
+};
+
+export type Contact = {
+  phone?: string;
+  email?: string;
+};
+
+export type Select = {
+  label: string | undefined;
+  value: string | undefined;
+  key?: string | undefined;
+};
+
+export type Subscriber = {
+  subscriberId: number;
+  name: string;
+  email: string;
+  skills: Skill[];
+
+  createdBy?: string;
+  isDeleted?: boolean;
+  deletedAt?: boolean | null;
+  createdAt?: string;
+  updatedAt?: string;
+};
+
+export type Blog = {
+  blogId: number;
+  images: string[];
+  content: string;
+  tags: string[];
+  enabled: boolean;
+  activity?: {
+    totalLikes: number;
+    totalComments: number;
+    totalReads: number;
+    totalParentComments: number;
+  };
+  author: {
+    accountId: number;
+    fullName: string;
+    username: string;
+    avatar: string;
+    visibility?: Visibility;
+    bio: string;
+    headline: string;
+    coverPhoto: string;
+  };
+  createdAt: string;
+  createdBy: string;
+  updatedAt: string;
+  updatedBy: string;
+  deletedAt?: string | null;
+  deletedBy?: string | null;
+};
+
+type CommentedBy = {
+  accountId: number;
+  fullName: string;
+  username: string;
+  avatar: string;
+};
+
+export type CommentType = {
+  commentId: number;
+  comment: string;
+  reply: boolean;
+  blog: {
+    blogId: number;
+    content?: string;
+    contentPreview?: string;
+  };
+  parent?: {
+    commentId: string;
+    comment: string;
+    commentedBy: CommentedBy;
+  };
+  commentedBy: CommentedBy;
+  createdAt: string;
+};
+
+export type NotificationType = {
+  notificationId: number;
+  type: NotificationTypeEnum;
+  seen: boolean;
+  blog: {
+    blogId: string | number;
+    content?: string;
+    contentPreview?: string;
+  };
+  lastActor: {
+    userId: string;
+    fullName: string;
+    username: string;
+    avatar: string;
+  };
+  actorCount: number;
+  recipient: {
+    userId: string;
+    fullName: string;
+    username: string;
+    avatar: string;
+  };
+  comment?: {
+    commentId: string;
+    comment: string;
+  };
+  reply?: {
+    commentId: string;
+    comment: string;
+  };
+  repliedOnComment?: {
+    commentId: string;
+    comment: string;
+  };
+  createdAt: string;
+};
+
+export type DeviceNotificationType = {
+  message: string;
+  deviceName: string;
+  time: string;
+};
+
+export type Device = {
+  deviceId: number;
+  name: string;
+  createdAt: string;
+  account: Account;
+};
+
+export type Conversation = {
+  conversationId: number;
+  title: string;
+  pinned: boolean;
+  createdAt: string;
+  updatedAt: string;
+  createdBy: string;
+  updatedBy: string;
+};
+
+export type SenderInfo = {
+  accountId: number;
+  fullName: string;
+  username: string;
+  email: string;
+  avatar: string;
+};
+
+export type ContactCardContext = {
+  accountId: number;
+  fullName: string;
+  username: string;
+  avatar?: string | null;
+  headline?: string | null;
+  bio?: string | null;
+  coverPhoto?: string | null;
+  visibility?: Visibility | string | null;
+};
+
+export type MessageReplyContext = {
+  originalMessageId: string;
+  originalSender: {
+    accountId: number;
+    fullName: string;
+    username: string;
+    email: string;
+    avatar: string;
+  } | null;
+  originalMessageType: MessageTypeEnum | null;
+  originalContentPreview: string | null;
+  originalMessageUnavailable: boolean;
+  originalMessageHidden: boolean;
+};
+
+export type MessageCallContext = {
+  sessionId: number;
+  startedAt?: string | null;
+  endedAt?: string | null;
+  durationSeconds?: number | null;
+  endReason?: CallEndReasonEnum | null;
+};
+
+export type MessageMediaItem = {
+  url: string;
+  mediaType: 'image' | 'video' | 'audio';
+  mimeType: string;
+  sizeBytes: number;
+  displayOrder: number;
+};
+
+export type MessageType = {
+  chatRoomId: string;
+  messageId: string;
+  sender: {
+    accountId: number;
+    fullName: string;
+    username: string;
+    email: string;
+    avatar: string;
+  };
+  content: string;
+  messageType: MessageTypeEnum;
+  mediaItems?: MessageMediaItem[] | null;
+  replyToMessageId?: string | null;
+  replyContext?: MessageReplyContext | null;
+  isHidden: boolean;
+  isForwarded?: boolean;
+  originalMessageId?: string;
+  contactCard?: ContactCardContext | null;
+  callContext?: MessageCallContext | null;
+  createdAt: string;
+  updatedAt: string;
+  role?: MessageTypeRole; // temporary field to avoid error for build in chat container
+};
+
+export type MessageResponse = {
+  messageId: string;
+  chatRoomId: string;
+  sender: SenderInfo;
+  content: string;
+  messageType: MessageTypeEnum;
+  mediaItems?: MessageMediaItem[] | null;
+  replyToMessageId?: string | null;
+  replyContext?: ReplyContext | null;
+  isHidden: boolean;
+  isForwarded: boolean;
+  originalMessageId?: string | null;
+  contactCard?: ContactCardContext | null;
+  callContext?: MessageCallContext | null;
+  createdAt: string; // Instant -> ISO string
+  updatedAt: string; // Instant -> ISO string
+  reactions?: {
+    emoji: string;
+    count: number;
+    users: { accountId: number; fullName: string; username: string; avatar: string; reactedAt: string }[];
+  }[];
+};
+
+export type ReplyContext = {
+  originalMessageId: string;
+  originalSender: SenderInfo | null;
+  originalMessageType: MessageTypeEnum | null;
+  originalContentPreview: string;
+  originalMessageUnavailable: boolean;
+  originalMessageHidden: boolean;
+};
+
+export type PinnedMessage = {
+  chatRoomId: string;
+  messageId: string;
+  pinnedBy: string;
+  pinnedAt: string;
+  message: MessageType;
+};
+
+export type Reaction = {
+  id: string;
+  icon: LucideIcon;
+  label: string;
+  color: string;
+  hoverColor: string;
+};
+
+export type ChatRoom = {
+  roomId: number;
+  type: ChatRoomType;
+  privacy: ChatRoomPrivacy;
+  allowMemberUpdate: boolean;
+  allowMemberPin: boolean;
+  allowMemberCreateVote: boolean;
+  allowMemberSendMessage: boolean;
+  allowModeratorSendMessage: boolean;
+  name: string;
+  avatar: string | null;
+  memberCount: number;
+  lastMessagePreview: string | null;
+  lastMessageTime: string | null;
+  currentUserSentLastMessage: boolean | null;
+  blocked: boolean;
+  blockedByMe: boolean;
+  counterpartAccountId: number;
+  deletedAt?: string | null;
+};
+
+export type CallParticipant = {
+  account: {
+    accountId: number;
+    avatar?: string | null;
+    username: string;
+    fullName: string;
+    email: string;
+  };
+  publisher: boolean;
+  joinedAt: string;
+  leftAt?: string | null;
+};
+
+export type CallRtcCredentials = {
+  sessionId: number;
+  appId: string;
+  channelName: string;
+  token: string;
+  uid: number;
+  expiresAtEpochMs: number;
+  ttlSeconds: number;
+  publisher: boolean;
+};
+
+export type CallTokenResponse = {
+  sessionId: number;
+  appId: string;
+  channelName: string;
+  uid: number;
+  token: string;
+  expiresAtEpochMs: number;
+  ttlSeconds: number;
+  publisher: boolean;
+};
+
+export type CallSession = {
+  sessionId: number;
+  chatRoomId: number;
+  chatRoomType?: ChatRoomType;
+  chatRoomName?: string | null;
+  chatRoomAvatar?: string | null;
+  status: CallStatusEnum;
+  agoraChannelName: string;
+  initiatorAccountId: number;
+  startedAt: string;
+  endedAt?: string | null;
+  endReason?: CallEndReasonEnum | null;
+  participants: CallParticipant[];
+  callType?: CallTypeEnum;
+  rtc?: CallRtcCredentials;
+};
+
+export type Resume = {
+  resumeId: number;
+  title: string;
+  fileUrl: string;
+  fileName: string;
+  fileSize: number;
+  default: boolean;
+  public: boolean;
+
+  applicant: Applicant;
+
+  createdAt: string;
+  updatedAt: string;
+  createdBy: string;
+  updatedBy: string;
+};
+
+export type ResumeEvaluation = {
+  resumeEvaluationId: number;
+  score: number;
+  strengths: string;
+  weaknesses: string;
+  missingSkills: string;
+  skills: string;
+  suggestions: string;
+  aiModel: string;
+
+  resume: Resume;
+
+  createdAt: string;
+  updatedAt: string;
+  createdBy: string;
+  updatedBy: string;
+};
+
+export type Interview = {
+  interviewId: number;
+  scheduledAt: string;
+  durationMinutes: number;
+  type: InterviewType;
+  status: InterviewStatus;
+  location?: string;
+  meetingLink?: string;
+  notes?: string;
+  feedback?: string;
+  rating?: number;
+
+  interviewer: { accountId: number; email: string; fullName: string };
+  application: { applicationId: number; email: string; status: ApplicationStatus; fullName: string };
+
+  createdAt: string;
+  updatedAt: string;
+  createdBy: string;
+  updatedBy: string;
+};
+
+export type PollOption = {
+  optionId: string;
+  text: string;
+  createdBy: string;
+  createdAt: string;
+  voteCount: number;
+  accountVoted: boolean;
+};
+
+export type Poll = {
+  pollId: string;
+  chatRoomId: number;
+  messageId: string;
+  createdBy: string;
+  question: string;
+  options: PollOption[];
+  multipleChoice: boolean;
+  allowAddOption: boolean;
+  pinned: boolean;
+  isClosed: boolean;
+  expiresAt?: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type PollVote = {
+  voteId: string;
+  poll: {
+    pollId: string;
+    question: string;
+  };
+  option: {
+    optionId: string;
+    text: string;
+  };
+  account: {
+    accountId: number;
+    fullName: string;
+    avatar: string;
+  };
+  createdAt: string;
+};
+
+export type Tag = {
+  tagId: number;
+  name: string;
+  color: string;
+  systemTag: boolean;
+};
+
+export type ChatRoomTagAssignment = {
+  assignmentId: number;
+  roomId: number;
+  accountId: number;
+  tagId: number;
+  tagName: string;
+  tagColor: string;
+  systemTag: boolean;
+};
+
+export type Reminder = {
+  reminderId: number;
+  title: string;
+  content?: string | null;
+  reminderTime: string;
+  nextTriggerTime?: string | null;
+  lastTriggeredAt?: string | null;
+  repeatType: ReminderRepeatType;
+  allowResponse: boolean;
+  active: boolean;
+  creatorId: number;
+  chatRoomId: number;
+  participants: ReminderParticipantResponse[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type ReminderParticipant = {
+  accountId: number;
+  username: string;
+  avatar?: string | null;
+  status: ReminderRsvpStatus;
+  respondedAt?: string | null;
+}

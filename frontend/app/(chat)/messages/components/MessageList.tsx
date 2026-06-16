@@ -1,0 +1,601 @@
+'use client';
+
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { CHAT_MESSAGE_SCROLL_TOP_THRESHOLD } from '@/constants/constant';
+import { MessageResponse, Reminder } from '@/types/model';
+import { MessageTypeEnum } from '@/types/enum';
+import { extractMessageId } from '@/utils/slug';
+import { useEffect, useRef, useMemo, useState, useCallback } from 'react';
+import { MessageBubble, MessageBubbleLoading } from './MessageBubble';
+import { usePendingMessages } from '@/contexts/PendingMessagesContext';
+import { Loader2 } from 'lucide-react';
+import { getMessagePreviewText, getMessageSenderDisplayName } from '@/utils/messageUtils';
+import { extractPlainTextFromHtml } from '@/utils/extractPlainTextFromHtml';
+
+const PENDING_CLOCK_SKEW_MS = 5000;
+
+const getPendingTimestamp = (pendingId: string): number | null => {
+  const matchedTimestamp = /^pending-(\d+)-/.exec(pendingId)?.[1];
+  const parsedTimestamp = Number(matchedTimestamp);
+
+  if (!Number.isFinite(parsedTimestamp)) {
+    return null;
+  }
+
+  return parsedTimestamp;
+};
+
+const getMessageSignature = (content: string, replyToMessageId?: string | null, hasAttachment = false): string => {
+  return `${content}::${replyToMessageId ?? ''}::${hasAttachment ? '1' : '0'}`;
+};
+
+interface MessageListProps {
+  messages: MessageResponse[];
+  reminders: Reminder[];
+  currentUserId?: string;
+  isGroup?: boolean;
+  onLoadOlderMessages?: () => Promise<void> | void;
+  hasOlderMessages?: boolean;
+  isLoadingOlderMessages?: boolean;
+  onReplyMessage?: (message: MessageResponse) => void;
+  onNavigateToMessage?: (messageId: string) => void;
+  onEditReminder?: (reminder: Reminder) => void;
+  onForwardMessage?: (message: MessageResponse) => void;
+  isForwardingMessage?: boolean;
+  onHideMessage?: (messageId: string) => Promise<void> | void;
+  isHidingMessage?: (messageId: string) => boolean;
+  onDeleteMessage?: (messageId: string) => Promise<void> | void;
+  isDeletingMessage?: (messageId: string) => boolean;
+  onRecallMessage?: (messageId: string) => Promise<void> | void;
+  isRecallingMessage?: (messageId: string) => boolean;
+  onPinMessage?: (messageId: string) => Promise<void> | void;
+  onUnpinMessage?: (messageId: string) => Promise<void> | void;
+  isPinnedMessage?: (messageId: string) => boolean;
+  isPinningMessage?: (messageId: string) => boolean;
+  disablePinActions?: boolean;
+}
+
+export function MessageList({
+  messages,
+  reminders,
+  currentUserId,
+  isGroup = false,
+  onLoadOlderMessages,
+  hasOlderMessages = false,
+  isLoadingOlderMessages = false,
+  onReplyMessage,
+  onNavigateToMessage,
+  onEditReminder,
+  onForwardMessage,
+  isForwardingMessage = false,
+  onHideMessage,
+  isHidingMessage,
+  onDeleteMessage,
+  isDeletingMessage,
+  onRecallMessage,
+  isRecallingMessage,
+  onPinMessage,
+  onUnpinMessage,
+  isPinnedMessage,
+  isPinningMessage,
+  disablePinActions = false,
+}: Readonly<MessageListProps>) {
+  const bottomRef = useRef<HTMLDivElement>(null);
+  const scrollAreaContainerRef = useRef<HTMLDivElement>(null);
+  const viewportRef = useRef<HTMLDivElement | null>(null);
+  const topLoadAnchorRef = useRef<{ scrollHeight: number; scrollTop: number; messageCount: number } | null>(null);
+  const hasTriggeredTopLoadRef = useRef(false);
+  const isNearBottomRef = useRef(true);
+  const lastTailMessageIdRef = useRef<string | null>(null);
+  const lastTailPendingIdRef = useRef<string | null>(null);
+  const { pendingMessages } = usePendingMessages();
+  const collapsedMapRef = useRef<Record<string, number>>({});
+  const [expandedGroups, setExpandedGroups] = useState<Set<number>>(new Set());
+
+  const latestPollMessageIdByPollId = useMemo(() => {
+    const map: Record<string, MessageResponse> = {};
+    for (const m of messages) {
+      if (m.messageType !== MessageTypeEnum.POLL) continue;
+      const pid = extractMessageId(m.content);
+      if (!pid) continue;
+      const prev = map[pid];
+      if (!prev) map[pid] = m;
+      else if (new Date(m.createdAt) > new Date(prev.createdAt)) map[pid] = m;
+    }
+    const result: Record<string, string> = {};
+    for (const k of Object.keys(map)) result[k] = map[k].messageId;
+    return result;
+  }, [messages]);
+
+  const latestReminderMessageIdByReminderId = useMemo(() => {
+    const map: Record<string, MessageResponse> = {};
+
+    for (const m of messages) {
+      if (m.messageType !== MessageTypeEnum.REMINDER) continue;
+      const rid = extractMessageId(m.content);
+      if (!rid) continue;
+
+      const prev = map[rid];
+      if (!prev) map[rid] = m;
+      else if (new Date(m.createdAt) > new Date(prev.createdAt)) map[rid] = m;
+    }
+
+    const result: Record<string, string> = {};
+    for (const k of Object.keys(map)) result[k] = map[k].messageId;
+    return result;
+  }, [messages]);
+
+  const messageById = useMemo(() => {
+    const map = new Map<string, MessageResponse>();
+
+    messages.forEach((message) => {
+      map.set(message.messageId, message);
+    });
+
+    return map;
+  }, [messages]);
+
+  const ownMessageTimestampsBySignature = useMemo(() => {
+    const signatureToTimestamps = new Map<string, number[]>();
+
+    if (!currentUserId) {
+      return signatureToTimestamps;
+    }
+
+    messages.forEach((message) => {
+      if (message.sender.accountId.toString() !== currentUserId) {
+        return;
+      }
+
+      const normalizedContent = extractPlainTextFromHtml(message.content || '').trim();
+      const hasAttachment =
+        Boolean(message.mediaItems && message.mediaItems.length > 0) ||
+        message.messageType === MessageTypeEnum.IMAGE ||
+        message.messageType === MessageTypeEnum.VIDEO ||
+        message.messageType === MessageTypeEnum.AUDIO ||
+        message.messageType === MessageTypeEnum.MEDIA ||
+        message.messageType === MessageTypeEnum.FILE;
+      const signature = getMessageSignature(normalizedContent, message.replyToMessageId, hasAttachment);
+      const createdAtTimestamp = new Date(message.createdAt).getTime();
+
+      if (!Number.isFinite(createdAtTimestamp)) {
+        return;
+      }
+
+      const existingTimestamps = signatureToTimestamps.get(signature) ?? [];
+      existingTimestamps.push(createdAtTimestamp);
+      signatureToTimestamps.set(signature, existingTimestamps);
+    });
+
+    signatureToTimestamps.forEach((timestamps, signature) => {
+      signatureToTimestamps.set(
+        signature,
+        timestamps.sort((left, right) => left - right),
+      );
+    });
+
+    return signatureToTimestamps;
+  }, [currentUserId, messages]);
+
+  const visiblePendingMessages = useMemo(() => {
+    if (!currentUserId || pendingMessages.length === 0) {
+      return pendingMessages;
+    }
+
+    const nextTimestampIndexBySignature = new Map<string, number>();
+
+    return pendingMessages.filter((pending) => {
+      const normalizedContent = extractPlainTextFromHtml(pending.content || '').trim();
+      const hasAttachment = Boolean(pending.files && pending.files.length > 0);
+      const signature = getMessageSignature(normalizedContent, pending.replyToMessageId, hasAttachment);
+      const ownMessageTimestamps = ownMessageTimestampsBySignature.get(signature) ?? [];
+      const pendingTimestamp = getPendingTimestamp(pending.id);
+
+      let nextTimestampIndex = nextTimestampIndexBySignature.get(signature) ?? 0;
+
+      while (
+        nextTimestampIndex < ownMessageTimestamps.length &&
+        pendingTimestamp !== null &&
+        ownMessageTimestamps[nextTimestampIndex] < pendingTimestamp - PENDING_CLOCK_SKEW_MS
+      ) {
+        nextTimestampIndex += 1;
+      }
+
+      const hasMatchedServerMessage = nextTimestampIndex < ownMessageTimestamps.length;
+
+      if (hasMatchedServerMessage) {
+        nextTimestampIndexBySignature.set(signature, nextTimestampIndex + 1);
+        return false;
+      }
+
+      return true;
+    });
+  }, [currentUserId, ownMessageTimestampsBySignature, pendingMessages]);
+
+  const { renderedItems, collapsedMap } = useMemo(() => {
+    const items: Array<{
+      kind: 'message' | 'collapsed';
+      id?: number;
+      count?: number;
+      messages?: MessageResponse[];
+      message?: MessageResponse;
+    }> = [];
+    const mapping: Record<string, number> = {};
+    let i = 0;
+    let groupId = 0;
+    const COLLAPSE_THRESHOLD = 5;
+
+    while (i < messages.length) {
+      const msg = messages[i];
+
+      if (msg.messageType === MessageTypeEnum.SYSTEM || msg.messageType === MessageTypeEnum.POLL) {
+        const start = i;
+        while (
+          i < messages.length &&
+          (messages[i].messageType === MessageTypeEnum.SYSTEM || messages[i].messageType === MessageTypeEnum.POLL)
+        ) {
+          i++;
+        }
+
+        const slice = messages.slice(start, i);
+
+        // find latest poll indices inside this slice
+        const latestIndices: number[] = [];
+        for (let idx = 0; idx < slice.length; idx++) {
+          const m = slice[idx];
+          if (m.messageType !== MessageTypeEnum.POLL) continue;
+          const pid = extractMessageId(m.content);
+          if (!pid) continue;
+          if (latestPollMessageIdByPollId[pid] === m.messageId) latestIndices.push(idx);
+        }
+
+        if (latestIndices.length === 0) {
+          if (slice.length > COLLAPSE_THRESHOLD) {
+            items.push({ kind: 'collapsed', id: groupId, count: slice.length, messages: slice });
+            for (const m of slice) mapping[m.messageId] = groupId;
+            groupId++;
+          } else {
+            for (const m of slice) items.push({ kind: 'message', message: m });
+          }
+        } else {
+          let segStart = 0;
+          for (const pollIdx of latestIndices) {
+            const segLen = pollIdx - segStart;
+            if (segLen > 0) {
+              const seg = slice.slice(segStart, pollIdx);
+              if (segLen > COLLAPSE_THRESHOLD) {
+                items.push({ kind: 'collapsed', id: groupId, count: segLen, messages: seg });
+                for (const m of seg) mapping[m.messageId] = groupId;
+                groupId++;
+              } else {
+                for (const m of seg) items.push({ kind: 'message', message: m });
+              }
+            }
+
+            // always show the poll message itself
+            items.push({ kind: 'message', message: slice[pollIdx] });
+            segStart = pollIdx + 1;
+          }
+
+          if (segStart < slice.length) {
+            const seg = slice.slice(segStart);
+            if (seg.length > COLLAPSE_THRESHOLD) {
+              items.push({ kind: 'collapsed', id: groupId, count: seg.length, messages: seg });
+              for (const m of seg) mapping[m.messageId] = groupId;
+              groupId++;
+            } else {
+              for (const m of seg) items.push({ kind: 'message', message: m });
+            }
+          }
+        }
+      } else {
+        items.push({ kind: 'message', message: msg });
+        i++;
+      }
+    }
+
+    return { renderedItems: items, collapsedMap: mapping };
+  }, [messages, latestPollMessageIdByPollId]);
+
+  useEffect(() => {
+    collapsedMapRef.current = collapsedMap;
+  }, [collapsedMap]);
+
+  const resolveViewport = useCallback(() => {
+    return scrollAreaContainerRef.current?.querySelector('[data-slot="scroll-area-viewport"]') as HTMLDivElement | null;
+  }, []);
+
+  const updateNearBottom = useCallback(() => {
+    const viewport = viewportRef.current;
+
+    if (!viewport) {
+      return;
+    }
+
+    const distanceToBottom = viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight;
+    isNearBottomRef.current = distanceToBottom <= 120;
+  }, []);
+
+  const handleScroll = useCallback(() => {
+    const viewport = viewportRef.current;
+
+    if (!viewport) {
+      return;
+    }
+
+    updateNearBottom();
+
+    if (viewport.scrollTop > CHAT_MESSAGE_SCROLL_TOP_THRESHOLD) {
+      hasTriggeredTopLoadRef.current = false;
+      return;
+    }
+
+    if (!onLoadOlderMessages || !hasOlderMessages || isLoadingOlderMessages || hasTriggeredTopLoadRef.current) {
+      return;
+    }
+
+    hasTriggeredTopLoadRef.current = true;
+    topLoadAnchorRef.current = {
+      scrollHeight: viewport.scrollHeight,
+      scrollTop: viewport.scrollTop,
+      messageCount: messages.length,
+    };
+
+    void onLoadOlderMessages();
+  }, [hasOlderMessages, isLoadingOlderMessages, messages.length, onLoadOlderMessages, updateNearBottom]);
+
+  useEffect(() => {
+    const viewport = resolveViewport();
+
+    if (!viewport) {
+      return;
+    }
+
+    viewportRef.current = viewport;
+    updateNearBottom();
+    viewport.addEventListener('scroll', handleScroll, { passive: true });
+
+    return () => {
+      viewport.removeEventListener('scroll', handleScroll);
+    };
+  }, [handleScroll, resolveViewport, updateNearBottom]);
+
+  useEffect(() => {
+    if (isLoadingOlderMessages) {
+      return;
+    }
+
+    const viewport = viewportRef.current;
+    const topLoadAnchor = topLoadAnchorRef.current;
+
+    if (!viewport || !topLoadAnchor) {
+      return;
+    }
+
+    if (messages.length > topLoadAnchor.messageCount) {
+      const nextScrollTop = viewport.scrollHeight - topLoadAnchor.scrollHeight + topLoadAnchor.scrollTop;
+      viewport.scrollTop = Math.max(0, nextScrollTop);
+    }
+
+    topLoadAnchorRef.current = null;
+    hasTriggeredTopLoadRef.current = false;
+    updateNearBottom();
+  }, [isLoadingOlderMessages, messages.length, updateNearBottom]);
+
+  const latestMessageId = messages[messages.length - 1]?.messageId ?? null;
+
+  useEffect(() => {
+    if (!latestMessageId) {
+      lastTailMessageIdRef.current = null;
+      return;
+    }
+
+    const previousTailMessageId = lastTailMessageIdRef.current;
+
+    if (previousTailMessageId === latestMessageId) {
+      return;
+    }
+
+    if (!previousTailMessageId || isNearBottomRef.current) {
+      bottomRef.current?.scrollIntoView({ behavior: previousTailMessageId ? 'smooth' : 'auto' });
+    }
+
+    lastTailMessageIdRef.current = latestMessageId;
+  }, [latestMessageId]);
+
+  const latestPendingMessageId = visiblePendingMessages[visiblePendingMessages.length - 1]?.id ?? null;
+
+  useEffect(() => {
+    if (!latestPendingMessageId) {
+      lastTailPendingIdRef.current = null;
+      return;
+    }
+
+    const previousTailPendingId = lastTailPendingIdRef.current;
+
+    if (previousTailPendingId === latestPendingMessageId) {
+      return;
+    }
+
+    requestAnimationFrame(() => {
+      bottomRef.current?.scrollIntoView({ behavior: previousTailPendingId ? 'smooth' : 'auto' });
+    });
+    lastTailPendingIdRef.current = latestPendingMessageId;
+  }, [latestPendingMessageId]);
+
+  useEffect(() => {
+    const handler = (e: Event) => {
+      try {
+        const ce = e as CustomEvent<string>;
+        const messageId = ce?.detail;
+        if (!messageId) return;
+        const groupId = collapsedMapRef.current[messageId];
+        if (groupId !== undefined) {
+          setExpandedGroups((prev) => {
+            const next = new Set(prev);
+            next.add(groupId);
+            return next;
+          });
+        }
+      } catch (err) {
+        console.error('Error handling expand-system-group event', err);
+      }
+    };
+
+    document.addEventListener('expand-system-group', handler as EventListener);
+    return () => document.removeEventListener('expand-system-group', handler as EventListener);
+  }, []);
+
+  return (
+    <div className="flex-1 overflow-hidden" ref={scrollAreaContainerRef}>
+      <ScrollArea className="h-full px-4">
+        <div className="py-4 space-y-1">
+          {isLoadingOlderMessages && (
+            <div className="flex justify-center py-2 text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin" />
+            </div>
+          )}
+          {renderedItems.map((item) => {
+            if (item.kind === 'message') {
+              const message = item.message as MessageResponse;
+              const reminderAsMessage = reminders.find(
+                (r) => String(r.reminderId) === extractMessageId(message.content),
+              );
+              return (
+                <div key={message.messageId} data-message-id={message.messageId} tabIndex={-1} className="outline-none">
+                  <MessageBubble
+                    message={message}
+                    reminder={reminderAsMessage ?? null}
+                    isOwn={message.sender.accountId.toString() === currentUserId}
+                    showAvatar={isGroup}
+                    senderName={message.sender.fullName || message.sender.username}
+                    senderAvatar={message.sender.avatar || undefined}
+                    showPoll={
+                      message.messageType === MessageTypeEnum.POLL &&
+                      latestPollMessageIdByPollId[extractMessageId(message.content) || ''] === message.messageId
+                    }
+                    showReminder={
+                      message.messageType === MessageTypeEnum.REMINDER &&
+                      latestReminderMessageIdByReminderId[extractMessageId(message.content) || ''] === message.messageId
+                    }
+                    onNavigateToPoll={(pid: string) => {
+                      const target = latestPollMessageIdByPollId[pid];
+                      if (target && onNavigateToMessage) onNavigateToMessage(target);
+                    }}
+                    onNavigateToReminder={(rid: string) => {
+                      const target = latestReminderMessageIdByReminderId[rid];
+                      if (target && onNavigateToMessage) onNavigateToMessage(target);
+                    }}
+                    onEditReminder={onEditReminder}
+                    onReply={onReplyMessage}
+                    onNavigateToMessage={onNavigateToMessage}
+                    onForward={onForwardMessage}
+                    isForwarding={isForwardingMessage}
+                    onHide={onHideMessage}
+                    isHiding={isHidingMessage?.(message.messageId) ?? false}
+                    onDelete={onDeleteMessage}
+                    isDeleting={isDeletingMessage?.(message.messageId) ?? false}
+                    onRecall={onRecallMessage}
+                    isRecalling={isRecallingMessage?.(message.messageId) ?? false}
+                    onPin={onPinMessage}
+                    onUnpin={onUnpinMessage}
+                    isPinned={isPinnedMessage?.(message.messageId) ?? false}
+                    isPinning={isPinningMessage?.(message.messageId) ?? false}
+                    disablePinActions={disablePinActions}
+                  />
+                </div>
+              );
+            }
+
+            const collapsed = item as { id: number; count: number; messages: MessageResponse[] };
+            const isExpanded = expandedGroups.has(collapsed.id);
+
+            if (isExpanded) {
+              return (
+                <div key={`expanded-${collapsed.id}`} className="space-y-1">
+                  {collapsed.messages.map((m) => (
+                    <div key={m.messageId} data-message-id={m.messageId} tabIndex={-1} className="outline-none">
+                      <MessageBubble
+                        message={m}
+                        reminder={reminders.find((r) => String(r.reminderId) === extractMessageId(m.content)) ?? null}
+                        isOwn={m.sender.accountId.toString() === currentUserId}
+                        showAvatar={isGroup}
+                        senderName={m.sender.fullName || m.sender.username}
+                        senderAvatar={m.sender.avatar || undefined}
+                        showPoll={
+                          m.messageType === MessageTypeEnum.POLL &&
+                          latestPollMessageIdByPollId[extractMessageId(m.content) || ''] === m.messageId
+                        }
+                        showReminder={
+                          m.messageType === MessageTypeEnum.REMINDER &&
+                          latestReminderMessageIdByReminderId[extractMessageId(m.content) || ''] === m.messageId
+                        }
+                        onNavigateToPoll={(pid: string) => {
+                          const target = latestPollMessageIdByPollId[pid];
+                          if (target && onNavigateToMessage) onNavigateToMessage(target);
+                        }}
+                        onNavigateToReminder={(rid: string) => {
+                          const target = latestReminderMessageIdByReminderId[rid];
+                          if (target && onNavigateToMessage) onNavigateToMessage(target);
+                        }}
+                        onEditReminder={onEditReminder}
+                        onReply={onReplyMessage}
+                        onNavigateToMessage={onNavigateToMessage}
+                        onForward={onForwardMessage}
+                        isForwarding={isForwardingMessage}
+                        onHide={onHideMessage}
+                        isHiding={isHidingMessage?.(m.messageId) ?? false}
+                        onDelete={onDeleteMessage}
+                        isDeleting={isDeletingMessage?.(m.messageId) ?? false}
+                        onRecall={onRecallMessage}
+                        isRecalling={isRecallingMessage?.(m.messageId) ?? false}
+                        onPin={onPinMessage}
+                        onUnpin={onUnpinMessage}
+                        isPinned={isPinnedMessage?.(m.messageId) ?? false}
+                        isPinning={isPinningMessage?.(m.messageId) ?? false}
+                        disablePinActions={disablePinActions}
+                      />
+                    </div>
+                  ))}
+                </div>
+              );
+            }
+
+            return (
+              <div key={`collapsed-${collapsed.id}`} className="flex justify-center w-full my-3">
+                <button
+                  type="button"
+                  onClick={() =>
+                    setExpandedGroups((prev) => {
+                      const next = new Set(prev);
+                      next.add(collapsed.id);
+                      return next;
+                    })
+                  }
+                  className="px-4 py-2 rounded-full bg-muted/20 text-primary hover:bg-muted/30 text-sm cursor-pointer"
+                >
+                  Xem cập nhật trước
+                </button>
+              </div>
+            );
+          })}
+          {visiblePendingMessages.map((pending) => {
+            const contentPreview = extractPlainTextFromHtml(pending.content || '').trim();
+            const replyTarget = pending.replyToMessageId ? messageById.get(pending.replyToMessageId) : undefined;
+
+            return (
+              <MessageBubbleLoading
+                key={pending.id}
+                contentPreview={contentPreview}
+                fileCount={pending.files?.length ?? 0}
+                replySenderName={replyTarget ? getMessageSenderDisplayName(replyTarget.sender) : undefined}
+                replyPreviewText={replyTarget ? getMessagePreviewText(replyTarget) : undefined}
+              />
+            );
+          })}
+          <div ref={bottomRef} />
+        </div>
+      </ScrollArea>
+    </div>
+  );
+}

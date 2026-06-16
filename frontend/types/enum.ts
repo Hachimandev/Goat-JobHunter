@@ -1,0 +1,195 @@
+export enum Level {
+  INTERN = 'INTERN',
+  FRESHER = 'FRESHER',
+  JUNIOR = 'JUNIOR',
+  MIDDLE = 'MIDDLE',
+  SENIOR = 'SENIOR',
+}
+
+export enum WorkingType {
+  FULLTIME = 'FULLTIME',
+  PARTTIME = 'PARTTIME',
+  ONLINE = 'ONLINE',
+  OFFLINE = 'OFFLINE',
+}
+
+export enum Gender {
+  NAM = 'MALE',
+  NỮ = 'FEMALE',
+}
+
+export enum Education {
+  COLLEGE = 'COLLEGE',
+  UNIVERSITY = 'UNIVERSITY',
+  SCHOOL = 'SCHOOL',
+  ENGINEER = 'ENGINEER',
+}
+
+export enum CompanySize {
+  STARTUP = 'Khởi nghiệp',
+  SMALL = 'Nhỏ',
+  MEDIUM = 'Vừa',
+  LARGE = 'Lớn',
+  ENTERPRISE = 'Tập đoàn',
+}
+
+export enum Visibility {
+  PUBLIC = 'PUBLIC',
+  PRIVATE = 'PRIVATE',
+}
+
+export enum ApplicationStatus {
+  PENDING = 'PENDING',
+  ACCEPTED = 'ACCEPTED',
+  REJECTED = 'REJECTED',
+}
+
+export enum InterviewType {
+  PERSON = 'Trực tiếp',
+  VIDEO = 'Video',
+  TECHNICAL = 'Kỹ thuật',
+  ONLINE_TEST = 'Bài test online',
+  HR_INTERVIEW = 'Phỏng vấn HR',
+  GROUP_INTERVIEW = 'Phỏng vấn nhóm',
+  PANEL_INTERVIEW = 'Phỏng vấn hội đồng',
+  ASSESSMENT_CENTER = 'Trung tâm đánh giá',
+}
+
+export enum InterviewStatus {
+  SCHEDULED = 'Đã lên lịch',
+  COMPLETED = 'Hoàn thành',
+  CANCELLED = 'Đã hủy',
+  RESCHEDULED = 'Đã lên lịch lại',
+}
+
+export enum BlogActionType {
+  DELETE = 'DELETE',
+  REJECT = 'REJECT',
+  ACCEPT = 'ACCEPT',
+}
+
+export enum JobActionType {
+  REJECT = 'REJECT',
+  ACCEPT = 'ACCEPT',
+}
+
+export enum NotificationTypeEnum {
+  LIKE = 'LIKE',
+  COMMENT = 'COMMENT',
+  REPLY = 'REPLY',
+  FOLLOW = 'FOLLOW',
+}
+
+export enum MessageTypeRole {
+  User = 'USER',
+  AI = 'AI',
+}
+
+export enum MessageTypeEnum {
+  TEXT = 'TEXT',
+  IMAGE = 'IMAGE',
+  VIDEO = 'VIDEO',
+  AUDIO = 'AUDIO',
+  MEDIA = 'MEDIA',
+  FILE = 'FILE',
+  CONTACT_CARD = 'CONTACT_CARD',
+  CALL = 'CALL',
+  SYSTEM = 'SYSTEM',
+  POLL = 'POLL',
+  REMINDER = 'REMINDER',
+}
+
+export enum MessageEvent {
+  MEMBER_ADDED = 'MEMBER_ADDED',
+  MEMBER_REMOVED = 'MEMBER_REMOVED',
+  MEMBER_LEFT = 'MEMBER_LEFT',
+  ROLE_CHANGED = 'ROLE_CHANGED',
+  GROUP_CREATED = 'GROUP_CREATED',
+  GROUP_NAME_CHANGED = 'GROUP_NAME_CHANGED',
+  GROUP_AVATAR_CHANGED = 'GROUP_AVATAR_CHANGED',
+  GROUP_PRIVACY_CHANGED = 'GROUP_PRIVACY_CHANGED',
+  GROUP_DISSOLVED = 'GROUP_DISSOLVED',
+  MESSAGE_PINNED = 'MESSAGE_PINNED',
+  MESSAGE_UNPINNED = 'MESSAGE_UNPINNED',
+}
+
+export enum PollEvent {
+  POLL_CREATED = 'POLL_CREATED',
+  POLL_VOTED = 'POLL_VOTED',
+  POLL_UNVOTED = 'POLL_UNVOTED',
+  POLL_OPTION_ADDED = 'POLL_OPTION_ADDED',
+  POLL_CLOSED = 'POLL_CLOSED',
+}
+
+export enum ReminderEvent {
+  REMINDER_CREATED = 'REMINDER_CREATED',
+  REMINDER_EXPIRED = 'REMINDER_EXPIRED',
+  REMINDER_UPDATED = 'REMINDER_UPDATED',
+  REMINDER_DECLINED = 'REMINDER_DECLINED',
+  REMINDER_JOINED = 'REMINDER_JOINED',
+  REMINDER_UNJOINED = 'REMINDER_UNJOINED',
+}
+
+export enum ReactionType {
+  LIKE = 'LIKE',
+  CELEBRATE = 'CELEBRATE',
+  SUPPORT = 'SUPPORT',
+  LOVE = 'LOVE',
+  INSIGHTFUL = 'INSIGHTFUL',
+  FUNNY = 'FUNNY',
+}
+
+export enum ReportReason {
+  SPAM = 'SPAM',
+  HARASSMENT = 'HARASSMENT',
+  HATE_SPEECH = 'HATE_SPEECH',
+  VIOLENCE = 'VIOLENCE',
+  FALSE_INFO = 'FALSE_INFO',
+  OTHER = 'OTHER',
+}
+
+export enum ChatRoomType {
+  DIRECT = 'DIRECT',
+  GROUP = 'GROUP',
+  BROADCAST = 'BROADCAST',
+  AI = 'AI',
+}
+
+export enum ChatRoomPrivacy {
+  PUBLIC = 'PUBLIC',
+  PRIVATE = 'PRIVATE',
+}
+
+export enum CallTypeEnum {
+  VOICE = 'VOICE',
+  VIDEO = 'VIDEO',
+}
+
+export enum CallStatusEnum {
+  PENDING = 'PENDING',
+  ACTIVE = 'ACTIVE',
+  ENDED = 'ENDED',
+  CANCELLED = 'CANCELLED',
+}
+
+export enum CallEndReasonEnum {
+  HANGUP = 'HANGUP',
+  NO_ANSWER = 'NO_ANSWER',
+  TIMEOUT = 'TIMEOUT',
+  REMOVED = 'REMOVED',
+  NETWORK_ERROR = 'NETWORK_ERROR',
+}
+
+export enum ReminderRepeatType {
+  NONE = 'NONE',
+  DAILY = 'DAILY',
+  WEEKLY = 'WEEKLY',
+  MONTHLY = 'MONTHLY',
+  YEARLY = 'YEARLY',
+}
+
+export enum ReminderRsvpStatus {
+  PENDING = 'PENDING',
+  ACCEPTED = 'ACCEPTED',
+  REJECTED = 'REJECTED',
+}
